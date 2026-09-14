@@ -9,6 +9,7 @@
 > `Homeworld1Classic\Data`. Do not download or redistribute these retail files.
 
 <img width="2504" height="1280" alt="image" src="https://github.com/user-attachments/assets/7da977f2-049b-46e9-8448-ce998eb74959" />
+<img width="2213" height="1192" alt="image" src="https://github.com/user-attachments/assets/b5b06b59-8c9b-4c93-b6dc-fe9da581b6ba" />
 
 ![Homeworld RTX interface](assets/UI/startup_splash.png)
 
