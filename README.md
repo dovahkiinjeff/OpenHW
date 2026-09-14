@@ -8,6 +8,7 @@
 > original installation folder. On Steam, they are normally in
 > `Homeworld1Classic\Data`. Do not download or redistribute these retail files.
 
+<img width="2504" height="1280" alt="image" src="https://github.com/user-attachments/assets/7da977f2-049b-46e9-8448-ce998eb74959" />
 
 ![Homeworld RTX interface](assets/UI/startup_splash.png)
 
