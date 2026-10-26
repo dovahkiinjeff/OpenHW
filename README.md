@@ -4,7 +4,7 @@
 
 [![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-[Download OpenHW 1.0](https://github.com/dovahkiinjeff/OpenHW/releases/latest) Â· [Installation and controls](docs/USER_GUIDE.md) Â· [Editors](docs/EDITING_GUIDE.md) Â· [Modding](docs/MODDING.md) Â· [Build the installer](BUILD_INSTALLER.md)
+[Download OpenHW 1.0](https://github.com/dovahkiinjeff/OpenHW/releases/latest) [Installation and controls](docs/USER_GUIDE.md)  [Editors](docs/EDITING_GUIDE.md)  [Modding](docs/MODDING.md)  [Build the installer](BUILD_INSTALLER.md)
 
 > [!IMPORTANT]
 > **Use AMD technology for 1.0. AMD FSR upscaling and AMD FSR frame generation are the recommended, working options.** DLSS currently has known visual issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.** Bundled vendor libraries or development code do not imply supported release features.
