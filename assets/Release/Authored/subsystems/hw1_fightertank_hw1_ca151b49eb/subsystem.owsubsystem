@@ -1,0 +1,9 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_hw1_fightertank_hw1_ca151b49eb
+scale 1
+hull @/Subsystems/hw1_fightertank/model.hod
+mad -
+surface 0 0 @/Subsystems/hw1_fightertank/m0
+
+[Weapons]
+[End]

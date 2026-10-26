@@ -1,0 +1,9 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_kus_mothershipengine_hw1_5e2212850f
+scale 1
+hull @/Subsystems/kus_mothershipengine/model.hod
+mad -
+
+presentation Hull component_events.owevents
+[Weapons]
+[End]

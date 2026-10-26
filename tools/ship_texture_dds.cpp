@@ -96,7 +96,10 @@ bool makeNormal(const Image &source, unsigned int targetWidth,
             const float gy = (sample(ix - 1, iy + 1) + 2.0f * sample(ix, iy + 1) +
                               sample(ix + 1, iy + 1) - sample(ix - 1, iy - 1) -
                               2.0f * sample(ix, iy - 1) - sample(ix + 1, iy - 1)) * 0.25f;
-            float nx = -gx * 1.35f, ny = -gy * 1.35f, nz = 1.0f;
+            constexpr float normalSlopeStrength = 1.35f;
+            float nx = -gx * normalSlopeStrength;
+            float ny = -gy * normalSlopeStrength;
+            float nz = 1.0f;
             const float inv = 1.0f / std::sqrt(nx * nx + ny * ny + nz * nz);
             nx *= inv; ny *= inv; nz *= inv;
             row[x * 4u + 0] = static_cast<std::uint8_t>((nx * 0.5f + 0.5f) * 255.0f + 0.5f);
@@ -124,6 +127,18 @@ int wmain(int argc, wchar_t **argv)
         if (colorImage == nullptr) return 4;
         return saveCompressedMips(*colorImage, DXGI_FORMAT_BC7_UNORM,
                                   argv[3]) ? 0 : 5;
+    }
+    if (argc == 4 && std::wstring(argv[1]) == L"normalonly")
+    {
+        ScratchImage color, normal;
+        if (!rgba8Auto(argv[2], color)) return 3;
+        const Image *colorImage = color.GetImage(0, 0, 0);
+        if (colorImage == nullptr ||
+            !makeNormal(*colorImage, static_cast<unsigned int>(colorImage->width),
+                        static_cast<unsigned int>(colorImage->height), normal))
+            return 4;
+        return saveCompressedMips(*normal.GetImage(0, 0, 0),
+                                  DXGI_FORMAT_BC5_UNORM, argv[3]) ? 0 : 5;
     }
     if (argc == 6 && std::wstring(argv[1]) == L"color")
     {
@@ -215,6 +230,7 @@ int wmain(int argc, wchar_t **argv)
         return 0;
     }
     std::fwprintf(stderr, L"usage: ship_texture_dds coloronly input color.dds\n"
+                          L"   or: ship_texture_dds normalonly input normal.dds\n"
                           L"   or: ship_texture_dds color input vanilla color.dds normal.dds\n"
                           L"   or: ship_texture_dds color4 upscaled-input color.dds normal.dds\n"
                           L"   or: ship_texture_dds colorfull upscaled-input color.dds normal.dds\n"

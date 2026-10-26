@@ -15,12 +15,15 @@
 #include "FastMath.h"
 #include "File.h"
 #include "Globals.h"
+#include "HorseRace.h"
 #include "KAS.h"
 #include "Light.h"
 #include "mainrgn.h"
 #include "Memory.h"
 #include "MultiplayerGame.h"
 #include "Nebulae.h"
+#include "Options.h"
+#include "ResourceScalingPolicy.h"
 #include "Ping.h"
 #include "Randy.h"
 #include "ResearchAPI.h"
@@ -650,20 +653,8 @@ static void scriptSetResourcesCB(char *directory,char *field,void *dataToFillIn)
         rotatedposition = position;
     }
 
-    if (singlePlayerGame && bitTest(attributes, ATTRIBUTES_ScaleResources))
-    {
-        // scale the number of asteroids depending on fleet strength
-        if (bitTest(attributes, ATTRIBUTES_KillerCollDamage))
-        {
-            // scale up
-            numAsteroids = (udword)((real32)numAsteroids*spFleetModifier);
-        }
-        else
-        {
-            // scale down
-            numAsteroids = (udword)((real32)numAsteroids*(1-spFleetModifier));
-        }
-    }
+    numAsteroids = resourceCountForFleet(numAsteroids, singlePlayerGame,
+        attributes, spFleetModifier, opDisableSPResourceScaling);
 
     if (strcmp(layoutstr,"Sphere") == 0)
     {
@@ -2215,6 +2206,14 @@ static void scriptSetDerelictToBeNeeded(char *directory,char *field,void *dataTo
     Outputs     : Sets the IF_InfoNeeded and teamColor members of ships
     Return      :
 ----------------------------------------------------------------------------*/
+static void llLoadingTask(const char *action, const char *filename)
+{
+    char task[256];
+    if (!hrRunning || !singlePlayerGame) return;
+    snprintf(task, sizeof(task), "%s: %s", action, filename != NULL ? filename : "mission");
+    HorseRaceLoadingTask(task);
+}
+
 void levelPreInit(char *directory,char *pickedMission)
 {
     tecolorscheme playerSchemes[MAX_MULTIPLAYER_PLAYERS];
@@ -2224,6 +2223,7 @@ void levelPreInit(char *directory,char *pickedMission)
     InsideShip* insideship;
     bool8 teamCol[MAX_MULTIPLAYER_PLAYERS];
 
+    llLoadingTask("Scanning mission layout", pickedMission);
     missionman = isLevelMissionManGenerated(directory,pickedMission);
 
     memcpy(playerSchemes, teColorSchemes, sizeof(playerSchemes));
@@ -2233,6 +2233,7 @@ void levelPreInit(char *directory,char *pickedMission)
     teReset();
     universeDefaultTeamColors();
     //load the actual mission
+    llLoadingTask("Reading fleet and resource requirements", pickedMission);
     scriptSet(directory, pickedMission, MissionPreloadScriptTable);
 
     for (index = 0; index < MAX_MULTIPLAYER_PLAYERS; index++)
@@ -2249,6 +2250,7 @@ void levelPreInit(char *directory,char *pickedMission)
         }
     }
     //go through all the players' ships and make sure they'll be loaded
+    HorseRaceLoadingTask("Preserving carried fleet, docked ships and captured factories");
     for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = node->next)
     {
         insideship = (InsideShip*)listGetStructOfNode(node);
@@ -2299,6 +2301,7 @@ void levelPreInit(char *directory,char *pickedMission)
         }
     }
 
+    llLoadingTask("Checking mission fleet exclusions", pickedMission);
     scriptSet(directory, pickedMission, MissionPreloadScriptTablePass2);
 
     if (singlePlayerGame)
@@ -2370,10 +2373,14 @@ void levelInit(char *directory,char *pickedMission)
 
     if (singlePlayerGame)
     {
+        llLoadingTask("Reading mission attributes", pickedMission);
         singlePlayerSetMissionAttributes(directory,pickedMission);
     }
+    HorseRaceLoadingTask("Applying mission sensor and camera settings");
     SetSMMissionTweaks(directory,pickedMission);
+    llLoadingTask("Creating mission ships, resources and environment", pickedMission);
     scriptSetStruct(directory,pickedMission,MissionScriptTable,NULL);
+    HorseRaceLoadingTask("Locating motherships and initializing the player camera");
     TryToFindMothershipsForPlayers();
 
     mrCamera = &(universe.mainCameraCommand.actualcamera);
@@ -2416,10 +2423,14 @@ void levelStartNext(char *directory,char *pickedMission)
 
     missionman = isLevelMissionManGenerated(directory,pickedMission);
 
+    llLoadingTask("Reading next mission attributes", pickedMission);
     singlePlayerSetMissionAttributes(directory,pickedMission);
+    HorseRaceLoadingTask("Applying next mission sensor and camera settings");
     SetSMMissionTweaks(directory,pickedMission);
+    llLoadingTask("Creating next mission ships, resources and environment", pickedMission);
     scriptSetStruct(directory,pickedMission,MissionScriptTable,NULL);
 
+    HorseRaceLoadingTask("Locating the arriving fleet motherships");
     TryToFindMothershipsForPlayers();
 }
 

@@ -1,0 +1,197 @@
+OPENHW_SHIP_2
+
+type HeavyCruiser
+scale 2.74244745
+hull hull.hod
+mad -
+marker engine_0 Hull EngineMainDrive
+surface 0 0 c0_m0
+surface 0 1 c0_m1
+surface 0 2 c0_m2
+StartShipHardPointConfig(NewShipType, "Weapon_Turret_Ion1@Hardpoint_Turret_Ion1_Position", "Hardpoint_Turret_Ion1", "Weapon", "Innate", "Ship", "kus_cruiserion_hw1_b191bcb35f");
+weaponSlot Weapon_Turret_Ion1@Hardpoint_Turret_Ion1_Position 0 0
+weaponSlot Weapon_Turret_Ion1@Hardpoint_Turret_Ion1_Position 1 1
+StartShipHardPointConfig(NewShipType, "Weapon_Turret_Ion1@Hardpoint_Turret_Ion2_Position", "Hardpoint_Turret_Ion2", "Weapon", "Innate", "Ship", "kus_cruiserion_hw1_e4fa454c18");
+weaponSlot Weapon_Turret_Ion1@Hardpoint_Turret_Ion2_Position 0 2
+weaponSlot Weapon_Turret_Ion1@Hardpoint_Turret_Ion2_Position 1 3
+StartShipHardPointConfig(NewShipType, "Weapon_Gun4", "Hardpoint_Gun4", "Weapon", "Innate", "Ship", "kus_cruisergun1_hw1_b5f6f10a80");
+weaponSlot Weapon_Gun4 0 4
+StartShipHardPointConfig(NewShipType, "Weapon_Gun5", "Hardpoint_Gun5", "Weapon", "Innate", "Ship", "kus_cruisergun1_hw1_2c6d17e84f");
+weaponSlot Weapon_Gun5 0 5
+StartShipHardPointConfig(NewShipType, "Weapon_Gun6", "Hardpoint_Gun6", "Weapon", "Innate", "Ship", "kus_cruisergun1_hw1_e215101788");
+weaponSlot Weapon_Gun6 0 6
+StartShipHardPointConfig(NewShipType, "Weapon_Gun7", "Hardpoint_Gun7", "Weapon", "Innate", "Ship", "kus_cruisergun1_hw1_e9a24fade6");
+weaponSlot Weapon_Gun7 0 7
+StartShipHardPointConfig(NewShipType, "Weapon_Gun8", "Hardpoint_Gun8", "Weapon", "Innate", "Ship", "kus_cruisergun1_hw1_cc7bca4996");
+weaponSlot Weapon_Gun8 0 8
+StartShipHardPointConfig(NewShipType, "Weapon_Gun9", "Hardpoint_Gun9", "Weapon", "Innate", "Ship", "kus_cruisergun1_hw1_cc7bca4996");
+weaponSlot Weapon_Gun9 0 9
+StartShipHardPointConfig(NewShipType, "Engine", "Hardpoint_Engine", "Engine", "Innate", "Ship", "kus_heavycruiserengine_hw1_6fdf3e71c6");
+
+presentation Hull hull_events.owevents
+[Ship]
+[HeavyCruiser]
+
+;Source Files
+;=----------=
+pMexData                            HeavyCruiser\Rl0\LOD0\HeavyCruiser.mex
+LODFile                             HeavyCruiser.lod
+
+;Ship Physics
+;=----------=
+mass                                10000.0              ; ship mass [fighter = 1]
+momentOfInertiaX                    10000.0               ; resistance to rotation
+momentOfInertiaY                    10000.0               ; [fighter = 1]
+momentOfInertiaZ                    10000.0
+avoidcollmodifier                   0.8
+maxvelocity                         250.0               ; [fighter = 1000]
+maxrot                              10.0                ; maximum rotation speed [don't make faster than ~10]
+
+;Basic Ship Stats
+;=--------------=
+shipclass                           CLASS_HeavyCruiser
+isCapitalShip                       TRUE
+buildCost                           3700                ; resource units to build
+buildTime                           420                 ; time in seconds to build
+maxhealth                           90000               ; hit points
+groupSize                           1                   ; size of group ships of this type tend to form
+repairTime                          5                   ; every this many seconds
+repairDamage                        320                  ; this much damage is repaired
+repairCombatTime                    10                   ; every this many seconds
+repairCombatDamage                  100                  ; this much damage is repaired
+
+blastRadiusShockWave                1.0
+blastRadiusDamage                   125
+
+;Moving Around
+;=-----------=
+thruststrength[TRANS_UP]            39.0                ; acceleration (m/s^2) [1-1000 approx. range]
+thruststrength[TRANS_DOWN]          39.0
+thruststrength[TRANS_RIGHT]         39.0
+thruststrength[TRANS_LEFT]          39.0
+thruststrength[TRANS_FORWARD]       39.0
+thruststrength[TRANS_BACK]          39.0
+rotstrength[ROT_YAWLEFT]            0.36                        ; rotational acceleration (deg/s^2) [0.01 - 1.0]
+rotstrength[ROT_YAWRIGHT]           0.36
+rotstrength[ROT_PITCHUP]            0.06
+rotstrength[ROT_PITCHDOWN]          0.06
+rotstrength[ROT_ROLLRIGHT]          0.06
+rotstrength[ROT_ROLLLEFT]           0.06
+turnspeed[TURN_YAW]                 0.20                         ; speed at which ship tries to turn (1=standard)
+turnspeed[TURN_PITCH]               0.20
+turnspeed[TURN_ROLL]                0.20
+
+
+
+;Weapons
+;=------=
+
+canTargetMultipleTargets            TRUE
+rotateToRetaliate                   TRUE
+passiveRetaliateZone                7000.0
+
+
+;This is the large Ion Cannon turret on TOP - the first gun is slaved to the second
+
+
+
+
+;This is the large Ion Cannon turret on BOTTOM - the first gun is slaved to the second
+
+
+
+
+
+;Very Large Energy Cannon - Right side of ship, top
+
+
+;Very Large Energy Cannon - Left side of ship, top
+
+
+;Very large Energy Cannon - right side of ship, bottom
+
+
+;Very large Energy Cannon - left side of ship, bottom
+
+
+;Very large Energy Cannon - left wing
+
+
+;Very large Energy Cannon - Right Wing
+
+
+
+NUMBER_OF_SALVAGE_POINTS        6
+NUM_NEEDED_FOR_SALVAGE          5               ;number of ships needed to capture a craft
+NEED_BIGR1                      TRUE
+NEED_BIGR2                      TRUE
+WILL_FIT_CARRIER                FALSE
+
+;       format:                    name,type
+SalvagePoint                       Point1,AttachPoint
+SalvagePoint                       Point2,AttachPoint
+SalvagePoint                       Point3,AttachPoint
+SalvagePoint                       Point4,AttachPoint
+SalvagePoint                       Point5,AttachPoint
+SalvagePoint                       Point6,AttachPoint
+
+
+NUMBER_OF_NAV_LIGHTS           6
+
+; format is NavLight            name, type, blinkrate (in seconds), size (in meters), min LOD, texture name
+NavLight                        antenna1,       NAVLIGHT_Default, 2,   1, 0,   8, 2, etg\textures\glow32
+NavLight                        antenna2,       NAVLIGHT_Default, 1.5,   1, 0,   7, 2, etg\textures\glow32
+NavLight                        sideright1,     NAVLIGHT_Default, 0.5, 1, 1,   9, 2, etg\textures\glow32
+NavLight                        sideright2,     NAVLIGHT_Default, 0.5, 1, 0,  9, 2, etg\textures\glow32
+NavLight                        sideleft1,      NAVLIGHT_Default, 0.5, 1, 1,   9, 2, etg\textures\glow32
+NavLight                        sideleft2,      NAVLIGHT_Default, 0.5, 1, 0,   9, 2, etg\textures\glow32
+
+;Explosions
+;=--------=
+explosionType                       ET_CarrierExplosion
+
+
+;GUN BINDINGS:
+
+//Very Large Energy Cannon, Top turret, left side
+BindGun                             HeavyCruiserTurret(3) Gun4,Azimuth,Recoil,Frequency 1
+
+//Very Large Energy Cannon, Top turret, right side
+BindGun                             HeavyCruiserTurret(4) Gun5,Azimuth,Recoil,Frequency 1
+
+//Very Large Energy Cannon, Left wing,
+BindGun                             HeavyCruiserTurret(1) Gun8,Azimuth,Recoil,Frequency 1
+
+//Very Large Energy Cannon, Right wing,
+BindGun                             HeavyCruiserTurret(2) Gun9,Azimuth,Recoil,Frequency 1
+
+//Very Large Energy Cannon, Bottom turret, left side
+BindGun                             HeavyCruiserTurret(5) Gun7,Azimuth,Recoil,Frequency 1
+
+//Very Large Energy Cannon, Bottom turret, right side
+BindGun                             HeavyCruiserTurret(6) Gun6,Azimuth,Recoil,Frequency 1
+
+//bottom ion cannon turret
+BindGun                             HeavyCruiserIon(1)     Gun0,Azimuth,Declination,Frequency 1
+//BindGun                             HeavyCruiserIon(1)     Gun1,Declination,Frequency 1
+//BindGun                             HeavyCruiserIon(1)     Gun0,Azimuth,Declination,Frequency 1
+//BindGun                             HeavyCruiserIon(1)     Gun0,Declination,Frequency 1
+//top ion cannon turret
+BindGun                             HeavyCruiserIon(2)     Gun2,Azimuth,Declination,Frequency 1
+//BindGun                             HeavyCruiserIon(2)     Gun3,Declination,Frequency 1
+//BindGun                             HeavyCruiserIon(2)     Gun2,Azimuth,Declination,Frequency 1
+//BindGun                             HeavyCruiserIon(2)     Gun2,Declination,Frequency 1
+
+
+;Engine Glow
+;=---------=
+trailWidth   270.0
+trailHeight  310.0
+trailLength  300.0
+
+minimumZoomDistance                 825
+
+Overlay_Selection_Scalar            1.35         ; scale the tactical overlay by this amount
+
+
+[End]

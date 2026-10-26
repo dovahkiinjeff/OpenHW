@@ -85,7 +85,6 @@ extern udword initialSensorLevel;
 #endif
 
 extern sdword enableTrails;
-extern sdword showBackgrounds;
 
 extern bool32 mainRasterSkip;
 
@@ -103,9 +102,11 @@ extern bool32 showBorder;
 // Modern display and presentation controls.  The simulation tick remains
 // independent from these values.
 extern sdword mainRefreshRate;
+extern sdword mainDetectDisplayOnFirstBoot;
 extern sdword mainFrameRateLimit;
 extern sdword mainVSync;
 extern sdword mainUIScalePercent;
+extern bool32 mainShowFPS;
 extern sdword mainRaytracing;
 extern sdword mainFxLightingStrengthPercent;
 extern sdword mainWeaponOriginLightIntensityPercent;
@@ -116,6 +117,7 @@ extern sdword mainDlaa;
 extern sdword mainFrameGeneration;
 extern sdword mainPathTracingSamples;
 extern sdword mainPathTracingBounces;
+extern sdword mainTextureResolution;
 extern sdword mainGeneratedNormalStrengthPercent;
 extern sdword mainEnvironmentLightingPercent;
 extern sdword mainAuthoredLightingPercent;
@@ -123,12 +125,15 @@ extern sdword mainPrimarySunLightingPercent;
 extern sdword mainSkyAmbientLightingPercent;
 extern sdword mainSurfaceReflectivityPercent;
 extern sdword mainSurfaceRoughnessPercent;
+extern sdword mainRasterGlowBrightnessPercent;
 extern sdword mainLightingExposurePercent;
 extern sdword mainOutputDitherPercent;
+extern sdword mainDisplayGammaPercent;
 extern sdword mainChromaticAberrationPercent;
 extern sdword mainMotionBlurPercent;
 extern sdword mainFilmGrainPercent;
 extern sdword mainGodRaysPercent;
+extern sdword mainLensFlares;
 extern sdword mainBloomPercent;
 extern sdword mainShadowStrengthPercent;
 extern sdword mainSunShadowAngularRadiusCentidegrees;

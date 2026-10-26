@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     Name    : NIS.c
     Purpose : Code for animating NIS's
@@ -4610,7 +4611,7 @@ void nisLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
 
     newptr = (void *)((memsize)newbase + offset);
 
-    //printf("offest of objects: %x -- %d:%d:%d:%d\n", offset, newHeader->nObjectPaths, newHeader->nCameraPaths,
+    //HW_DIAG_PRINTF("offest of objects: %x -- %d:%d:%d:%d\n", offset, newHeader->nObjectPaths, newHeader->nCameraPaths,
     //        newHeader->nLightPaths, newHeader->nEvents);
 
     loopcount = newHeader->nObjectPaths;

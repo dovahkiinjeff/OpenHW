@@ -11,6 +11,7 @@
 
 #include "fqeffect.h"
 #include "Types.h"
+#include "AudioBus.h"
 
 #define SND_SYNC            0x0000  /* play synchronously (default) */
 #define SND_ASYNC           0x0001  /* play asynchronously */

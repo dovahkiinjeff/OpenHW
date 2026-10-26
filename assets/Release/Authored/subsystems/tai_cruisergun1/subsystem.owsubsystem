@@ -1,0 +1,6 @@
+OPENHW_SUBSYSTEM_1
+type Subsystem_tai_cruisergun1
+scale 1
+hull model.hod
+mad -
+surface 0 0 m0

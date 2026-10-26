@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 // =============================================================================
 //  Matrix.h
 //  - homogenous matrix functions (4x4)
@@ -291,10 +292,10 @@ void hmatMakeRotAboutY(hmatrix *matrix,real32 costheta,real32 sintheta)
 ----------------------------------------------------------------------------*/
 void hmatPrintHMatrix(hmatrix *a)
 {
-    printf("(%8f %8f %8f %8f)\n",a->m11,a->m12,a->m13,a->m14);
-    printf("(%8f %8f %8f %8f)\n",a->m21,a->m22,a->m23,a->m24);
-    printf("(%8f %8f %8f %8f)\n",a->m31,a->m32,a->m33,a->m34);
-    printf("(%8f %8f %8f %8f)\n",a->m41,a->m42,a->m43,a->m44);
+    HW_DIAG_PRINTF("(%8f %8f %8f %8f)\n",a->m11,a->m12,a->m13,a->m14);
+    HW_DIAG_PRINTF("(%8f %8f %8f %8f)\n",a->m21,a->m22,a->m23,a->m24);
+    HW_DIAG_PRINTF("(%8f %8f %8f %8f)\n",a->m31,a->m32,a->m33,a->m34);
+    HW_DIAG_PRINTF("(%8f %8f %8f %8f)\n",a->m41,a->m42,a->m43,a->m44);
 }
 
 
@@ -511,9 +512,9 @@ void matMakeRotAboutY(matrix *matrix,real32 costheta,real32 sintheta)
 ----------------------------------------------------------------------------*/
 void matPrintmatrix(matrix *a)
 {
-    printf("(%8f %8f %8f)\n",a->m11,a->m12,a->m13);
-    printf("(%8f %8f %8f)\n",a->m21,a->m22,a->m23);
-    printf("(%8f %8f %8f)\n",a->m31,a->m32,a->m33);
+    HW_DIAG_PRINTF("(%8f %8f %8f)\n",a->m11,a->m12,a->m13);
+    HW_DIAG_PRINTF("(%8f %8f %8f)\n",a->m21,a->m22,a->m23);
+    HW_DIAG_PRINTF("(%8f %8f %8f)\n",a->m31,a->m32,a->m33);
 }
 
 /*-----------------------------------------------------------------------------

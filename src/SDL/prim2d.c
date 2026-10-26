@@ -40,6 +40,10 @@ sdword primModeEnabled = FALSE;
 ----------------------------------------------------------------------------*/
 void primModeSetFunction2(void)
 {
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    /* Ship material state must not cross into HUD images or text. */
+    hwglCaptureEngineIdle(-1.0f);
+#endif
     glShadeModel(GL_FLAT);
     glDisable(GL_ALPHA_TEST);
     glDisable(GL_BLEND);

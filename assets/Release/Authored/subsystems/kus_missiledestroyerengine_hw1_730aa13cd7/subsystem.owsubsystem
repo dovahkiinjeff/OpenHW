@@ -1,0 +1,9 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_kus_missiledestroyerengine_hw1_730aa13cd7
+scale 1
+hull @/Subsystems/kus_missiledestroyerengine/model.hod
+mad -
+
+presentation Hull component_events.owevents
+[Weapons]
+[End]

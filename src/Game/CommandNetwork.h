@@ -163,6 +163,7 @@ where Commands is a bunch of commands, one after the other, as defined above.
 #define MISCCOMMAND_TACTICS             2
 #define MISCCOMMAND_KAMIKAZE            3
 #define MISCCOMMAND_PARADE              4
+#define MISCCOMMAND_FORMATION_SPREAD    5
 #define PACKETTYPE_COMMAND              0xcccc
 #define PACKETTYPE_SYNC                 0x5555
 #define PACKETTYPE_REQUESTEDSYNC        0xe555

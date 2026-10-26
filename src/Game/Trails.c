@@ -21,6 +21,8 @@
 #include "glinc.h"
 #include "main.h"
 #include "Memory.h"
+#include "Mesh.h"
+#include "RemasteredWeaponFX.h"
 #include "Particle.h"
 #include "prim3d.h"
 #include "Randy.h"
@@ -59,6 +61,7 @@ sdword trailsRendered;
 
 extern Camera* mrCamera;
 extern real32 meshFadeAlpha;
+extern bool32 bFade;
 
 //defaults for reference in case Trail.script gets munged beyond repair
 static real32 RANDOM_MAX = 10.0f;
@@ -518,6 +521,18 @@ void trailInplaceShipToWorld(real32* vec, real32* coordsys, real32* position)
 void trailGetNozzleOffset(real32* vec, shiptrail* trail)
 {
     Ship* ship = (Ship*)trail->vship;
+    vector nativePosition;
+    char semantic[32];
+
+    if (trail->trailNum>=0 && trail->trailNum<16)
+    {
+        sprintf(semantic,"engine_%d",trail->trailNum);
+        if (meshRemasteredMarkerPosition(ship,semantic,&nativePosition))
+        {
+            VECCOPY(vec,&nativePosition);
+            return;
+        }
+    }
 
     VECCOPY(vec, &((ShipStaticInfo*)ship->staticinfo)->engineNozzleOffset[trail->trailNum]);
 }
@@ -1071,6 +1086,11 @@ void trailDrawCapitalGlow(shiptrail* trail, sdword LOD)
 
     glShadeModel(GL_SMOOTH);
 
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    /* Only capital plumes use continuous fragment glow shading. */
+    hwglEngineGlow(colUbyteToReal(colRed(lightColor)),colUbyteToReal(colGreen(lightColor)),
+        colUbyteToReal(colBlue(lightColor)),(160.0f/255.0f)*(bFade ? meshFadeAlpha : 1.0f),trail->exponent);
+#endif
     if (shipstaticinfo->shiprace == P1 &&
         shipstaticinfo->shipclass == CLASS_Mothership)
     {
@@ -1170,6 +1190,9 @@ void trailDrawCapitalGlow(shiptrail* trail, sdword LOD)
         }
     }
 
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    hwglEngineGlow(0,0,0,0,0);
+#endif
     glDisable(GL_NORMALIZE);
     g_NoMatSwitch = FALSE;
 
@@ -1253,6 +1276,12 @@ void trailDrawBillboardedSquareThingz(shiptrail* trail, trailsegment* seg, real3
     pos.z -= 0.6f*XADJ;
     //offset also by ship's static sprite offset amount
     pos.z -= ship->staticinfo->trailSpriteOffset[trail->trailNum];
+    /* The glow is a camera-facing quad.  Centering that quad exactly on the
+       nozzle lets the rear hull slice it along a hard, angle-dependent line.
+       Move the visual emitter just outside the nozzle along its authored
+       exhaust axis; opaque depth remains enabled, so it still cannot shine
+       through unrelated geometry or the far side of the ship. */
+    pos.z -= MAX2(0.35f, rad * 0.38f);
     trailInplaceShipToWorld((real32*)&pos, seg->rotation, seg->translation);
 
 #ifdef HW_ENABLE_D3D12_BACKEND
@@ -1927,6 +1956,39 @@ static color trailModernBrighten(color c, real32 amount, ubyte alpha)
         alpha);
 }
 
+static vector trailModernCatmullRom(const vector *p0, const vector *p1,
+                                    const vector *p2, const vector *p3,
+                                    real32 t)
+{
+    vector result;
+    real32 t2 = t * t;
+    real32 t3 = t2 * t;
+    result.x = 0.5f * ((2.0f * p1->x) +
+        (-p0->x + p2->x) * t +
+        (2.0f * p0->x - 5.0f * p1->x + 4.0f * p2->x - p3->x) * t2 +
+        (-p0->x + 3.0f * p1->x - 3.0f * p2->x + p3->x) * t3);
+    result.y = 0.5f * ((2.0f * p1->y) +
+        (-p0->y + p2->y) * t +
+        (2.0f * p0->y - 5.0f * p1->y + 4.0f * p2->y - p3->y) * t2 +
+        (-p0->y + 3.0f * p1->y - 3.0f * p2->y + p3->y) * t3);
+    result.z = 0.5f * ((2.0f * p1->z) +
+        (-p0->z + p2->z) * t +
+        (2.0f * p0->z - 5.0f * p1->z + 4.0f * p2->z - p3->z) * t2 +
+        (-p0->z + 3.0f * p1->z - 3.0f * p2->z + p3->z) * t3);
+    return result;
+}
+
+static color trailModernInterpolateColor(color a, color b, real32 t)
+{
+    return colRGB(
+        (ubyte)((real32)colRed(a) +
+                ((real32)colRed(b) - (real32)colRed(a)) * t),
+        (ubyte)((real32)colGreen(a) +
+                ((real32)colGreen(b) - (real32)colGreen(a)) * t),
+        (ubyte)((real32)colBlue(a) +
+                ((real32)colBlue(b) - (real32)colBlue(a)) * t));
+}
+
 /* A resolution-independent feathered plasma ribbon.  Several very low-alpha
  * shells approximate a continuous bloom profile without relying on the
  * original tiny trail texture.  The deliberately restrained hot core avoids
@@ -1935,6 +1997,7 @@ static color trailModernBrighten(color c, real32 amount, ubyte alpha)
 static void trailModernLayeredSequence(sdword n, vector vectors[],
                                        color *segmentArray)
 {
+    enum { trailCurveSubdivisions = 3, trailCurveMaximumPoints = 112 };
     static const real32 widthScale[9] = {
         1.08f, 0.94f, 0.81f, 0.69f, 0.58f,
         0.48f, 0.39f, 0.31f, 0.235f
@@ -1945,34 +2008,72 @@ static void trailModernLayeredSequence(sdword n, vector vectors[],
     };
     static const real32 layerAlpha[9] = {
         7.0f, 8.0f, 9.0f, 11.0f, 14.0f,
-        18.0f, 23.0f, 30.0f, 40.0f
+        18.0f, 23.0f, 30.0f, 255.0f
     };
-    vector right[40];
-    vector center[40];
+    vector curve[trailCurveMaximumPoints];
+    color curveColor[trailCurveMaximumPoints];
+    vector right[trailCurveMaximumPoints];
+    vector center[trailCurveMaximumPoints];
+    real32 distanceFromNozzle[trailCurveMaximumPoints];
     vector tangent, eye, cross;
     vector previousRight = {1.0f, 0.0f, 0.0f};
     real32 baseWidth;
-    sdword i, layer;
+    sdword i, layer, curveCount, oldAdditive, band;
 
     if (n < 2) return;
+
+    /* The simulation deliberately records a modest number of trail control
+       points.  Rendering those points directly exposes every join as an
+       angular elbow.  Resample the same history with a clamped Catmull-Rom
+       curve; this is visual-only and does not alter trail lifetime, physics,
+       saves or networking. */
+    curveCount = 0;
+    for (i = 0; i < n - 1 && curveCount < trailCurveMaximumPoints - 1; ++i)
+    {
+        const vector *p0 = &vectors[i > 0 ? i - 1 : i];
+        const vector *p1 = &vectors[i];
+        const vector *p2 = &vectors[i + 1];
+        const vector *p3 = &vectors[i + 2 < n ? i + 2 : i + 1];
+        sdword subdivision;
+        color colorA = segmentArray[i + (i == 0)];
+        color colorB = segmentArray[i + 1];
+        for (subdivision = 0;
+             subdivision < trailCurveSubdivisions &&
+             curveCount < trailCurveMaximumPoints - 1;
+             ++subdivision)
+        {
+            real32 t = (real32)subdivision /
+                       (real32)trailCurveSubdivisions;
+            curve[curveCount] = trailModernCatmullRom(p0, p1, p2, p3, t);
+            curveColor[curveCount] =
+                trailModernInterpolateColor(colorA, colorB, t);
+            ++curveCount;
+        }
+    }
+    VECCOPY(&curve[curveCount], &vectors[n - 1]);
+    curveColor[curveCount] = segmentArray[n - 1];
+    ++curveCount;
+
     baseWidth = MAX2(0.12f,
         MAX2(trailHalfHeight(activeTrail),
              trailHalfWidth(activeTrail) * 0.30f) *
         trailRibbonAdjust(activeTrail) * trailScreenCoverageScale * 0.72f);
 
-    for (i = 0; i < n; ++i)
+    distanceFromNozzle[0] = 0.0f;
+
+    for (i = 0; i < curveCount; ++i)
     {
         sdword before = i > 0 ? i - 1 : i;
-        sdword after = i + 1 < n ? i + 1 : i;
+        sdword after = i + 1 < curveCount ? i + 1 : i;
         real32 magnitudeSquared;
         real32 inverseMagnitude;
-        real32 age = (real32)i / (real32)(n - 1);
+        real32 age = (real32)i / (real32)(curveCount - 1);
         real32 wave = (real32)sin((double)(
             universe.totaltimeelapsed * 4.2f +
             (real32)i * 0.67f + (real32)activeTrail->trailNum * 1.31f));
 
-        vecSub(tangent, vectors[after], vectors[before]);
-        vecSub(eye, mrCamera->eyeposition, vectors[i]);
+        vecSub(tangent, curve[after], curve[before]);
+        vecSub(eye, mrCamera->eyeposition, curve[i]);
         vecCrossProduct(cross, tangent, eye);
         magnitudeSquared = vecMagnitudeSquared(cross);
         if (magnitudeSquared > 0.000001f)
@@ -1985,47 +2086,86 @@ static void trailModernLayeredSequence(sdword n, vector vectors[],
         {
             VECCOPY(&right[i], &previousRight);
         }
-        VECCOPY(&center[i], &vectors[i]);
+        VECCOPY(&center[i], &curve[i]);
         /* Keep the hot core coherent; this small displacement affects the
            plume as a whole and fades toward the tail. */
         center[i].x += right[i].x * baseWidth * 0.035f * wave * (1.0f - age);
         center[i].y += right[i].y * baseWidth * 0.035f * wave * (1.0f - age);
         center[i].z += right[i].z * baseWidth * 0.035f * wave * (1.0f - age);
+        if (i > 0)
+        {
+            vector delta;
+            vecSub(delta, center[i], center[i - 1]);
+            distanceFromNozzle[i] = distanceFromNozzle[i - 1] +
+                fsqrt(vecMagnitudeSquared(delta));
+        }
     }
 
     glEnable(GL_BLEND);
+    oldAdditive = rndAdditiveBlends(FALSE);
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    hwglEngineTrail(TRUE);
+#endif
     glDisable(GL_CULL_FACE);
     glDepthMask(GL_FALSE);
     for (layer = 0; layer < 9; ++layer)
     {
-        glBegin(GL_TRIANGLE_STRIP);
-        for (i = 0; i < n; ++i)
+        /* The innermost ribbon has an opaque center and interpolated feather
+           on both sides. Keep the existing length/origin/tail envelope. */
+        for (band = 0; band < (layer == 8 ? 3 : 1); ++band)
         {
-            real32 age = (real32)i / (real32)(n - 1);
-            real32 tailFade = 1.0f - trailModernSmoothStep(0.48f, 1.0f, age);
-            real32 taper = 1.0f - 0.80f * age;
-            real32 pulse = 0.975f + 0.025f * (real32)sin((double)(
-                universe.totaltimeelapsed * 8.0f +
-                (real32)i * 0.42f + (real32)activeTrail->trailNum));
-            real32 width = baseWidth * widthScale[layer] * taper;
-            real32 alphaValue = layerAlpha[layer] * tailFade * pulse;
-            vector low, high, offset;
-            color source = segmentArray[i + (i == 0)];
-            color shaded;
+            glBegin(GL_TRIANGLE_STRIP);
+            for (i = 0; i < curveCount; ++i)
+            {
+                real32 age = (real32)i / (real32)(curveCount - 1);
+                real32 tailFade = 1.0f - trailModernSmoothStep(0.48f, 1.0f, age);
+                real32 taper = 1.0f - 0.80f * age;
+                /* The legacy ribbon begins inside many rear hull meshes.  A
+                   full-width, full-opacity first strip is therefore sliced by
+                   opaque depth into a conspicuous diagonal line.  Grow and
+                   feather the plume over a short physical distance instead.
+                   The independently rendered nozzle bloom covers the zero-alpha
+                   origin, so the exhaust stays visually attached without being
+                   allowed to draw through the ship. */
+                real32 originFade = trailModernSmoothStep(
+                    baseWidth * 0.18f, baseWidth * 3.60f,
+                    distanceFromNozzle[i]);
+                real32 originWidth = trailModernSmoothStep(
+                    0.0f, baseWidth * 3.00f, distanceFromNozzle[i]);
+                real32 pulse = 0.975f + 0.025f * (real32)sin((double)(
+                    universe.totaltimeelapsed * 8.0f +
+                    (real32)i * 0.42f + (real32)activeTrail->trailNum));
+                real32 width = baseWidth * widthScale[layer] * taper * originWidth;
+                real32 alphaValue = layerAlpha[layer] * tailFade * originFade *
+                    (layer == 8 ? 1.0f : pulse);
+                static const real32 coreEdge[4] = {-1.0f, -0.60f, 0.60f, 1.0f};
+                static const real32 coreAlpha[4] = {0.0f, 1.0f, 1.0f, 0.0f};
+                sdword side;
+                vector point, offset;
+                color source = curveColor[i];
+                color shaded;
 
-            if (usingShader) alphaValue *= meshFadeAlpha;
-            vecScalarMultiply(offset, right[i], width);
-            vecSub(low, center[i], offset);
-            vecAdd(high, center[i], offset);
-            shaded = trailModernBrighten(source, whiteMix[layer],
-                (ubyte)MIN2(255, MAX2(0, (sdword)alphaValue)));
-            glColor4ub(colRed(shaded), colGreen(shaded), colBlue(shaded),
-                       colAlpha(shaded));
-            glVertex3fv((GLfloat *)&low);
-            glVertex3fv((GLfloat *)&high);
+                if (usingShader) alphaValue *= meshFadeAlpha;
+                for (side = 0; side < 2; ++side)
+                {
+                    real32 edge = layer == 8 ? coreEdge[band + side] : (side ? 1.0f : -1.0f);
+                    real32 coverage = layer == 8 ? coreAlpha[band + side] : 1.0f;
+                    vecScalarMultiply(offset, right[i], width * edge);
+                    vecAdd(point, center[i], offset);
+                    shaded = trailModernBrighten(source, whiteMix[layer],
+                        (ubyte)MIN2(255, MAX2(0, (sdword)(alphaValue * coverage))));
+                    glColor4ub(colRed(shaded), colGreen(shaded), colBlue(shaded),
+                               colAlpha(shaded));
+                    glVertex3fv((GLfloat *)&point);
+                }
+            }
+            glEnd();
         }
-        glEnd();
     }
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    hwglEngineTrail(FALSE);
+#endif
+    rndAdditiveBlends(oldAdditive);
     glDepthMask(GL_TRUE);
     glEnable(GL_CULL_FACE);
     glDisable(GL_BLEND);
@@ -2071,14 +2211,21 @@ void trailLine(sdword LOD, sdword i, vector vectors[], color c,
 ----------------------------------------------------------------------------*/
 void mistrailDrawLine(vector* a, vector* b, sdword segment, sdword nSegments, color c0, color c1)
 {
-    sdword alpha;
+    real32 ageA, ageB;
+    sdword alphaA, alphaB;
 
-    alpha = (sdword)(255.0f * (1.0f - ((real32)segment / (real32)nSegments)));
+    if (nSegments < 2) return;
+    ageA = (real32)(segment - 1) / (real32)(nSegments - 1);
+    ageB = (real32)segment / (real32)(nSegments - 1);
+    /* Match the ship-exhaust coverage envelope: a covering head/core, then
+       a smooth fade. Evaluate both endpoints so adjacent segments agree. */
+    alphaA = (sdword)(255.0f * (1.0f - trailModernSmoothStep(0.48f, 1.0f, ageA)));
+    alphaB = (sdword)(255.0f * (1.0f - trailModernSmoothStep(0.48f, 1.0f, ageB)));
 
     glBegin(GL_LINES);
-    glColor4ub(colRed(c0), colGreen(c0), colBlue(c0), (GLubyte)alpha);
+    glColor4ub(colRed(c0), colGreen(c0), colBlue(c0), (GLubyte)alphaA);
     glVertex3fv((GLfloat*)a);
-    glColor4ub(colRed(c1), colGreen(c1), colBlue(c1), (GLubyte)alpha);
+    glColor4ub(colRed(c1), colGreen(c1), colBlue(c1), (GLubyte)alphaB);
     glVertex3fv((GLfloat*)b);
     glEnd();
 }
@@ -2093,6 +2240,8 @@ void mistrailDrawLine(vector* a, vector* b, sdword segment, sdword nSegments, co
 void mistrailDraw(vector* current, missiletrail* trail, sdword LOD, sdword teamIndex)
 {
     sdword index, count;
+    GLboolean depthTestWasEnabled, depthWriteWasEnabled;
+    GLint previousDepthFunc;
     vector* lastVector;
     trailstatic* trailStatic = trail->staticInfo;
     color prevColor = colBlack;
@@ -2113,8 +2262,19 @@ void mistrailDraw(vector* current, missiletrail* trail, sdword LOD, sdword teamI
     lastVector = current;
     segmentArray = trail->staticInfo->segmentColor[teamIndex];
 
-    rndAdditiveBlends(TRUE);
+    depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &depthWriteWasEnabled);
+    glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_FALSE);
+    rndAdditiveBlends(FALSE);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    /* Same self-lit core and finite foreground FG guide as ship exhaust. */
+    hwglEngineTrail(TRUE);
+#endif
 
     for (count = 1; count < trail->nLength; count++)
     {
@@ -2136,6 +2296,13 @@ void mistrailDraw(vector* current, missiletrail* trail, sdword LOD, sdword teamI
         }
     }
 
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    hwglEngineTrail(FALSE);
+#endif
+    glDepthMask(depthWriteWasEnabled);
+    glDepthFunc((GLenum)previousDepthFunc);
+    if (depthTestWasEnabled) glEnable(GL_DEPTH_TEST);
+    else glDisable(GL_DEPTH_TEST);
     rndLightingEnable(TRUE);
     glDisable(GL_BLEND);
     rndAdditiveBlends(FALSE);
@@ -2205,6 +2372,9 @@ void trailDraw(vector *current, shiptrail *trail, sdword LOD, sdword teamIndex)
         }
     }
 
+    /* Retain the pre-RM engine presentation: procedural fighter trails/glows
+       and authored capital glows, still positioned at the native engine joints.
+       Weapon, impact, missile and resource FX keep their independent RM paths. */
     if (trail->style > 2)
     {
         if (dontdrawtrail)

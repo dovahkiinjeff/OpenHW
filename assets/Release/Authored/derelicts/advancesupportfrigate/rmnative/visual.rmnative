@@ -1,0 +1,9 @@
+HW_RM_DERELICT_VISUAL_1
+type Derelict_AdvanceSupportFrigate
+scale 2.66081978
+hull hull.hod
+mad -
+surface 0 0 c0_m0
+surface 0 1 c0_m1
+surface 0 2 c0_m2
+surface 0 3 c0_m3

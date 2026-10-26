@@ -3660,6 +3660,21 @@ sdword kasfRenderedDerelicts(char *derelictType, sdword LOD)
     Node *node;
     DerelictType dt = StrToDerelictType(derelictType);
 
+    // Mission 8's global Events watch otherwise jumps straight out of the
+    // Kadeshi ultimatum/negotiation whenever this distant wreck is drawn. Only
+    // deliver discovery between briefings, after the opening attack briefing.
+    // Use existing saved state/objectives; no script pointer or save migration.
+    if (singlePlayerGame &&
+        spGetCurrentMission() == MISSION_8_THE_CATHEDRAL_OF_KADESH &&
+        dt == PrisonShipOld &&
+        (CurrentTeamP == NULL ||
+         strcmp(CurrentTeamP->kasFSMName, "Events") != 0 ||
+         strcmp(CurrentTeamP->kasStateName, "NullState") != 0 ||
+         objectiveFind("DestroyAtt") == NULL))
+    {
+        return 0;
+    }
+
     // go through the entire list of derelicts
     node = universe.DerelictList.head;
     while (node != NULL)
@@ -4287,4 +4302,3 @@ void kasfSpawnEffect(GrowSelection *ships, char *effectName, sdword parameter)
         etgEffectCreate(lastEffect, *shipPtr, NULL, NULL, NULL, 0.0f, EAF_Full, 2, SCALECAST(intSize), SCALECAST(intParameter));
     }
 }
-

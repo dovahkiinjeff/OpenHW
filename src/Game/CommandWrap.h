@@ -34,6 +34,7 @@ void clWrapAutoLaunch(udword OnOff,udword playerIndex);
 void clWrapSetAlliance(udword AllianceType, uword curalliance, uword newalliance);
 void clWrapLaunchMultipleShips(CommandLayer *comlayer,SelectCommand *selectcom,ShipPtr launchFrom);
 void clWrapSetTactics(CommandLayer *comlayer,SelectCommand *selectcom,TacticsType tacticstype);
+void clWrapFormationSpread(CommandLayer *comlayer,SelectCommand *selectcom,udword ticks);
 void clWrapSetKamikaze(CommandLayer *comlayer,SelectCommand *selectcom);
 void clWrapSetMilitaryParade(CommandLayer *comlayer,SelectCommand *selectcom);
 void clWrapRUTransfer(CommandLayer *comlayer,sdword fromIndex,sdword toIndex, sdword resourceUnits,ubyte flags);

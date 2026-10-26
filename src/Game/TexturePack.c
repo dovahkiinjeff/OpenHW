@@ -1,4 +1,6 @@
+#include "../Modern/DiagnosticPolicy.h"
 #include "TexturePack.h"
+#include "OpenHWArchive.h"
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -55,7 +57,7 @@ bool32 texturePackLooseOverridesEnabled(void)
 static void texturePackLogMetrics(void)
 {
     if (texturePackReadCalls != 0)
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[TexturePerf] archive reads=%llu %.1f MiB %.1f ms\n",
             texturePackReadCalls,
             (double)texturePackReadBytes / (1024.0 * 1024.0),
@@ -136,7 +138,7 @@ static BOOL CALLBACK texturePackInitializeOnce(PINIT_ONCE once, PVOID parameter,
     }
     texturePackHeader = header;
     atexit(texturePackLogMetrics);
-    fprintf(stderr, "[TexturePack] memory-mapped %u DDS assets (%.1f MiB).\n",
+    HW_DIAG_FPRINTF(stderr, "[TexturePack] memory-mapped %u DDS assets (%.1f MiB).\n",
             header->count, (double)texturePackLength / (1024.0 * 1024.0));
     return TRUE;
 fail:
@@ -174,6 +176,7 @@ static const TexturePackEntry *texturePackFind(const char *path)
 
 sdword texturePackFileSize(const char *path)
 {
+    int size;if(openhwArchiveView(path,&size))return size;
     const TexturePackEntry *entry = texturePackFind(path);
     if (entry == NULL || entry->size > 0x7fffffffu ||
         entry->offset + entry->size > texturePackLength) return -1;
@@ -182,6 +185,8 @@ sdword texturePackFileSize(const char *path)
 
 bool32 texturePackRead(const char *path, void *destination, sdword size)
 {
+    int obigSize;const void *obig=openhwArchiveView(path,&obigSize);
+    if(obig&&destination&&size==obigSize){memcpy(destination,obig,(size_t)size);return TRUE;}
     const TexturePackEntry *entry = texturePackFind(path);
     clock_t started;
     if (entry == NULL || destination == NULL || size != (sdword)entry->size ||

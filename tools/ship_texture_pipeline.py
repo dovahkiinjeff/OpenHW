@@ -175,7 +175,8 @@ def run_realesrgan(executable: Path, source: Path, destination: Path,
             alpha = rgba.getchannel("A")
             prepare_ai_color(rgba).save(prepared)
         command = [str(executable), "-i", str(prepared), "-o", str(generated),
-                   "-n", model, "-s", "4", "-t", str(tile), "-f", "png"]
+                   "-n", model, "-m", str(executable.resolve().parent / "models"),
+                   "-s", "4", "-t", str(tile), "-f", "png"]
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode != 0 or not generated.exists():
             detail = (result.stderr or result.stdout or "unknown Real-ESRGAN error").strip()
@@ -215,7 +216,8 @@ def run_realesrgan_batch(jobs: list[Job], executable: Path, model: str, tile: in
                     prepare_ai_color(original).save(prepared, compress_level=1)
                 indexed.append((job, prepared.name, image_mean_rgb(Path(job.source))))
             command = [str(executable), "-i", str(inputs), "-o", str(outputs),
-                       "-n", model, "-s", "4", "-t", str(tile), "-f", "png"]
+                       "-n", model, "-m", str(executable.resolve().parent / "models"),
+                       "-s", "4", "-t", str(tile), "-f", "png"]
             result = subprocess.run(command, capture_output=True, text=True)
             if result.returncode != 0:
                 raise RuntimeError((result.stderr or result.stdout or "batch Real-ESRGAN failed").strip())
@@ -227,7 +229,8 @@ def run_realesrgan_batch(jobs: list[Job], executable: Path, model: str, tile: in
                     # black-output failure.
                     isolated = temp / ("isolated-" + generated_name)
                     command = [str(executable), "-i", str(inputs / generated_name),
-                               "-o", str(isolated), "-n", model, "-s", "4",
+                               "-o", str(isolated), "-n", model,
+                               "-m", str(executable.resolve().parent / "models"), "-s", "4",
                                "-t", str(tile), "-f", "png"]
                     retry = subprocess.run(command, capture_output=True, text=True)
                     if retry.returncode == 0 and isolated.is_file():

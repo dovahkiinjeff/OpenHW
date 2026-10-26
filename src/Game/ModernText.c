@@ -380,6 +380,12 @@ bool32 hwModernTextDraw(const char *sourceFont,
     if (alphaTestOn) glDisable(GL_ALPHA_TEST);
     rndAdditiveBlends(FALSE);
     rndTextureEnvironment(RTE_Modulate);
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    /* UI alpha textures never participate in a previous ship/wreck's
+       idle/active engine-material interpolation. Binding the font alone is
+       insufficient: the native shader otherwise still samples the idle hull. */
+    hwglCaptureEngineIdle(-1.0f);
+#endif
     glBindTexture(GL_TEXTURE_2D, entry->texture);
     glColor4ub(colRed(tint), colGreen(tint), colBlue(tint), colAlpha(tint));
     glBegin(GL_TRIANGLE_STRIP);

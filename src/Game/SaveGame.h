@@ -17,9 +17,11 @@
 
 #define SAVE_VERSION_NUMBER_HWSDL_1     0x10ad0028  // => (20031124) bump for Homeworld SDL project
 #define SAVE_VERSION_NUMBER_HWSDL_2     0x10ad0029  // => (20061214) currentMission -> MissionEnum
+#define SAVE_VERSION_NUMBER_RTX_VETERANCY 0x10ad002a // versioned Ship veterancy state
+#define SAVE_VERSION_NUMBER_OPENHW 0x10ad002c // HW1-only portable development save layout
 
 // don't forget to update SaveGame.c: supportedVersionNumbers[] if you change this
-#define SAVE_VERSION_NUMBER             SAVE_VERSION_NUMBER_HWSDL_2
+#define SAVE_VERSION_NUMBER             SAVE_VERSION_NUMBER_OPENHW
 
 #define BASIC_STRUCTURE                 0x80000000
 #define VARIABLE_STRUCTURE              0x40000000

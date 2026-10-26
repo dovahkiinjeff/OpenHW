@@ -1,0 +1,78 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_tai_cruiserion_hw1_6fd11f0613
+scale 1
+hull @/Subsystems/tai_cruiserion/model.hod
+mad -
+surface 0 0 @/Subsystems/tai_cruiserion/m0
+gun 0 Hull - - - Weapon_Ion1_Muzzle
+gun 1 Hull Weapon_Ion1_Position Weapon_Ion1_Latitude Weapon_Ion1_Latitude Weapon_Ion1_Muzzle
+
+presentation Hull component_events.owevents
+[Weapons]
+GUN 0
+//Desired Range = 6000
+//ADD this amount:  42 to compensate for centrepoint
+//ADD this amount:1058 to compensate for stopping distance
+{
+WeaponFire @/RemasteredFX/WeaponFire/ionbeam.wf
+FireAnimation Weapon_Ion1
+
+Type                                GUN_NewGimble
+SoundType                           GS_LargeIonCannon
+BulletType                          BULLET_Beam
+DamageLo                            30
+DamageHi                            33
+BulletLength                        7100.0
+BulletRange                         7100.0
+BulletSpeed                         0.0
+BulletLifeTime                      2.2
+BulletMass                          0.0
+FireTime                            6.0
+TriggerHappy                        7.0
+minturnangle                      -85.0                          ; degrees
+maxturnangle                       85.0
+mindeclination                      -1.0
+maxdeclination                      13.0
+maxanglespeed                     360.0                         ; degrees/s
+maxdeclinationspeed               360.0
+angletracking                       1.5
+declinationtracking                 1.5
+BarrelLength                      125.0
+OffsetX                             0
+OffsetY                             0
+SlaveDriver                         9
+}
+
+GUN 1
+//Desired Range = 6000
+//ADD this amount:  42 to compensate for centrepoint
+//ADD this amount:1058 to compensate for stopping distance
+{
+WeaponFire @/RemasteredFX/WeaponFire/ionbeam.wf
+FireAnimation Weapon_Ion1
+
+Type                                GUN_NewGimble
+SoundType                           GS_LargeIonCannon
+BulletType                          BULLET_Beam
+DamageLo                            30
+DamageHi                            33
+BulletLength                        7100.0
+BulletRange                         7100.0
+BulletSpeed                         0.0
+BulletLifeTime                      2.2
+BulletMass                          0.0
+FireTime                            6.0
+TriggerHappy                        7.0
+minturnangle                      -85.0                          ; degrees
+maxturnangle                       85.0
+mindeclination                      -1.0
+maxdeclination                      13.0
+maxanglespeed                     360.0                         ; degrees/s
+maxdeclinationspeed               360.0
+angletracking                       1.5
+declinationtracking                 1.5
+BarrelLength                      125.0
+OffsetX                             0
+OffsetY                             0
+}
+[End]

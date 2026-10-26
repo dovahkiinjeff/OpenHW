@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     Name    : SaveGame.c
     Purpose : Code for saving and loading games (saves entire contents of universe, etc.)
@@ -7,8 +8,10 @@
 =============================================================================*/
 
 #include "SaveGame.h"
+#include "SaveGameLayout.h"
 
 #include <string.h>
+#include <stddef.h>
 
 #include "AIPlayer.h"
 #include "Blobs.h"
@@ -20,10 +23,14 @@
 #include "ConsMgr.h"
 #include "Damage.h"
 #include "File.h"
+#include "Formation.h"
+#include "HorseRace.h"
 #include "LevelLoad.h"
+#include "InfoOverlay.h"
 #include "Light.h"
 #include "LinkedList.h"
 #include "Memory.h"
+#include "Mesh.h"
 #include "MultiplayerGame.h"
 #include "Objectives.h"
 #include "Ping.h"
@@ -66,6 +73,8 @@ sdword saveGameVersionNumber = 0;
 sdword supportedVersionNumbers[] = {
     SAVE_VERSION_NUMBER_HWSDL_1,
     SAVE_VERSION_NUMBER_HWSDL_2,
+    SAVE_VERSION_NUMBER_RTX_VETERANCY,
+    SAVE_VERSION_NUMBER_OPENHW,
 };
 
 /*=============================================================================
@@ -493,6 +502,8 @@ void LoadMissionNumber(void)
             break;
         
         case SAVE_VERSION_NUMBER_HWSDL_2:
+        case SAVE_VERSION_NUMBER_RTX_VETERANCY:
+        case SAVE_VERSION_NUMBER_OPENHW:
             // use mission value as-is; it's a MissionEnum
             saveGameMissionEnum = (MissionEnum) saveGameMissionReference;
             break;
@@ -822,13 +833,16 @@ void PreLoadGame(char *filename)
 {
     sdword verify;
 
+    HorseRaceLoadingTask("Opening saved-game file");
     savefile = fileOpen(filename, FF_UserSettingsPath);
+    HorseRaceLoadingTask("Validating saved-game format");
     verify = LoadVersionInfo();
     if (verify != VERIFYSAVEFILE_OK)
     {
         dbgFatalf(DBG_Loc,"Error %d loading game %s",verify,filename);
         return;
     }
+    HorseRaceLoadingTask("Reading saved fleet and mission requirements");
     LoadPreGameInfo();
 }
 
@@ -848,17 +862,21 @@ void LoadGame(char *filename)
     SpaceObjRegistryInit();
     BlobRegistryInit();
 
+    HorseRaceLoadingTask("Restoring saved ships and world objects");
     LoadAllSpaceObjs();
+    HorseRaceLoadingTask("Restoring collision groups and universe state");
     LoadAllBlobs();
     LoadUniverse();
     LoadIDToPtrTable(&ShipIDToPtr);
     LoadIDToPtrTable(&ResourceIDToPtr);
     LoadIDToPtrTable(&DerelictIDToPtr);
     LoadIDToPtrTable(&MissileIDToPtr);
+    HorseRaceLoadingTask("Restoring nebulae, construction and computer players");
     nebLoad_Nebula();
     LoadConsMgr();
     aiplayerLoad();
 
+    HorseRaceLoadingTask("Restoring campaign state and objectives");
     LoadSinglePlayerGame();
 
     if (singlePlayerGame)
@@ -875,6 +893,7 @@ void LoadGame(char *filename)
         tutLoadTutorialGame();
     }
     
+    HorseRaceLoadingTask("Restoring selections and mission background");
     LoadMaxSelectionAndFix(&selSelected);
     for (i=0;i<SEL_NumberHotKeyGroups;i++)
     {
@@ -882,6 +901,7 @@ void LoadGame(char *filename)
     }
 
     LoadBackground();
+    HorseRaceLoadingTask("Restoring mission lighting, sensors and random state");
     LoadLighting();
 
     smLoad();
@@ -892,10 +912,16 @@ void LoadGame(char *filename)
 
     LoadConsMgrDetermOptional();            // optional, won't crash if not there, added for V1.04 patch
 
+    HorseRaceLoadingTask("Resolving saved-object and collision references");
     FixAllSpaceObjs();
     FixAllBlobs();
 
     listInit(&universe.effectList);
+
+
+    /* Current parade presets intentionally override the saved layout, not orders. */
+    HorseRaceLoadingTask("Applying current fleet parade presets");
+    paradeCampaignLoaded();
 
     fileClose(savefile);
     savefile = 0;
@@ -1693,6 +1719,9 @@ void CopyPointersFromRealShipStaticInfo(ShipStaticInfo *dynamicstaticinfo,ShipSt
     }
 
     dynamicstaticinfo->madStatic = realstaticinfo->madStatic;
+    /* Hierarchy size belongs to the currently loaded visual, not the saved
+       dynamic gameplay stats. RM replacements have many more binding nodes. */
+    dynamicstaticinfo->hierarchySize = realstaticinfo->hierarchySize;
 
     dynamicstaticinfo->gunStaticInfo = realstaticinfo->gunStaticInfo;
     dynamicstaticinfo->dockStaticInfo = realstaticinfo->dockStaticInfo;
@@ -1929,12 +1958,30 @@ Ship *LoadShip(SaveChunk *chunk)
     Ship *ship;
     udword sizespec;
     udword sizeship = sizeof(Ship), totalsize;
+    udword savedRecordSize = chunk->contentsSize;
     ShipStaticInfo *shipstaticinfo;
 
     VerifyChunkNoSize(chunk,VARIABLE_STRUCTURE|SAVE_SPACEOBJ|OBJ_ShipType);
 
-    ship = memAlloc(chunk->contentsSize,"Ship",NonVolatile);
-    memcpy(ship,chunkContents(chunk),chunk->contentsSize);
+    if (saveGameVersionNumber < SAVE_VERSION_NUMBER_RTX_VETERANCY)
+    {
+        const udword oldPrefixSize = (udword)offsetof(Ship, veterancyKills);
+        const udword veterancySize = (udword)(sizeof(((Ship *)0)->veterancyKills) +
+                                              sizeof(((Ship *)0)->veterancyRank) +
+                                              sizeof(((Ship *)0)->veterancyPadding));
+        ship = memAlloc(chunk->contentsSize + veterancySize,"Ship",NonVolatile);
+        memcpy(ship, chunkContents(chunk), oldPrefixSize);
+        memset(((ubyte *)ship) + oldPrefixSize, 0, veterancySize);
+        memcpy(((ubyte *)ship) + oldPrefixSize + veterancySize,
+               ((ubyte *)chunkContents(chunk)) + oldPrefixSize,
+               chunk->contentsSize - oldPrefixSize);
+        savedRecordSize += veterancySize;
+    }
+    else
+    {
+        ship = memAlloc(chunk->contentsSize,"Ship",NonVolatile);
+        memcpy(ship,chunkContents(chunk),chunk->contentsSize);
+    }
 
     if (ship->flags & SOF_StaticInfoIsDynamic)
     {
@@ -1977,7 +2024,35 @@ Ship *LoadShip(SaveChunk *chunk)
         totalsize += ship->madBindings->totalSize;
     }
 
-    dbgAssertOrIgnore(totalsize == chunk->contentsSize);
+    dbgAssertOrIgnore(totalsize == savedRecordSize);
+
+    /* The embedded MAD payload contains local bindings sized for the model
+       used when this save was written. Rebinding it against a larger native
+       hierarchy without growing the record overwrites the following heap
+       allocations (including universe list nodes). Preserve the clock/curves;
+       only the runtime binding tail is rebuilt by Fix_madBindings. */
+    if (ship->madBindings && shipstaticinfo->madStatic)
+    {
+        const udword madOffset = (udword)((ubyte *)ship->madBindings - (ubyte *)ship);
+        const udword requiredMadSize = (udword)(madAnimSize(shipstaticinfo->staticheader.LOD->nLevels) +
+            shipstaticinfo->hierarchySize * sizeof(mhlocalbinding) +
+            shipstaticinfo->madStatic->header->nObjects * sizeof(splinecurve) * 6);
+        if (requiredMadSize > ship->madBindings->totalSize)
+        {
+            HW_DIAG_FPRINTF(stderr, "[SaveVisualMigration] %s/%s animation binding payload expanded from %u to %u bytes for current hierarchy.\n",
+                ShipRaceToStr(ship->shiprace), ShipTypeToStr(ship->shiptype),
+                ship->madBindings->totalSize, requiredMadSize);
+            Ship *expanded = memAlloc(madOffset + requiredMadSize, "Ship", NonVolatile);
+            memcpy(expanded, ship, savedRecordSize);
+            memset((ubyte *)expanded + savedRecordSize, 0, madOffset + requiredMadSize - savedRecordSize);
+            memFree(ship);
+            ship = expanded;
+            ship->collInfo.precise = shipstaticinfo->staticheader.staticCollInfo.preciseSelection != 0xff ?
+                (PreciseSelection *)((ubyte *)ship + sizeship) : NULL;
+            ship->madBindings = (madanim *)((ubyte *)ship + madOffset);
+            ship->madBindings->totalSize = requiredMadSize;
+        }
+    }
 
     memFree(chunk);
 
@@ -2057,6 +2132,9 @@ Ship *LoadShip(SaveChunk *chunk)
         shipstaticinfo->custshipheader.CustShip_Load(ship);
     }
 //done:
+#ifdef HW_ENABLE_D3D12_BACKEND
+    meshMotionRegisterShip(ship);
+#endif
     return ship;
 }
 
@@ -2199,6 +2277,9 @@ Asteroid *LoadAsteroid(SaveChunk *chunk)
 
     // asteroid->collMyBlob gets fixed in FixAllSpaceObjs
 
+#ifdef HW_ENABLE_D3D12_BACKEND
+    meshMotionRegisterAsteroid(asteroid);
+#endif
     return asteroid;
 }
 
@@ -2483,6 +2564,7 @@ Derelict *LoadDerelict(SaveChunk *chunk)
     derelict = memAlloc(sizeof(Derelict),"Derelict",NonVolatile);
 
     memcpy(derelict,chunkContents(chunk),chunk->contentsSize);
+    meshMotionRegisterDerelict(derelict);
 
     memFree(chunk);
 
@@ -4204,6 +4286,9 @@ void LoadUniverse(void)
 {
     SaveChunk *chunk;
     sdword i;
+    unsigned savedShipCount;
+    uword currentShipCaps[TOTAL_NUM_SHIPS];
+    memcpy(currentShipCaps,universe.shipMaxUnits,sizeof(currentShipCaps));
 
     if (universe.star3dinfo)
     {
@@ -4212,9 +4297,19 @@ void LoadUniverse(void)
     }
 
     chunk = LoadNextChunk();
-    VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_UNIVERSE,sizeof(Universe));
-
-    memcpy(&universe,chunkContents(chunk),chunk->contentsSize);
+    VerifyChunkNoSize(chunk,BASIC_STRUCTURE|SAVE_UNIVERSE);
+    savedShipCount = saveMigrateUniverse(&universe, chunkContents(chunk), chunk->contentsSize);
+    if (!savedShipCount)
+    {
+        dbgFatalf(DBG_Loc,"Unsupported saved universe layout (%d bytes)",chunk->contentsSize);
+        memFree(chunk);
+        return;
+    }
+    for (i = savedShipCount; i < TOTAL_NUM_SHIPS; ++i)
+        universe.shipMaxUnits[i] = currentShipCaps[i];
+    if (savedShipCount != TOTAL_NUM_SHIPS)
+        HW_DIAG_FPRINTF(stderr,"[SaveMigration] expanded ship table %u -> %u\n",
+                savedShipCount,(unsigned)TOTAL_NUM_SHIPS);
 
     memFree(chunk);
 
@@ -4271,4 +4366,3 @@ void LoadUniverse(void)
 #ifdef _WIN32_FIX_ME
  #pragma warning( 2 : 4047)      // turn back on "different levels of indirection warning"
 #endif
-

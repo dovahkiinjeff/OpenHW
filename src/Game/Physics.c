@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "Physics.h"
+#include "ShipPilot.h"
 
 #include <math.h>
 
@@ -172,7 +173,7 @@ bool32 physUpdateBulletPosVel(Bullet *bullet,real32 phystimeelapsed)
                 {
                     gunstatic = gun->gunstatic;
 
-                    if (bullet->target)
+                    if (bullet->target && !shipPilotControls(ship))
                     {
                         switch (gunstatic->guntype)
                         {

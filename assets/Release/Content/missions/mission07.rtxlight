@@ -1,0 +1,26 @@
+RTXMISSIONLIGHTING 5
+missionTuning 0 100
+missionTuning 1 100
+missionTuning 2 110
+missionTuning 3 100
+missionTuning 4 120
+missionTuning 5 65
+missionTuning 6 65
+missionTuning 7 100
+missionTuning 8 100
+missionTuning 12 100
+missionTuning 13 100
+enabled 1
+sourceValid 1
+direction 0.962634683 -0.263921887 0.0606607534
+sunIntensity 4
+godRayStrength 1.00000286
+godRayColorOverride 1
+godRayColor 1 0 0.0105266571
+sourceColorScale 4 0 0
+ambientEnabled 1
+ambientScale 1.99999928
+ambientColorOverride 1
+ambientColor 4 0.0628931522 0.228665829
+replaceMapLights 0
+lightCount 0

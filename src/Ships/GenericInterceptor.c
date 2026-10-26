@@ -1368,5 +1368,3 @@ CustShipHeader TargetDroneHeader =
     NULL,
     NULL
 };
-
-

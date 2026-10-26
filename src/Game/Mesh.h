@@ -353,7 +353,54 @@ void meshShutdown(void);
 
 //load in a mesh file
 meshdata *meshLoad(char *fileName);
+meshdata *meshLoadOpenHWSubsystem(const char *type,float scale);
+int meshValidateOpenHWDefinition(const char *root,const char *identity,const void *bytes,size_t size,char *error,size_t capacity);
+int meshCompleteOpenHWDefinition(const char *root,const void *bytes,size_t size,void **output,size_t *length,char *error,size_t capacity);
+struct HwRmSubsystemInstance;
+struct HwRmSubsystemNode;
+typedef const char *(*meshRmNameResolver)(void *user, const struct HwRmSubsystemNode *node);
+/* Native fleet bridge; preserves pivot hierarchy for gun/MAD bindings. Names
+   must be explicit per-ship adapters. Returns an UNREGISTERED nonpacked mesh;
+   activation must pass through the ordinary material-registration path before
+   rendering. No GEO serialization, source lifetime pointers, or Ship changes. */
+meshdata *meshCreateRemasteredHierarchy(struct HwRmSubsystemInstance *instance,
+    unsigned int lod, float scale, const char *fileName,
+    meshRmNameResolver materialName, meshRmNameResolver bindingName, void *user);
+/* Copy sampled native poses into THIS ship's hierarchy bindings, never into
+   shared static mesh data. Reject mismatched topology or existing legacy gun/
+   MAD callbacks before changing any binding. Caller owns animation timing. */
+bool32 meshApplyRemasteredHierarchyPose(struct HwRmSubsystemInstance *instance,
+    unsigned int lod, float scale, meshdata *mesh, mhlocalbinding *bindings,
+    unsigned int bindingCount);
+/* Ship-local posed muzzle; FALSE leaves output unchanged and retains MEX. */
+bool32 meshRemasteredGunMuzzle(const void *ship, unsigned int gun, vector *position);
+void meshRemasteredNotifyWeaponFire(const void *ship,unsigned int gun,double clock);
+void meshRemasteredNotifyAnimation(const void *ship,const char *event,double phase);
+bool32 meshRemasteredSynchronizeInstance(const void *ship,void *instance);
+bool32 meshRemasteredGunHasSound(const void *ship,unsigned int gun);
+void *meshRemasteredInstance(const void *ship,float *modelScale);
+bool32 meshRemasteredMarkerPosition(const void *ship, const char *semantic, vector *position);
+bool32 meshRemasteredMarkerTransform(const void *ship, const char *semantic, hmatrix *transform);
+void meshSetEngineMaterialOwner(const void *ship);
+/* Renderer-only lifetimes; never stored in serialized gameplay records. */
+void meshMotionRegisterShip(const void *ship);
+void meshMotionRetireShip(const void *ship);
+void meshMotionRegisterAsteroid(const void *asteroid);
+void meshMotionRetireAsteroid(const void *asteroid);
+void meshMotionRegisterDerelict(const void *derelict);
+void meshMotionRetireDerelict(const void *derelict);
+unsigned long long meshMotionDerelictIdentity(const void *derelict);
+void meshSetDerelictMotionOwner(const void *derelict);
+unsigned long long meshMotionAsteroidIdentity(const void *asteroid);
+void meshSetAsteroidMotionOwner(const void *asteroid);
+bool32 meshPrepareRemasteredShipPose(const void *ship, shipbindings *bindings,
+    sdword currentLOD, meshdata *mesh);
 void meshFree(meshdata *mesh);
+/* Detached visual hull: owns pose bindings, borrows static geometry through
+   an invalidated lease. Never retains the deleted gameplay Ship. */
+void *meshRemasteredDeathHullCreate(const void *ship);
+void meshRemasteredDeathHullDraw(void *hull,void *instance,const matrix *rotation,const vector *position);
+void meshRemasteredDeathHullFree(void *hull);
 void meshRecolorize(meshdata *mesh);
 void meshFixupUV(meshdata* mesh);
 bool32 meshPagedVersionExists(char* fileName);

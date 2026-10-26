@@ -1,0 +1,8 @@
+HW_RM_R2_VISUAL_1
+type Taiidan_Probe
+scale 2.66692427
+hull hull.hod
+mad -
+marker engine_0 Hull EngineNozzle1
+surface 0 0 c0_m0
+surface 0 1 c0_m1

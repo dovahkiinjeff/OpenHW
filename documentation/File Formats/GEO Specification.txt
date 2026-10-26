@@ -1,3 +1,6 @@
+HISTORICAL ORIGINAL HOMEWORLD REFERENCE — NOT UPDATED FOR OPENHW 1.0
+This original format note is preserved for reference. It does not describe the complete current OpenHW importer/runtime. Start with documentation/README.md and docs/MODDING.md before using it for modding.
+
 ----------------------------------------------------------------------------- 
 Originally provided in Relic's source: GEOSpecification.doc
 ----------------------------------------------------------------------------- 

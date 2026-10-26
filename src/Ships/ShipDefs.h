@@ -7,6 +7,7 @@
 #ifndef ___SHIPDEFS_H
 #define ___SHIPDEFS_H
 
+
 typedef enum
 {
     ShipType_Uninitialized = -1,
@@ -73,7 +74,8 @@ typedef enum
     Junk_LGun,
     Junk_SGun,
     ResearchStationBridge,
-    ResearchStationTower
+    ResearchStationTower,
+
 } ShipType_enum;
 
 #ifdef _X86_64   //Capture this first, and make sure it's correctly sized.
@@ -105,8 +107,8 @@ typedef ShipType_enum ShipType;
 #define TRADERS_FIRST_SHIP    FloatingCity
 #define TRADERS_LAST_SHIP     ResearchStationTower
 
-#define DefaultShip           (TRADERS_LAST_SHIP+1)    // not really a ship, just a flag indicating we should use Default ship behaviour
-#define TOTAL_NUM_SHIPS       (TRADERS_LAST_SHIP+1)
+#define DefaultShip           (ResearchStationTower+1)    // sentinel must not alias a real ship type
+#define TOTAL_NUM_SHIPS       (ResearchStationTower+1)
 
 #define TOTAL_STD_SHIPS       (STD_LAST_SHIP - STD_FIRST_SHIP + 1)
 #define TOTAL_P1_SHIPS        (P1_LAST_SHIP - P1_FIRST_SHIP + 1)

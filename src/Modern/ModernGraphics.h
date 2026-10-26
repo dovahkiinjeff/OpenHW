@@ -1,8 +1,26 @@
 #ifndef HW_MODERN_GRAPHICS_H
 #define HW_MODERN_GRAPHICS_H
+#include "RemasteredSceneTypes.h"
+#include "DiagnosticPolicy.h"
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#if HW_ENABLE_DIAGNOSTICS
+/* Optional lightweight benchmark CPU scopes: 0=task dispatch, 1=simulation. */
+void hwModernBenchmarkCpuBegin(unsigned int phase);
+void hwModernBenchmarkCpuEnd(unsigned int phase);
+void hwModernBenchmarkRequest(void);
+/* Diagnostic capture trigger: called only after an applied gameplay zoom.
+   Has no effect when frame-generation input capture is disabled. */
+void hwModernGraphicsNotifyCameraZoom(void);
+
+#else
+static inline void hwModernBenchmarkCpuBegin(unsigned int phase) {}
+static inline void hwModernBenchmarkCpuEnd(unsigned int phase) {}
+static inline void hwModernBenchmarkRequest(void) {}
+static inline void hwModernGraphicsNotifyCameraZoom(void) {}
 #endif
 
 typedef enum HWModernRaytracingTier
@@ -109,7 +127,9 @@ typedef enum HWModernVolumetricDustShape
 {
     HW_MODERN_DUST_SPHERE = 0,
     HW_MODERN_DUST_BOX = 1,
-    HW_MODERN_DUST_ELLIPSOID = 2
+    HW_MODERN_DUST_ELLIPSOID = 2,
+    HW_MODERN_DUST_ROPE = 3,
+    HW_MODERN_DUST_PARTICLE_DENSITY = 4
 } HWModernVolumetricDustShape;
 
 enum
@@ -139,6 +159,42 @@ typedef struct HWModernVolumetricDustVolume
     float rotationDegrees[3];
 } HWModernVolumetricDustVolume;
 
+/* Per-map controls shared by authored volumes, particle fields and ropes.
+   Clouds are static unless motionEnabled is explicitly selected. */
+typedef struct HWModernCloudRenderSettings
+{
+    float samplingQuality;
+    unsigned int detail;
+    unsigned int motionEnabled;
+    float motionSpeed;
+    float billowStrength;
+    float fieldCoverage;
+} HWModernCloudRenderSettings;
+
+/* Visual-only swept volumes generated from legacy harvestable-nebula
+   tendrils.  The endpoints remain owned by the resource simulation. */
+typedef struct HWModernHarvestableNebulaSegment
+{
+    float start[3];
+    float end[3];
+    float radius;
+    unsigned int seed;
+} HWModernHarvestableNebulaSegment;
+
+typedef struct HWModernHarvestableNebulaStyle
+{
+    unsigned int enabled;
+    float radiusScale;
+    float density;
+    float edgeFeather;
+    float scattering;
+    float absorption;
+    float color[3];
+    float noiseScale;
+    float noiseDetail;
+    float shapeVariation;
+} HWModernHarvestableNebulaStyle;
+
 /* RTX-0087: moving ships disturb volumetric dust in world space.  Identity is
    stable only for the lifetime of a runtime object and is used solely to
    connect consecutive frame samples into a recovering wake. */
@@ -160,7 +216,9 @@ typedef enum HWModernDynamicLightSource
     HW_MODERN_LIGHT_EXPLOSION = 5,
     HW_MODERN_LIGHT_SHIP_EMISSIVE = 6,
     HW_MODERN_LIGHT_NAV = 7,
-    HW_MODERN_LIGHT_WEAPON_IMPACT = 8
+    HW_MODERN_LIGHT_WEAPON_IMPACT = 8,
+    /* Authored normalized RM light colour/intensity, not legacy ETG units. */
+    HW_MODERN_LIGHT_NATIVE_FX = 9
 } HWModernDynamicLightSource;
 
 typedef enum HWModernDynamicLightShape
@@ -192,6 +250,8 @@ typedef struct HWModernDynamicLightEmitter
 typedef struct HWModernTriangleSurface
 {
     const void *materialIdentity;
+    const void *idleMaterialIdentity;
+    float engineBlend;
     float baseColor[3];
     float emissiveColor[3];
     float emissiveIntensity;
@@ -245,6 +305,9 @@ void hwModernGraphicsSetGodRayWorldSource(
 /* Records a fullscreen native D3D12 mission-environment draw using the
    currently loaded 2:1 dual-paraboloid BC6H_UF16 texture. */
 int hwModernGraphicsRenderMissionSky(unsigned int textureName, float fade);
+/* Native batched RM point-star catalog: xyz, RGB, point diameter per record. */
+int hwModernGraphicsRenderBackgroundStars(unsigned int textureName,
+    const float *stars, unsigned int count, float fade);
 
 int hwModernGraphicsCaptureOpenGLBackground(
     int mapIdentity, float verticalFieldOfViewDegrees, float aspectRatio,
@@ -255,13 +318,19 @@ int hwModernGraphicsCaptureOpenGLBackground(
    raster-only blocker layer while DXR supplies opaque ship/derelict hits. */
 int hwModernGraphicsCaptureOpenGLOccluders(void);
 
+void hwModernGraphicsBeginAudioWork(void (*function)(void));
+void hwModernGraphicsWaitAudioWork(void);
 void hwModernGraphicsEndFrame(void);
+/* Presentation rate, including generated submissions when the swapchain
+   exposes them; falls back to successful application presentations. */
+float hwModernGraphicsGetFramesPerSecond(void);
 
 /* Waits for outstanding bridge work and releases all D3D12 resources. */
 void hwModernGraphicsShutdown(void);
 
 /* Returns non-zero while the D3D12 frame bridge is usable. */
 int hwModernGraphicsIsActive(void);
+int hwModernGraphicsIsD3D11(void);
 
 /* Returns non-zero only when D3D12 owns visible window presentation. */
 int hwModernGraphicsIsVisiblePresenterActive(void);
@@ -275,6 +344,7 @@ void hwModernGraphicsSetVSync(int mode);
    0 disables only the lighting cast by FX/emissive sources, while their
    visible compatibility-renderer artwork remains unchanged. */
 void hwModernGraphicsSetRaytracingEnabled(int enabled);
+void hwModernGraphicsSetSensorViewActive(int active);
 void hwModernGraphicsSetFxLightingStrength(float strength);
 void hwModernGraphicsSetPathTracingSettings(unsigned int samplesPerPixel,
                                             unsigned int maximumBounces,
@@ -302,10 +372,15 @@ void hwModernGraphicsSetMissionSkyLighting(
     const float sourceColor[3], const float ambientColor[3]);
 void hwModernGraphicsSetAntiAliasingMode(int mode);
 void hwModernGraphicsSetFrameGenerationMode(int mode);
+/* Actual runtime status: off=0, waiting=1, active=2, unavailable=3, failed=4. */
+int hwModernGraphicsGetFrameGenerationStatus(void);
+const char *hwModernGraphicsGetFrameGenerationReason(void);
 int hwModernGraphicsIsDlaaActive(void);
 void hwModernGraphicsSetPostProcessingSettings(
     float chromaticAberration, float motionBlur, float filmGrain,
     float godRays, float bloom);
+void hwModernGraphicsSetDisplayControls(float brightness, float gamma);
+void hwModernGraphicsSetLensFlaresEnabled(int enabled);
 /* Supplies the projected screen-space position and color of the one
    mission-owned sky emitter selected by ModernMissionBackdrop.  Coordinates
    use the OpenGL capture convention and may lie outside [0,1] while the
@@ -317,6 +392,8 @@ void hwModernGraphicsSetGodRaySource(float screenX, float screenY,
                                      int visible);
 /* Deterministic final-output dithering used to hide 8-bit sky/lighting
    contouring without introducing animated film grain. */
+/* Authored hull/engine surface emission only; path-traced lighting is unchanged. */
+void hwModernGraphicsSetRasterGlowBrightness(float strength);
 void hwModernGraphicsSetOutputDitherStrength(float strength);
 
 /* Streamline must install its D3D/DXGI interposer before the first DirectX
@@ -346,6 +423,22 @@ void hwModernGraphicsSetMissionAuthoringReplacesMapLights(int replace);
    renderer copies the array immediately; callers keep ownership. */
 void hwModernGraphicsSetVolumetricDustVolumes(
     const HWModernVolumetricDustVolume *volumes, unsigned int count);
+void hwModernGraphicsGetCloudRenderSettings(HWModernCloudRenderSettings *settings);
+void hwModernGraphicsSetCloudRenderSettings(const HWModernCloudRenderSettings *settings);
+void hwModernGraphicsResetCloudRenderSettings(void);
+/* Game simulation seconds, so paused games also freeze optional cloud motion. */
+void hwModernGraphicsSetCloudSimulationTime(float seconds);
+void hwModernGraphicsSetParticleFieldVolumes(
+    const HWModernVolumetricDustVolume *volumes, unsigned int count);
+void hwModernGraphicsSetParticleFieldDensity(const float *values, unsigned int count);
+void hwModernGraphicsSetHarvestableNebulaStyle(
+    const HWModernHarvestableNebulaStyle *style);
+void hwModernGraphicsGetHarvestableNebulaStyle(
+    HWModernHarvestableNebulaStyle *style);
+void hwModernGraphicsSetHarvestableNebulaSegments(
+    const HWModernHarvestableNebulaSegment *segments, unsigned int count);
+void hwModernGraphicsSetHarvestableDustVolumes(
+    const HWModernVolumetricDustVolume *volumes, unsigned int count);
 /* Global camera-distance attenuation authored from Shift+F11. Distance is the
    full-strength radius in world units; strength 0 disables fading. */
 void hwModernGraphicsSetVolumetricDustFade(float distance, float strength);
@@ -358,6 +451,9 @@ void hwModernGraphicsSetVolumetricDustFade(float distance, float strength);
 void hwModernGraphicsSetVolumetricDustCamera(
     const float eye[3], const float rayUv00[3], const float rayUv10[3],
     const float rayUv01[3]);
+/* World-space orbit target; keeps standalone sun shafts on the viewed fleet. */
+void hwModernGraphicsSetGodRayFocus(const float focus[3]);
+void hwModernGraphicsSetMissionGodRayStyle(float strength, const float color[3], int colorOverride);
 /* Freezes transient dust dynamics (ship-wake aging/recovery) while the game
    simulation is paused. Static authored density is always time invariant. */
 void hwModernGraphicsSetVolumetricDustSimulationPaused(int paused);
@@ -416,6 +512,12 @@ void hwModernGraphicsFreeDecodedDds(void *rgba);
    D3D12 compatibility texture. Returns zero when direct upload is unavailable
    or the DDS format is not suitable for the raster color path. */
 int hwModernGraphicsUploadBoundDds(const void *data, unsigned int size);
+/* Model quality is latched on first use, so Apply cannot mix old and new
+   allocations during a mission. Changes take effect on the next launch. */
+unsigned int hwModernGraphicsModelTextureCap(int quality);
+int hwModernGraphicsDecodeModelDds(const void *data, unsigned int size,
+    const char *key, int quality, unsigned int *width, unsigned int *height,
+    unsigned char **rgba);
 /* Drop the current material-pointer -> LIF association. Geometry variants
    already own a copied texture record, so this only prevents a later mesh
    that reuses the same allocation address from inheriting stale texels. */
@@ -460,6 +562,24 @@ void hwModernGraphicsSubmitTriangleGeometryMasked(
     unsigned int triangleSurfaceStrideBytes,
     const float modelViewMatrix[16],
     const float baseColor[3], unsigned int instanceMask);
+/* Explicit lifetime/part identity for temporal object motion. Zero owner
+   retains the unowned scenery path; game/save IDs and allocation addresses
+   alone are not lifetime identities. Different LOD parts begin new history. */
+void hwModernGraphicsSubmitTriangleGeometryMaskedIdentified(
+    const void *geometryIdentity,
+    const float *vertexPositions, unsigned int vertexCount,
+    unsigned int vertexStrideBytes,
+    const unsigned short *triangleIndices, unsigned int triangleCount,
+    unsigned int triangleStrideBytes,
+    unsigned int surfaceVariant,
+    const HWModernTriangleSurface *triangleSurfaces,
+    unsigned int triangleSurfaceStrideBytes,
+    const float modelViewMatrix[16],
+    const float baseColor[3], unsigned int instanceMask,
+    unsigned long long motionOwner, unsigned long long motionPart);
+/* Asteroids inside an enabled authored dust envelope retain solid shadows
+   but are excluded from standalone atmospheric shafts. */
+unsigned int hwModernGraphicsAsteroidShadowMask(const float position[3], unsigned int mask);
 
 /* True only when a DXR device, ray pipeline, acceleration structures, and
    output surface are available. This is stronger than the capability probe. */

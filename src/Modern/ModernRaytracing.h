@@ -2,13 +2,26 @@
 #define HW_MODERN_RAYTRACING_H
 
 #include "ModernGraphics.h"
+#include "ResolvedSceneLighting.h"
+#include "RasterEmissionSource.h"
 
 #if defined(_WIN32)
 
 #include <d3d12.h>
+#include <string>
 
 namespace hwmodern
 {
+// Same authoring, source priority, units and coordinate conversion as DXR.
+// Call on the frozen render thread before dispatching a ray worker.
+void resolveRasterSceneLights(const float view[16],
+    const HWModernMapLightEmitter *map,unsigned mapCount,
+    const HWModernDynamicLightEmitter *dynamic,unsigned dynamicCount,
+    std::vector<ResolvedSceneLight>& output);
+constexpr unsigned int materialDescriptorBase = 128;
+constexpr unsigned int materialDescriptorCount = 32768;
+constexpr unsigned int materialFeedbackDescriptorBase = materialDescriptorBase + materialDescriptorCount;
+constexpr unsigned int materialMipRequestDescriptorIndex = materialFeedbackDescriptorBase + materialDescriptorCount;
 
 bool raytracingInitialize(ID3D12Device *device,
                           ID3D12DescriptorHeap *shaderVisibleHeap,
@@ -16,7 +29,8 @@ bool raytracingInitialize(ID3D12Device *device,
                           unsigned int outputSrvIndex,
                           unsigned int outputUavIndex,
                           unsigned int environmentSrvIndex,
-                          unsigned int rrGuideUavBaseIndex);
+                          unsigned int rrGuideUavBaseIndex,
+                          ID3D12CommandQueue *directQueue = nullptr);
 void raytracingShutdown(void);
 
 bool raytracingCreateOutput(unsigned int width, unsigned int height);
@@ -24,6 +38,7 @@ void raytracingReleaseOutput(void);
 
 void raytracingBeginFrame(void);
 void raytracingSetFrameSlot(unsigned int frameSlot);
+void raytracingSetSensorViewActive(bool active);
 void raytracingSetJitter(float jitterX, float jitterY);
 void raytracingSetFxLightingStrength(float strength);
 void raytracingSetPathSettings(unsigned int samplesPerPixel,
@@ -62,10 +77,14 @@ void raytracingRegisterSurfaceTexture(
 bool raytracingTryAliasSurfaceTexture(const void *materialIdentity,
                                       const char *textureKey);
 void raytracingUnregisterSurfaceTexture(const void *materialIdentity);
+bool raytracingRasterEmissionSource(const void *materialIdentity,RasterEmissionSource &source);
+bool raytracingReadRasterEmission(std::uint64_t token,std::vector<unsigned char> &rgba);
 void raytracingBeginScene(float verticalFieldOfViewDegrees, float aspectRatio,
                           const float viewMatrix[16]);
 void raytracingEndScene(void);
 bool raytracingSceneOpen(void);
+// Explicit visual-capture only; no traversal or formatting on normal frames.
+std::string raytracingMotionSnapshot();
 
 void raytracingSubmitGeometry(
     const void *geometryIdentity,
@@ -78,7 +97,8 @@ void raytracingSubmitGeometry(
     unsigned int triangleSurfaceStrideBytes,
     const float modelViewMatrix[16],
     const float baseColor[3],
-    unsigned int instanceMask);
+    unsigned int instanceMask,
+    unsigned long long motionOwner = 0, unsigned long long motionPart = 0);
 
 /* Records BLAS/TLAS work and DispatchRays. The caller selects a frame slot
    whose fence has completed before invoking this function. Returns true when
@@ -91,6 +111,13 @@ bool raytracingRecord(ID3D12GraphicsCommandList *commands,
                       const HWModernDynamicLightEmitter *dynamicLights,
                       unsigned int dynamicLightCount);
 
+struct RaytracingCacheStats
+{
+    unsigned long long uploads, evictions, trimmedBytes, residentBytes;
+};
+// Render-thread snapshot of existing counters; no resource query or cache scan.
+RaytracingCacheStats raytracingCacheStats(void);
+
 bool raytracingInitialized(void);
 bool raytracingActive(void);
 ID3D12Resource *raytracingDepthResource(void);
@@ -101,6 +128,8 @@ ID3D12Resource *raytracingNormalRoughnessResource(void);
 float raytracingFieldOfViewDegrees(void);
 float raytracingAspectRatio(void);
 bool raytracingHistoryReset(void);
+// View-space TLAS is usable only after successful recording for this frame.
+unsigned long long raytracingSunVisibilityScene(float viewRows[12]);
 
 }
 

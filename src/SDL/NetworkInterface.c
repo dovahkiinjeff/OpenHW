@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 #include <string.h>
 #include <stdio.h>
 #include <SDL2/SDL.h>
@@ -67,7 +68,7 @@ void initNetwork()
 
         if(SDLNet_ResolveHost(&broadcastIp,"255.255.255.255",UDPPORT)==-1)
 	{
-		printf("can't resolv IP given\n");
+		HW_DIAG_PRINTF("can't resolv IP given\n");
 		exit(2);
 	}
 
@@ -123,9 +124,9 @@ int broadcastStartThread(void *data)
 	{
 		if(SDLNet_UDP_Recv(broadcastRecvSock,packet)>0)
 		{
-//			printf("Packet received, length: %d id: %s port: %d\n", packet->len, packet->data,packet->address.port);
+//			HW_DIAG_PRINTF("Packet received, length: %d id: %s port: %d\n", packet->len, packet->data,packet->address.port);
 			ipaddr=SDL_SwapBE32(packet->address.host);
-//			printf("IP Address : %d.%d.%d.%d\n",
+//			HW_DIAG_PRINTF("IP Address : %d.%d.%d.%d\n",
 //						ipaddr>>24,
 //						(ipaddr>>16)&0xff,
 //						(ipaddr>>8)&0xff,
@@ -135,16 +136,16 @@ int broadcastStartThread(void *data)
 			newIp.host=packet->address.host;
 			if(checkList(newIp, listIps) == -1)
 			{
-				printf("newIp : %d\n",newIp.host);
+				HW_DIAG_PRINTF("newIp : %d\n",newIp.host);
 				listIps = addList(newIp, listIps);
 				if((number=SDLNet_UDP_Bind(data,0,&newIp))==-1)
 				{
-					printf("error binding\n");
+					HW_DIAG_PRINTF("error binding\n");
 				}
 				else
-					printf("binding last ip received, channel %d\n",number);
+					HW_DIAG_PRINTF("binding last ip received, channel %d\n",number);
 			}
-//			printf("packet recu taille : %d\n",packet->len);
+//			HW_DIAG_PRINTF("packet recu taille : %d\n",packet->len);
 			titanReceivedLanBroadcastCB(packet->data, packet->len);
 		}
 		else
@@ -167,7 +168,7 @@ int checkList(IPaddress Ip, IpList list)
 		else
 			tmp = tmp->nextIP;
 	}
-//	printf("not found in the list\n");
+//	HW_DIAG_PRINTF("not found in the list\n");
 
 	return -1;
 }
@@ -190,11 +191,11 @@ Uint32 getMyAddress()
         UDPpacket *packet = SDLNet_AllocPacket(512);
 	Uint32 ipAdd;
 
-        printf("thread created\n");
+        HW_DIAG_PRINTF("thread created\n");
 
         if(!(recvSock=SDLNet_UDP_Open(45268)))
         {
-                printf("socket not open\n");
+                HW_DIAG_PRINTF("socket not open\n");
                 exit(5);
         }
 
@@ -203,20 +204,20 @@ Uint32 getMyAddress()
         while(SDLNet_UDP_Recv(recvSock,packet)<=0);
 
 
-        printf("Packet received, length: %d id: %s port: %d\n", packet->len, packet->data,packet->address.port);
+        HW_DIAG_PRINTF("Packet received, length: %d id: %s port: %d\n", packet->len, packet->data,packet->address.port);
         Uint32 ipaddr=SDL_SwapBE32(packet->address.host);
-        printf("IP Address : %d.%d.%d.%d\n",
+        HW_DIAG_PRINTF("IP Address : %d.%d.%d.%d\n",
                                         ipaddr>>24,
                                         (ipaddr>>16)&0xff,
                                         (ipaddr>>8)&0xff,
                                         ipaddr&0xff);
-	printf("IP Address : %d\n",packet->address.host);
+	HW_DIAG_PRINTF("IP Address : %d\n",packet->address.host);
 	ipAdd = packet->address.host;
         SDLNet_FreePacket(packet);
 
         SDL_WaitThread(pingRecv,NULL);
         SDLNet_UDP_Close(recvSock);
-	printf("ipAdd : %d\n",ipAdd);
+	HW_DIAG_PRINTF("ipAdd : %d\n",ipAdd);
 	return ipAdd;
 }
 
@@ -237,7 +238,7 @@ int pingSendThread(void *data)
 
         if(!(sendSock=SDLNet_UDP_Open(0)))
         {
-                printf("socket not open\n");
+                HW_DIAG_PRINTF("socket not open\n");
                 exit(5);
         }
 
@@ -255,7 +256,7 @@ int pingSendThread(void *data)
 
         if(!SDLNet_UDP_Send(sendSock,1,out))
         {
-                printf("no destination send\n");
+                HW_DIAG_PRINTF("no destination send\n");
         }
         SDLNet_FreePacket(out);
         SDLNet_UDP_Close(sendSock);
@@ -275,12 +276,12 @@ Uint32 connectToServer(Uint32 serverIP)
 		exit(2);
 	}
 
-	printf("addresse recu en paramètre %d\n",serverIP);
+	HW_DIAG_PRINTF("addresse recu en paramètre %d\n",serverIP);
 	ipToConnect.host = serverIP;
 
 	if(!(clientSock = SDLNet_TCP_Open(&ipToConnect)))
 	{
-		printf("can't create TCP socket to connect to server\n");
+		HW_DIAG_PRINTF("can't create TCP socket to connect to server\n");
 		exit(3);
 	}
 
@@ -294,19 +295,19 @@ Uint32 connectToServer(Uint32 serverIP)
 		result=SDLNet_TCP_Recv(clientSock,&ipViewed,sizeof(Uint32));
 		if(result<sizeof(Uint32))
 		{
-			printf("SDLNet_TCP_Recv: %s\n", SDLNet_GetError());
+			HW_DIAG_PRINTF("SDLNet_TCP_Recv: %s\n", SDLNet_GetError());
 			return NULL;
 		}
 	}
 	else
-		printf("Error during connection");
+		HW_DIAG_PRINTF("Error during connection");
 
 
 	// Switching to Client Mode.
 	clientActive = 1;
 	
 	
-	printf("Manage to connect");
+	HW_DIAG_PRINTF("Manage to connect");
 	
 	//addSockToList(sock);
 	return ipViewed;	
@@ -334,7 +335,7 @@ int TCPServerStartThread(void *data)
 
 	if(!(serverTCPSock = SDLNet_TCP_Open(&ip)))
 	{
-		printf("can't create Server TCP socket \n");
+		HW_DIAG_PRINTF("can't create Server TCP socket \n");
 		exit(3);
 	}	
 
@@ -349,8 +350,8 @@ int TCPServerStartThread(void *data)
 
 	SDLNet_TCP_AddSocket(setSock, serverTCPSock);
 
-						printf("size of packet received %d\n",lenPacket);
-						printf("message type %d\n",typMsg);
+						HW_DIAG_PRINTF("size of packet received %d\n",lenPacket);
+						HW_DIAG_PRINTF("message type %d\n",typMsg);
 		
 
 	while(endNetwork)
@@ -363,7 +364,7 @@ int TCPServerStartThread(void *data)
 
 			if(numready==-1)
 			{
-				printf("SDLNet_CheckSockets: %s\n",SDLNet_GetError());
+				HW_DIAG_PRINTF("SDLNet_CheckSockets: %s\n",SDLNet_GetError());
 				break;
 			}
 
@@ -372,36 +373,36 @@ int TCPServerStartThread(void *data)
 			if(SDLNet_SocketReady(serverTCPSock))
 			{
 				numready--;
-				//printf("Connection...\n");
+				//HW_DIAG_PRINTF("Connection...\n");
 				sock=SDLNet_TCP_Accept(serverTCPSock);
 				if(sock)
 				{
-					printf("New connection\n");
+					HW_DIAG_PRINTF("New connection\n");
 					SDLNet_TCP_AddSocket(setSock, sock);
 					addSockToList(sock);
 					fromIp = SDLNet_TCP_GetPeerAddress(sock);
 					int res;
 					res = SDLNet_TCP_Send(sock,&(fromIp->host),sizeof(Uint32));
 					if(res<sizeof(Uint32)) {
-						printf("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
-						printf("Error sending back Ip");
+						HW_DIAG_PRINTF("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
+						HW_DIAG_PRINTF("Error sending back Ip");
 					}
 					
 				}
 				else
-					printf("No new connection\n");
+					HW_DIAG_PRINTF("No new connection\n");
 			}
 			for(i=0; numready && i<numTCPClientConnected; i++)
 			{
 				if(SDLNet_SocketReady(TCPClientsConnected[i].sock))
 				{
-//					printf("New packet incoming from client %d\n",i);
+//					HW_DIAG_PRINTF("New packet incoming from client %d\n",i);
 
 					if(getPacket(TCPClientsConnected[i].sock, &typMsg, &packet, &lenPacket))
 					{
 						numready--;
-//						printf("size of packet received %d\n",lenPacket);
-//						printf("message type %d\n",typMsg);
+//						HW_DIAG_PRINTF("size of packet received %d\n",lenPacket);
+//						HW_DIAG_PRINTF("message type %d\n",typMsg);
 						fromIp = SDLNet_TCP_GetPeerAddress(TCPClientsConnected[i].sock);
 						HandleTCPMessage(fromIp->host, typMsg, packet, lenPacket);
 					}
@@ -413,10 +414,10 @@ int TCPServerStartThread(void *data)
 		}
 		else
 		{
-//			printf("Client server\n");
+//			HW_DIAG_PRINTF("Client server\n");
 			if(clientInSet == 0)
 			{
-				printf("Adding socket to set\n");
+				HW_DIAG_PRINTF("Adding socket to set\n");
 				SDLNet_TCP_AddSocket(clientSet, clientSock);
 				clientInSet = 1;
 			}
@@ -427,12 +428,12 @@ int TCPServerStartThread(void *data)
 			if(SDLNet_SocketReady(clientSock))
 			{
 				numready--;
-//				printf("New packet incoming from server\n");
+//				HW_DIAG_PRINTF("New packet incoming from server\n");
 
 				if(getPacket(clientSock, &typMsg, &packet, &lenPacket))
 				{
-//					printf("size of packet received %d\n",lenPacket);
-//					printf("message type %d\n",typMsg);
+//					HW_DIAG_PRINTF("size of packet received %d\n",lenPacket);
+//					HW_DIAG_PRINTF("message type %d\n",typMsg);
 					fromIp = SDLNet_TCP_GetPeerAddress(clientSock);
 					HandleTCPMessage(fromIp->host, typMsg, packet, lenPacket);
 				}
@@ -517,52 +518,52 @@ void putPacket(Uint32 address, unsigned char msgType, const void* data, unsigned
 
 	if(clientActive == 0)
 	{
-//		printf("envoie en tant que serveur\n",dataLen);
+//		HW_DIAG_PRINTF("envoie en tant que serveur\n",dataLen);
 		SDL_SemWait(semList);
 		sock = findSockInList(address);
 		result = SDLNet_TCP_Send(sock,&msgType,sizeof(unsigned char));
 		if(result<sizeof(unsigned char)) {
-			printf("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
+			HW_DIAG_PRINTF("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
 
 		}
 
 		result = SDLNet_TCP_Send(sock,&dataLen,sizeof(unsigned short));
 
 		if(result<sizeof(unsigned short)) {
-			printf("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
+			HW_DIAG_PRINTF("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
 
 		}
 		result = SDLNet_TCP_Send(sock,data,dataLen);
 		if(result<dataLen) {
-			printf("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
+			HW_DIAG_PRINTF("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
 
 		}
 		SDL_SemPost(semList);
 	}
 	else
 	{
-//		printf("envoie en tant que client\n",dataLen);
-//		printf("message type %d\n",msgType);
+//		HW_DIAG_PRINTF("envoie en tant que client\n",dataLen);
+//		HW_DIAG_PRINTF("message type %d\n",msgType);
 		sock = clientSock;
 		result = SDLNet_TCP_Send(sock,&msgType,sizeof(unsigned char));
 		if(result<sizeof(unsigned char)) {
-			printf("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
+			HW_DIAG_PRINTF("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
 
 		}
 
 		result = SDLNet_TCP_Send(sock,&dataLen,sizeof(unsigned short));
 
 		if(result<sizeof(unsigned short)) {
-			printf("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
+			HW_DIAG_PRINTF("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
 
 		}
 		result = SDLNet_TCP_Send(sock,data,dataLen);
 		if(result<dataLen) {
-			printf("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
+			HW_DIAG_PRINTF("SDLNet_TCP_Send: %s\n", SDLNet_GetError());
 
 		}
 	}
-//	printf("packet send, size of the packet :  %d\n",dataLen);
+//	HW_DIAG_PRINTF("packet send, size of the packet :  %d\n",dataLen);
 }
 
 
@@ -577,21 +578,21 @@ unsigned char getPacket(TCPsocket sock, unsigned char* msgType, Uint8** packetDa
 	result=SDLNet_TCP_Recv(sock,msgType,sizeof(unsigned char));
 	if(result<sizeof(unsigned char))
 	{
-//		printf("SDLNet_TCP_Recv: %s\n", SDLNet_GetError());
-		printf("Other side must have quit");
+//		HW_DIAG_PRINTF("SDLNet_TCP_Recv: %s\n", SDLNet_GetError());
+		HW_DIAG_PRINTF("Other side must have quit");
 		return NULL;
 	}
 
-//	printf("type of message received %d\n",*msgType);
+//	HW_DIAG_PRINTF("type of message received %d\n",*msgType);
 
 	result=SDLNet_TCP_Recv(sock,packetLen,sizeof(unsigned short));
 	if(result<sizeof(unsigned short))
 	{
-		printf("SDLNet_TCP_Recv: %s\n", SDLNet_GetError());
+		HW_DIAG_PRINTF("SDLNet_TCP_Recv: %s\n", SDLNet_GetError());
 		return NULL;
 	}
 
-//	printf("size of packet received %d\n",*packetLen);
+//	HW_DIAG_PRINTF("size of packet received %d\n",*packetLen);
 
 	*packetData=(Uint8*)malloc(*packetLen);
 	if(!(*packetData))
@@ -604,11 +605,11 @@ unsigned char getPacket(TCPsocket sock, unsigned char* msgType, Uint8** packetDa
 		result=SDLNet_TCP_Recv(sock,*packetData,*packetLen);
 		if(result<*packetLen)
 		{
-			printf("SDLNet_TCP_Recv: %s\n", SDLNet_GetError());
+			HW_DIAG_PRINTF("SDLNet_TCP_Recv: %s\n", SDLNet_GetError());
 			return NULL;
 		}
 	}
-//	printf("packet received\n");
+//	HW_DIAG_PRINTF("packet received\n");
 	return *msgType;	
 }
 

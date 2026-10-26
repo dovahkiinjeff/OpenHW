@@ -461,99 +461,12 @@ void dmgStopSingleEffect(Effect* effect)
 ----------------------------------------------------------------------------*/
 void dmgShipThink(Ship* ship)
 {
-    ShipStaticInfo* shipstaticinfo;
-    ShipSinglePlayerGameInfo* ssinfo;
-    ShipClass shipClass;
-    real32 maxhealth, health, healthRatio;
-    extern bool32 gShowDamage;
-
-    if (!gShowDamage)
-    {
-        return;
-    }
-
-    if (!univSpaceObjInRenderList((SpaceObj*)ship))
-    {
-        return;
-    }
-
-    ssinfo = ship->shipSinglePlayerGameInfo;
-    if (ssinfo != NULL && ssinfo->hsState != HS_INACTIVE)
-    {
-        return;
-    }
-
-    shipstaticinfo = ship->staticinfo;
-
-    shipClass = shipstaticinfo->shipclass;
-
-    maxhealth = shipstaticinfo->maxhealth;
-    health = ship->health;
-    healthRatio = health / maxhealth;
-
-    switch (shipClass)
-    {
-    //strike craft
-    case CLASS_Corvette:
-    case CLASS_Fighter:
-        if (healthRatio <= DMG_StrikeTrailLimit)
-        {
-            trailMakeWobbly(ship, TRUE);
-        }
-        else
-        {
-            trailMakeWobbly(ship, FALSE);
-        }
-
-        if (healthRatio <= DMG_StrikeLightLimit)
-        {
-            dmgPlayEffect(ship, etgDamageEffectTable[shipClass][DMG_Light], DMG_Light);
-        }
-        else
-        {
-            dmgStopEffect(ship, DMG_Light);
-        }
-
-        break;
-
-    //everything else
-    default:
-        if (healthRatio <= DMG_TrailLimit)
-        {
-            trailMakeWobbly(ship, TRUE);
-        }
-        else
-        {
-            trailMakeWobbly(ship, FALSE);
-        }
-
-        if (healthRatio <= DMG_LightLimit)
-        {
-            dmgPlayEffect(ship, etgDamageEffectTable[shipClass][DMG_Light], DMG_Light);
-        }
-        else
-        {
-            dmgStopEffect(ship, DMG_Light);
-        }
-
-        if (healthRatio <= DMG_HeavyLimit)
-        {
-            dmgPlayEffect(ship, etgDamageEffectTable[shipClass][DMG_Heavy], DMG_Heavy);
-        }
-        else
-        {
-            dmgStopEffect(ship, DMG_Heavy);
-        }
-
-        if (healthRatio <= DMG_DyingLimit)
-        {
-            dmgPlayEffect(ship, etgDamageEffectTable[shipClass][DMG_Dying], DMG_Dying);
-        }
-        else
-        {
-            dmgStopEffect(ship, DMG_Dying);
-        }
-    }
+    /* Persistent damage indication belongs exclusively to RM Damage events.
+       Clear saved/live legacy emitters as well as preventing new ones. */
+    sdword level;
+    for (level = 0; level < DMG_NumberDamageTypes; ++level)
+        dmgStopEffect(ship, level);
+    trailMakeWobbly(ship, FALSE);
 }
 
 /*-----------------------------------------------------------------------------

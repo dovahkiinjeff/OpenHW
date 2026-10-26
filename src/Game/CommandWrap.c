@@ -643,6 +643,15 @@ void clWrapLaunchMultipleShips(CommandLayer *comlayer,SelectCommand *selectcom,S
     }
 }
 
+void clWrapFormationSpread(CommandLayer *comlayer,SelectCommand *selectcom,udword ticks)
+{
+    if (playPackets || (universePause && !opPauseOrders)) return;
+    if (!multiPlayerGame && !recordFakeSendPackets)
+        formationSetSpreadForSelection(comlayer,selectcom,ticks);
+    else
+        clSendMisc(comlayer,selectcom,MISCCOMMAND_FORMATION_SPREAD,ticks);
+}
+
 void clWrapSetTactics(CommandLayer *comlayer,SelectCommand *selectcom,TacticsType tacticstype)
 {
     if (playPackets || (universePause && !opPauseOrders) ) return;

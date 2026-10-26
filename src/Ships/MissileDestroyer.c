@@ -42,6 +42,14 @@ typedef struct
 MissileDestroyerStatics MissileDestroyerStaticRace1;
 MissileDestroyerStatics MissileDestroyerStaticRace2;
 
+real32 missileDestroyerSpecialReadiness(Ship *ship)
+{
+    MissileDestroyerSpec *spec=(MissileDestroyerSpec *)ship->ShipSpecifics;
+    MissileDestroyerStatics *st=(MissileDestroyerStatics *)ship->staticinfo->custstatinfo;
+    if(!st || st->missileVolleyTime<=0) return 1.0f;
+    return max(0.0f,min(1.0f,(universe.totaltimeelapsed-spec->lasttimeFiredVolley)/st->missileVolleyTime));
+}
+
 scriptStructEntry MissileDestroyerScriptTable[] =
 {
     { "MissileRegenerateTime",scriptSetReal32CB, &(MissileDestroyerStaticRace1.missileRegenerateTime), &(MissileDestroyerStaticRace1) },

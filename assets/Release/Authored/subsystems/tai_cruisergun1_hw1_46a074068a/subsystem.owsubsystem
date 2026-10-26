@@ -1,0 +1,39 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_tai_cruisergun1_hw1_46a074068a
+scale 1
+hull @/Subsystems/tai_cruisergun1/model.hod
+mad -
+surface 0 0 @/Subsystems/tai_cruisergun1/m0
+gun 0 Hull Weapon_Gun1_Position Weapon_Gun1_Latitude Weapon_Gun1_Latitude Weapon_Gun1_Muzzle
+
+presentation Hull component_events.owevents
+[Weapons]
+GUN 0
+//Desired Range = 4000
+//ADD this amount: 610 to compensate for centrepoint
+//ADD this amount:1058 to compensate for stopping distance
+{
+WeaponFire @/RemasteredFX/WeaponFire/kinetic_large.wf
+
+Type                                GUN_NewGimble
+SoundType                           GS_VeryLargeEnergyCannon
+DamageLo                          100
+DamageHi                          125
+BulletLength                        18.0
+BulletRange                       5668.0
+BulletSpeed                       2800.0
+BulletMass                           1.2
+FireTime                             3.7
+TriggerHappy                         5.0
+minturnangle                      -135.0                      ; degrees
+maxturnangle                       135.0
+mindeclination                     -1.0
+maxdeclination                      60.0
+maxanglespeed                      360.0                      ; degrees/s
+maxdeclinationspeed                360.0
+angletracking                        1.5
+declinationtracking                  1.5
+BarrelLength                        50
+RecoilLength                        37.5
+}
+[End]

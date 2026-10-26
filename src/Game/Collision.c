@@ -18,6 +18,69 @@
 #include "Tactics.h"
 #include "Universe.h"
 #include "UnivUpdate.h"
+#include "ShipPilot.h"
+#include "RemasteredPresentation.h"
+#include "PilotCollisionPolicy.h"
+#include <string.h>
+
+/* Only actual narrow-phase contacts reach this path. Side-table state stays
+   out of saves and suppresses repeated damage/audio while hulls remain touching. */
+static bool32 pilotContactDamage(SpaceObjRotImpTarg *a,SpaceObjRotImpTarg *b)
+{
+    static struct {const void *other;real32 seen;uword id;} contacts[64];
+    static Ship *owner;
+    static uword ownerID;
+    static unsigned cursor;
+    Ship *pilot=NULL;
+    SpaceObjRotImpTarg *other;
+    vector normal,relative;
+    real32 length,closing,scale,damage,now=universe.totaltimeelapsed;
+    unsigned i;
+    uword id;
+    if(a->objtype==OBJ_ShipType && shipPilotOwns((Ship *)a)) pilot=(Ship *)a;
+    else if(b->objtype==OBJ_ShipType && shipPilotOwns((Ship *)b)) pilot=(Ship *)b;
+    if(!pilot) return FALSE;
+    other=a==(SpaceObjRotImpTarg *)pilot?b:a;
+    id=other->objtype==OBJ_ShipType?((Ship *)other)->shipID.shipNumber:0;
+    if(owner!=pilot || ownerID!=pilot->shipID.shipNumber)
+    { memset(contacts,0,sizeof(contacts));owner=pilot;ownerID=pilot->shipID.shipNumber;cursor=0; }
+    for(i=0;i<64;i++) if(contacts[i].other==other && contacts[i].id==id)
+    {
+        real32 elapsed=now-contacts[i].seen;contacts[i].seen=now;
+        if(elapsed>=0 && elapsed<=universe.phystimeelapsed*2.1f) return TRUE;
+        break;
+    }
+    if(i==64) i=cursor++%64;
+    contacts[i].other=other;contacts[i].id=id;contacts[i].seen=now;
+    vecSub(normal,other->collInfo.collPosition,pilot->collInfo.collPosition);
+    length=fsqrt(vecMagnitudeSquared(normal));
+    if(length<0.0001f) return TRUE;
+    vecMultiplyByScalar(normal,1.0f/length);
+    vecSub(relative,pilot->posinfo.velocity,other->posinfo.velocity);
+    closing=vecDotProduct(relative,normal);
+    if(closing<=0) return TRUE;
+    scale=pilotRamScale(closing,tacticsGetShipsMaxVelocity(pilot));
+    if(kamikazeDamage[pilot->shiptype]>0 &&
+       !((a->attributes|b->attributes)&(ATTRIBUTES_KillerCollDamage|ATTRIBUTES_HeadShotKillerCollDamage)))
+    {
+        damage=kamikazeDamage[pilot->shiptype];
+        if(other->objtype==OBJ_ShipType &&
+           (((Ship *)other)->staticinfo->shipclass==CLASS_Fighter || ((Ship *)other)->staticinfo->shipclass==CLASS_Corvette))
+            damage=min(damage,pilot->staticinfo->maxhealth);
+        ApplyDamageToTarget((SpaceObjRotImpTarg *)pilot,
+            (other->objtype==OBJ_ShipType?((Ship *)other)->staticinfo->maxhealth:pilot->staticinfo->maxhealth+1)*scale,
+            0,DEATH_Killed_By_Collision,other->objtype==OBJ_ShipType?((Ship *)other)->playerowner->playerIndex:99);
+        ApplyDamageToTarget(other,damage*scale,0,DEATH_Killed_By_Kamikaze,pilot->playerowner->playerIndex);
+    }
+    else
+    {
+        vecSub(normal,b->collInfo.collPosition,a->collInfo.collPosition);
+        ApplyDamageToCollidingObjects(a,b,&normal,length);
+    }
+    if(!(pilot->flags&SOF_Dead) && pilot->health>0)
+        rmPresentationHullContact((const float *)&pilot->posinfo.position);
+    return TRUE;
+}
 
 
 BlobProperties collBlobProperties;
@@ -591,6 +654,7 @@ bool32 kamikazeCheck(SpaceObjRotImpTarg *obj1, SpaceObjRotImpTarg *obj2)
     sdword killer1type,killer1index;
     sdword killer2type,killer2index;
     Ship *ship1,*ship2;
+    if(pilotContactDamage(obj1,obj2)) return TRUE;
     ship1 = (Ship *)obj1;
     ship2 = (Ship *)obj2;
 
@@ -1841,6 +1905,29 @@ void collCheckBeamColl(blob *thisBlob,Bullet *bullet)
     real32 v,d,dsqr;
     sdword collSide;
 
+    if(bullet->SpecialEffectFlag&PILOT_HITSCAN_BULLET)
+    {
+        SpaceObjRotImpTarg *locked=bullet->target;
+        if(bullet->owner && bullet->gunowner && shipPilotWeaponCanHit((Ship *)bullet->owner,bullet->gunowner,locked))
+        {
+            vecSub(distvector,locked->collInfo.collPosition,bullet->posinfo.position);
+            collideLineDist=fsqrt(vecMagnitudeSquared(distvector));
+            if(collideLineDist>0.001f) { bullet->bulletheading=distvector;vecMultiplyByScalar(bullet->bulletheading,1.0f/collideLineDist); }
+            collSide=-1;
+            d=collCheckRectLine((SpaceObjRotImp *)locked,&bullet->posinfo.position,&bullet->bulletheading,collideLineDist+1,&collSide);
+            if(d>=0) collideLineDist=d;
+            bullet->beamtraveldist=collideLineDist;
+            /* Keep the rendered beam and impact on the same guaranteed-hit ray. */
+            matCreateCoordSysFromHeading(&bullet->rotinfo.coordsys,&bullet->bulletheading);
+            vecScalarMultiply(bullet->lengthvec,bullet->bulletheading,collideLineDist);
+            if((universe.univUpdateCounter%UNIVERSE_UPDATE_RATE_FACTOR)==0)
+                univBulletCollidedWithTarget(locked,&locked->staticinfo->staticheader,bullet,collideLineDist,collSide);
+        }
+        else bullet->beamtraveldist=0;
+        if(bullet->effect) ((real32 *)bullet->effect->variable)[SCALESHIFT(ETG_LengthVariable)]=bullet->beamtraveldist;
+        return;
+    }
+
     if(bullet->target != NULL)
     {
         switch(bullet->target->objtype)
@@ -1988,6 +2075,22 @@ void collCheckBulletTargetColl(blob *thisBlob)
         dbgAssertOrIgnore(bullet->objtype == OBJ_BulletType);
 
         deletebulletflag = FALSE;
+
+        if((bullet->SpecialEffectFlag&PILOT_HITSCAN_BULLET) && bullet->bulletType!=BULLET_Beam)
+        {
+            target=bullet->target;
+            if(target && !(target->flags&(SOF_Dead|SOF_Hide|SOF_Hyperspace)))
+            {
+                vecSub(distvector,target->collInfo.collPosition,bullet->posinfo.position);
+                collideLineDist=fsqrt(vecMagnitudeSquared(distvector));
+                if(collideLineDist>0.001f) { bullet->bulletheading=distvector;vecMultiplyByScalar(bullet->bulletheading,1.0f/collideLineDist); }
+                collSide=-1;
+                d=collCheckRectLine((SpaceObjRotImp *)target,&bullet->posinfo.position,&bullet->bulletheading,collideLineDist+1,&collSide);
+                if(d>=0) collideLineDist=d;
+                univBulletCollidedWithTarget(target,&target->staticinfo->staticheader,bullet,collideLineDist,collSide);
+            }
+            deletebulletflag=TRUE;goto nextbullet;
+        }
 
         switch (bullet->bulletType)
         {
@@ -2201,6 +2304,7 @@ nextbullet:
             bobObjectDied((SpaceObj *)bullet,&universe.collBlobList);
             listRemoveNode(&bullet->bulletlink);
             univRemoveObjFromRenderList((SpaceObj *)bullet);
+            univFreeBulletContents(bullet);
             listDeleteNode(&bullet->objlink);
         }
         else

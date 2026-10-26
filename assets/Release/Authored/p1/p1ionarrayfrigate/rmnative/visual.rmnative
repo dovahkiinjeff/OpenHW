@@ -1,0 +1,9 @@
+HW_RM_P1_VISUAL_1
+type P1IonArrayFrigate
+scale 2.7332652
+hull hull.hod
+mad animation.mad
+marker engine_0 Hull EngineMainDrive
+marker engine_1 Hull EngineMainDrive2
+surface 0 0 c0_m0
+surface 0 1 c0_m1

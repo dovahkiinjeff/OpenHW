@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 /*============================================================================
     MAIN.C: Main Windows interface for Homeworld game code, including message
         handling and window set-up.
@@ -33,6 +34,7 @@
 #include "HorseRace.h"
 #include "Key.h"
 #include "LaunchMgr.h"
+#include "ManagerDock.h"
 #include "main.h"
 #include "mainrgn.h"
 #include "Memory.h"
@@ -78,7 +80,7 @@
 
 static void mainStartupStage(const char *stage)
 {
-    fprintf(stderr, "[Startup] %s\n", stage);
+    HW_DIAG_FPRINTF(stderr, "[Startup] %s\n", stage);
     fflush(stderr);
 #ifdef _WIN32
     hwWindowsSplashUpdate(stage);
@@ -115,7 +117,7 @@ bool32 mainNoPerspective = FALSE;
 bool32 systemActive = FALSE;              //active flag for the program
 
 #ifndef __APPLE__
-static char windowTitle[] = "Homeworld Modern";//name of window
+static char windowTitle[] = "OpenHW";//name of window
 #endif
 
 //error strings
@@ -173,7 +175,6 @@ sdword MemoryHeapSize = MEM_HeapSizeDefault;
 bool32 startupClipMouse = TRUE;
 #endif
 bool32 mouseClipped = FALSE;
-sdword showBackgrounds = TRUE;
 bool32 showBorder = TRUE;
 sdword enableTextures = TRUE;
 sdword enableSmoothing = TRUE;
@@ -201,9 +202,11 @@ bool32 mainExclusiveFullscreen = FALSE;
 // uncapped (VSync may still limit presentation).  VSync accepts the SDL swap
 // interval values: 0 off, 1 on, -1 adaptive.
 sdword mainRefreshRate = 0;
+sdword mainDetectDisplayOnFirstBoot = 0;
 sdword mainFrameRateLimit = 0;
 sdword mainVSync = 1;
 sdword mainUIScalePercent = 100;
+bool32 mainShowFPS = FALSE;
 sdword mainRaytracing = 1;
 sdword mainFxLightingStrengthPercent = 100;
 sdword mainWeaponOriginLightIntensityPercent = 100;
@@ -214,6 +217,7 @@ sdword mainDlaa = HW_MODERN_AA_AUTO_NATIVE;
 sdword mainFrameGeneration = 0;
 sdword mainPathTracingSamples = 1;
 sdword mainPathTracingBounces = 3;
+sdword mainTextureResolution = 3;
 sdword mainGeneratedNormalStrengthPercent = 100;
 sdword mainEnvironmentLightingPercent = 100;
 sdword mainAuthoredLightingPercent = 100;
@@ -221,13 +225,16 @@ sdword mainPrimarySunLightingPercent = 100;
 sdword mainSkyAmbientLightingPercent = 100;
 sdword mainSurfaceReflectivityPercent = 125;
 sdword mainSurfaceRoughnessPercent = 38;
+sdword mainRasterGlowBrightnessPercent = 29;
 sdword mainLightingExposurePercent = 100;
 sdword mainOutputDitherPercent = 100;
+sdword mainDisplayGammaPercent = 100;
 sdword mainChromaticAberrationPercent = 0;
 sdword mainMotionBlurPercent = 0;
 sdword mainFilmGrainPercent = 0;
 sdword mainGodRaysPercent = 0;
 sdword mainBloomPercent = 100;
+sdword mainLensFlares = 1;
 
 /* Global ray-traced shadow quality/authoring controls.  Integer storage keeps
    the legacy config/UI path deterministic; centidegrees and hundredths are
@@ -306,7 +313,7 @@ bool32 mainCDCheckEnabled = TRUE;
 
 char networkVersion[MAX_NETWORKVERSION_STRING_LEN] = "HomeworldSDL";
 
-char minorBuildVersion[] = "0.91.3";
+char minorBuildVersion[] = "1.0.0";
 
 char languageVersion[50] = "";    // constructed at beginning of program
 
@@ -387,6 +394,13 @@ bool32 SelectMSGL(char* string)
 bool32 EnableRasterSkip(char* string)
 {
     mainRasterSkip = TRUE;
+    return TRUE;
+}
+
+static bool32 IgnoreLegacyBackgroundOption(char *string)
+{
+    // Accept old shortcuts without retaining a background-off setting.
+    (void)string;
     return TRUE;
 }
 
@@ -624,7 +638,7 @@ static bool32 mainDetectInitialDisplayMode(void)
         }
         if (result != 0)
         {
-            fprintf(stderr, "Unable to initialize SDL video for display detection: %s\n",
+            HW_DIAG_FPRINTF(stderr, "Unable to initialize SDL video for display detection: %s\n",
                     SDL_GetError());
             return FALSE;
         }
@@ -633,7 +647,7 @@ static bool32 mainDetectInitialDisplayMode(void)
     if (SDL_GetCurrentDisplayMode(0, &mode) != 0 &&
         SDL_GetDesktopDisplayMode(0, &mode) != 0)
     {
-        fprintf(stderr, "Unable to detect the primary display mode: %s\n",
+        HW_DIAG_FPRINTF(stderr, "Unable to detect the primary display mode: %s\n",
                 SDL_GetError());
         return FALSE;
     }
@@ -658,7 +672,7 @@ static bool32 mainDetectInitialDisplayMode(void)
     }
     selectedRES = TRUE;
 
-    fprintf(stderr, "Detected initial display mode: %dx%d@%d Hz, %d-bit.\n",
+    HW_DIAG_FPRINTF(stderr, "Detected initial display mode: %dx%d@%d Hz, %d-bit.\n",
             mode.w, mode.h, mainRefreshRate, depth);
     return TRUE;
 }
@@ -724,7 +738,7 @@ bool32 SetPathTracingSamples(char *string)
 
 bool32 SetPathTracingBounces(char *string)
 {
-    return ParseDisplayInteger(string, &mainPathTracingBounces, 1, 3);
+    return ParseDisplayInteger(string, &mainPathTracingBounces, 1, 6);
 }
 
 bool32 SetGeneratedNormalStrengthPercent(char *string)
@@ -898,8 +912,23 @@ bool32 syncDumpInit(char *string1)
 #define entryFnParamHidden(command, func, help)        {COF_NextToken, command, func, NULL, 0, help}
 #define entryFVParamHidden(command, func, var, help)   {COF_NextToken, command, func, &var, value, help}
 #define entryComment(comment)               {COF_Visible, comment, NULL, NULL, 0, NULL}
+/* Recognized here; Windows diagnostics handles it before startup logging. */
+#if !HW_ENABLE_DIAGNOSTICS
+static void SDLCALL discardSdlDiagnostic(void *user, int category, SDL_LogPriority priority, const char *message) {}
+#endif
+static bool32 startupNoRendererLog = FALSE;
+static bool32 startupNoDiagnostics = FALSE;
+static bool32 startupBenchmark = HW_ENABLE_DIAGNOSTICS;
+static bool32 startupDX11 = FALSE;
+extern bool32 rmWeaponFxDiagnosticsEnabled;
 commandoption commandOptions[] =
 {
+    entryVr("/noDiagnostics", startupNoDiagnostics, TRUE, " - disable diagnostic output, performance sampling, benchmark captures and crash dumps."),
+    entryVr("/muzzleFxLog", rmWeaponFxDiagnosticsEnabled, TRUE, " - record targeted Kushan interceptor muzzle-FX diagnostics."),
+    entryVr("/benchmark", startupBenchmark, TRUE, " - enable quiet benchmark capture (Ctrl+Shift+F6)."),
+    entryVr("/profileSession", startupBenchmark, TRUE, " - enable benchmark captures with full session diagnostics."),
+    entryVr("/dx11", startupDX11, TRUE, " - use the Direct3D 11 compatibility renderer (no path tracing)."),
+    entryVr("/noRendererLog", startupNoRendererLog, TRUE, " - suppress routine console/renderer logs; retain crash dumps."),
 #ifdef HW_BUILD_FOR_DEBUGGING
     entryComment("DEBUGGING OPTIONS"),//-----------------------------------------------------
     entryVr("/debug",               DebugWindow, TRUE,                  " - Enable debug window."),
@@ -955,7 +984,7 @@ commandoption commandOptions[] =
 
     entryComment("DETAIL OPTIONS"), //-----------------------------------------------------
     entryFn("/rasterSkip",          EnableRasterSkip,                   " - enable interlaced display with software renderer."),
-    entryVr("/noBG",                showBackgrounds, FALSE,             " - disable display of galaxy backgrounds."),
+    entryFnHidden("/noBG",          IgnoreLegacyBackgroundOption,       NULL),
     entryVr("/noFilter",            texLinearFiltering,FALSE,           " - disable bi-linear filtering of textures."),
     entryVr("/noSmooth",            enableSmoothing, FALSE,             " - do not use polygon smoothing."),
 #if TR_NIL_TEXTURE
@@ -1016,7 +1045,7 @@ commandoption commandOptions[] =
     entryVr("/frameGeneration",     mainFrameGeneration, 1,             " - enable cross-vendor 2x D3D12 frame interpolation."),
     entryVr("/noFrameGeneration",   mainFrameGeneration, 0,             " - disable frame interpolation (default)."),
     entryFnParam("/pathSamples",     SetPathTracingSamples,              " <1-4> - path-tracing samples per pixel per frame."),
-    entryFnParam("/pathBounces",     SetPathTracingBounces,              " <1-3> - path-tracing radiance bounces."),
+    entryFnParam("/pathBounces",     SetPathTracingBounces,              " <1-6> - path-tracing radiance bounces (default 3)."),
     entryFnParam("/normalDetail",    SetGeneratedNormalStrengthPercent,  " <0-400> - generated normal-detail strength."),
     entryFnParam("/environmentLight", SetEnvironmentLightingPercent,     " <0-200> - mission-background lighting strength."),
     entryFnParam("/authoredLight",    SetAuthoredLightingPercent,        " <0-200> - mission-authored local/secondary light strength."),
@@ -1234,7 +1263,7 @@ void DebugHelpDefault(char *string)
     if ((gHelpString = malloc(length)) == NULL)              //allocate string
     {
         /*MessageBox(NULL, "Cannot allocate memory for help.", "Command-Line Usage", MB_OK | MB_APPLMODAL);*/
-        fprintf(stderr, "Cannot allocate memory for help.\n");
+        HW_DIAG_FPRINTF(stderr, "Cannot allocate memory for help.\n");
         return;
     }
 
@@ -1260,7 +1289,7 @@ void DebugHelpDefault(char *string)
     }
 
     /*DialogBox(ghInstance, MAKEINTRESOURCE(IDD_CommandLine), NULL, CommandLineFunction);*/
-    printf("%s", gHelpString);
+    HW_DIAG_PRINTF("%s", gHelpString);
     free(gHelpString);                                       //done with string, free it
 }
 
@@ -1476,7 +1505,7 @@ void IntroActivateMe()
     systemActive = TRUE;
 
     utyForceTopmost(fullScreen);
-    SDL_ShowCursor(SDL_DISABLE);
+    mouseRefreshSystemCursor();
     //make sure that the mouse is rotating properly when we come back
     utyMouseButtonsClear();
 
@@ -1554,7 +1583,7 @@ void ActivateMe()
     systemActive = TRUE;
 
     utyForceTopmost(fullScreen);
-    SDL_ShowCursor(SDL_DISABLE);
+    mouseRefreshSystemCursor();
     //make sure that the mouse is rotating proper when we come back
     utyMouseButtonsClear();
 
@@ -1854,7 +1883,7 @@ void mainRestoreSoftware(void)
                    "couldn't initialize default rendering system",
                    windowTitle, MB_APPLMODAL | MB_OK);
 */
-        fprintf(stderr, "Fatal Error: Couldn't initialize default rendering system.\n");
+        HW_DIAG_FPRINTF(stderr, "Fatal Error: Couldn't initialize default rendering system.\n");
         e.user.type = SDL_USEREVENT;
         e.user.code = CID_ExitError;
         SDL_PushEvent(&e);
@@ -2045,8 +2074,20 @@ void HandleEvent(SDL_Event const* pEvent) {
     /* Mouse button press times for double-click support. */
     static Uint32 mbDownTime[3] = { 0, 0, 0 };
     static Uint8 mbDouble[3] = { 0, 0, 0 };
+    static SDL_Scancode managerConsumedKey = SDL_SCANCODE_UNKNOWN;
 
     dbgAssertOrIgnore(pEvent);
+
+#ifdef _WIN32
+    /* Do not let the benchmark chord also issue a fleet formation command. */
+    if (startupBenchmark && (pEvent->type == SDL_KEYDOWN || pEvent->type == SDL_KEYUP) &&
+        pEvent->key.keysym.scancode == SDL_SCANCODE_F6 &&
+        (pEvent->key.keysym.mod & KMOD_CTRL) && (pEvent->key.keysym.mod & KMOD_SHIFT))
+    {
+        if (pEvent->type == SDL_KEYDOWN && !pEvent->key.repeat) hwModernBenchmarkRequest();
+        return;
+    }
+#endif
 
 #if MAIN_PRINT_MESSAGES
     dbgMessagef("Event type = 0x%hhx", pEvent->type);
@@ -2055,6 +2096,12 @@ void HandleEvent(SDL_Event const* pEvent) {
     switch (pEvent->type)
     {
         case SDL_WINDOWEVENT:
+            if(pEvent->window.event==SDL_WINDOWEVENT_FOCUS_LOST ||
+               pEvent->window.event==SDL_WINDOWEVENT_MINIMIZED)
+                mouseReleaseWindowConfinement();
+            else if(pEvent->window.event==SDL_WINDOWEVENT_FOCUS_GAINED ||
+                    pEvent->window.event==SDL_WINDOWEVENT_RESTORED)
+                mouseRefreshWindowConfinement();
             if (pEvent->window.event == SDL_WINDOWEVENT_RESIZED ||
                 pEvent->window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
             {
@@ -2124,6 +2171,11 @@ void HandleEvent(SDL_Event const* pEvent) {
             } else return; // per documentation
 
         case SDL_KEYUP:                                     //keys up/down
+            if (pEvent->key.keysym.scancode == managerConsumedKey)
+            {
+                managerConsumedKey = SDL_SCANCODE_UNKNOWN;
+                return;
+            }
             switch (pEvent->key.keysym.sym)
             {
                 case SDLK_ESCAPE:
@@ -2161,6 +2213,21 @@ void HandleEvent(SDL_Event const* pEvent) {
             return;
 
         case SDL_KEYDOWN:
+            if (pEvent->key.repeat && pEvent->key.keysym.scancode == managerConsumedKey) return;
+            /* Docked panels may own keyboard focus, but B/L/R remain commands
+               for switching/toggling them rather than legacy FIB shortcuts. */
+            if (!(pEvent->key.keysym.mod & (KMOD_CTRL|KMOD_SHIFT|KMOD_ALT|KMOD_GUI)) &&
+                (pEvent->key.keysym.scancode == SDL_SCANCODE_B ||
+                 pEvent->key.keysym.scancode == SDL_SCANCODE_L ||
+                 pEvent->key.keysym.scancode == SDL_SCANCODE_R) &&
+                mdManagerDockEnabled() && (cmActive || lmActive || rmGUIActive))
+            {
+                if (!pEvent->key.repeat) {
+                    managerConsumedKey = pEvent->key.keysym.scancode;
+                    mdHandleActiveManagerKey(keyLanguageTranslate(pEvent->key.keysym.scancode));
+                }
+                return;
+            }
             if (pEvent->key.repeat != 0) //if it's a repeating key
             {
                 keyRepeat(keyLanguageTranslate(pEvent->key.keysym.scancode));
@@ -2436,7 +2503,7 @@ void main_loop() {
 
         if (event.type == SDL_WINDOWEVENT) {
             if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                printf("Resolution change: %d %d\n", event.window.data1, event.window.data2);
+                HW_DIAG_PRINTF("Resolution change: %d %d\n", event.window.data1, event.window.data2);
                 if ((event.window.data1 > 320) && (event.window.data2 > 240))
                 {
                     MAIN_WindowWidth = event.window.data1;
@@ -2506,14 +2573,23 @@ int main (int argc, char* argv[])
 #endif
 #ifdef _WIN32
     hwWindowsSplashStart();
-    hwWindowsSplashUpdate("verifying original Homeworld installation");
+    hwWindowsSplashTaskBegin("main.install", "Checking installed game data");
     if (!hwWindowsInstallPrepare())
     {
+        hwWindowsSplashFail("Game data setup did not finish");
         hwWindowsSplashFinish();
         return 0;
     }
+    hwWindowsSplashTaskComplete("main.install", "Installed game data checked");
+    hwWindowsSplashTaskBegin("main.runtime", "Loading graphics runtimes and upscaling support");
     hwModernGraphicsEarlyInitialize();
+    hwWindowsSplashTaskComplete("main.runtime", "Graphics runtimes loaded");
+    hwWindowsSplashTaskBegin("main.diagnostics", HW_ENABLE_DIAGNOSTICS ? "Preparing crash reporting" : "Preparing game systems");
     hwWindowsDiagnosticsInstall();
+#if !HW_ENABLE_DIAGNOSTICS
+    SDL_LogSetOutputFunction(discardSdlDiagnostic, NULL);
+#endif
+    hwWindowsSplashTaskComplete("main.diagnostics", HW_ENABLE_DIAGNOSTICS ? "Crash reporting ready" : "Game systems ready");
 #endif
     mainStartupStage("process entry");
 
@@ -2530,6 +2606,7 @@ int main (int argc, char* argv[])
 #ifdef _WIN32
     //check to see if a copy of the program already running and just exit if so.
     //This messy hack is required because hPrevInstance is not reliable under Win32.
+    hwWindowsSplashTaskBegin("main.instance", "Checking for another game instance");
     hMapping = CreateFileMapping( INVALID_HANDLE_VALUE,
                     NULL,
                     PAGE_READONLY,
@@ -2547,7 +2624,7 @@ int main (int argc, char* argv[])
             hWndPrev = FindWindow(windowTitle, NULL);
             if (hWndPrev)
             {
-                OutputDebugString("\r\nProgram already running.\r\n");
+                HW_DIAG_DEBUGSTRING("\r\nProgram already running.\r\n");
                 ShowWindow(hWndPrev, SW_RESTORE);
                 BringWindowToTop(hWndPrev);
                 UpdateWindow(hWndPrev);
@@ -2556,6 +2633,7 @@ int main (int argc, char* argv[])
             return 0;
         }
     }
+    hwWindowsSplashTaskComplete("main.instance", "Game instance check complete");
 #endif  /* Support for other platforms? */
 
     mainStartupStage("single-instance check complete");
@@ -2572,10 +2650,21 @@ int main (int argc, char* argv[])
 
     //load in options from the options file
     mainStartupStage("loading saved options");
+#ifdef _WIN32
+    hwWindowsSplashTaskBegin("main.options", "Reading saved settings");
+#endif
     hasSavedOptions = utyOptionsFileRead();
+#ifdef _WIN32
+    hwWindowsSplashTaskComplete("main.options", "Saved settings read");
+    hwWindowsSplashTaskBegin("main.keys", "Reading keyboard bindings");
+#endif
 
     //copy keyboard redefinitions
     opKeyboardLoad();
+#ifdef _WIN32
+    hwWindowsSplashTaskComplete("main.keys", "Keyboard bindings read");
+    hwWindowsSplashTaskBegin("main.commandline", "Applying launch options");
+#endif
 
     /*
     RegisterCommandLine(commandLine);       // make sure you call this before ProcessCommandLine because
@@ -2586,16 +2675,21 @@ int main (int argc, char* argv[])
     if (ProcessCommandLine(argc, argv) != OKAY)
     {
 #ifdef _WIN32
+        hwWindowsSplashFail("Launch options could not be applied");
         hwWindowsSplashFinish();
 #endif
         return 0;
     }
+#ifdef _WIN32
+    hwWindowsSplashTaskComplete("main.commandline", "Launch options applied");
+#endif
     mainStartupStage("command line processed");
 
-    if (!hasSavedOptions && !selectedRES)
+    if ((!hasSavedOptions || mainDetectDisplayOnFirstBoot) && !selectedRES)
     {
-        (void)mainDetectInitialDisplayMode();
+        if (mainDetectInitialDisplayMode()) mainDetectDisplayOnFirstBoot = 0;
     }
+    else if (selectedRES) mainDetectDisplayOnFirstBoot = 0;
 
     // set everything back to original behaviour
     if (vanillaMode)
@@ -2632,6 +2726,9 @@ int main (int argc, char* argv[])
 #endif
         preInit = TRUE;
         mainStartupStage("window initialization begin");
+#ifdef _WIN32
+        hwWindowsSplashTaskBegin("main.window", "Choosing display and rendering devices");
+#endif
         if (!InitWindow())
         {
             errorString = ersWindowInit;
@@ -2639,6 +2736,9 @@ int main (int argc, char* argv[])
         mainStartupStage(errorString == NULL
                          ? "window initialization complete"
                          : "window initialization failed");
+#ifdef _WIN32
+        if (errorString == NULL) hwWindowsSplashTaskComplete("main.window", "Display and rendering devices selected");
+#endif
 #ifdef _WIN32
         if (DebugWindow)
         {
@@ -2700,7 +2800,9 @@ int main (int argc, char* argv[])
         bool32 breakMainLoop = FALSE;
         mainStartupStage("entering main loop");
 #ifdef _WIN32
-        hwWindowsSplashFinish();
+        // First-frame native shaders and driver pipelines can still compile
+        // here. Keep the responsive splash until a complete menu frame presents.
+        hwWindowsSplashTaskBegin("main.firstframe", "Preparing the first main menu frame");
 #endif
 
         while (TRUE) {
@@ -2718,7 +2820,13 @@ int main (int argc, char* argv[])
             }
             if (breakMainLoop) break;
 
+#ifdef _WIN32
+            hwModernBenchmarkCpuBegin(0);
+#endif
             utyTasksDispatch(); // execute all tasks
+#ifdef _WIN32
+            hwModernBenchmarkCpuEnd(0);
+#endif
 
             if (opTimerActive) {
                 if (taskTimeElapsed > (opTimerStart + opTimerLength)) {
@@ -2731,16 +2839,21 @@ int main (int argc, char* argv[])
 #endif
     } else { // some error on startup, either from preInit or Init()
 #ifdef _WIN32
+        hwWindowsSplashFail(errorString);
         hwWindowsSplashFinish();
 #endif
         if (preInit) {
             (void)utyGameSystemsPreShutdown();
         }
-        fprintf(stderr, "%s\n", errorString);
+        HW_DIAG_FPRINTF(stderr, "%s\n", errorString);
         return ERR_ErrorStart;
     }
 
     /* Stay clean and fresh... */
+#ifdef _WIN32
+    // Cancellation before the first menu Present still owns a splash thread.
+    hwWindowsSplashFinish();
+#endif
     if (SDL_WasInit(SDL_INIT_EVERYTHING))
     {
         SDL_Quit();

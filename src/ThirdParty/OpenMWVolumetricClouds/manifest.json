@@ -1,0 +1,38 @@
+{
+  "repository": "https://github.com/zesterer/openmw-volumetric-clouds",
+  "revision": "c8830bcd2de0f6e7355f91880308426203eded3c",
+  "retrieved_utc": "2026-10-21",
+  "license_status": "No explicit license file or license grant found in the pinned repository. Internal adaptation prototype; redistribution permission unresolved.",
+  "files": {
+    "README.md": {
+      "url": "https://raw.githubusercontent.com/zesterer/openmw-volumetric-clouds/c8830bcd2de0f6e7355f91880308426203eded3c/README.md",
+      "sha256": "7ff7c409d3cf0138dc8fe1f5b769984be1e7d372ff1647e86b6ce66c08a7ecf9",
+      "bytes": 7526
+    },
+    "shaders/clouds.omwfx": {
+      "url": "https://raw.githubusercontent.com/zesterer/openmw-volumetric-clouds/c8830bcd2de0f6e7355f91880308426203eded3c/shaders/clouds.omwfx",
+      "sha256": "85636f708d3157644a7bfa05d907ae3522b89520c0fe312aa5d9a154f349e274",
+      "bytes": 25364
+    },
+    "textures/noise2.png": {
+      "url": "https://raw.githubusercontent.com/zesterer/openmw-volumetric-clouds/c8830bcd2de0f6e7355f91880308426203eded3c/textures/noise2.png",
+      "sha256": "7d7805974046c41938907f9183ca245ba2b4072657aa788e6ccf9fc376a78922",
+      "bytes": 29678
+    },
+    "textures/noise3.png": {
+      "url": "https://raw.githubusercontent.com/zesterer/openmw-volumetric-clouds/c8830bcd2de0f6e7355f91880308426203eded3c/textures/noise3.png",
+      "sha256": "bb66db057700c223c3eca752f725997c0a5baa7f3b1bee9c4a4d36a65fcf8844",
+      "bytes": 22862
+    }
+  },
+  "embedded_rg8": {
+    "dimensions": [
+      128,
+      128,
+      2
+    ],
+    "bytes": 32768,
+    "sha256": "66356b4b48389556dc5f9a0e0a5ffe0f6e66c9b165e6bae4fe95883507823fad",
+    "mapping": "red channel of noise2.png => R, red channel of noise3.png => G; lossless 8-bit decode"
+  }
+}

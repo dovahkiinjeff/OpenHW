@@ -206,6 +206,7 @@ void madAnimationPause(struct Ship *ship, bool32 bFreeze);
 bool32 madAnimationUpdate(struct Ship *ship, real32 timeElapsed);
 void madAnimationStop(struct Ship *ship);
 
+
 //find things in animations
 sdword madAnimIndexFindByName(madheader *header, char *name);
 sdword madGunBindingIndexFindByName(struct ShipStaticInfo *info, char *name);

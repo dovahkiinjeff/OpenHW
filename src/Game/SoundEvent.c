@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     Name    : SoundEvent.c
     Purpose : Sound Event processor
@@ -7,8 +8,16 @@
 =============================================================================*/
 
 #include "SoundEvent.h"
+#if defined(HW_ENABLE_D3D12_BACKEND) || defined(HW_ENABLE_D3D12_DIAGNOSTICS)
+#include "ModernGraphics.h"
+#else
+static void hwModernGraphicsWaitAudioWork(void) {}
+static void hwModernGraphicsBeginAudioWork(void (*function)(void)) { if(function) function(); }
+#endif
+#include "RemasteredPresentation.h"
 
 #include <math.h>
+#include <stdlib.h>
 
 #include "CommandDefs.h"
 #include "FastMath.h"
@@ -27,6 +36,8 @@
 #include "soundlow.h"
 #include "Switches.h"
 #include "VolTweakDefs.h"
+
+#include "AudioFrameSnapshot.inc"
 
 #define DIRECTSOUND     1
 #define SE_MAX_STRIKECRAFT  10
@@ -455,7 +466,7 @@ void soundEventSFXVol(real32 level)
 -----------------------------------------------------------------------------*/
 void soundEventSFXMasterVol(real32 level)
 {
-    volSFX = SEsetVol(level);
+    soundBusVolume(HW_AUDIO_SFX, level);
 	SEupdateNISvol();
 }
 
@@ -483,7 +494,7 @@ void soundEventSpeechVol(real32 level)
 -----------------------------------------------------------------------------*/
 void soundEventSpeechMasterVol(real32 level)
 {
-    volSpeech = SEsetVol(level);
+    soundBusVolume(HW_AUDIO_SPEECH, level);
 	SEupdateNISvol();
 }
 
@@ -511,7 +522,7 @@ void soundEventMusicVol(real32 level)
 -----------------------------------------------------------------------------*/
 void soundEventMusicMasterVol(real32 level)
 {
-	volMusic = SEsetVol(level);
+    soundBusVolume(HW_AUDIO_MUSIC, level);
 	SEupdateNISvol();
 }
 
@@ -542,7 +553,7 @@ void soundEventMusicVolNOW(real32 level)
 -----------------------------------------------------------------------------*/
 void soundEventMusicMasterVolNOW(real32 level)
 {
-	volMusic = SEsetVol(level);
+    soundBusVolume(HW_AUDIO_MUSIC, level);
 	bVolMusicNoFade = TRUE;
 	SEupdateNISvol();
 }
@@ -700,6 +711,7 @@ void soundEventInit(void)
 
     if (!enableSFX && !enableSpeech)
     {
+        rmPresentationStartup();
         return;
     }
 
@@ -777,6 +789,7 @@ void soundEventInit(void)
 #endif // SPEECH
 
     soundeventinited = TRUE;
+    rmPresentationStartup();
     
 #endif // DIRECTSOUND
 #endif // SOUND
@@ -792,6 +805,10 @@ void soundEventInit(void)
 ----------------------------------------------------------------------------*/
 void soundEventClose(void)
 {
+    soundEventUpdateEnd();
+    free(soundFrameHarvestOwners);soundFrameHarvestOwners=NULL;
+    soundFrameHarvestCount=soundFrameHarvestCapacity=0;
+    rmPresentationShutdown();
 #if SOUND
 #if DIRECTSOUND
 
@@ -839,6 +856,7 @@ void soundEventClose(void)
 
 void soundEventShutdown(void)
 {
+    rmPresentationShutdown();
     if (enableSFX || enableSpeech)
 		soundclose();
 //        sounddeactivate(TRUE);
@@ -968,7 +986,7 @@ void soundEventReloadVolumes(void)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void soundEventUpdate(void)
+static void soundEventAudioUpdate(void)
 {
 #if SOUND
     Node *objnode = universe.RenderList.tail;
@@ -1399,6 +1417,12 @@ othersounds:
 				break;
 
 			case ResourceCollector:
+				if (ship->rceffect != NULL && soundEventFrameOwnsHarvestSound(ship))
+				{
+					specialon = TRUE;
+					ambienton = FALSE;
+					break;
+				}
 				if ((ship->rceffect != NULL) && ((ship->soundevent.specialHandle == SOUND_NOTINITED) ||
 												 soundover(ship->soundevent.specialHandle)))
 				{
@@ -1744,7 +1768,7 @@ nextship:
 }
 #else
 
-void soundEventUpdate(void)
+static void soundEventAudioUpdate(void)
 {
 	Ship *ship;
 
@@ -2428,7 +2452,7 @@ void loadbankAndConvertTo64Bit(char *fileName, void** loadAddress)
 	oldLength = fileLoadAlloc(fileName, (void **)&oldbase, NonVolatile);
     oldHeader = oldptr = oldbase;
 
-    //printf("%s size is %d\n",oldFile, oldLength);
+    //HW_DIAG_PRINTF("%s size is %d\n",oldFile, oldLength);
 
     newLength = 2*oldLength;
 
@@ -2448,12 +2472,12 @@ void loadbankAndConvertTo64Bit(char *fileName, void** loadAddress)
 
 
     offset=newHeader->numpatches * (sizeof(PATCH) - sizeof(PATCH_DISK));
-    //printf("New data offset =  +%d\n",offset);
+    //HW_DIAG_PRINTF("New data offset =  +%d\n",offset);
 
     loopsize=newHeader->numpatches;
 
     for (i=0;i<loopsize;i++){
-        //printf("%3d: %d: dataoffset:%ld datasize: %ld loopstart: %ld loopend: %ld\n",i, oldPatch->id , oldPatch->dataoffset, oldPatch->datasize, oldPatch->loopstart, oldPatch -> loopend); 
+        //HW_DIAG_PRINTF("%3d: %d: dataoffset:%ld datasize: %ld loopstart: %ld loopend: %ld\n",i, oldPatch->id , oldPatch->dataoffset, oldPatch->datasize, oldPatch->loopstart, oldPatch -> loopend); 
         newPatch->id = oldPatch->id;
         newPatch->priority = oldPatch->priority;
         newPatch->pitch = oldPatch->pitch;
@@ -2471,7 +2495,7 @@ void loadbankAndConvertTo64Bit(char *fileName, void** loadAddress)
         newPatch->waveformat.avgBytesPerSecond = oldPatch->waveformat.avgBytesPerSecond;
         newPatch->waveformat.blockAlign = oldPatch->waveformat.blockAlign;
         newPatch->wavepad = oldPatch->wavepad;
-        //printf(" becomes dataoffset:%ld \n", newPatch->dataoffset); 
+        //HW_DIAG_PRINTF(" becomes dataoffset:%ld \n", newPatch->dataoffset); 
 
     oldPatch++;
     newPatch++;
@@ -2906,3 +2930,24 @@ sword SEgetAngleToCamera(Ship *ship)
 }
 
 
+
+/* Presentation effects touch native visuals and renderer light lists. Keep
+   them on the game thread; only the audio event pass borrows the frozen world.
+   render.c joins that pass before returning to simulation or UI event input. */
+void soundEventUpdate(void)
+{
+    hwModernGraphicsWaitAudioWork();
+    soundFrameHarvestSnapshot=FALSE;
+    rmPresentationUpdate();
+    soundEventAudioUpdate();
+}
+void soundEventUpdateBegin(void)
+{
+    hwModernGraphicsWaitAudioWork();
+    soundFrameHarvestSnapshot=FALSE;
+    rmPresentationUpdate();
+    if(!soundeventinited || soundpaused) {soundEventAudioUpdate();return;}
+    if(soundEventSnapshotHarvestOwners()) hwModernGraphicsBeginAudioWork(soundEventAudioUpdate);
+    else soundEventAudioUpdate();
+}
+void soundEventUpdateEnd(void) { hwModernGraphicsWaitAudioWork();soundFrameHarvestSnapshot=FALSE; }

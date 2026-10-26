@@ -1,0 +1,9 @@
+HW_RM_R1_VISUAL_1
+type LightInterceptor
+scale 2.85846654
+hull hull.hod
+mad -
+marker engine_0 Hull EngineNozzle1
+surface 0 0 c0_m0
+surface 0 1 c0_m1
+surface 0 2 c0_m2

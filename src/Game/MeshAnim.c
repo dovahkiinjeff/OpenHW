@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     Name    : MeshAnim.c
     Purpose : Code for animating meshes in ships
@@ -19,12 +20,31 @@
 #include "Matrix.h"
 #include "Memory.h"
 #include "MeshAnim.h"
+#include "Mesh.h"
+#include "NativeVisualRegistry.h"
 #include "NIS.h"
 #include "SpaceObj.h"
 #include "Types.h"
 #include "Universe.h"
 #include "Vector.h"
 #include "mainrgn.h"
+
+static void madNativeVisualSample(Ship *ship)
+{
+    madanim *anim=ship->madBindings;
+    madanimation *event;
+    double phase,duration;
+    if (!anim || !anim->header || anim->nCurrentAnim<0 ||
+        anim->nCurrentAnim>=anim->header->nAnimations) return;
+    event=&anim->header->anim[anim->nCurrentAnim];
+    duration=(double)event->endTime-event->startTime;
+    phase=duration>0?((double)anim->time-event->startTime)/duration:1;
+    if (!isfinite(phase)) return;
+    if (phase<0) phase=0;
+    if (phase>1) phase=1;
+    meshNativeVisualSampleShipEvent(ship,event->name,phase);
+    meshRemasteredNotifyAnimation(ship,event->name,phase);
+}
 
 #ifdef _MSC_VER
 #define strcasecmp _stricmp
@@ -89,7 +109,7 @@ sdword madFileLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
     oldLength = fileLoadAlloc(fileName, (void **)&oldbase, NonVolatile);
     oldHeader = oldptr = oldbase;
 
-    //printf("%s size is %d\n",oldFile, oldLength);
+    //HW_DIAG_PRINTF("%s size is %d\n",oldFile, oldLength);
 
     newLength = 2*oldLength;
 
@@ -138,7 +158,7 @@ sdword madFileLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
     madOpArgs=sizeof(udword) /*times*/ + sizeof(tcb) /*parameters*/
                 + sizeof(real32[6]) /*path*/;
 
-    //printf("sizeof madOpArgs= %d\n",madOpArgs);
+    //HW_DIAG_PRINTF("sizeof madOpArgs= %d\n",madOpArgs);
 
     for (madobjloop=0; madobjloop <newHeader->nObjects ; madobjloop++){
 
@@ -463,6 +483,18 @@ void madBindingsPost(meshdata *mesh, struct shipbindings *bindings, sdword curre
 bool32 madBindingListCallback(meshdata *mesh, polygonobject *object, sdword iObject)
 {
     sdword j;
+    float nativeScale;
+    unsigned int nativeLOD;
+
+    /* Native assets use the old clock/state, not old mesh-space curves.
+       Keep the post-render Ship pointer but let the native pose own matrices. */
+    if (meshNativeVisualParameters(mesh,&nativeScale,&nativeLOD))
+    {
+        memset(madBindingDest,0,sizeof(*madBindingDest));
+        madBindingDest->userData=madDupeShip;
+        ++madBindingDest;
+        return FALSE;
+    }
 
     //find the animation for this object
     for (j = 0; j < madDupeHeader->nObjects; j++)
@@ -476,6 +508,7 @@ bool32 madBindingListCallback(meshdata *mesh, polygonobject *object, sdword iObj
         }
     }
 
+    memset(madBindingDest,0,sizeof(*madBindingDest));       //unbound native pivots need deterministic metadata
     madBindingDest->userData = madDupeShip;                 //pass in pointer to ship
     madBindingDest->function = NULL;                       //object not in animation; no binding
     madBindingDest++;                                       //skip to next binding struct
@@ -552,6 +585,7 @@ void madAnimBindingsDupe(Ship *ship, ShipStaticInfo *staticInfo,bool32 LoadingGa
         ship->madBindings->nCurrentAnim = MAD_NoAnimation;      //start off by doing no animation
         ship->madBindings->bPaused = FALSE;
     }
+    else madNativeVisualSample(ship); /* Reconstruct current native pose on save load. */
 }
 
 /*-----------------------------------------------------------------------------
@@ -617,6 +651,7 @@ foundTime:
 #if MAD_VERBOSE_LEVEL >= 2
     dbgMessagef("madAnimationStart: started animation #%d('%s') on ship 0x%x", animNumber, animation->name, ship);
 #endif
+    madNativeVisualSample(ship);
 }
 
 /*-----------------------------------------------------------------------------
@@ -654,6 +689,8 @@ bool32 madAnimationUpdate(Ship *ship, real32 timeElapsed)
         }
         else
         {                                                   //else it's a non-looping animation; clamp at the end
+            meshNativeVisualSampleShipEvent(ship,animation->name,1);
+            meshRemasteredNotifyAnimation(ship,animation->name,1);
             madAnimationStop(ship);
             return(TRUE);
         }
@@ -663,6 +700,7 @@ bool32 madAnimationUpdate(Ship *ship, real32 timeElapsed)
         anim->time += timeElapsed;
     }
     anim->timeElapsed += timeElapsed;
+    madNativeVisualSample(ship);
     return(FALSE);
 }
 

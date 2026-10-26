@@ -7,11 +7,23 @@
 =============================================================================*/
 
 #include "mouse.h"
+#include "MouseWindowConfinement.h"
+
+static Uint32 mouseConfinedWindow;
+void mouseRefreshWindowConfinement(void)
+{
+    mouseWindowConfinementUpdate(&mouseConfinedWindow,SDL_GetKeyboardFocus());
+}
+void mouseReleaseWindowConfinement(void)
+{
+    mouseWindowConfinementUpdate(&mouseConfinedWindow,NULL);
+}
 
 #include <SDL2/SDL.h>
 #include <stdio.h>
 
 #include "stb_image.h"
+#include "NativeCursorPolicy.h"
 
 #include "CommandWrap.h"
 #include "DDDFrigate.h"
@@ -35,6 +47,7 @@
 #include "Select.h"
 #include "Sensors.h"
 #include "ShipSelect.h"
+#include "ShipPilot.h"
 #include "SinglePlayer.h"
 #include "SoundEvent.h"
 #include "StringSupport.h"
@@ -110,6 +123,7 @@ bool8 mouseDisabled = FALSE;
 uword mouseInsideClient = FALSE;
 
 static bool32 mouseGLInitialized;
+static void mouseReleaseSystemCursors(void);
 
 mouseCursor  mouseCursorType = normal_mouse;
 udword       mouseCursorMode = 0;
@@ -362,6 +376,8 @@ sdword mouseStartup(void)
 
     mouseGLInitialized = FALSE;
 
+    mouseRefreshSystemCursor();
+
     return(OKAY);
 }
 
@@ -404,6 +420,7 @@ void mouseInitGL(void)
 ----------------------------------------------------------------------------*/
 void mouseReset(void)
 {
+    mouseReleaseSystemCursors();
     mouseWheelStepsPending = 0;
     {
         sdword cursorIndex;
@@ -470,6 +487,7 @@ void mouseReset(void)
 ----------------------------------------------------------------------------*/
 void mouseShutdown(void)
 {
+    mouseReleaseWindowConfinement();
     mouseReset();
 }
 
@@ -484,6 +502,7 @@ void mouseShutdown(void)
 void mouseCursorHide(void)
 {
     mouseIsVisible = FALSE;
+    mouseRefreshSystemCursor();
 }
 
 /*-----------------------------------------------------------------------------
@@ -497,6 +516,7 @@ void mouseCursorHide(void)
 void mouseCursorShow(void)
 {
     mouseIsVisible = TRUE;
+    mouseRefreshSystemCursor();
 }
 
 void mouseCursorDelayShow(uword delay)
@@ -575,6 +595,8 @@ void mouseClipToRect(rectangle *rect)
         SDL_GetRelativeMouseState(&x, &y); // prime the next poll to start at 0,0
     }
     SDL_SetRelativeMouseMode(mouseClip);
+    mouseRefreshWindowConfinement();
+    mouseRefreshSystemCursor();
 }
 
 
@@ -918,7 +940,7 @@ static void *mouseLoadHDFile(const char *fileName, size_t *fileSize)
     char *basePath = SDL_GetBasePath();
     void *fileData = NULL;
     const char *relativeCandidates[] = {
-        "Cursors/",
+        "Data/Cursors/",
         "../../../../assets/Cursors/",
         "assets/Cursors/"
     };
@@ -927,7 +949,7 @@ static void *mouseLoadHDFile(const char *fileName, size_t *fileSize)
     *fileSize = 0;
     if (basePath != NULL)
     {
-        for (index = 0; index < 2 && fileData == NULL; ++index)
+        for (index = 0; index < (getenv("HW_PORTABLE_ROOT")?1:2) && fileData == NULL; ++index)
         {
             snprintf(path, sizeof(path), "%s%s%s", basePath,
                      relativeCandidates[index], fileName);
@@ -935,13 +957,118 @@ static void *mouseLoadHDFile(const char *fileName, size_t *fileSize)
         }
         SDL_free(basePath);
     }
-    if (fileData == NULL)
+    if (fileData == NULL && !getenv("HW_PORTABLE_ROOT"))
     {
         snprintf(path, sizeof(path), "%s%s", relativeCandidates[2],
                  fileName);
         fileData = SDL_LoadFile(path, fileSize);
     }
     return fileData;
+}
+
+#ifdef _WIN32
+typedef struct mouseSystemCursorEntry
+{
+    SDL_Cursor *cursor;
+    sdword width, height;
+} mouseSystemCursorEntry;
+static mouseSystemCursorEntry mouseSystemCursors[end_cursor_type];
+
+static SDL_Cursor *mouseEnsureSystemCursor(mouseCursor cursorType)
+{
+    mouseSystemCursorEntry *entry;
+    SDL_Cursor *created;
+    SDL_Surface *surface;
+    const char *fileName;
+    void *fileData;
+    size_t fileSize;
+    stbi_uc *hdPixels = NULL;
+    unsigned char *legacyPixels = NULL, *scaledPixels;
+    const unsigned char *source;
+    lifheader *legacy = mouseGetLIF();
+    sdword sw = 0, sh = 0, channels, width, height, y;
+    sdword scale = mouseCursorScalePercent;
+    if (cursorType < 0 || cursorType >= end_cursor_type) return NULL;
+    if (!legacy) legacy = mouseNormalBitmap;
+    if (!legacy) return NULL;
+    if (scale < 25) scale = 25;
+    if (scale > 100) scale = 100;
+    width = uiScaleSize(legacy->width)*scale/100;
+    height = uiScaleSize(legacy->height)*scale/100;
+    if (width < 1) width = 1;
+    if (height < 1) height = 1;
+    entry = &mouseSystemCursors[cursorType];
+    if (entry->cursor && entry->width == width && entry->height == height)
+        return entry->cursor;
+    fileName = mouseHDCursorFile(cursorType);
+    if (fileName)
+    {
+        fileData = mouseLoadHDFile(fileName, &fileSize);
+        if (fileData && fileSize && fileSize <= 0x7fffffff)
+            hdPixels = stbi_load_from_memory(fileData, (int)fileSize, &sw, &sh, &channels, 4);
+        SDL_free(fileData);
+    }
+    source = hdPixels;
+    if (!source)
+    {
+        sw = legacy->width; sh = legacy->height;
+        legacyPixels = SDL_malloc((size_t)sw*sh*4);
+        if (!legacyPixels) return NULL;
+        /* Startup mirrored the LIF for legacy drawing; restore top-left rows. */
+        for (y = 0; y < sh; ++y)
+            memcpy(legacyPixels + (size_t)y*sw*4,
+                legacy->data + (size_t)(sh-y-1)*sw*4, (size_t)sw*4);
+        source = legacyPixels;
+    }
+    scaledPixels = SDL_malloc((size_t)width*height*4);
+    if (!scaledPixels) { stbi_image_free(hdPixels); SDL_free(legacyPixels); return NULL; }
+    hwCursorResizeRgba(source, sw, sh, scaledPixels, width, height);
+    surface = SDL_CreateRGBSurfaceWithFormatFrom(scaledPixels, width, height,
+        32, width*4, SDL_PIXELFORMAT_RGBA32);
+    created = surface ? SDL_CreateColorCursor(surface, 0, 0) : NULL;
+    SDL_FreeSurface(surface);
+    SDL_free(scaledPixels); SDL_free(legacyPixels); stbi_image_free(hdPixels);
+    if (!created) return NULL;
+    /* Never free an active Windows handle; switch first, then retire the old size. */
+    SDL_SetCursor(created);
+    if (entry->cursor) SDL_FreeCursor(entry->cursor);
+    entry->cursor = created; entry->width = width; entry->height = height;
+    return created;
+}
+#endif
+
+static void mouseReleaseSystemCursors(void)
+{
+#ifdef _WIN32
+    sdword index;
+    SDL_SetCursor(SDL_GetDefaultCursor());
+    SDL_ShowCursor(SDL_DISABLE);
+    for (index = 0; index < end_cursor_type; ++index)
+    {
+        if (mouseSystemCursors[index].cursor) SDL_FreeCursor(mouseSystemCursors[index].cursor);
+        memset(&mouseSystemCursors[index], 0, sizeof(mouseSystemCursors[index]));
+    }
+#endif
+}
+
+void mouseRefreshSystemCursor(void)
+{
+#ifdef _WIN32
+    SDL_Cursor *cursor;
+    if (!mouseIsVisible || mouseDisabled || mouseClip ||
+        mouseCursorType == no_mouse || mouseCursorType == rotate_camera ||
+        mouseCursorType == zoom_camera)
+    {
+        SDL_ShowCursor(SDL_DISABLE);
+        return;
+    }
+    cursor = mouseEnsureSystemCursor(mouseCursorType);
+    if (!cursor) cursor = SDL_GetDefaultCursor();
+    if (cursor && SDL_GetCursor() != cursor) SDL_SetCursor(cursor);
+    if (SDL_ShowCursor(SDL_QUERY) != SDL_ENABLE) SDL_ShowCursor(SDL_ENABLE);
+#else
+    SDL_ShowCursor(SDL_DISABLE); /* Other platforms retain their software cursor. */
+#endif
 }
 
 static udword mouseEnsureHDCursor(mouseCursor cursorType)
@@ -1138,6 +1265,7 @@ extern regionhandle spHyperspaceRollCallScreen;
 void mouseDraw(void)
 {
     bool32 primModeOn = TRUE;
+    bool32 softwareDraw = FALSE;
     static mouseCursor mousehold = normal_mouse;
     static real32 mouseholdexpire = 0.0;
 
@@ -1150,25 +1278,12 @@ void mouseDraw(void)
 
     if ((!mouseIsVisible) || (mouseDisabled))
     {
+        mouseRefreshSystemCursor();
         return;                                             //don't draw mouse if not visible
-    }
-
-    if (!mouseGLInitialized)
-    {
-        mouseInitGL();
     }
 
     //mousePoll();
 
-    if (!primModeEnabled)
-    {
-        primModeOn = FALSE;
-        primModeSetFunction2();
-    }
-
-    glEnable(GL_BLEND);
-    rndAdditiveBlends(FALSE);
-    rndTextureEnvironment(RTE_Modulate);
 
     if ((mousehold != normal_mouse) && (mouseCursorType == normal_mouse))
     {
@@ -1200,6 +1315,7 @@ void mouseDraw(void)
     if (mouseCursorType == no_mouse || mouseCursorType == rotate_camera ||
         mouseCursorType == zoom_camera)
     {
+        mouseRefreshSystemCursor();
         goto finish;
     }
     if (mouseCursorType == special_attack && mousehold == normal_mouse)
@@ -1207,11 +1323,32 @@ void mouseDraw(void)
         mousehold = special_attack;
         mouseholdexpire = universe.totaltimeelapsed + (real32)MC_MOUSEHOLDTIME;
     }
+#ifdef _WIN32
+    /* Windows owns cursor position/presentation, independently of scene FPS
+       and frame generation. Keep gameplay cursor choice and hover bookkeeping. */
+    if (!mouseClip)
+        mouseRefreshSystemCursor();
+    else
+#endif
+    {
+    /* Relative capture uses a virtual/clamped location (color-picker drags,
+       tactical controls). SDL cannot show an OS pointer in relative mode. */
+    softwareDraw = TRUE;
+    if (!mouseGLInitialized) mouseInitGL();
+    if (!primModeEnabled)
+    {
+        primModeOn = FALSE;
+        primModeSetFunction2();
+    }
+    glEnable(GL_BLEND);
+    rndAdditiveBlends(FALSE);
+    rndTextureEnvironment(RTE_Modulate);
     mouseDrawModernCursor(mouseCursorType);
+    }
 
   finish:
 
-    glDisable(GL_BLEND);
+    if (softwareDraw) glDisable(GL_BLEND);
 
     if (!primModeOn)
     {
@@ -1939,6 +2076,7 @@ void mouseClipPointToRect(sdword *x, sdword *y, rectangle *rect)
 =============================================================================*/
 void mousePoll(void)
 {
+    mouseRefreshWindowConfinement();
     //rectangle clientRect;
     //POINT mousePoint;
     sdword tmpX, tmpY;
@@ -1961,6 +2099,8 @@ void mousePoll(void)
     if (mouseClip)
     {
         SDL_GetRelativeMouseState(&tmpX, &tmpY);
+        shipPilotMouseMotion(tmpX,tmpY);
+        if(shipPilotCockpit()) tmpX=tmpY=0;
         mouseCursorXPosition += tmpX;
         mouseCursorYPosition += tmpY;
         mouseClipPointToRect(&mouseCursorXPosition, &mouseCursorYPosition, &mouseClipRect);
@@ -1970,6 +2110,7 @@ void mousePoll(void)
     {
         SDL_GetMouseState(&mouseCursorXPosition, &mouseCursorYPosition);
     }
+    mouseRefreshSystemCursor();
     //perform client area enter/exit logic to hide/show Windows system cursor
     /*
     if (primPointInRectXY2(&clientRect, mousePoint.x, mousePoint.y))

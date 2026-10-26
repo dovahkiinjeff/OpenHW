@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     Name    : Universe.c
     Purpose : The universe represents the entire game world, including any
@@ -8,9 +9,11 @@
 =============================================================================*/
 
 #include "Universe.h"
+#include "../Modern/RemasteredVisualPackage.h"
 
 #include <math.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "AIPlayer.h"
@@ -28,6 +31,8 @@
 #include "Formation.h"
 #include "GameChat.h"
 #include "Gun.h"
+#include "ClassicGunRestPose.h"
+#include "NativeVisualRegistry.h"
 #include "HorseRace.h"
 #include "LagPrint.h"
 #include "LevelLoad.h"
@@ -38,6 +43,7 @@
 #include "MultiplayerGame.h"
 #include "NavLights.h"
 #include "NetCheck.h"
+#include "Options.h"
 #include "Ping.h"
 #include "render.h"
 #include "SaveGame.h"
@@ -99,7 +105,7 @@ real32 maxMineCollSphereSize;
 
 meshdata *defaultmesh = NULL;
 
-ubyte turboTimeCompressionFactor = 8;  // same as Homeworld Cataclysm
+ubyte turboTimeCompressionFactor = 8;
 bool32 universeTurbo = FALSE;
 bool32 universePause = FALSE;
 
@@ -163,7 +169,12 @@ uword RacesAllowedForGivenShip[TOTAL_NUM_SHIPS] =
     Traders_VALID    ,                   //MiningBase
     Traders_VALID    ,                   //ResearchStation
     Traders_VALID    ,                   //JunkYardDawg
-    Traders_VALID                        //JunkYardHQ
+    Traders_VALID,                       //JunkYardHQ
+    0,                                   //Ghostship
+    0,                                   //Junk_LGun
+    0,                                   //Junk_SGun
+    0,                                   //ResearchStationBridge
+    0,                                   //ResearchStationTower
 };
 
 bool32 universeForceDefaultShip = FALSE;   //flag for forcing ships to be loaded as rave borgs
@@ -275,7 +286,7 @@ CustShipHeader *shipHeaders[TOTAL_NUM_SHIPS] =
     &StationaryGunHeader,           //Junk_LGun
     &StationaryGunHeader,           //Junk_SGun
     &DoNothingShipHeader,           //ResearchStationBridge
-    &DoNothingShipHeader           //ResearchStationTower
+    &DoNothingShipHeader,          //ResearchStationTower
 };
 
 real32 rowAvoidBy[TOTAL_NUM_SHIPS] =
@@ -337,7 +348,7 @@ real32 rowAvoidBy[TOTAL_NUM_SHIPS] =
     2000.0,         //Junk_LGun
     1000.0,         //Junk_SGun
     2000.0,         //ResearchStationBridge
-    2000.0          //ResearchStationTower
+    2000.0,         //ResearchStationTower
 };
 
 // rightOfWay for ships.
@@ -407,7 +418,7 @@ sbyte rightOfWays[TOTAL_NUM_SHIPS] =
     1,              //Junk_LGun
     0,               //Junk_SGun
     4,               //ResearchStationBridge
-    4                //ResearchStationTower
+    4,               //ResearchStationTower
 };
 
 scriptEntry ShipStaticCapLimits[] =
@@ -1017,6 +1028,45 @@ static void setGunBindInfo(char *directory,char *field,void *dataToFillIn)
             flags |= frequency;
         }
     }
+    {
+        float nativeScale;unsigned nativeLOD;
+        lod *first=&info->staticheader.LOD->level[0];
+        if((first->flags & LM_LODType)==LT_Mesh &&
+            meshNativeVisualParameters(first->pData,&nativeScale,&nativeLOD)) {
+            char original[FL_Path];void *bytes=NULL;sdword length;
+            hmatrix concatenated,local;GunStatic *gun=&info->gunStaticInfo->gunstatics[gunIndex];
+            if(gun->guntype!=GUN_NewGimble) {
+                info->hierarchySize=lodHierarchySizeCompute(info->staticheader.LOD);return;
+            }
+            /* Multiple BindGun lines can add child recoil/elevation bindings.
+               The original search finds the parent aiming binding first. */
+            if(gun->defaultgunorientation.m11*gun->defaultgunorientation.m11+
+               gun->defaultgunorientation.m21*gun->defaultgunorientation.m21+
+               gun->defaultgunorientation.m31*gun->defaultgunorientation.m31>.5f) {
+                info->hierarchySize=lodHierarchySizeCompute(info->staticheader.LOD);return;
+            }
+            /* Combat limits are defined in the original model's rest frame.
+               Native rendering must not make this BindGun contract disappear. */
+            snprintf(original,sizeof(original),"%s%s\\Rl0\\LOD0\\%s.peo",
+                directory?directory:"",ShipTypeToStr(info->shiptype),ShipTypeToStr(info->shiptype));
+            if(!fileExists(original,0))
+                snprintf(original,sizeof(original),"%s%s\\Rl0\\LOD0\\%s.geo",
+                    directory?directory:"",ShipTypeToStr(info->shiptype),ShipTypeToStr(info->shiptype));
+            if(fileExists(original,0)) {
+                length=fileLoadAlloc(original,&bytes,NonVolatile);
+                if(length>0 && classicGunRestPose(bytes,(size_t)length,hString,(float *)&concatenated,(float *)&local)) {
+                    matGetMatFromHMat(&gun->defaultgunorientation,&concatenated);
+                    matGetMatFromHMat(&gun->defaultGunOrientationNonConcat,&local);
+                    bitClear(gun->flags,GF_MultiLevelMatrix);
+                    if(memcmp(&gun->defaultgunorientation,&gun->defaultGunOrientationNonConcat,sizeof(matrix)))
+                        bitSet(gun->flags,GF_MultiLevelMatrix);
+                } else dbgMessagef("Native combat gun rest frame missing: %s %s",original,hString);
+                if(bytes) memFree(bytes);
+            }
+            info->hierarchySize=lodHierarchySizeCompute(info->staticheader.LOD);
+            return; /* Native renderer uses its own explicit gun hierarchy. */
+        }
+    }
     info->hierarchySize = lodHierarchySizeCompute(info->staticheader.LOD);
     nBound = 0;
     for (index = 0; index < info->staticheader.LOD->nLevels; index++)
@@ -1414,6 +1464,22 @@ static void scriptSetFramesCB(char *directory,char *field,void *dataToFillIn)
 void gunGetDefaultOrientationFromBindings(GunStatic *gunstatic,ShipStaticInfo *statinfo)
 {
     lod *level = &statinfo->staticheader.LOD->level[0];
+    float nativeScale;unsigned nativeLOD;
+    if(meshNativeVisualParameters(level->pData,&nativeScale,&nativeLOD)) {
+        /* Newly authored subsystem weapons have no classic BindGun entry.
+           Initialize their combat frame directly from their native muzzle. */
+        if(gunstatic->defaultgunorientation.m11*gunstatic->defaultgunorientation.m11+
+           gunstatic->defaultgunorientation.m21*gunstatic->defaultgunorientation.m21+
+           gunstatic->defaultgunorientation.m31*gunstatic->defaultgunorientation.m31<.5f) {
+            hmatrix rest;if(meshNativeVisualRestGun(level->pData,gunstatic->gunindex,(float*)&rest)) {
+                matGetMatFromHMat(&gunstatic->defaultgunorientation,&rest);
+                gunstatic->defaultGunOrientationNonConcat=gunstatic->defaultgunorientation;
+                gunstatic->position.x=((float*)&rest)[12];gunstatic->position.y=((float*)&rest)[13];gunstatic->position.z=((float*)&rest)[14];
+                bitClear(gunstatic->flags,GF_MultiLevelMatrix);
+            }
+        }
+        return;
+    }
     //udword numHierarchys = ((meshdata *)level->pData)->nPolygonObjects;
     hmatrix concatenated, nonConcatenated;
 //    mhbinding *binding;
@@ -2034,6 +2100,27 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
         return;
     }
 #endif
+
+    {
+        char definition[256],identity[80],member[128];void *bytes=NULL;sdword size;
+        snprintf(definition,sizeof(definition),"%s%s\\RMNative\\ship.owshipdef",directory,shiptypestr);
+        snprintf(identity,sizeof(identity),"%s%s",race==R2?"Taiidan_":"",shiptypestr);
+        if(fileExists(definition,FF_IgnoreBIG))
+        {
+            size=fileSizeGet(definition,FF_IgnoreBIG);
+            if(size>0&&size<=1024*1024){size=fileLoadAlloc(definition,&bytes,FF_IgnoreBIG);
+                if(size>=13&&!memcmp(bytes,"OPENHW_SHIP_2",13)) {
+                    snprintf(shipname,sizeof(shipname),"%s\\RMNative\\ship.owshipdef.gameplay",shiptypestr);
+                    snprintf(fullshipname,sizeof(fullshipname),"%s%s",directory,shipname);
+                }
+                else if(hwRmShipDefinitionGameplay(bytes,(size_t)size,identity,member,sizeof(member)) &&
+                   snprintf(shipname,sizeof(shipname),"%s\\RMNative\\%s",shiptypestr,member)<sizeof(shipname))
+                    snprintf(fullshipname,sizeof(fullshipname),"%s%s",directory,shipname);
+                else HW_DIAG_FPRINTF(stderr,"[ShipDefinition] Invalid gameplay reference: %s\n",definition);
+                if(bytes)memFree(bytes);
+            }
+        }
+    }
 
     if (!fileExists(fullshipname,0) || universeForceDefaultShip)
     {
@@ -3042,6 +3129,8 @@ void universeStaticInit(void)
     ShipStaticInfo *shipstaticinfo;
     StaticInfo *staticinfo;
     udword max,count;
+    unsigned loadingCompleted = 0, loadingTotal = 4;
+    char loadingTask[256];
 #if UNIV_SHIP_LOADFREE_LOG
     char *fileNameFull;
     FILE *logFile = NULL;
@@ -3070,23 +3159,41 @@ void universeStaticInit(void)
 #define TMP_DEFSHIP_PATH "DefaultShip/"
 #endif
 
+    // Count catalog checks, including retained/skipped entries and the ship
+    // post-load pass. Needed flags may change while loading dependencies, so
+    // a fixed catalog denominator is more accurate than guessing asset loads.
+    for (shiprace=0;shiprace<NUM_RACES;shiprace++)
+        loadingTotal += 2u * (unsigned)(LastShipTypeOfRace[shiprace] - FirstShipTypeOfRace[shiprace] + 1);
+    loadingTotal += NUM_ASTEROIDTYPES + NUM_DUSTCLOUDTYPES + NUM_NEBULATYPES +
+        NUM_DERELICTTYPES + NUM_RACES + 2;
+    HorseRaceLoadingPhaseBegin(HR_LOAD_FLEET, "Preparing the fleet and object catalog");
+    HorseRaceLoadingProgress(0, loadingTotal, "Checking shared fleet resources");
+
     //load some things shared by everyone
+    HorseRaceLoadingTask("Preparing the shared sphere model");
     if (sphereStaticInfo == NULL)
     {
         sphereStaticInfo = createSphereStaticInfo();
     }
+    HorseRaceLoadingProgress(++loadingCompleted, loadingTotal, "Shared sphere model checked");
+    HorseRaceLoadingTask("Loading the default ship model");
     if (defaultmesh == NULL)
     {
         defaultmesh = meshLoad(TMP_DEFSHIP_PATH "DefaultShip.geo");
     }
+    HorseRaceLoadingProgress(++loadingCompleted, loadingTotal, "Default ship model checked");
+    HorseRaceLoadingTask("Loading the default ship LOD definitions");
     if (defaultlod == NULL)
     {
         defaultlod = lodTableReadScript(TMP_DEFSHIP_PATH, "DefaultShip.lod");
     }
+    HorseRaceLoadingProgress(++loadingCompleted, loadingTotal, "Default ship LOD definitions checked");
+    HorseRaceLoadingTask("Loading the default ship attachment points");
     if (defaultmex == NULL)
     {
         defaultmex = mexLoad(TMP_DEFSHIP_PATH "DefaultShip.mex");
     }
+    HorseRaceLoadingProgress(++loadingCompleted, loadingTotal, "Default ship attachment points checked");
 
 #undef TMP_DEFSHIP_PATH
 
@@ -3099,12 +3206,18 @@ void universeStaticInit(void)
 
     HorseRaceBeginBar(UNIVERSE_BAR);
     count = 0;
+    /* The independent prototype uses the native Scout's initialized physics
+       and weapon behavior, even when a mission disables Scout construction. */
+    bitSet(GetShipStaticInfo(LightInterceptor, R1)->staticheader.infoFlags, IF_InfoNeeded);
     for (shiprace=0;shiprace<NUM_RACES;shiprace++)
     {
         firstshiptype = FirstShipTypeOfRace[shiprace];
         lastshiptype = LastShipTypeOfRace[shiprace];
         for (shiptype=firstshiptype;shiptype<=lastshiptype;shiptype++)
         {
+            snprintf(loadingTask, sizeof(loadingTask), "Preparing ship: %s / %s",
+                     ShipRaceToStr(shiprace), ShipTypeToStr(shiptype));
+            HorseRaceLoadingTask(loadingTask);
             HorseRaceNext(((real32)count)/((real32)max));
             if (hrAbortLoadingGame)
             {
@@ -3146,12 +3259,14 @@ void universeStaticInit(void)
 #endif
                 }
             }
-
+            HorseRaceLoadingProgress(++loadingCompleted, loadingTotal, loadingTask);
         }
     }
 
     for (asteroidtype=0;asteroidtype<NUM_ASTEROIDTYPES;asteroidtype++)
     {
+        snprintf(loadingTask, sizeof(loadingTask), "Preparing asteroid: %s", AsteroidTypeToStr(asteroidtype));
+        HorseRaceLoadingTask(loadingTask);
         HorseRaceNext(((real32)count)/((real32)max));
         if (hrAbortLoadingGame)
         {
@@ -3186,10 +3301,13 @@ void universeStaticInit(void)
             }
         }
         count++;
+        HorseRaceLoadingProgress(++loadingCompleted, loadingTotal, loadingTask);
     }
 
     for (dustcloudtype = 0; dustcloudtype < NUM_DUSTCLOUDTYPES; dustcloudtype++)
     {
+        snprintf(loadingTask, sizeof(loadingTask), "Preparing original dust: %s", DustCloudTypeToStr(dustcloudtype));
+        HorseRaceLoadingTask(loadingTask);
         HorseRaceNext(((real32)count)/((real32)max));
         if (hrAbortLoadingGame)
         {
@@ -3224,10 +3342,13 @@ void universeStaticInit(void)
             }
         }
         count++;
+        HorseRaceLoadingProgress(++loadingCompleted, loadingTotal, loadingTask);
     }
 
     for (nebulatype = 0; nebulatype < NUM_NEBULATYPES; nebulatype++)
     {
+        snprintf(loadingTask, sizeof(loadingTask), "Preparing nebula: %s", NebulaTypeToStr(nebulatype));
+        HorseRaceLoadingTask(loadingTask);
         HorseRaceNext(((real32)count)/((real32)max));
         if (hrAbortLoadingGame)
         {
@@ -3262,10 +3383,13 @@ void universeStaticInit(void)
             }
         }
         count++;
+        HorseRaceLoadingProgress(++loadingCompleted, loadingTotal, loadingTask);
     }
 
     for (derelicttype=0;derelicttype<NUM_DERELICTTYPES;derelicttype++)
     {
+        snprintf(loadingTask, sizeof(loadingTask), "Preparing derelict: %s", DerelictTypeToStr(derelicttype));
+        HorseRaceLoadingTask(loadingTask);
         HorseRaceNext(((real32)count)/((real32)max));
         if (hrAbortLoadingGame)
         {
@@ -3307,10 +3431,13 @@ void universeStaticInit(void)
             }
         }
         count++;
+        HorseRaceLoadingProgress(++loadingCompleted, loadingTotal, loadingTask);
     }
 
     for (shiprace=0;shiprace<NUM_RACES;shiprace++)
     {
+        snprintf(loadingTask, sizeof(loadingTask), "Preparing missile: %s", ShipRaceToStr(shiprace));
+        HorseRaceLoadingTask(loadingTask);
         HorseRaceNext(((real32)count)/((real32)max));
         if (hrAbortLoadingGame)
         {
@@ -3345,11 +3472,14 @@ void universeStaticInit(void)
             }
         }
         count++;
+        HorseRaceLoadingProgress(++loadingCompleted, loadingTotal, loadingTask);
     }
 
     maxMineCollSphereSize = 0.0f;
     for (shiprace=0;shiprace<2;shiprace++)
     {
+        snprintf(loadingTask, sizeof(loadingTask), "Preparing mine: %s", ShipRaceToStr(shiprace));
+        HorseRaceLoadingTask(loadingTask);
         HorseRaceNext(((real32)count)/((real32)max));
         if (hrAbortLoadingGame)
         {
@@ -3388,6 +3518,7 @@ void universeStaticInit(void)
             }
         }
         count++;
+        HorseRaceLoadingProgress(++loadingCompleted, loadingTotal, loadingTask);
     }
 
     maxMineCollSphereSize *= 2.0f;
@@ -3407,12 +3538,17 @@ abortloadinggame:
             {
                 if (bitTest(shipstaticinfo->staticheader.infoFlags, IF_NotPostLoaded))
                 {                                           //if ship just now loaded
+                    snprintf(loadingTask, sizeof(loadingTask), "Finalizing ship: %s / %s",
+                             ShipRaceToStr(shiprace), ShipTypeToStr(shiptype));
+                    HorseRaceLoadingTask(loadingTask);
                     InitStatShipInfoPost(shipstaticinfo);
                     //shipstaticinfo->staticheader.infoFlags, IF_InfoLoaded) = TRUE;
                     bitClear(shipstaticinfo->staticheader.infoFlags, IF_NotPostLoaded);
                     bitSet(shipstaticinfo->staticheader.infoFlags, IF_InfoLoaded);
                 }
             }
+            if (!hrAbortLoadingGame)
+                HorseRaceLoadingProgress(++loadingCompleted, loadingTotal, "Checking ship post-load configuration");
         }
     }
 
@@ -3440,6 +3576,7 @@ abortloadinggame:
             GetShipStaticInfo(Mothership,R1)->staticheader.immobile = FALSE;
             GetShipStaticInfo(Mothership,R2)->staticheader.immobile = FALSE;
         }
+        HorseRaceLoadingPhaseComplete(HR_LOAD_FLEET);
     }
 }
 
@@ -3578,10 +3715,12 @@ void universeNoStaticLoadedOrNeeded(void)
     }
 }
 
+#include "ModernParticleFields.h"
 void universeInit(void)
 {
     sdword index;
 
+    modernParticleFieldsReset();
     univupdateInit();
 
     clInit(&universe.mainCommandLayer);
@@ -3616,6 +3755,7 @@ void universeReset(void)
 {
     sdword index;
 
+    modernParticleFieldsReset();
     clReset(&universe.mainCommandLayer);
     ccReset(&universe.mainCameraCommand);
 
@@ -4110,6 +4250,7 @@ ShipStaticInfo *GetShipStaticInfo(ShipType shiptype,ShipRace shiprace)
     dbgAssertOrIgnore(shiprace < NUM_RACES);
     dbgAssertOrIgnore(shiptype < TOTAL_NUM_SHIPS);
 
+
     offset = shiptype - FirstShipTypeOfRace[shiprace];
     dbgAssertOrIgnore(offset >= 0);
     dbgAssertOrIgnore(offset < NumShipTypesInRace[shiprace]);
@@ -4139,6 +4280,7 @@ ShipStaticInfo *GetShipStaticInfoSafe(ShipType shiptype,ShipRace shiprace)
     {
         return NULL;
     }
+
 
     offset = shiptype - FirstShipTypeOfRace[shiprace];
 
@@ -4310,6 +4452,13 @@ bool32 unitCapCanCreateShip(ShipType ship, shipsinprogress *factory, shipavailab
     udword   totalships=1, typeships=1, classships=1,index;
     ShipStaticInfo *statinfo, *shipstatic;
     ShipRace buildRace, allFactoryRace;
+
+    /* Keep cap totals maintained for scripts/statistics, but bypass every
+       total/class/type construction limit for the local single-player game. */
+    if (singlePlayerGame && opDisableUnitCaps)
+    {
+        return(TRUE);
+    }
 
     if ((!bitTest(tpGameCreated.flag,MG_UnitCapsEnabled)) &&
         (ship!=ResearchShip)&&(!singlePlayerGame))

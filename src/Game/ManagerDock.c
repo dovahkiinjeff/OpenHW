@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 #include "ManagerDock.h"
 
 #include <stdio.h>
@@ -76,6 +77,9 @@ static void mdPlaceBuild(featom *atom, sdword x, sdword y, sdword width, sdword 
 
 static void mdPrepareBase(featom *atom, HWManagerDockKind kind)
 {
+    /* FIB managers are modal in Classic. A docked panel must not clear the
+       region event mask for the world and its gameplay hotkeys. */
+    bitClear(atom->flags, FAF_Modal | FAF_Popup | FAF_Draggable);
     mdSetHidden(atom, FALSE);
     if (kind == HW_MANAGER_DOCK_BUILD)
     {
@@ -218,47 +222,23 @@ static void mdPrepareLaunch(featom *atom)
     if (mdNameIs(atom, "LM_ShipsToLaunch"))
     {
         mdSetHidden(atom, FALSE);
-        mdPlace(atom, 12, 178, 332, 204);
+        mdPlace(atom, 12, 240, 332, 142);
         return;
     }
     if (mdNameIs(atom, "LM_FighterUsed"))
     {
         mdSetHidden(atom, FALSE);
-        mdPlace(atom, 234, 124, 108, 18);
+        mdPlace(atom, 90, 194, 180, 14);
         return;
     }
     if (mdNameIs(atom, "LM_CorvetteUsed"))
     {
         mdSetHidden(atom, FALSE);
-        mdPlace(atom, 234, 145, 108, 18);
+        mdPlace(atom, 90, 216, 180, 14);
         return;
     }
-    if (mdNameIs(atom, "LM_MotherShipDraw"))
-    {
-        mdSetHidden(atom, FALSE);
-        mdPlace(atom, 12, 58, 42, 42);
-        return;
-    }
-    if (mdNameStartsWith(atom, "LM_Carrier") && strstr(atom->name, "Draw") != NULL)
-    {
-        sdword carrier = atom->name[10] - '0';
-        mdSetHidden(atom, FALSE);
-        mdPlace(atom, 12 + carrier * 47, 58, 42, 42);
-        return;
-    }
-    if (mdNameIs(atom, "LM_AutoLaunchM"))
-    {
-        mdSetHidden(atom, FALSE);
-        mdPlace(atom, 25, 104, 16, 16);
-        return;
-    }
-    if (mdNameStartsWith(atom, "LM_AutoLaunchC"))
-    {
-        sdword carrier = atom->name[14] - '0';
-        mdSetHidden(atom, FALSE);
-        mdPlace(atom, 25 + carrier * 47, 104, 16, 16);
-        return;
-    }
+    /* The dynamic hold bank replaces the five cramped FIB buttons and
+       checkboxes; it pages through every owned launch-capable hold. */
     mdSetHidden(atom, TRUE);
 }
 
@@ -351,14 +331,14 @@ void mdPrepareManagerScreen(fescreen *screen, HWManagerDockKind kind)
 
     if (kind == HW_MANAGER_DOCK_BUILD)
     {
-        fprintf(stderr, "[ManagerDock] %s docked at (%d,%d), %dx%d pixels.\n",
+        HW_DIAG_FPRINTF(stderr, "[ManagerDock] %s docked at (%d,%d), %dx%d pixels.\n",
                 screen->name, mdPanelLeft() + uiScaleSize(MD_BUILD_X_OFFSET),
                 mdPanelTop(), uiScaleSize(MD_BUILD_PANEL_WIDTH),
                 uiScaleSize(MD_PANEL_HEIGHT));
     }
     else
     {
-        fprintf(stderr, "[ManagerDock] %s docked at (%d,%d), %dx%d pixels.\n",
+        HW_DIAG_FPRINTF(stderr, "[ManagerDock] %s docked at (%d,%d), %dx%d pixels.\n",
                 screen->name, mdPanelLeft(), mdPanelTop(),
                 uiScaleSize(MD_PANEL_WIDTH), uiScaleSize(MD_PANEL_HEIGHT));
     }
@@ -432,12 +412,26 @@ static udword mdManagerToggleKey(regionhandle region, smemsize ID,
     return 0;
 }
 
+/* Route a physical press before legacy manager FIB key regions consume it.
+   The event is consumed once, so a newly opened panel cannot toggle it again. */
+bool32 mdHandleActiveManagerKey(sdword key)
+{
+    if(!mdManagerDockEnabled() || !(cmActive || rmGUIActive || lmActive)) return FALSE;
+    switch(key) {
+        case BKEY: mrBuildShips(NULL,NULL); return TRUE;
+        case LKEY: mrLaunch(NULL,NULL); return TRUE;
+        case RKEY: mrResearch(NULL,NULL); return TRUE;
+        default: return FALSE;
+    }
+}
+
 void mdInstallManagerToggleKeys(regionhandle baseRegion)
 {
     if (baseRegion == NULL || !mdManagerDockEnabled())
     {
         return;
     }
+    regFilterSet(baseRegion, regFilterGet(baseRegion) & ~RPE_ModalBreak);
     regKeyChildAlloc(baseRegion, BKEY, RPE_KeyDown,
                      (regionfunction)mdManagerToggleKey, 1, BKEY);
     regKeyChildAlloc(baseRegion, RKEY, RPE_KeyDown,

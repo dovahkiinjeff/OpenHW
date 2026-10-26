@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -248,7 +249,7 @@ int fqAddNoiseE(float *aBlock, EFFECT *rEffect) {
 
 int fqAddToneE(float *aBlock, EFFECT *rEffect) {
 	if (rEffect->nToneDur > 0 && rEffect->nToneCount > 0 && rEffect->fToneLev > 0.0) {
-		printf("unimplemented: fqAddToneE\n");
+		HW_DIAG_PRINTF("unimplemented: fqAddToneE\n");
 	}
 
 	return OK;
@@ -256,7 +257,7 @@ int fqAddToneE(float *aBlock, EFFECT *rEffect) {
 
 int fqAddBreakE(float *aBlock, EFFECT *rEffect) {
 	if (rEffect->nBreakMaxRate > 0 && rEffect->nBreakMaxDur > 0) {
-		printf("unimplemented: fqAddBreakE\n");
+		HW_DIAG_PRINTF("unimplemented: fqAddBreakE\n");
 	}
 
 	return OK;
@@ -264,7 +265,7 @@ int fqAddBreakE(float *aBlock, EFFECT *rEffect) {
 
 int fqGenQNoiseE(char *aQBlock, udword nRate, EFFECT *rEffect) {
 	if (rEffect->nQNoiseMaxRate > 0 && rEffect->nQNoiseMaxDur > 0) {
-		printf("unimplemented: fqGenQNoiseE\n");
+		HW_DIAG_PRINTF("unimplemented: fqGenQNoiseE\n");
 	}
 
 	return OK;

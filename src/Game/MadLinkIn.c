@@ -14,6 +14,7 @@
 #include "Debug.h"
 #include "MadLinkInDefs.h"
 #include "Mothership.h"
+#include "Mesh.h"
 #include "Randy.h"
 #include "SoundEvent.h"
 #include "SoundEventDefs.h"
@@ -668,6 +669,20 @@ bool32 madLinkInGetDoorInfo(Ship *ship, matrix *coordsys, vector *position)
     sdword madIndex, gunIndex;
     vector positiont;
     matrix coordsyst;
+    hmatrix nativeDoor;
+
+    /* The native door follows the RM clip and hierarchy, not the classic
+       Hangardoor object index/curve. Preserve the existing world-space API
+       used by docking, including its animation-clock timing. */
+    if (meshRemasteredMarkerTransform(ship,"Hangardoor",&nativeDoor))
+    {
+        matGetMatFromHMat(&coordsyst,&nativeDoor);
+        hmatGetVectFromHMatrixCol4(positiont,nativeDoor);
+        matMultiplyMatByMat(coordsys,&ship->rotinfo.coordsys,&coordsyst);
+        matMultiplyMatByVec(position,&ship->rotinfo.coordsys,&positiont);
+        vecAddTo(*position,ship->posinfo.position);
+        return TRUE;
+    }
 
     madIndex = madBindingIndexFindByName(ship->staticinfo->madStatic->header, "Hangardoor");
     gunIndex = madGunBindingIndexFindByName(ship->staticinfo, "Hangardoor");
@@ -798,4 +813,3 @@ void madLinkInCloseSpecialShip(Ship *ship)
         bitSet(ship->madAnimationFlags,MAD_NEED_TO_START_NEW_ANIMATION);
     }
 }
-

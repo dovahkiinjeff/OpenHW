@@ -65,7 +65,7 @@ typedef struct
     real32 percentmaxspeed;         // how much error is in formation positioning
     bool16 flagTravelSlowestShip;
     bool16 doneInitialAttack;
-    udword sortorder;
+    udword sortorder;               // low sort byte + tagged saved formation spread (FormationSpreadPolicy.h)
     //for the tactical overlay
     bool32 pulse;
     sdword flipState;               //variable used to determine that flipped state of the formation <if it has been flipped or not during a combat turnaround>
@@ -151,6 +151,9 @@ void FreeMilitaryParadeContents(MilitaryParadeCommand *militaryParade);
 void setMilitaryParade(struct CommandToDo *command);
 bool32 shipInMilitaryParade(ShipPtr ship);
 void paradeSetTweakables(void);
+/* Reapply current SP authoring files after loading an older saved fleet. */
+void paradeCampaignLoaded(void);
+void paradeCampaignUpdate(void);
 
 /*=============================================================================
     Macros:
@@ -192,6 +195,8 @@ void unlockFormation(struct CommandToDo *formationcommand);
 void setFormationTravelVelocity(struct CommandToDo *formationCommand);
 
 void FormationCalculateOffsets(struct CommandToDo *formationtodo);
+unsigned formationGetSpread(const struct CommandToDo *command);
+void formationSetSpreadForSelection(struct CommandLayer *layer, SelectCommand *selection, udword ticks);
 
 // returns the selection's velocity at which it can all travel, scaled by scalevel
 real32 GetShipsTravelVel(SelectCommand *selection,real32 scalevel);

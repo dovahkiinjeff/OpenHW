@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "mainrgn.h"
+#include "ShipPilot.h"
 
 #include <float.h>
 #include <math.h>
@@ -539,34 +540,8 @@ void mrShutdown(void)
 /*-----------------------------------------------------------------------------
     Callback functions for right-click menus:
 -----------------------------------------------------------------------------*/
-void mrDockingOrders(char *string, featom *atom)
-{
-    if ((tutorial==TUTORIAL_ONLY) && !tutEnable.bDock)
-    {
-        mrMenuDontDisappear = TRUE;
-        return;
-    }
-
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
-    {
-        return;
-    }
-
-    makeShipsDockCapable((SelectCommand *)&selSelected); //filter ships that can't dock
-
-    if (selSelected.numShips > 0)
-    {
-        soundEvent(NULL, UI_Click);
-        clWrapDock(&universe.mainCommandLayer,(SelectCommand *)&selSelected,dockGetAppropriateTypeOfDocking((SelectCommand *)&selSelected),NULL);
-    }
-    else
-    {
-        soundEvent(NULL, UI_ClickCancel);
-    }
-#if MR_VERBOSE_LEVEL >= 1
-    dbgMessage("Docking orders");
-#endif
-}
+#include "DockOrderTarget.inc"
+#include "DockOrders.inc"
 
 
 void mrDeltaFormation(char *string, featom *atom)
@@ -720,6 +695,10 @@ void mrBuildShips(char *string, featom *atom)
     modernUICloseShipDossier();
     if (mdManagerDockEnabled() && cmActive)
     {
+        // B follows the selected production ship even if another factory's
+        // panel is already open. The taskbar button keeps its toggle action.
+        if (atom == NULL && selSelected.numShips == 1 &&
+            cmShowSelectedFactory(selSelected.ShipPtr[0])) return;
         cmCloseIfOpen();
         return;
     }
@@ -851,7 +830,6 @@ void mrInfo(char *string, featom *atom)
     modernUIShowShipDossier(selSelected.ShipPtr[0],
                             selSelected.numShips, mixedSelection);
 }
-
 
 void mrCancel(char *string, featom *atom)
 {
@@ -1651,6 +1629,7 @@ void mrKeyPress(sdword ID)
     {
         return;
     }
+    if (shipPilotKey(ID)) return;
     /* Shift+F11 opens the realtime map editor before gameplay key translation,
        so the legacy F11 formation binding cannot consume the editor chord. */
     if (ID == F11KEY &&
@@ -1663,6 +1642,7 @@ void mrKeyPress(sdword ID)
     /* Shift+F12 is reserved for the live lighting editor.  The two authoring
        UIs are mutually exclusive so their full-screen input regions never
        fight each other.  Ctrl+Shift+F12 remains the renderer-reset chord. */
+    if (modernUIEditorColorPickerActive()) return;
     if (ID == F12KEY &&
         (keyIsHit(LSHIFTKEY) || keyIsHit(RSHIFTKEY)) &&
         !(keyIsHit(LCONTROLKEY) || keyIsHit(RCONTROLKEY)))
@@ -2931,7 +2911,13 @@ udword mrMenuActionsByShipType[TOTAL_NUM_SHIPS] =
     /* CargoBarge            */  MAM_ExtSet,
     /* MiningBase            */  MAM_ExtSet,
     /* ResearchStation       */  MAM_ExtSet,
-    /* JunkYardDawg           */  MAM_ExtSet
+    /* JunkYardDawg           */  MAM_ExtSet,
+    /* JunkYardHQ             */  MAM_ExtSet,
+    /* Ghostship              */  MAM_ExtSet,
+    /* Junk_LGun              */  MAM_ExtSet,
+    /* Junk_SGun              */  MAM_ExtSet,
+    /* ResearchStationBridge  */  MAM_ExtSet,
+    /* ResearchStationTower   */  MAM_ExtSet,
 };
 
 char *mrMenuItemByFormation[] =
@@ -3245,7 +3231,7 @@ void mrMenuDisplay(udword actionMask, TypeOfFormation currentFormation, udword t
     }
     /* Reserve one extra atom.  The shipped RightClickMenu FIB has no dossier
        entry, so the modern action must be synthesized after legacy filtering. */
-    newScreen->atoms = memAlloc(sizeof(featom) * (staticScreen->nAtoms + 1), "tempMenuAtoms", 0);
+    newScreen->atoms = memAlloc(sizeof(featom) * (staticScreen->nAtoms + 3), "tempMenuAtoms", 0);
     memcpy(newScreen->atoms, staticScreen->atoms, sizeof(featom) * staticScreen->nAtoms);
     qsort(newScreen->atoms, staticScreen->nAtoms, sizeof(featom), mrAtomSortCompare);
 
@@ -3353,6 +3339,7 @@ void mrMenuDisplay(udword actionMask, TypeOfFormation currentFormation, udword t
     //start the actual menu
     feMenuStart(ghMainRegion, newScreen, mouseCursorX(), mouseCursorY());
     feTempMenuScreen = newScreen;
+    mrDockMenuScreen = mrDockMenuTarget?newScreen:NULL;
 #undef NUMBER_GAPS
 }
 
@@ -3421,6 +3408,8 @@ void mrRightClickMenu(void)
 
     if((tutorial==TUTORIAL_ONLY) && !tutEnable.bContextMenus)
         return;
+
+    mrCaptureDockMenuTarget();
 
     /* The modern context menu describes the active selection, not the pixel
        under the pointer.  A short right-click therefore works anywhere in the
@@ -3689,6 +3678,54 @@ gotselection:
         }
     }
 #endif //MR_GUI_SINGLECLICK
+}
+
+/* Select every currently visible friendly ship matching a double click;
+   Shift adds that type to the current selection. Keeping this at the world input boundary avoids
+   changing generic selection helpers used by sensors, scripts and the map
+   editor. */
+static bool32 mrSelectVisibleShipsOfSameType(Ship *clicked)
+{
+    Node *node;
+    bool32 additive = keyIsHit(SHIFTKEY);
+
+    if (clicked == NULL || clicked->objtype != OBJ_ShipType ||
+        clicked->playerowner != universe.curPlayerPtr ||
+        clicked->shiptype == Drone || !(clicked->flags & SOF_Selectable) ||
+        (clicked->flags & SOF_Dead) ||
+        (!additive && (selSelected.numShips < 1 ||
+         !selShipInSelection(selSelected.ShipPtr, selSelected.numShips, clicked))) ||
+        keyIsHit(CONTROLKEY) || keyIsHit(ALTKEY) || keyIsHit(RALTKEY))
+        return FALSE;
+
+    if (!additive) selSelected.numShips = 0;
+    for (node = universe.RenderList.head; node != NULL; node = node->next)
+    {
+        Ship *candidate = (Ship *)listGetStructOfNode(node);
+        sdword centerX, centerY, radius;
+        if (candidate->objtype != OBJ_ShipType ||
+            candidate->playerowner != clicked->playerowner ||
+            candidate->shiptype != clicked->shiptype ||
+            candidate->shiptype == Drone ||
+            !(candidate->flags & SOF_Selectable) ||
+            (candidate->flags & SOF_Dead))
+            continue;
+        if (bitTest(candidate->flags, SOF_Slaveable) &&
+            !bitTest(candidate->slaveinfo->flags, SF_MASTER))
+            continue;
+        if (candidate->collInfo.selCircleRadius <= 0.0f) continue;
+
+        centerX = primGLToScreenX(candidate->collInfo.selCircleX);
+        centerY = primGLToScreenY(candidate->collInfo.selCircleY);
+        radius = ABS(primGLToScreenScaleX(candidate->collInfo.selCircleRadius));
+        if (centerX + radius < 0 || centerX - radius >= MAIN_WindowWidth ||
+            centerY + radius < 0 || centerY - radius >= MAIN_WindowHeight)
+            continue;
+        selSelectionAddSingleShip(&selSelected, candidate);
+    }
+    ioUpdateShipTotals();
+    tutGameMessage("Game_DoubleClickSelect");
+    return TRUE;
 }
 
 /*-----------------------------------------------------------------------------
@@ -3996,6 +4033,7 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
     {
         return(0);
     }
+    if (shipPilotMouse(event,data)) return RPR_Redraw;
     if (modernMapEditorActive() && modernMapEditorHandleWorldEvent(event, data))
     {
         return RPR_Redraw;
@@ -4093,6 +4131,12 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
             mrMouseHasMoved = 0;                            //mouse hasn't moved yet
             break;
         case RPE_DoubleLeft:
+            if (mouseCursorObjPtr != NULL &&
+                mrSelectVisibleShipsOfSameType((Ship *)mouseCursorObjPtr))
+            {
+                mouseCursorSelect.numShips = 0;
+                break;
+            }
             if (mouseCursorObjPtr != NULL)
             {
                 if (!mouseLDoubleClick())
@@ -5844,7 +5888,7 @@ void mrRegionDraw(regionhandle reg)
     else if (gameIsRunning)
     {
         mrCamera = &(universe.mainCameraCommand.actualcamera);
-        ccControl(&universe.mainCameraCommand);
+        if (!shipPilotCamera(mrCamera)) ccControl(&universe.mainCameraCommand);
         /* Shift+F11 owns its final FPS camera pose after the legacy controller.
            ccControl supplies mouse yaw/pitch, then the editor discards fleet
            refocus/orbit/zoom and reapplies its fixed-eye look + wheel flight. */
@@ -6110,6 +6154,7 @@ void mrRegionDraw(regionhandle reg)
 ----------------------------------------------------------------------------*/
 void mrReset(void)
 {
+    shipPilotExit();
     mrHoldRight = mrHoldLeft = mrNULL;                      //in case player was band-boxing or rotating
     mouseCursorShow();
     piePointSpecMode = PSM_Idle;                             //in case player was moving

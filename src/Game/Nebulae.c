@@ -20,6 +20,8 @@
 #include "mainrgn.h"
 #include "Matrix.h"
 #include "Memory.h"
+#include "ModernGraphics.h"
+#include "ModernParticleFields.h"
 #include "Randy.h"
 #include "render.h"
 #include "SaveGame.h"
@@ -35,6 +37,25 @@
 #endif
 
 ubyte nebColor[4];
+static real32 nebRopeColorScale[3] = {1.0f, 1.0f, 1.0f};
+static float nebOriginalRopeColor[3],nebOriginalRopeOpacity=1;
+static int nebOriginalRopeColorEnabled;
+static void nebEmitRopeColor(ubyte r,ubyte g,ubyte b,ubyte a)
+{
+    if(nebOriginalRopeColorEnabled){
+        real32 brightness=(real32)max(r,max(g,b));
+        r=(ubyte)(brightness*nebOriginalRopeColor[0]);g=(ubyte)(brightness*nebOriginalRopeColor[1]);b=(ubyte)(brightness*nebOriginalRopeColor[2]);
+    }
+    glColor4ub(r,g,b,(ubyte)(a*nebOriginalRopeOpacity+.5f));
+}
+
+static ubyte nebApplyRopeColorScale(ubyte value, sdword channel)
+{
+    real32 scaled = (real32)value * nebRopeColorScale[channel];
+    if (scaled < 0.0f) scaled = 0.0f;
+    if (scaled > 255.0f) scaled = 255.0f;
+    return (ubyte)scaled;
+}
 
 #define TENDRILBRIGHTEN 60
 
@@ -45,11 +66,11 @@ ubyte nebColor[4];
         { \
             b += TENDRILBRIGHTEN; \
         } \
-        nebColor[0] = (ubyte)(NEB_FOG_RED * 255.0f); \
-        nebColor[1] = (ubyte)(NEB_FOG_GREEN * 255.0f); \
-        nebColor[2] = (ubyte)(NEB_FOG_BLUE * 255.0f); \
+        nebColor[0] = nebApplyRopeColorScale((ubyte)(NEB_FOG_RED * 255.0f), 0); \
+        nebColor[1] = nebApplyRopeColorScale((ubyte)(NEB_FOG_GREEN * 255.0f), 1); \
+        nebColor[2] = nebApplyRopeColorScale((ubyte)(NEB_FOG_BLUE * 255.0f), 2); \
         nebColor[3] = b; \
-        glColor4ub(nebColor[0], nebColor[1], nebColor[2], nebColor[3]); \
+        nebEmitRopeColor(nebColor[0], nebColor[1], nebColor[2], nebColor[3]); \
     }
 #define TENDRILCOLOR(t,a) \
     { \
@@ -58,11 +79,11 @@ ubyte nebColor[4];
         { \
             b += TENDRILBRIGHTEN; \
         } \
-        nebColor[0] = colRed(t->colour); \
-        nebColor[1] = colGreen(t->colour); \
-        nebColor[2] = colBlue(t->colour); \
+        nebColor[0] = nebApplyRopeColorScale(colRed(t->colour), 0); \
+        nebColor[1] = nebApplyRopeColorScale(colGreen(t->colour), 1); \
+        nebColor[2] = nebApplyRopeColorScale(colBlue(t->colour), 2); \
         nebColor[3] = b; \
-        glColor4ub(nebColor[0], nebColor[1], nebColor[2], nebColor[3]); \
+        nebEmitRopeColor(nebColor[0], nebColor[1], nebColor[2], nebColor[3]); \
     }
 
 // -----
@@ -1208,7 +1229,7 @@ void nebColourAdjust(vector* vert, vector* norm, real32* m, real32* minv)
         color[2] = nebColor[2];
         color[3] = nebColor[3];
         shSpecularColour(1, 0, vert, norm, color, m, minv);
-        glColor4ub(color[0], color[1], color[2], color[3]);
+        nebEmitRopeColor(color[0], color[1], color[2], color[3]);
     }
 }
 
@@ -1233,7 +1254,7 @@ void nebDrawChunk2(nebChunk* chunk, sdword lod)
         nebColor[1] = colGreen(c); \
         nebColor[2] = colBlue(c); \
         nebColor[3] = a; \
-        glColor4ub(nebColor[0], nebColor[1], nebColor[2], nebColor[3]); \
+        nebEmitRopeColor(nebColor[0], nebColor[1], nebColor[2], nebColor[3]); \
     }
     nebTendril* ta;
     nebTendril* tb;
@@ -1538,7 +1559,9 @@ void nebTendrilBounds(nebTendril* tendril)
     real32 BIGNUMBER = 1E9f;
     real32 rad;
     vector cen = VECTOR_ORIGIN;
-    sdword lod = 1;
+    /* The detailed mesh can bow outside the straight fallback cylinder.  Use it
+       for culling bounds so the organic silhouette is never clipped away. */
+    sdword lod = 0;
 
     xmin.x = ymin.y = zmin.z = BIGNUMBER;
     xmax.x = ymax.y = zmax.z = -BIGNUMBER;
@@ -1640,9 +1663,10 @@ void nebCreateCylinder(
     real32* vp;
     real32* np;
     sdword i, j;
-    real32 da, dr, dz, nz, z, r;
+    real32 da, dz, nz, z, r;
     real32 x1, y1;
-    real32 sign;
+    real32 t, envelope, phase, bend, centerX, centerY;
+    vector curveStart, curveEnd, tangentStart, tangentEnd;
     vector vert, normal;
 
     if (bitTest(tendril->flags, NEB_TENDRIL_GEOMETRY))
@@ -1671,46 +1695,80 @@ void nebCreateCylinder(
     np = tendril->lod[lod].normals;
 
     da = 2.0f * 3.14159265f / slices;
-    dr = (topRadius - baseRadius) / slices;
     dz = height / stacks;
     nz = (baseRadius - topRadius) / height;
 
     z = 0.0f;
 
-    if (ranRandom(RANDOM_NEBULAE) % 2 == 0)
-    {
-        sign = 1.0f;
-    }
-    else
-    {
-        sign = -1.0f;
-    }
+    /* Stable per-tendril phase: no animation shimmer and no extra RNG state. */
+    phase = (hmat[12] * 0.000071f) + (hmat[13] * 0.000113f) +
+            (hmat[14] * 0.000173f);
+    bend = baseRadius * 0.42f;
 
-    if (stacks == 5)
+    /* Smooth the retail chain's hard chunk-to-chunk corners with a Hermite
+       centerline. Shared neighbor tangents preserve the authored endpoints
+       and resource simulation while removing visible 45/90-degree elbows. */
+    vecSet(curveStart, hmat[12], hmat[13], hmat[14]);
+    vecSet(curveEnd, hmat[12] + hmat[8] * height,
+           hmat[13] + hmat[9] * height, hmat[14] + hmat[10] * height);
+    tangentStart = tendril->direction;
+    if (tendril->prev != NULL)
+    {
+        vecAddTo(tangentStart, tendril->prev->direction);
+        if (vecMagnitudeSquared(tangentStart) > 0.000001f)
+            vecNormalize(&tangentStart);
+        else tangentStart = tendril->direction;
+    }
+    tangentEnd = tendril->direction;
+    if (tendril->next != NULL)
+    {
+        vecAddTo(tangentEnd, tendril->next->direction);
+        if (vecMagnitudeSquared(tangentEnd) > 0.000001f)
+            vecNormalize(&tangentEnd);
+        else tangentEnd = tendril->direction;
+    }
+    vecMultiplyByScalar(tangentStart, height);
+    vecMultiplyByScalar(tangentEnd, height);
+
+    if (stacks > 1)
     {
         for (j = 0; j <= stacks; j++)
         {
-            r = baseRadius;
+            vector curveCenter, straightCenter, curveOffset;
+            real32 t2, t3, h00, h10, h01, h11;
+            t = (real32)j / (real32)stacks;
+            t2 = t * t;
+            t3 = t2 * t;
+            h00 = 2.0f * t3 - 3.0f * t2 + 1.0f;
+            h10 = t3 - 2.0f * t2 + t;
+            h01 = -2.0f * t3 + 3.0f * t2;
+            h11 = t3 - t2;
+            curveCenter.x = h00 * curveStart.x + h10 * tangentStart.x +
+                            h01 * curveEnd.x + h11 * tangentEnd.x;
+            curveCenter.y = h00 * curveStart.y + h10 * tangentStart.y +
+                            h01 * curveEnd.y + h11 * tangentEnd.y;
+            curveCenter.z = h00 * curveStart.z + h10 * tangentStart.z +
+                            h01 * curveEnd.z + h11 * tangentEnd.z;
+            straightCenter.x = curveStart.x + hmat[8] * z;
+            straightCenter.y = curveStart.y + hmat[9] * z;
+            straightCenter.z = curveStart.z + hmat[10] * z;
+            vecSub(curveOffset, curveCenter, straightCenter);
+            envelope = fsin(3.14159265f * t);
+            r = baseRadius + (topRadius - baseRadius) * t;
+            r *= 1.0f + envelope *
+                 (0.10f * fsin(6.28318531f * t + phase) +
+                  0.035f * fsin(18.8495559f * t + phase * 0.61f));
+            centerX = bend * envelope * fsin(3.14159265f * t + phase);
+            centerY = bend * 0.68f * envelope *
+                      fcos(6.28318531f * t + phase * 0.73f);
 
             for (i = 0; i < slices; i++, vp += 3, np += 3)
             {
                 x1 = -fsin(i * da);
                 y1 = fcos(i * da);
-
-                if (j == 2)
-                {
-                    real32 r2 = r + sign*r*0.15f;
-                    nebTransformVert(&vert, hmat, x1*r2, y1*r2, z);
-                }
-                else if (j == 1 || j == 3)
-                {
-                    real32 r2 = r + sign*r*0.1f;
-                    nebTransformVert(&vert, hmat, x1*r2, y1*r2, z);
-                }
-                else
-                {
-                    nebTransformVert(&vert, hmat, x1*r, y1*r, z);
-                }
+                nebTransformVert(&vert, hmat,
+                                 centerX + x1*r, centerY + y1*r, z);
+                vecAddTo(vert, curveOffset);
                 *(vp+0) = vert.x;
                 *(vp+1) = vert.y;
                 *(vp+2) = vert.z;
@@ -1720,7 +1778,6 @@ void nebCreateCylinder(
                 *(np+1) = normal.y;
                 *(np+2) = normal.z;
 
-                r += dr;
             }
 
             z += dz;
@@ -1747,7 +1804,6 @@ void nebCreateCylinder(
                 *(np+1) = normal.y;
                 *(np+2) = normal.z;
 
-                r += dr;
             }
 
             z += dz;
@@ -1896,8 +1952,12 @@ void nebRenderTendril(nebTendril* tendril, sdword lod)
             }
             radius = NEB_TENDRIL_RADIUS_BASE + rand;
 
-            nebCreateCylinder(tendril, hmat, radius, radius, length, 6, 5, 0);
-            nebCreateCylinder(tendril, hmat, radius, radius, length, 6, 1, 1);
+            nebCreateCylinder(tendril, hmat, radius, radius, length, 12, 16, 0);
+            /* Keep the distant representation on the same curved centerline.
+               The former 6x1 mesh was a straight hexagonal prism, producing a
+               very obvious shape pop whenever an endpoint entered the render
+               list. */
+            nebCreateCylinder(tendril, hmat, radius, radius, length, 8, 8, 1);
 
             bitSet(tendril->flags, NEB_TENDRIL_GEOMETRY);
         }
@@ -2007,10 +2067,20 @@ void nebColourTendril(nebTendril* tendril, sdword lod)
 ----------------------------------------------------------------------------*/
 bool32 nebIsClipped(nebTendril* tendril)
 {
-    vector veye, vobj;
+    vector veye, va, vb;
+    real32 cameraScale, margin;
+
     vecSub(veye, mrCamera->eyeposition, mrCamera->lookatpoint);
-    vecSub(vobj, mrCamera->eyeposition, tendril->midpoint);
-    return (vecDotProduct(veye, vobj) < 0.0f);
+    vecSub(va, mrCamera->eyeposition, tendril->a->position);
+    vecSub(vb, mrCamera->eyeposition, tendril->b->position);
+
+    /* A midpoint test incorrectly discarded a long tendril while one end was
+       still visible.  Cull only when the complete segment is safely behind the
+       camera, with its rendered thickness included as a guard band. */
+    cameraScale = fsqrt(vecMagnitudeSquared(veye));
+    margin = (NEB_TENDRIL_RADIUS_BASE + NEB_TENDRIL_RADIUS_RANGE) * cameraScale;
+    return ((vecDotProduct(veye, va) < -margin) &&
+            (vecDotProduct(veye, vb) < -margin));
 }
 
 /*-----------------------------------------------------------------------------
@@ -2023,6 +2093,92 @@ bool32 nebIsClipped(nebTendril* tendril)
 void nebRender(void)
 {
     sdword i;
+    HWModernHarvestableNebulaSegment segments[256];
+    HWModernHarvestableNebulaStyle ropeStyle;
+    udword segmentCount = 0;
+
+    /* Preserve historical shared tint until a per-map original-mesh color
+       override is enabled. Original-mesh opacity never changes RTX ropes. */
+    hwModernGraphicsGetHarvestableNebulaStyle(&ropeStyle);
+    nebRopeColorScale[0] = ropeStyle.color[0] / 0.66f;
+    nebRopeColorScale[1] = ropeStyle.color[1] / 0.42f;
+    nebRopeColorScale[2] = ropeStyle.color[2] / 0.22f;
+    nebOriginalRopeColorEnabled=modernOriginalRopeColor(nebOriginalRopeColor);
+    nebOriginalRopeOpacity=modernOriginalRopeOpacity();
+    if(nebOriginalRopeColorEnabled)nebRopeColorScale[0]=nebRopeColorScale[1]=nebRopeColorScale[2]=1;
+
+    if (!smSensorsActive)
+    {
+        for (i = 0; i < numNebulae && segmentCount < 256; ++i)
+        {
+            nebulae_t *neb = &nebNebulae[i];
+            udword j;
+            for (j = 0; j < neb->numTendrils && segmentCount < 256; ++j)
+            {
+                nebTendril *tendril = &neb->tendrilTable[j];
+                vector p0, p1, m0, m1;
+                udword subdivision;
+                const udword subdivisions = 4;
+                if (bitTest(tendril->flags, NEB_TENDRIL_INACTIVE) ||
+                    tendril->a == NULL || tendril->b == NULL) continue;
+                p0 = tendril->a->position;
+                p1 = tendril->b->position;
+                m0 = tendril->direction;
+                if (tendril->prev != NULL)
+                {
+                    vecAddTo(m0, tendril->prev->direction);
+                    if (vecMagnitudeSquared(m0) > 0.000001f) vecNormalize(&m0);
+                    else m0 = tendril->direction;
+                }
+                m1 = tendril->direction;
+                if (tendril->next != NULL)
+                {
+                    vecAddTo(m1, tendril->next->direction);
+                    if (vecMagnitudeSquared(m1) > 0.000001f) vecNormalize(&m1);
+                    else m1 = tendril->direction;
+                }
+                {
+                    vector delta;
+                    real32 length;
+                    vecSub(delta, p1, p0);
+                    length = fsqrt(vecMagnitudeSquared(delta));
+                    vecMultiplyByScalar(m0, length);
+                    vecMultiplyByScalar(m1, length);
+                }
+                for (subdivision = 0;
+                     subdivision < subdivisions && segmentCount < 256;
+                     ++subdivision)
+                {
+                    HWModernHarvestableNebulaSegment *segment = &segments[segmentCount];
+                    real32 times[2] = {
+                        (real32)subdivision / (real32)subdivisions,
+                        (real32)(subdivision + 1) / (real32)subdivisions };
+                    real32 *points[2] = { segment->start, segment->end };
+                    sdword endpoint;
+                    for (endpoint = 0; endpoint < 2; ++endpoint)
+                    {
+                        real32 st = times[endpoint];
+                        real32 st2 = st * st, st3 = st2 * st;
+                        real32 h00 = 2.0f*st3 - 3.0f*st2 + 1.0f;
+                        real32 h10 = st3 - 2.0f*st2 + st;
+                        real32 h01 = -2.0f*st3 + 3.0f*st2;
+                        real32 h11 = st3 - st2;
+                        points[endpoint][0] = h00*p0.x + h10*m0.x + h01*p1.x + h11*m1.x;
+                        points[endpoint][1] = h00*p0.y + h10*m0.y + h01*p1.y + h11*m1.y;
+                        points[endpoint][2] = h00*p0.z + h10*m0.z + h01*p1.z + h11*m1.z;
+                    }
+                    segment->radius = NEB_TENDRIL_RADIUS_BASE +
+                                      NEB_TENDRIL_RADIUS_RANGE * 0.5f;
+                    segment->seed = 0x9e3779b9u ^ (udword)(i * 4099) ^
+                                    (j * 2654435761u) ^
+                                    (subdivision * 2246822519u);
+                    ++segmentCount;
+                }
+            }
+        }
+    }
+    hwModernGraphicsSetHarvestableNebulaSegments(
+        segmentCount > 0 ? segments : NULL, segmentCount);
 
     for (i = 0; i < numNebulae; i++)
     {
@@ -2043,7 +2199,6 @@ void nebRenderNebula(nebulae_t* neb)
     nebChunk* chunk;
     nebTendril* tendril;
     bool32 fogOn, atOn, cullOff;
-    real32 maxDist;
 
     if (neb->numTendrils == 0 || smSensorsActive)
     {
@@ -2084,9 +2239,6 @@ void nebRenderNebula(nebulae_t* neb)
         }
     }
 
-    maxDist = 1.1f * mrCamera->clipPlaneFar;
-    maxDist *= maxDist;     //squared
-
     for (i = 0, tendril = neb->tendrilTable; i < neb->numTendrils; i++, tendril++)
     {
         sdword lod;
@@ -2101,13 +2253,6 @@ void nebRenderNebula(nebulae_t* neb)
 
             lod = nebLOD(tendril->a, tendril->b);
             nebColourTendril(tendril, lod);
-
-            //too far to be visible?
-            if ((nebDistanceFromCameraSquared(&tendril->a->position) > maxDist) &&
-                (nebDistanceFromCameraSquared(&tendril->b->position) > maxDist))
-            {
-                continue;
-            }
 
             if (!bitTest(tendril->flags, NEB_TENDRIL_LEADING))
             {
@@ -2644,4 +2789,3 @@ void nebLoad_Nebula(void)
 #ifdef _WIN32_FIX_ME
  #pragma warning( 2 : 4047)      // turn back on "different levels of indirection warning"
 #endif
-

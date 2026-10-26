@@ -1,0 +1,119 @@
+[
+  {
+    "file": "concept_interceptor.png",
+    "source_attachment": "codex-clipboard-9f9c3e0e-6ef4-423b-9212-bf4f90bbf36b.png",
+    "dimensions": [
+      792,
+      440
+    ],
+    "pixels_sha256": "266f792d48031ce34e0cab7f87153820c1abaa2b72396211296d84702787c8ae"
+  },
+  {
+    "file": "concept_science.png",
+    "source_attachment": "codex-clipboard-708a7947-9131-4174-a575-bdebe884762d.png",
+    "dimensions": [
+      779,
+      594
+    ],
+    "pixels_sha256": "1c410d58f80c1d972f257112d5bd6c2390f1ca3bc486b41ede81916757cd0b6c"
+  },
+  {
+    "file": "concept_dock.png",
+    "source_attachment": "codex-clipboard-221dcb66-fa9b-419a-8e86-500bbda6f2e5.png",
+    "dimensions": [
+      619,
+      594
+    ],
+    "pixels_sha256": "e78ae2f1cc9f6dd6a7bc82804ebbd02e844ba8ab2bc3e751dacb8d4c82550225"
+  },
+  {
+    "file": "concept_corvette.png",
+    "source_attachment": "codex-clipboard-d252506c-153f-405b-87db-9f898586e33b.png",
+    "dimensions": [
+      792,
+      558
+    ],
+    "pixels_sha256": "dc8fee4a06f98a25340674445804f707c9f7052e588d45dedd837262355f3798"
+  },
+  {
+    "file": "concept_blue_corvette.png",
+    "source_attachment": "codex-clipboard-635b6652-8932-49d1-b1ac-420eeef0fa55.png",
+    "dimensions": [
+      700,
+      583
+    ],
+    "pixels_sha256": "48133d6eff0f12a03e3fc4ba65f702d5d87026069f418de26604278ca0ff0077"
+  },
+  {
+    "file": "concept_bridge.png",
+    "source_attachment": "codex-clipboard-d399b0db-f8bc-4d8e-b27d-e60e572fb677.png",
+    "dimensions": [
+      776,
+      594
+    ],
+    "pixels_sha256": "8f67d3490e1f8c4c7f8de2f2009ab40c1fe9cca24e9d99e13bf52a97a3636b2e"
+  },
+  {
+    "file": "concept_hangar.png",
+    "source_attachment": "codex-clipboard-7de3b19e-2c1d-4d83-a006-f8abcaad6d5b.png",
+    "dimensions": [
+      792,
+      551
+    ],
+    "pixels_sha256": "04df799355174fac1fe9ee4d8c195384db831f6666d44eb23151e821d9e99418"
+  },
+  {
+    "file": "concept_industry.png",
+    "source_attachment": "codex-clipboard-e4974c10-b0dd-42e6-8a1e-0e479de14419.png",
+    "dimensions": [
+      756,
+      585
+    ],
+    "pixels_sha256": "39d113fa6550292aed18f0aada1fedd04f4200bfd33daeae098cac15615d18c6"
+  },
+  {
+    "file": "concept_nebula.png",
+    "source_attachment": "codex-clipboard-c445eeeb-5f46-4fd1-a490-6e0562bc9675.png",
+    "dimensions": [
+      792,
+      520
+    ],
+    "pixels_sha256": "17b3e544f0dd802253f88594e2dc1366c487636386a4a470a70e5f5fe41bd702"
+  },
+  {
+    "file": "concept_mothership.png",
+    "source_attachment": "codex-clipboard-396c58e9-76de-4661-9a72-8ec5440157e2.png",
+    "dimensions": [
+      700,
+      571
+    ],
+    "pixels_sha256": "f0c02ce10fcd75cbb720aa8f92c59fdc24e9b3054c18b7c26538b4c00c21ecdb"
+  },
+  {
+    "file": "concept_engineering.png",
+    "source_attachment": "codex-clipboard-f54319d3-9d61-46df-8324-71164c2f6caf.png",
+    "dimensions": [
+      666,
+      479
+    ],
+    "pixels_sha256": "970929c721c34b37e38d909d869966f3abff8060f4eb15c317b1cd09681ca4fd"
+  },
+  {
+    "file": "concept_cockpit.png",
+    "source_attachment": "codex-clipboard-855e83d5-80ce-4e34-a8e6-df7c4bb9efd9.png",
+    "dimensions": [
+      700,
+      514
+    ],
+    "pixels_sha256": "51b56d40870698563eacb1334a5ab815f40392b9d2b1eb4c8a4d4646b59ae67b"
+  },
+  {
+    "file": "concept_drone.png",
+    "source_attachment": "codex-clipboard-c74ce896-2302-4002-9a7f-93b5ce14eb46.png",
+    "dimensions": [
+      720,
+      547
+    ],
+    "pixels_sha256": "a48b4f4c3da1f129518605eb943149c0d03b489ac88ffa124755bf20b538a88f"
+  }
+]

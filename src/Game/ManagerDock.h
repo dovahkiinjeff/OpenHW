@@ -26,5 +26,6 @@ void mdCloseOtherManagers(HWManagerDockKind requested);
  * command dock (for example the Ship Dossier). */
 void mdGetPanelRect(rectangle *rect);
 void mdCloseAllManagers(void);
+bool32 mdHandleActiveManagerKey(sdword key);
 
 #endif

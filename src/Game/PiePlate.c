@@ -6,6 +6,7 @@
     Copyright Relic Entertainment, Inc.  All rights reserved.
 =============================================================================*/
 
+#include "ResourceUnits.h"
 #include <float.h>
 #include <math.h>
 #include <stdio.h>
@@ -71,11 +72,6 @@ void (*pieMovementCursorDrawCallback)(real32 distance) = NULL;
 void (*piePlaneDrawCallback)(real32 distance) = NULL;
 real32 pieMaxMoveHorizontal = PIE_MaxMoveHorizontal;
 real32 pieMaxMoveVertical = PIE_MaxMoveVertical;
-/* Homeworld's original Z placement maps mouse pixels almost 1:1 through the
-   projected vertical line, which feels extremely slow at modern resolutions.
-   Amplify only the interactive Z offset; movement physics and hard world
-   limits remain unchanged. */
-static real32 pieVerticalMouseSensitivity = 2.75f;
 real32 pieCircleSizeMax;
 real32 pieCircleSizeMin;
 
@@ -158,10 +154,10 @@ sdword pieCircleSegmentsCompute(real32 screenRadius)
         if (screenRadius > piePlaneCircleSegments[index].screenRadius)
         {
             nSegments = piePlaneCircleSegments[index].nSegments;
-            return(nSegments);
+            return(max(nSegments,128));
         }
     }
-    return(piePlaneCircleSegments[0].nSegments);
+    return(max(piePlaneCircleSegments[0].nSegments,128));
 }
 
 /*-----------------------------------------------------------------------------
@@ -420,7 +416,7 @@ void pieDistanceReadoutDraw(vector *movepoint, vector *origin, color c)
         resources = (udword) cost;
         sprintf(ru_str, "%i RU's", resources);
 
-        if(universe.curPlayerPtr->resourceUnits < resources)
+        if(!resourceUnitsCanAfford(universe.curPlayerPtr, resources))
         {
             ruReadoutColour = TW_RU_READOUT_COLOR_BAD;
         }
@@ -1005,13 +1001,9 @@ void piePointSpecDraw(void)
     vector highPoint, lowPoint;
     GLfloat modelView[16], projection[16];
     hmatrix modelViewF, projectionF;
-    real32 distance, deltaX, deltaY;
-    real32 slope, b;
-    vector moveLengthVector;
+    real32 distance;
     vector preUpdateCentre;
     vector updateDrift;
-    real32 moveLength, maxMoveLength;
-    real32 windowHeightMinusOne;
     real32 eyeMagnitude;
 
     mousePoll();
@@ -1058,7 +1050,6 @@ void piePointSpecDraw(void)
         piePointSpecMouseReset = FALSE;                      //don't reset on next frame
     }
 
-    windowHeightMinusOne = (real32)(MAIN_WindowHeight - 1);
     
     glGetFloatv(GL_PROJECTION_MATRIX, projection);
     glGetFloatv(GL_MODELVIEW_MATRIX, modelView);           //get the matrices
@@ -1071,6 +1062,15 @@ void piePointSpecDraw(void)
     primModeClear2();
     rndLightingEnable(FALSE);                               //draw the pizza dish
     rndTextureEnable(FALSE);                                //disable texturing
+    /* Tactical overlays must not inherit scene fog, material glow, or depth. */
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    glDisable(GL_FOG);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_ALPHA_TEST);
+    glDisable(GL_SCISSOR_TEST);
+    glLineWidth(1.5f);
 
     //compute world coords of mouse location
     if (piePointSpecMode != PSM_Waiting)
@@ -1103,100 +1103,24 @@ void piePointSpecDraw(void)
         }
         else
         {                                                   //else find point on vertical line passing through point on pizza dish (PSM_Z)
-            if (pieOnScreen)
-            {                                               //ensure the vertical is at least partly on screen
-                if ((real32)mouseCursorY() < (windowHeightMinusOne - pieScreen1.y))
-                {                                               //if mouse off top of line
-                    mousePositionSet(mouseCursorX(), (sdword)(windowHeightMinusOne - pieScreen1.y));
+            /* Match screen Y at fixed world X/Y; leave the hardware cursor alone. */
+            hvector anchor={piePlanePoint.x+updateDrift.x,piePlanePoint.y+updateDrift.y,0,1};
+            hvector vertical={0,0,1,0},eyeAnchor,eyeVertical,clipAnchor,clipVertical;
+            real32 ndcY=1.0f-2.0f*(real32)mouseCursorY()/(real32)MAIN_WindowHeight;
+            real32 denominator,height;
+            hmatMultiplyHMatByHVec(&eyeAnchor,(hmatrix *)modelView,&anchor);
+            hmatMultiplyHMatByHVec(&eyeVertical,(hmatrix *)modelView,&vertical);
+            hmatMultiplyHMatByHVec(&clipAnchor,(hmatrix *)projection,&eyeAnchor);
+            hmatMultiplyHMatByHVec(&clipVertical,(hmatrix *)projection,&eyeVertical);
+            denominator=ndcY*clipVertical.w-clipVertical.y;
+            if(fabsf(denominator)>.000001f) {
+                height=(clipAnchor.y-ndcY*clipAnchor.w)/denominator;
+                if(isfinite(height) && clipAnchor.w+height*clipVertical.w>0) {
+                    piePointSpecZ=height-(piePlanePoint.z+updateDrift.z);
+                    pieHeightPoint.z=height;
                 }
-                if ((real32)mouseCursorY() > (windowHeightMinusOne - pieScreen0.y))
-                {                                               //if mouse off bottom of line
-                    mousePositionSet(mouseCursorX(), (sdword)(windowHeightMinusOne - pieScreen0.y));
-                }
-                slope = (pieScreen0.x - pieScreen1.x) / (pieScreen1.y - pieScreen0.y);
-                b = pieScreen1.x - slope * (windowHeightMinusOne - pieScreen1.y);
-                mousePositionSet((sdword)(slope * mouseCursorY() + b), mouseCursorY());
-
-                //mouse position was adjusted; recompute mouse location in world space
-                pieWorldLocationCompute(&world0, &world1, &eyeMagnitude);
-                /*
-                if (oldMouseX != mouseCursorX() || oldMouseY != mouseCursorY())
-                {
-                    dbgMessagef("slope = %.2f b = %.2f", slope, b);
-                    dbgMessagef("screen0=(%.2f,%.2f) screen1=(%.2f,%.2f).", pieScreen0.x, pieScreen0.y, pieScreen1.x, pieScreen1.y);
-                    dbgMessagef("world0=(%.2f,%.2f,%.2f) world1=(%.2f,%.2f,%.2f).", world0.x, world0.y, world0.z, world1.x, world1.y, world1.z);
-                    oldMouseX = mouseCursorX();
-                    oldMouseY = mouseCursorY();
-                }
-                */
             }
-
-            deltaX = mrCamera->eyeposition.x - (piePlanePoint.x + updateDrift.x);//find along which axis point is farther from camera
-            deltaY = mrCamera->eyeposition.y - (piePlanePoint.y + updateDrift.y);
-            if (deltaX > deltaY)
-            {
-                //ensure positive slope of intersection line
-                if (mrCamera->eyeposition.x >= piePlanePoint.x + updateDrift.x || world1.x == world0.x)
-                {                                           //camera on positive side of test plane
-                    if (world1.x >= world0.x)
-                    {
-                        world1.x = world0.x - PIE_PlanePointFudge * eyeMagnitude;
-                    }
-                }
-                else
-                {
-                    if (world1.x <= world0.x)
-                    {
-                        world1.x = world0.x + PIE_PlanePointFudge * eyeMagnitude;
-                    }
-                }
-                vecLineIntersectWithYZPlane(&pieHeightPoint, &world0,
-                                            &world1, piePlanePoint.x + updateDrift.x);
-                //dbgMessagef("\\");
-            }
-            else
-            {
-                //ensure positive slope of intersection line
-                if (mrCamera->eyeposition.y >= piePlanePoint.y + updateDrift.y || world1.y == world0.y)
-                {                                           //camera on positive side of test plane
-                    if (world1.y >= world0.y)
-                    {
-                        world1.y = world0.y - PIE_PlanePointFudge * eyeMagnitude;
-                    }
-                }
-                else
-                {
-                    if (world1.y <= world0.y)
-                    {
-                        world1.y = world0.y + PIE_PlanePointFudge * eyeMagnitude;
-                    }
-                }
-                vecLineIntersectWithXZPlane(&pieHeightPoint, &world0,
-                                            &world1, piePlanePoint.y + updateDrift.y);
-                //dbgMessagef("/");
-            }
-            /*
-            if (oldMouseX != mouseCursorX() || oldMouseY != mouseCursorY())
-            {
-                dbgMessagef("deltaX = %.2f deltaY = %.2f", deltaX, deltaY);
-                dbgMessagef("heightPoint=(%.2f,%.2f,%.2f).", pieHeightPoint.x, pieHeightPoint.y, pieHeightPoint.z);
-                dbgMessagef("world0=(%.2f,%.2f,%.2f) world1=(%.2f,%.2f,%.2f).", world0.x, world0.y, world0.z, world1.x, world1.y, world1.z);
-                oldMouseX = mouseCursorX();
-                oldMouseY = mouseCursorY();
-            }
-            */
-            //don't use this new value if the intersection test resulted in a bad number
-            if (!isnan(pieHeightPoint.z))
-            {
-                //compute point along this line
-                pieHeightPoint.x = piePlanePoint.x;         //compute height point relative to pizza dish
-                pieHeightPoint.y = piePlanePoint.y;
-                piePointSpecZ = (pieHeightPoint.z - piePlanePoint.z) *
-                    pieVerticalMouseSensitivity;             // modern-resolution Z sensitivity
-                pieHeightPoint.z = piePlanePoint.z + piePointSpecZ;
-            }
-            vecAddTo(piePlanePoint, updateDrift);           //make sure the plane point does not drift
-            //vecAddTo(pieHeightPoint, updateDrift);          //make sure the height point does not drift
+            vecAddTo(piePlanePoint,updateDrift);
         }
     }
     else
@@ -1220,31 +1144,9 @@ void piePointSpecDraw(void)
         swapReal32(pieScreen0.y, pieScreen1.y);
     }
 
-    //limit dest vector to render list extent
-    if (!smSensorsActive)
-    {
-        maxMoveLength = pieMaxMoveHorizontal;
-        moveLengthVector.x = pieHeightPoint.x - selCentrePoint.x;
-        moveLengthVector.y = pieHeightPoint.y - selCentrePoint.y;
-        moveLengthVector.z = 0.0f;
-        moveLength = fmathSqrt(vecMagnitudeSquared(moveLengthVector));
-        if (moveLength > maxMoveLength)
-        {                                                   //if distance on the plane too far
-            vecMultiplyByScalar(moveLengthVector, maxMoveLength / moveLength);
-            vecAdd(piePlanePoint, selCentrePoint, moveLengthVector);
-            pieHeightPoint.x = piePlanePoint.x;             //clip to the render list horizontally
-            pieHeightPoint.y = piePlanePoint.y;
-        }
-        maxMoveLength = pieMaxMoveVertical;
-        moveLength = ABS(pieHeightPoint.z - piePlanePoint.z);
-        if (moveLength > maxMoveLength)
-        {                                                   //if moved too high
-            pieHeightPoint.z = piePlanePoint.z + (pieHeightPoint.z - piePlanePoint.z) * maxMoveLength / moveLength;
-        }
-    }
-
-    //now limit end point to the 'hard' limits of the universe.
-    //After all, the universe has hard limits you know.
+    /* Use the same destination range as Sensor Manager. The old 15 km
+       render-list radius is unrelated to whether a move order is valid.
+       Keep the shared mission boundary clipping used by both views. */
     pieMovePointClipToLimits(smUniverseSizeX, smUniverseSizeY, smUniverseSizeZ, &selCentrePoint, &pieHeightPoint);
     piePlanePoint.x = pieHeightPoint.x;
     piePlanePoint.y = pieHeightPoint.y;
@@ -1272,6 +1174,7 @@ void piePointSpecDraw(void)
         smCurrentWorldPlaneColor = colMultiplyClamped(smWorldPlaneColor, smMovementWorldPlaneDim);
         smHorizonLineDraw(mrCamera, &rndCameraMatrix, &rndProjectionMatrix, mrCamera->clipPlaneFar - mrCamera->farthestZoom);
     }
+    glPopAttrib();
     rndLightingEnable(FALSE);
     primModeSet2();
 
@@ -1337,5 +1240,6 @@ void piePointModeToggle(sdword bOn)
         tutGameMessage("Game_MoveXY");
         piePointSpecMode = PSM_XY;
     }
-    piePointSpecMouseReset = TRUE;                           //reset location of mouse cursor
+    /* Preserve the cursor on Shift transitions; destination follows its screen Y. */
+    piePointSpecMouseReset = FALSE;
 }

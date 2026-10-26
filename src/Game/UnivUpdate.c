@@ -7,6 +7,11 @@
 =============================================================================*/
 
 #include "UnivUpdate.h"
+#include "ShipPilot.h"
+#include "PilotCollisionPolicy.h"
+#include "RemasteredWeaponFX.h"
+#include "RemasteredPresentation.h"
+#include "Veterancy.h"
 
 #include <math.h>
 
@@ -23,6 +28,7 @@
 #include "Crates.h"
 #include "Damage.h"
 #include "Debug.h"
+#include "Dock.h"
 #include "FastMath.h"
 #include "FlightMan.h"
 #include "glinc.h"
@@ -32,9 +38,11 @@
 #include "LevelLoad.h"
 #include "MadLinkIn.h"
 #include "MadLinkInDefs.h"
+#include "NativeVisualRegistry.h"
 #include "mainrgn.h"
 #include "main.h"
 #include "Memory.h"
+#include "Mesh.h"
 #include "MEX.h"
 #include "mouse.h"
 #include "MultiplayerGame.h"
@@ -655,6 +663,9 @@ Asteroid *univAddAsteroid(AsteroidType asteroidtype,vector *astpos)
         listAddNode(&universe.ImpactableList,&(newAsteroid->impactablelink),newAsteroid);
     }
 
+#ifdef HW_ENABLE_D3D12_BACKEND
+    meshMotionRegisterAsteroid(newAsteroid);
+#endif
     return newAsteroid;
 }
 
@@ -844,6 +855,7 @@ Derelict *univAddDerelictByStatInfo(DerelictType derelictType, DerelictStaticInf
     newDerelict = memAlloc(sizeof(Derelict),"Derelict",NonVolatile);
 
     newDerelict->derelictID.derelictNumber = universe.derelictNumber;
+    meshMotionRegisterDerelict(newDerelict);
     IDToPtrTableAdd(&DerelictIDToPtr,universe.derelictNumber,(SpaceObj *)newDerelict);
     universe.derelictNumber++;
 
@@ -1152,7 +1164,28 @@ shipbindings *univMeshBindingsDupe(ShipStaticInfo *shipstaticinfo, Ship *newShip
     mhbinding *bindingListSource;
     mhlocalbinding *bindingListDest;
     sdword nLevels, index, nObjects, j;
+    float nativeScale;
+    unsigned int nativeLOD;
+    bool32 nativeMesh;
     lodinfo *lodInfo = shipstaticinfo->staticheader.LOD;
+
+    if(lodInfo && lodInfo->nLevels && newShip->gunInfo &&
+       (lodInfo->level[0].flags & LM_LODType)==LT_Mesh &&
+       meshNativeVisualParameters(lodInfo->level[0].pData,&nativeScale,&nativeLOD)) {
+        /* Rebuild from restored classic combat rest frames on construction and
+           save load; older native saves may contain a zero aiming matrix. */
+        for(j=0;j<newShip->gunInfo->numGuns;++j) {
+            Gun *gun=&newShip->gunInfo->guns[j];
+            if(gun->gunstatic && gun->gunstatic->guntype==GUN_NewGimble)
+                gunNewGimbleUpdateCoordSys(gun,gun->gunstatic);
+        }
+    }
+
+    /* Covers normal construction and save-load binding reconstruction. State
+       is keyed by the current Ship pointer, not serialized native handles. */
+    for (index = 0; lodInfo && index < lodInfo->nLevels; ++index)
+        if ((lodInfo->level[index].flags & LM_LODType) == LT_Mesh)
+            meshNativeVisualAcquire(lodInfo->level[index].pData, newShip);
 
     if (shipstaticinfo->hierarchySize == 0)
     {                                                       //do nothing if there is no bindings to dupe
@@ -1178,11 +1211,12 @@ shipbindings *univMeshBindingsDupe(ShipStaticInfo *shipstaticinfo, Ship *newShip
         newBindings->localBinding[index] = bindingListDest; //store list pointer for this LOD
         nObjects = ((meshdata *)lodInfo->level[index].pData)->nPolygonObjects;
         bindingListSource = lodInfo->level[index].hBindings;
+        nativeMesh=meshNativeVisualParameters(lodInfo->level[index].pData,&nativeScale,&nativeLOD);
 //        memcpy(bindingList, lodInfo->level[index].hBindings,//copy the bindings
 //                nObjects * sizeof(mhbinding));
         for (j = 0; j < nObjects; j++)
         {
-            if (bindingListSource->function != NULL)
+            if (!nativeMesh && bindingListSource->function != NULL)
             {
                 //!!! should do a switch statement based upon type, however,
                 //there is only one type for now:guns
@@ -1196,7 +1230,9 @@ shipbindings *univMeshBindingsDupe(ShipStaticInfo *shipstaticinfo, Ship *newShip
             }
             else
             {
-                bindingListDest->function = NULL;         //this is all we need if there is no function
+                /* Native instance-pose validation must not read uninitialized
+                   object/flags fields. NULL callbacks still use static poses. */
+                memset(bindingListDest,0,sizeof(*bindingListDest));
             }
             bindingListDest++;
             bindingListSource++;
@@ -1221,6 +1257,7 @@ shipbindings *univMeshBindingsDupe(ShipStaticInfo *shipstaticinfo, Ship *newShip
 ----------------------------------------------------------------------------*/
 void univMeshBindingsDelete(Ship *ship)
 {
+    meshNativeVisualReleaseShip(ship);
     if (ship->madBindings && ship->madBindings->nCurrentAnim != MAD_NoAnimation)
     {                                                       //if there's a mesh animation going on
         ship->bindings = ship->madBindings->saveBindings;   //restore old bindings
@@ -1365,6 +1402,7 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     ShipStaticInfo *shipstaticinfo = GetShipStaticInfo(shiptype,shiprace);
     sdword i;
     ubyte *extraPointer;
+
 
     dbgAssertOrIgnore(playerowner != NULL);
 
@@ -1669,6 +1707,9 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
             }
         }
     }
+#ifdef HW_ENABLE_D3D12_BACKEND
+    meshMotionRegisterShip(newship);
+#endif
     return newship;
 }
 
@@ -1849,8 +1890,9 @@ void univUpdateAllPosVelBullets()
                 bobObjectDied(((SpaceObj *)bullet),&universe.collBlobList);
                 listRemoveNode(&bullet->bulletlink);
                 univRemoveObjFromRenderList(((SpaceObj *)bullet));
-                listDeleteNode(&bullet->objlink);
+                univFreeBulletContents(bullet);
                 bullet->owner = NULL;
+                listDeleteNode(&bullet->objlink);
 
                 continue;
             }
@@ -2398,7 +2440,13 @@ void ApplyDamageToCollidingObjects(SpaceObjRotImpTarg *obj1,SpaceObjRotImpTarg *
     mindamage = min(staticobj1->minCollDamage,staticobj2->minCollDamage);
     maxdamage = min(staticobj1->maxCollDamage,staticobj2->maxCollDamage);
 
-    if (damage < mindamage)
+    if ((obj1->objtype==OBJ_ShipType && shipPilotOwns((Ship *)obj1)) ||
+        (obj2->objtype==OBJ_ShipType && shipPilotOwns((Ship *)obj2)))
+    {
+        /* A gentle pilot contact must not be promoted to the legacy minimum. */
+        damage=min(damage,maxdamage);
+    }
+    else if (damage < mindamage)
     {
         damage = mindamage;
     }
@@ -2537,6 +2585,30 @@ void ObjectsCollided(SpaceObjRotImpTarg *obj1,SpaceObjRotImpTarg *obj2,real32 co
     vector fastesttoslowest;
 
     vector leftrightdecidevec;
+
+    if((obj1->objtype==OBJ_ShipType && shipPilotOwns((Ship *)obj1)) ||
+       (obj2->objtype==OBJ_ShipType && shipPilotOwns((Ship *)obj2)))
+    {
+        vector normal,relative,impulse;
+        real32 length,inverse1,inverse2,magnitude;
+        vecSub(normal,obj2->collInfo.collPosition,obj1->collInfo.collPosition);
+        length=fsqrt(vecMagnitudeSquared(normal));
+        if(length<0.0001f || universe.phystimeelapsed<=0) return;
+        vecMultiplyByScalar(normal,1.0f/length);
+        vecSub(relative,obj1->posinfo.velocity,obj2->posinfo.velocity);
+        inverse1=obj1->staticinfo->staticheader.immobile?0:obj1->staticinfo->staticheader.oneOverMass;
+        inverse2=obj2->staticinfo->staticheader.immobile?0:obj2->staticinfo->staticheader.oneOverMass;
+        /* Include this tick's thrust so holding forward against a hull cannot
+           leak one acceleration step into the other ship every frame. */
+        relative.x+=(obj1->posinfo.force.x*inverse1-obj2->posinfo.force.x*inverse2)*universe.phystimeelapsed;
+        relative.y+=(obj1->posinfo.force.y*inverse1-obj2->posinfo.force.y*inverse2)*universe.phystimeelapsed;
+        relative.z+=(obj1->posinfo.force.z*inverse1-obj2->posinfo.force.z*inverse2)*universe.phystimeelapsed;
+        magnitude=pilotContactImpulse(vecDotProduct(relative,normal),inverse1,inverse2);
+        vecScalarMultiply(impulse,normal,magnitude/universe.phystimeelapsed);
+        if(inverse1>0) { vecSubFrom(obj1->posinfo.force,impulse); }
+        if(inverse2>0) { vecAddTo(obj2->posinfo.force,impulse); }
+        return; /* No glancing deflection or overlap-distance repulsion. */
+    }
 
 #if DEBUG_COLLISIONS
     dbgMessagef("%x and %x collided, Repulsion %f",(udword)obj1,(udword)obj2,repulse);
@@ -3165,6 +3237,7 @@ void univBulletCollidedWithTarget(SpaceObjRotImpTarg *target,StaticHeader *targe
 {
     real32 damagetaken = bullet->damage;
     Ship *bulletowner = bullet->owner;
+    bool32 nativeImpact=FALSE;
     real32 massovertime;
     vector recoil;
     etgeffectstatic *stat;
@@ -3177,6 +3250,10 @@ void univBulletCollidedWithTarget(SpaceObjRotImpTarg *target,StaticHeader *targe
     real32 damageMult = 1.0f;
     udword intDamage;
     real32 targetScale;
+
+    /* Apply veterancy at the common impact point so every bullet/beam firing
+       branch receives the bonus exactly once. */
+    damagetaken *= veterancyFactor(bulletowner);
 
     // if target isn't immobile, apply impact force from bullet
     if (!targetstaticheader->immobile && !bitTest(target->flags, SOF_NotBumpable))
@@ -3247,7 +3324,16 @@ nobulletmasstransfer:
     else
         fatalHit = ApplyDamageToTarget(target,damagetaken,bullet->soundType,DEATH_Killed_By_Dead_Player,99);
 
+    if (fatalHit && target->objtype == OBJ_ShipType)
+        veterancyCreditKill(bulletowner, (Ship *)target);
+
+    hitLocation=bullet->posinfo.position;
+    if(collideLineDist>0){vecScalarMultiply(hitLocation,bullet->bulletheading,collideLineDist);vecAddTo(hitLocation,bullet->posinfo.position);}
+    if(bullet->bulletType==BULLET_Beam||collideLineDist!=0)
+        nativeImpact=rmPresentationProjectileImpact(bullet,(const float*)&hitLocation,(const float*)&bullet->bulletheading,(const float*)&target->posinfo.velocity,damagetaken);
+
 #ifdef HW_ENABLE_D3D12_BACKEND
+    if(!nativeImpact)
     {
         vector impactLightPosition;
         if (collideLineDist > 0.0f)
@@ -3284,6 +3370,20 @@ nobulletmasstransfer:
         {                                                   //if it's a beam weapon and there is no collision vector
             return;                                         //don't play any hit effects
         }
+    }
+    // Native presentation is independent of render-list membership. Damage,
+    // collision and the original projectile lifetime have already been applied.
+    if(nativeImpact)return;
+    // RM visual impacts never alter damage/collision or projectile lifetime.
+    if (univSpaceObjInRenderList((SpaceObj *)target))
+    {
+        hitLocation = bullet->posinfo.position;
+        if (collideLineDist > 0.0f)
+        {
+            vecScalarMultiply(hitLocation,bullet->bulletheading,collideLineDist);
+            vecAdd(hitLocation,bullet->posinfo.position,hitLocation);
+        }
+        if (rmWeaponFxImpact(bullet,&hitLocation,&target->posinfo.velocity)) return;
     }
     //play the imact effect
     if (bullet->hitEffect != NULL)
@@ -3355,6 +3455,7 @@ void univMissileCollidedWithTarget(SpaceObjRotImpTarg *target,StaticHeader *targ
     real32 damagetaken = missile->damage;
     Ship *missileowner = missile->owner;
     MissileStaticInfo *missilestaticinfo = (MissileStaticInfo *)missile->staticinfo;
+    bool32 nativeImpact=FALSE;
     real32 massovertime;
     vector recoil;
     etgeffectstatic *stat;
@@ -3366,6 +3467,9 @@ void univMissileCollidedWithTarget(SpaceObjRotImpTarg *target,StaticHeader *targ
     vector hitLocation;
     real32 targetScale;
     real32 damageMult = 1.0f;
+
+    /* Missiles and mines share this terminal damage path. */
+    damagetaken *= veterancyFactor(missileowner);
 
     if(target->objtype == OBJ_ShipType)
     {
@@ -3450,7 +3554,16 @@ void univMissileCollidedWithTarget(SpaceObjRotImpTarg *target,StaticHeader *targ
     else
         fatalHit = ApplyDamageToTarget(target,damagetaken,missile->soundType,DEATH_Killed_By_Dead_Player,99);
 
+    if (fatalHit && target->objtype == OBJ_ShipType)
+        veterancyCreditKill(missileowner, (Ship *)target);
+
+    hitLocation=missile->posinfo.position;
+    matGetVectFromMatrixCol3(missileheading,missile->rotinfo.coordsys);
+    if(collideLineDist>0){vecScalarMultiply(hitLocation,missileheading,collideLineDist);vecAddTo(hitLocation,missile->posinfo.position);}
+    nativeImpact=rmPresentationProjectileImpact(missile,(const float*)&hitLocation,(const float*)&missileheading,(const float*)&target->posinfo.velocity,damagetaken);
+
 #ifdef HW_ENABLE_D3D12_BACKEND
+    if(!nativeImpact)
     {
         vector impactLightPosition;
         if (collideLineDist > 0.0f)
@@ -3469,6 +3582,18 @@ void univMissileCollidedWithTarget(SpaceObjRotImpTarg *target,StaticHeader *targ
     }
 #endif
 
+    if(nativeImpact)return;
+    if (univSpaceObjInRenderList((SpaceObj *)target))
+    {
+        hitLocation = missile->posinfo.position;
+        if (collideLineDist > 0.0f)
+        {
+            matGetVectFromMatrixCol3(missileheading,missile->rotinfo.coordsys);
+            vecScalarMultiply(hitLocation,missileheading,collideLineDist);
+            vecAdd(hitLocation,missile->posinfo.position,hitLocation);
+        }
+        if (rmWeaponFxMissileImpact(missile,&hitLocation,&target->posinfo.velocity)) return;
+    }
     if (missile->hitEffect != NULL)
     {
         LOD = target->currentLOD;
@@ -3770,9 +3895,52 @@ void FreeShipsInsideMe(Ship *ship)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+static bool32 univDetachDyingPassenger(Ship *ship, Ship *host)
+{
+    Node *node;
+    if (!host->shipsInsideMe)
+        return FALSE;
+    for (node = host->shipsInsideMe->insideList.head; node; node = node->next)
+    {
+        InsideShip *inside = listGetStructOfNode(node);
+        if (inside->ship == ship)
+        {
+            dockRemoveShipFromInside(ship, host);
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 void univWipeShipOutOfExistence(Ship *ship)
 {
     dbgAssertOrIgnore(ship != NULL);
+    // A death effect can finish after its parent has been removed from outside
+    // during docking/hyperspace. Such a ship has no objlink membership (nor a
+    // structptr after listRemoveNode). Unlink any hangar wrapper before freeing
+    // the allocation, rather than calling listDeleteNode on the cleared node.
+    if (ship->objlink.belongto == NULL)
+    {
+        Node *node;
+        bool32 detached = FALSE;
+        for (node = universe.ShipList.head; node; node = node->next)
+        {
+            if (univDetachDyingPassenger(ship, listGetStructOfNode(node)))
+            {
+                detached = TRUE;
+                break;
+            }
+        }
+        if (!detached)
+        {
+            for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node; node = node->next)
+            {
+                InsideShip *inside = listGetStructOfNode(node);
+                if (univDetachDyingPassenger(ship, inside->ship))
+                    break;
+            }
+        }
+    }
     if (ship->shiplink.belongto != NULL)
     {
         listRemoveNode(&ship->shiplink);
@@ -3785,7 +3953,10 @@ void univWipeShipOutOfExistence(Ship *ship)
     etgShipDied(ship);
     univRemoveObjFromRenderList((SpaceObj *)ship);
     univFreeShipContents(ship);
-    listDeleteNode(&ship->objlink);
+    if (ship->objlink.belongto != NULL)
+        listDeleteNode(&ship->objlink);
+    else
+        memFree(ship);
 }
 
 /*-----------------------------------------------------------------------------
@@ -3997,7 +4168,8 @@ void univUnhideJustAboutEverything(void)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void univDeleteDeadShip(Ship *ship, sdword deathBy)
+
+bool32 univDeleteDeadShip(Ship *ship, sdword deathBy)
 {
     Effect *effect;
     etgeffectstatic *explosion;
@@ -4006,6 +4178,7 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
     real32 colSize;
     udword colSizeDword, velMagnitudeDword;
     real32 velMagnitude, maxVelocity;
+    bool32 detachedDeath = FALSE;
 
     vecZeroVector(ship->posinfo.force);
     vecZeroVector(ship->rotinfo.torque);
@@ -4027,7 +4200,7 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
 
     if (lmActive)
     {
-        if ((ship->shiptype==Carrier) || (ship->shiptype==Mothership))
+        if ((ship->shiptype==Carrier) || (ship->shiptype==Mothership) || ship->shipsInsideMe != NULL)
         {
             lmLaunchCapableShipDied(ship);
         }
@@ -4079,7 +4252,10 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
             {
                 explosion = NULL;
             }
-            if (explosion)
+            detachedDeath = rmPresentationShipDeath(ship);
+            if (!detachedDeath)
+                detachedDeath = rmFxShipDeath(ship);
+            if (!detachedDeath && explosion)
             {
                 colSize = ((ShipStaticInfo *)(ship->staticinfo))->staticheader.staticCollInfo.collspheresize;
 //                if (univSpaceObjInRenderList((SpaceObj *)ship))
@@ -4172,6 +4348,8 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
 
     // Remove ships that are destroyed from any hot key groups and play group death sound if all dead
     univRemoveShipFromHotkeyGroup(ship, TRUE);
+
+    return detachedDeath;
 
 //if no effects, we should delete it properly
     /*
@@ -4488,6 +4666,7 @@ void univDeleteDeadShips()
     DeleteShip *deleteShip;
     Ship *ship;
     Node *nextnode;
+    bool32 detachedDeath;
 
     if (objnode == NULL)
     {
@@ -4502,7 +4681,7 @@ void univDeleteDeadShips()
         ship = deleteShip->ship;
         dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
 
-        univDeleteDeadShip(ship,deleteShip->deathBy);
+        detachedDeath = univDeleteDeadShip(ship,deleteShip->deathBy);
         if (ship->impactablelink.belongto != NULL)
         {
             listRemoveNode(&ship->impactablelink);
@@ -4523,10 +4702,13 @@ void univDeleteDeadShips()
 
         // don't totally delete ship, until after explosion
 #if ETG_DISABLEABLE
-        if (!etgEffectsEnabled)
+        if (!etgEffectsEnabled || detachedDeath)
         {
             univWipeShipOutOfExistence(ship);
         }
+#else
+        if (detachedDeath)
+            univWipeShipOutOfExistence(ship);
 #endif
 
         objnode = nextnode;
@@ -4555,6 +4737,7 @@ void univReallyDeleteThisShipRightNow(Ship *ship)
     }
     univWipeShipOutOfExistence(ship);
 }
+
 /*-----------------------------------------------------------------------------
     Name        : DeleteDeadResource
     Description : Deletes an individual resource, and removes all references
@@ -5991,7 +6174,7 @@ void univCheckShipState(Ship *ship)
         //ship->autostabilizeship = FALSE;
     }
 
-    if (ship->autostabilizeship && !bitTest(ship->flags, SOF_Disabled|SOF_Hide|SOF_Hyperspace|SOF_NISShip|SOF_Crazy) && !bitTest(ship->attributes,ATTRIBUTES_DontApplyFriction) && (ship->shiptype != Drone))
+    if (!shipPilotOwns(ship) && ship->autostabilizeship && !bitTest(ship->flags, SOF_Disabled|SOF_Hide|SOF_Hyperspace|SOF_NISShip|SOF_Crazy) && !bitTest(ship->attributes,ATTRIBUTES_DontApplyFriction) && (ship->shiptype != Drone))
     {
         bool32 isShipSteady;
 
@@ -6051,9 +6234,23 @@ void univCheckShipState(Ship *ship)
         return;      // don't autoretaliate if NIS running
     }
 
+    // Quick Dock/parade must not be replaced by retaliation or proximity attacks.
+    // This is below normal ship maintenance, so damage/fuel/simulation still run.
+    if (singlePlayerHyperspaceSuppressesAutoCombat(ship))
+    {
+        CommandToDo *command = getShipAndItsCommand(&universe.mainCommandLayer, ship);
+        if (command != NULL &&
+            (command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING))
+        {
+            ClearPassiveAttacking(command);
+        }
+        return;
+    }
+
     if(!bitTest(ship->flags, SOF_Disabled))
     {
         tacticsUpdate(ship);    //perform tactical processes for ship
+        if (shipPilotControls(ship)) return; /* Keep native stat upkeep, but not AI steering/trigger. */
         if (UNIVERSE_WOODPECKER(CHECK_SHIP_OUTOFWORLD_RATE, ship->shipID.shipNumber & CHECK_SHIP_OUTOFWORLD_RATE))
         {
             if (!(singlePlayerGame && (ship->playerowner->playerIndex == 1)))        // don't apply to KAS ships in single player game
@@ -6304,6 +6501,7 @@ DONT_MOVE_ME_YET:
 ----------------------------------------------------------------------------*/
 void univupdateReset()
 {
+    shipPilotExit();
     universe.phystimeelapsed = UNIVERSE_UPDATE_PERIOD;
     universe.totaltimeelapsed = 0.0f;
     universe.radius = 20000.0f;
@@ -6406,6 +6604,7 @@ void univFreeEffectContents(Effect *effect)
 ----------------------------------------------------------------------------*/
 void univFreeDerelictContents(Derelict *derelict)
 {
+    meshMotionRetireDerelict(derelict);
     if (derelict->navLightInfo)
     {
         memFree(derelict->navLightInfo);
@@ -6433,6 +6632,9 @@ void univFreeDerelictContents(Derelict *derelict)
 ----------------------------------------------------------------------------*/
 void univFreeAsteroidContents(Asteroid *asteroid)
 {
+#ifdef HW_ENABLE_D3D12_BACKEND
+    meshMotionRetireAsteroid(asteroid);
+#endif
     if (asteroid->flags & SOF_StaticInfoIsDynamic)
     {
         memFree(asteroid->staticinfo);
@@ -6508,7 +6710,11 @@ void univFreeResourceContents(Resource *resource)
 ----------------------------------------------------------------------------*/
 void univFreeBulletContents(Bullet *bullet)
 {
-    ;
+    /* Auxiliary ETG flashes/spawned effects can outlive bullet->effect.
+       Detach every reference before expiry, impact or shutdown frees/reuses
+       the bullet's allocation. etgShipDied compares identity only. */
+    etgShipDied((Ship *)bullet);
+    rmPresentationReleaseProjectile(bullet,(const float*)&bullet->posinfo.position,(const float*)&bullet->bulletheading,(const float*)&bullet->posinfo.velocity);
 }
 
 /*-----------------------------------------------------------------------------
@@ -6520,6 +6726,8 @@ void univFreeBulletContents(Bullet *bullet)
 ----------------------------------------------------------------------------*/
 void univFreeMissileContents(Missile *missile)
 {
+    vector heading;matGetVectFromMatrixCol3(heading,missile->rotinfo.coordsys);
+    rmPresentationReleaseProjectile(missile,(const float*)&missile->posinfo.position,(const float*)&heading,(const float*)&missile->posinfo.velocity);
     if(missile->formationinfo != NULL)
     {
         listRemoveNode(&missile->formationLink);     //take out of formation info list
@@ -6636,6 +6844,14 @@ void univFreeShipContents(Ship *ship)
 {
     udword i;
 
+#ifdef HW_ENABLE_D3D12_BACKEND
+    meshMotionRetireShip(ship);
+#endif
+
+    // Capture, retirement and hangar/hyperspace cleanup also free ships through
+    // this path, without the outside-ship wipe's effect notification. Detach
+    // every lingering effect before any allocation belonging to its owner dies.
+    etgShipDied(ship);
     univRemoveShipReferences(ship);
 
     if (ship->attackvars.multipleAttackTargets != NULL)
@@ -6742,6 +6958,7 @@ void univFreeShipContents(Ship *ship)
 ----------------------------------------------------------------------------*/
 void univupdateCloseAllObjectsAndMissionSpheres()
 {
+    shipPilotExit();
     Node *objnode = universe.SpaceObjList.head;
     SpaceObj *obj;
     sdword i;
@@ -7394,7 +7611,16 @@ void univCheckRegrowResources(void)
     Outputs     :
     Return      : TRUE if done (game over)
 ----------------------------------------------------------------------------*/
+static bool32 univUpdateImpl(real32 phystimeelapsed);
 bool32 univUpdate(real32 phystimeelapsed)
+{
+    bool32 result;
+    hwModernBenchmarkCpuBegin(1);
+    result = univUpdateImpl(phystimeelapsed);
+    hwModernBenchmarkCpuEnd(1);
+    return result;
+}
+static bool32 univUpdateImpl(real32 phystimeelapsed)
 {
 #ifdef _WIN32
 #define TMP_SAVEDGAMES_PATH "SavedGames\\"
@@ -7647,6 +7873,7 @@ bool32 univUpdate(real32 phystimeelapsed)
         clProcess(&universe.mainCommandLayer);
 
         clPostProcess(&universe.mainCommandLayer);
+        shipPilotUpdate();
     }
 
     PTENDLITTLE(2);
@@ -7689,6 +7916,10 @@ bool32 univUpdate(real32 phystimeelapsed)
     univDeleteDeadResources();
     univDeleteDeadDerelicts();
     univDeleteDeadMissiles();
+
+    /* Presentation follows the authoritative HW1 clock, not draw calls or
+       camera visibility. Dead ship instances have already been released. */
+    meshNativeVisualPumpPresentation(universe.totaltimeelapsed);
 
     if (UNIVERSE_WOODPECKER(REGROW_RESOURCES_CHECK_RATE, REGROW_RESOURCES_CHECK_FRAME))
     {

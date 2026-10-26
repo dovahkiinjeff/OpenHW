@@ -1,12 +1,16 @@
 # Weapon FX texture pipeline
 
 Weapon effects are decoded from the legally installed `homeworld.big` archive,
-upscaled exactly 4x with Real-ESRGAN, and encoded as mipmapped BC7 DDS files.
+upscaled at least 4x where the cap permits, and encoded as mipmapped BC7 DDS files.
+Each top-level texture dimension must be at least 256 pixels and at most 2048.
+The aspect ratio is preserved: for example, an 8x8 sprite becomes 256x256,
+while a 64x8 strip becomes 2048x256. Normal lower mip levels remain available
+for filtering; these bounds describe the authored top mip, not every mip.
 The complete `etg` graphics namespace is included so shared bullet, beam,
 muzzle, fire, trail, deflection, hit, and projectile-death animation frames are
 not missed.
 
-The source alpha channel is restored after AI processing. This prevents the
+The source alpha channel is restored when using optional AI processing. This prevents the
 upscaler from changing sprite silhouettes or inventing opaque borders between
 animation frames.
 
@@ -20,6 +24,7 @@ Run the reproducible build with:
 python tools/build_weapon_fx_textures.py `
   --archive "<Homeworld1Classic>\Data\homeworld.big" `
   --work out\weapon-fx `
+  --backend realesrgan `
   --realesrgan tools\.texture-tools\realesrgan\realesrgan-ncnn-vulkan.exe `
   --converter out\build\windows-x64\Release\ship_texture_dds.exe
 ```
@@ -27,3 +32,17 @@ python tools/build_weapon_fx_textures.py `
 The current source archive contains 426 ETG entries named `.lif`. Of those,
 425 are valid textures. `etg\meshes\fire00.lif` is a non-texture payload with
 an invalid LIF image header and is documented in `weapon-fx-exclusions.json`.
+
+The current classic-FX rollback uses `--backend lanczos` and work directory
+`out/classic-fx-256-2048`, preserving original RGB/alpha artwork without AI
+reinterpretation. No Real-ESRGAN executable is needed for that backend.
+Muzzle effects (including defense-fighter fire) and beam projectile effects
+always select ETG level 0, independent of the hull's LOD. Other effects retain
+HW1's LOD selection. The texture-resolution option applies to hulls, not ETG
+overrides, so it cannot downshift these FX top mips.
+
+RM ship models, joint bindings, upgraded legacy engine trails/capital glow
+shading, regular clouds, ropes, and RM harvestable dust are retained. Native
+RM ship combat, missile exhaust, damage, death, hyperspace and utility visual
+replacements are disabled through the presentation policy in RemasteredWeaponFX.c.
+Their importer and package remain available; projectile simulation is unchanged.

@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     Name    : options.c
     Purpose : Logic for the Options screen
@@ -416,6 +417,7 @@ sdword opSaveVoiceChat;
 sdword opSaveDetailThresholdVal;
 udword opDetailThresholdVal = 100;
 sdword opSaveBrightnessVal;
+static sdword opSaveDisplayGammaPercent = 100;
 sdword opBrightnessVal = 30;
 sdword opNoLODVal = 0;
 sdword opSaveNoLODVal;
@@ -425,11 +427,13 @@ static sdword opSaveDlaa;
 static sdword opSaveFrameGeneration;
 static sdword opSavePathTracingSamples;
 static sdword opSavePathTracingBounces;
+static sdword opSaveTextureResolution;
 static sdword opSaveGeneratedNormalStrengthPercent;
 static sdword opSaveChromaticAberrationPercent;
 static sdword opSaveMotionBlurPercent;
 static sdword opSaveFilmGrainPercent;
 static sdword opSaveGodRaysPercent;
+static sdword opSaveLensFlares;
 static sdword opSaveBloomPercent;
 
 sdword opSaveMAIN_WindowWidth;
@@ -443,7 +447,6 @@ sdword opSaveLightingVal;
 sdword opEffectsVal=0;
 sdword opSaveEffectsVal;
 sdword savetexLinearFiltering;
-sdword saveshowBackgrounds;
 sdword savesmInstantTransition;
 sdword saveenableSmoothing;
 sdword saveenableStipple;
@@ -481,10 +484,18 @@ udword opPauseOrders = 0;
 udword opUnlimitedFuel = 0;
 udword opSuperSalvagers = 0;
 udword opCaptureBuildAll = 0;
+udword opDisableUnitCaps = 0;
+udword opRankSystem = 1;
+udword opMissionStartLaunch = 0;
 /* RTX-0075: single-player harvesting yield/rate multiplier.  Source asset
    values stay authored while harvest speed and deposited payout scale 1x-4x. */
 udword opResourceMultiplier = 1;
+udword opUnlimitedRUs = 0;
+static udword opSaveUnlimitedRUs = 0;
+udword opDisableSPResourceScaling = 0;
+static udword opSaveDisableSPResourceScaling = 0;
 static udword opSaveUnlimitedFuel = 0;
+static bool32 opSaveShowFPS = FALSE;
 
 textentryhandle opAutodockFuelEntryBox     = NULL;
 textentryhandle opAutodockHealthEntryBox   = NULL;
@@ -586,7 +597,8 @@ void opOptionsInit(void)
                                   HW_MODERN_FRAME_GENERATION_OFF),
                               HW_MODERN_FRAME_GENERATION_XESS_2X);
     mainPathTracingSamples = min(max(mainPathTracingSamples, 1), 4);
-    mainPathTracingBounces = min(max(mainPathTracingBounces, 1), 3);
+    mainPathTracingBounces = min(max(mainPathTracingBounces, 1), 6);
+    mainTextureResolution = min(max(mainTextureResolution, 0), 3);
     mainGeneratedNormalStrengthPercent = min(
         max(mainGeneratedNormalStrengthPercent, 0), 400);
     mainEnvironmentLightingPercent = min(
@@ -603,11 +615,13 @@ void opOptionsInit(void)
         max(mainSurfaceRoughnessPercent, 0), 100);
     mainLightingExposurePercent = min(
         max(mainLightingExposurePercent, 50), 200);
+    mainRasterGlowBrightnessPercent = min(max(mainRasterGlowBrightnessPercent, 0), 200);
     mainOutputDitherPercent = min(max(mainOutputDitherPercent, 0), 200);
     mainChromaticAberrationPercent = min(max(mainChromaticAberrationPercent, 0), 100);
     mainMotionBlurPercent = min(max(mainMotionBlurPercent, 0), 100);
     mainFilmGrainPercent = min(max(mainFilmGrainPercent, 0), 100);
-    mainGodRaysPercent = min(max(mainGodRaysPercent, 0), 100);
+    mainGodRaysPercent = mainGodRaysPercent > 0 ? 100 : 0;
+    mainLensFlares = mainLensFlares != 0;
     mainBloomPercent = min(max(mainBloomPercent, 0), 400);
     mainShadowStrengthPercent = min(max(mainShadowStrengthPercent, 0), 200);
     mainSunShadowAngularRadiusCentidegrees = min(max(mainSunShadowAngularRadiusCentidegrees, 0), 500);
@@ -657,15 +671,15 @@ void opSetDetailThreshold(void)
 ----------------------------------------------------------------------------*/
 void opUpdateSettings(void)
 {
-    fprintf(stderr, "[Startup] video settings application begin\n");
+    HW_DIAG_FPRINTF(stderr, "[Startup] video settings application begin\n");
     fflush(stderr);
     opUpdateVideoSettings();
-    fprintf(stderr, "[Startup] video settings application complete\n");
+    HW_DIAG_FPRINTF(stderr, "[Startup] video settings application complete\n");
     fflush(stderr);
-    fprintf(stderr, "[Startup] settings snapshot and save begin\n");
+    HW_DIAG_FPRINTF(stderr, "[Startup] settings snapshot and save begin\n");
     fflush(stderr);
     opOptionsSaveSettings();
-    fprintf(stderr, "[Startup] settings snapshot and save complete\n");
+    HW_DIAG_FPRINTF(stderr, "[Startup] settings snapshot and save complete\n");
     fflush(stderr);
 }
 
@@ -1479,7 +1493,6 @@ void opRestoreSavedCustomEffectsSettings(void)
 {
     opEffectsVal = opSaveEffectsVal;
     texLinearFiltering = savetexLinearFiltering;
-    showBackgrounds = saveshowBackgrounds;
     smInstantTransition = savesmInstantTransition;
     enableSmoothing = saveenableSmoothing;
     enableStipple = saveenableStipple;
@@ -1514,6 +1527,7 @@ void opRestoreSavedSettings(void)
     opDetailThresholdVal = opSaveDetailThresholdVal;
     opSetDetailThreshold();
     opBrightnessVal = opSaveBrightnessVal;
+    mainDisplayGammaPercent = opSaveDisplayGammaPercent;
     shGammaSet(opBrightnessVal);
     mainRaytracing = opSaveRaytracing;
     mainFxLightingStrengthPercent = opSaveFxLightingStrengthPercent;
@@ -1521,12 +1535,14 @@ void opRestoreSavedSettings(void)
     mainFrameGeneration = opSaveFrameGeneration;
     mainPathTracingSamples = opSavePathTracingSamples;
     mainPathTracingBounces = opSavePathTracingBounces;
+    mainTextureResolution = opSaveTextureResolution;
     mainGeneratedNormalStrengthPercent =
         opSaveGeneratedNormalStrengthPercent;
     mainChromaticAberrationPercent = opSaveChromaticAberrationPercent;
     mainMotionBlurPercent = opSaveMotionBlurPercent;
     mainFilmGrainPercent = opSaveFilmGrainPercent;
     mainGodRaysPercent = opSaveGodRaysPercent;
+    mainLensFlares = opSaveLensFlares;
     mainBloomPercent = opSaveBloomPercent;
     opNoLODVal = mainRaytracing;
     opDetailThresholdVal = (udword)mainFxLightingStrengthPercent;
@@ -1566,6 +1582,8 @@ void opRestoreSavedSettings(void)
         (float)mainFilmGrainPercent / 100.0f,
         (float)mainGodRaysPercent / 100.0f,
         (float)mainBloomPercent / 100.0f);
+    hwModernGraphicsSetLensFlaresEnabled(mainLensFlares);
+    hwModernGraphicsSetRasterGlowBrightness(mainRasterGlowBrightnessPercent / 100.0f);
     hwModernGraphicsSetOutputDitherStrength(
         (float)mainOutputDitherPercent / 100.0f);
 #endif
@@ -1578,6 +1596,9 @@ void opRestoreSavedSettings(void)
     opMouseSens = opSaveMouseSens;
     opInfoOverlayVar = opSaveInfoOverlay;
     opUnlimitedFuel = opSaveUnlimitedFuel;
+    opUnlimitedRUs = opSaveUnlimitedRUs;
+    opDisableSPResourceScaling = opSaveDisableSPResourceScaling;
+    mainShowFPS = opSaveShowFPS;
     if (opInfoOverlayVar)
         ioEnable();
     else
@@ -1808,7 +1829,6 @@ void opOptionsSaveCustomEffectsSettings(void)
 {
     opSaveEffectsVal = opEffectsVal;
     savetexLinearFiltering = texLinearFiltering;
-    saveshowBackgrounds = showBackgrounds;
     savesmInstantTransition = smInstantTransition;
     saveenableSmoothing = enableSmoothing;
     saveenableStipple = enableStipple;
@@ -1858,6 +1878,7 @@ void opOptionsSaveSettings(void)
     opSaveDetailThresholdVal = opDetailThresholdVal;
     opBrightnessVal = shGammaGet();
     opSaveBrightnessVal = opBrightnessVal;
+    opSaveDisplayGammaPercent = mainDisplayGammaPercent;
     opSaveNoLODVal = opNoLODVal;
     opSaveRaytracing = mainRaytracing;
     opSaveFxLightingStrengthPercent = mainFxLightingStrengthPercent;
@@ -1865,12 +1886,14 @@ void opOptionsSaveSettings(void)
     opSaveFrameGeneration = mainFrameGeneration;
     opSavePathTracingSamples = mainPathTracingSamples;
     opSavePathTracingBounces = mainPathTracingBounces;
+    opSaveTextureResolution = mainTextureResolution;
     opSaveGeneratedNormalStrengthPercent =
         mainGeneratedNormalStrengthPercent;
     opSaveChromaticAberrationPercent = mainChromaticAberrationPercent;
     opSaveMotionBlurPercent = mainMotionBlurPercent;
     opSaveFilmGrainPercent = mainFilmGrainPercent;
     opSaveGodRaysPercent = mainGodRaysPercent;
+    opSaveLensFlares = mainLensFlares;
     opSaveBloomPercent = mainBloomPercent;
     opSaveNumEffects = opNumEffects;
 
@@ -1885,6 +1908,9 @@ void opOptionsSaveSettings(void)
     opSaveMouseSens = opMouseSens;
     opSaveInfoOverlay = opInfoOverlayVar;
     opSaveUnlimitedFuel = opUnlimitedFuel;
+    opSaveUnlimitedRUs = opUnlimitedRUs;
+    opSaveDisableSPResourceScaling = opDisableSPResourceScaling;
+    opSaveShowFPS = mainShowFPS;
 
     opOptionsSaveCustomEffectsSettings();
 
@@ -2397,7 +2423,6 @@ void opEffectsHelper(void)
     {
     case 0: //hi
         texLinearFiltering = TRUE;
-        showBackgrounds = TRUE;
         enableSmoothing = TRUE;
         enableStipple = FALSE;
         smFuzzyBlobs = TRUE;
@@ -2417,7 +2442,6 @@ void opEffectsHelper(void)
 
     case 1: //lo
         texLinearFiltering = FALSE;
-        showBackgrounds = FALSE;
         enableSmoothing = TRUE;
         enableStipple = TRUE;
         smFuzzyBlobs = FALSE;
@@ -2484,11 +2508,17 @@ void opUpdateVideoSettings(void)
         (float)mainFilmGrainPercent / 100.0f,
         (float)mainGodRaysPercent / 100.0f,
         (float)mainBloomPercent / 100.0f);
+    hwModernGraphicsSetLensFlaresEnabled(mainLensFlares);
+    hwModernGraphicsSetRasterGlowBrightness(mainRasterGlowBrightnessPercent / 100.0f);
     hwModernGraphicsSetOutputDitherStrength(
         (float)mainOutputDitherPercent / 100.0f);
 #endif
     shGammaSet(opBrightnessVal);
     trNoPalResizePool(opNoPalMB);
+    #ifdef HW_ENABLE_D3D12_BACKEND
+    hwModernGraphicsSetDisplayControls(1.0f + (opBrightnessVal - 30) / 100.0f,
+        mainDisplayGammaPercent / 100.0f);
+    #endif
 }
 
 void opEffects(char* name, featom* atom)

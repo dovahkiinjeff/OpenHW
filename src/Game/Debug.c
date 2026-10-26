@@ -1,3 +1,5 @@
+#define HW_DIAGNOSTIC_IMPLEMENTATION
+#include "../Modern/DiagnosticPolicy.h"
 // =============================================================================
 //  Debug.c
 // =============================================================================
@@ -104,13 +106,19 @@ char *dbgStackDump(void)
 ----------------------------------------------------------------------------*/
 void dbgMessage(char *string)
 {
+#if HW_ENABLE_DIAGNOSTICS
+
     /* Debug window disabled (using stdout instead, at least for now).
        dbw*() functions in other parts of code (main.c, utility.c, and
        Options.c) will need to be uncommented if the debug window is
        reenabled. */
     /*return(dbwPrint(0, string));*/
-    printf("%s\n", string);
+    HW_DIAG_PRINTF("%s\n", string);
     fflush(NULL);
+
+#else
+
+#endif
 }
 
 /*-----------------------------------------------------------------------------
@@ -122,6 +130,8 @@ void dbgMessage(char *string)
  ----------------------------------------------------------------------------*/
 void dbgMessagef(char *format, ...)
 {
+#if HW_ENABLE_DIAGNOSTICS
+
     char message[DBG_BufferLength];
     va_list argList;
 
@@ -131,6 +141,10 @@ void dbgMessagef(char *format, ...)
     va_end(argList);
 
     dbgMessage(message);
+
+#else
+
+#endif
 }
 
 /*-----------------------------------------------------------------------------
@@ -145,9 +159,15 @@ void dbgMessagef(char *format, ...)
 ----------------------------------------------------------------------------*/
 void dbgWarning(char *file, sdword line, char *string)
 {
+#if HW_ENABLE_DIAGNOSTICS
+
     snprintf(dbgFatalErrorString, DBG_BufferMax, "\n%s (%d): Warning - %s", file, line, string);
 
     dbgMessage(dbgFatalErrorString);
+
+#else
+
+#endif
 }
 
 /*-----------------------------------------------------------------------------
@@ -159,6 +179,8 @@ void dbgWarning(char *file, sdword line, char *string)
  ----------------------------------------------------------------------------*/
 void dbgWarningf(char *file, sdword line, char *format, ...)
 {
+#if HW_ENABLE_DIAGNOSTICS
+
     char message[DBG_BufferLength];
     va_list argList;
 
@@ -168,6 +190,10 @@ void dbgWarningf(char *file, sdword line, char *format, ...)
     va_end(argList);
 
     dbgWarning(file, line, message);
+
+#else
+
+#endif
 }
 
 /*-----------------------------------------------------------------------------

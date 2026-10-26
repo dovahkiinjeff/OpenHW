@@ -1,0 +1,7 @@
+HW_RM_R1_VISUAL_1
+type Probe
+scale 3.34730467
+hull hull.hod
+mad animation.mad
+surface 0 0 c0_m0
+surface 0 1 c0_m1

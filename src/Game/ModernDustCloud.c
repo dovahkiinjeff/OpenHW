@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 #include "ModernDustCloud.h"
 
 #include <SDL2/SDL.h>
@@ -328,7 +329,7 @@ static bool32 mdustEnsureTexture(void)
     fileData = mdustLoadAsset(modernDustCloudAssetPath, &fileSize);
     if (fileData == NULL)
     {
-        fprintf(stderr, "[ModernDustCloud] albedo '%s' not found; using legacy fallback.\n",
+        HW_DIAG_FPRINTF(stderr, "[ModernDustCloud] albedo '%s' not found; using legacy fallback.\n",
                 modernDustCloudAssetPath);
         return FALSE;
     }
@@ -338,7 +339,7 @@ static bool32 mdustEnsureTexture(void)
     if (pixels == NULL || width <= 0 || height <= 0)
     {
         if (pixels != NULL) stbi_image_free(pixels);
-        fprintf(stderr, "[ModernDustCloud] albedo decode failed; using legacy fallback.\n");
+        HW_DIAG_FPRINTF(stderr, "[ModernDustCloud] albedo decode failed; using legacy fallback.\n");
         return FALSE;
     }
 
@@ -354,7 +355,7 @@ static bool32 mdustEnsureTexture(void)
                  GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     if (glGenerateMipmap != NULL) glGenerateMipmap(GL_TEXTURE_2D);
     stbi_image_free(pixels);
-    fprintf(stderr, "[ModernDustCloud] new 2026 harvestable resource material loaded (%dx%d).\n",
+    HW_DIAG_FPRINTF(stderr, "[ModernDustCloud] new 2026 harvestable resource material loaded (%dx%d).\n",
             width, height);
     return TRUE;
 }
@@ -394,7 +395,7 @@ bool32 modernDustCloudRender(const cloudSystem *system, real32 radius,
     if (!logged)
     {
         logged = TRUE;
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[ModernDustCloud] brand-new lobe mesh + authored albedo active: "
             "8 silhouettes, up to 9216 triangles, original resource radius/harvest logic preserved.\n");
     }

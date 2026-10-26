@@ -1,8 +1,10 @@
+#include "../Modern/DiagnosticPolicy.h"
 #include "ModernAsteroid.h"
 
 #include <SDL2/SDL.h>
 #include <math.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +12,7 @@
 #include "stb_image.h"
 
 #include "ObjTypes.h"
+#include "Mesh.h"
 #include "glinc.h"
 #include "render.h"
 #include "texreg.h"
@@ -420,9 +423,9 @@ static void *modernAsteroidLoadAsset(const char *relativePath, size_t *fileSize)
     *fileSize = 0;
     if (basePath != NULL)
     {
-        snprintf(path, sizeof(path), "%s%s", basePath, relativePath);
+        snprintf(path, sizeof(path), "%sData/%s", basePath, relativePath);
         data = SDL_LoadFile(path, fileSize);
-        if (data == NULL)
+        if (data == NULL && !getenv("HW_PORTABLE_ROOT"))
         {
             snprintf(path, sizeof(path), "%s../../../../assets/%s", basePath, relativePath);
             data = SDL_LoadFile(path, fileSize);
@@ -431,6 +434,7 @@ static void *modernAsteroidLoadAsset(const char *relativePath, size_t *fileSize)
     }
     if (data == NULL)
     {
+        if (getenv("HW_PORTABLE_ROOT")) return NULL;
         snprintf(path, sizeof(path), "assets/%s", relativePath);
         data = SDL_LoadFile(path, fileSize);
     }
@@ -457,7 +461,7 @@ static bool32 modernAsteroidEnsureTexture(sdword typeIndex)
     ormData = modernAsteroidLoadAsset(modernAsteroidOrmPath[typeIndex], &ormSize);
     if (baseData == NULL || normalData == NULL || ormData == NULL)
     {
-        fprintf(stderr, "[ModernAsteroid] %s PBR DDS set incomplete; using legacy PEO.\n",
+        HW_DIAG_FPRINTF(stderr, "[ModernAsteroid] %s PBR DDS set incomplete; using legacy PEO.\n",
                 modernAsteroidDebugName[typeIndex]);
         if (baseData) SDL_free(baseData);
         if (normalData) SDL_free(normalData);
@@ -473,7 +477,7 @@ static bool32 modernAsteroidEnsureTexture(sdword typeIndex)
                                    &ow, &oh, &ormPixels) ||
         width != nw || height != nh || width != ow || height != oh)
     {
-        fprintf(stderr, "[ModernAsteroid] %s PBR DDS decode/size mismatch; using legacy PEO.\n",
+        HW_DIAG_FPRINTF(stderr, "[ModernAsteroid] %s PBR DDS decode/size mismatch; using legacy PEO.\n",
                 modernAsteroidDebugName[typeIndex]);
         if (basePixels) hwModernGraphicsFreeDecodedDds(basePixels);
         if (normalPixels) hwModernGraphicsFreeDecodedDds(normalPixels);
@@ -514,7 +518,7 @@ static bool32 modernAsteroidEnsureTexture(sdword typeIndex)
     hwModernGraphicsFreeDecodedDds(normalPixels);
     hwModernGraphicsFreeDecodedDds(ormPixels);
     SDL_free(baseData); SDL_free(normalData); SDL_free(ormData);
-    fprintf(stderr, "[ModernAsteroid] %s authored PBR set loaded (%ux%u BC7/BC5/BC7 DDS).\n",
+    HW_DIAG_FPRINTF(stderr, "[ModernAsteroid] %s authored PBR set loaded (%ux%u BC7/BC5/BC7 DDS).\n",
             modernAsteroidDebugName[typeIndex], width, height);
     return TRUE;
 }
@@ -637,7 +641,7 @@ static bool32 modernAsteroidEnsureImportedMesh(sdword typeIndex, sdword lod)
     mesh->vertexCount = face * 3;
     mesh->indexCount = face * 3;
     free(text); free(p); free(n); free(t);
-    fprintf(stderr, "[ModernAsteroid] %s authored LOD%d OBJ loaded: %d vertices / %d triangles.\n",
+    HW_DIAG_FPRINTF(stderr, "[ModernAsteroid] %s authored LOD%d OBJ loaded: %d vertices / %d triangles.\n",
             modernAsteroidDebugName[typeIndex], lod, mesh->vertexCount, face);
     return TRUE;
 failed:
@@ -836,7 +840,7 @@ static bool32 modernAsteroidEnsureMesh(sdword typeIndex, sdword variant, sdword 
 
     mesh->indexCount = index;
     mesh->vertexCount = vertexCount;
-    fprintf(stderr, "[ModernAsteroid] %s variant %d LOD%d generated: %d vertices / %d triangles.\n",
+    HW_DIAG_FPRINTF(stderr, "[ModernAsteroid] %s variant %d LOD%d generated: %d vertices / %d triangles.\n",
             modernAsteroidDebugName[typeIndex], variant, lod,
             vertexCount, index / 3);
     return TRUE;
@@ -914,13 +918,15 @@ bool32 modernAsteroidSubmitShadow(const Asteroid *asteroid)
     glPushMatrix();
     glScalef(radius, radius, radius);
     glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
-    hwModernGraphicsSubmitTriangleGeometryMasked(
+    hwModernGraphicsSubmitTriangleGeometryMaskedIdentified(
         mesh, &mesh->vertices[0].position[0],
         (unsigned int)mesh->vertexCount, (unsigned int)sizeof(ModernAsteroidVertex),
         (const unsigned short *)mesh->indices,
         (unsigned int)(mesh->indexCount / 3), (unsigned int)(sizeof(uword) * 3),
         0u, mesh->raySurfaces, (unsigned int)sizeof(HWModernTriangleSurface),
-        modelView, baseColor, 0x02u);
+        modelView, baseColor, hwModernGraphicsAsteroidShadowMask(
+            &asteroid->posinfo.position.x,0x02u),
+        meshMotionAsteroidIdentity(asteroid), (unsigned long long)(uintptr_t)mesh);
     glPopMatrix();
     return TRUE;
 #else
@@ -979,7 +985,7 @@ bool32 modernAsteroidRender(const Asteroid *asteroid, sdword lod)
         if (!loggedDeterministicMaterial)
         {
             loggedDeterministicMaterial = TRUE;
-            fprintf(stderr,
+            HW_DIAG_FPRINTF(stderr,
                 "[ModernAsteroid] projected-size LOD active: every level is a decimated "
                 "user-authored OBJ with preserved UVs and gameplay radius.\n");
         }
@@ -1050,7 +1056,9 @@ bool32 modernAsteroidRender(const Asteroid *asteroid, sdword lod)
         glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
         if (modernAsteroidEnsureRaySurfaces(typeIndex, mesh))
         {
-        hwModernGraphicsSubmitTriangleGeometry(
+        /* The owner survives culling/draw reordering; the exact LOD mesh is a
+           part key, so a topology change never borrows another rock's pose. */
+        hwModernGraphicsSubmitTriangleGeometryMaskedIdentified(
             mesh,
             &mesh->vertices[0].position[0],
             (unsigned int)mesh->vertexCount,
@@ -1060,7 +1068,9 @@ bool32 modernAsteroidRender(const Asteroid *asteroid, sdword lod)
             (unsigned int)(sizeof(uword) * 3),
             0u,
             mesh->raySurfaces, (unsigned int)sizeof(HWModernTriangleSurface),
-            modelView, baseColor);
+            modelView, baseColor, hwModernGraphicsAsteroidShadowMask(
+                &asteroid->posinfo.position.x,0x03u),
+            meshMotionAsteroidIdentity(asteroid), (unsigned long long)(uintptr_t)mesh);
         }
     }
 #endif

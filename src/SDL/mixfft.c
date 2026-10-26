@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 // Copyright (c) 1996 Jens Jorgen Nielsen
 // Written by Jens Jorgen Nielsen
 // Optimizations by Janik Joire
@@ -197,7 +198,7 @@ void transTableSetup(long sofar[], long actual[], long remain[],
   factorize(*nPoints, nFact, actual);
   if (actual[*nFact] > maxPrimeFactor)
     {
-      printf("\nPrime factor of FFT length too large : %6ld",actual[*nFact]);
+      HW_DIAG_PRINTF("\nPrime factor of FFT length too large : %6ld",actual[*nFact]);
       exit(1);
     }
   remain[0]=*nPoints;

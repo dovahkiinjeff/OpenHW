@@ -6,6 +6,7 @@
 //  Created 7/18/1997 by lmoloney
 // =============================================================================
 
+#include "ResourceUnits.h"
 #include "ConsMgr.h"
 
 #include "CommandLayer.h"
@@ -292,7 +293,7 @@ fibfileheader *cmScreensHandle = NULL;
 //handle to construction task
 taskhandle cmBuildTask = -1;
 
-#define NSHIPS_AVAILABLE_R1REG  22 + 5          // Modified by Daly on 04.21.99 (was 20 + 5)
+#define NSHIPS_AVAILABLE_R1REG  22 + 5
 #define NSHIPS_AVAILABLE_R1BIG  27 + 6
 
 #define NSHIPS_AVAILABLE_R2REG  22 + 5          // Modified by Daly on 04.21.99 (was 20 + 5)
@@ -1615,7 +1616,7 @@ void cmBuildTaskFunction(void)
             continue;
         }
 */
-        if (universe.curPlayerPtr->resourceUnits >= 300)
+        if (resourceUnitsCanAfford(universe.curPlayerPtr, 300))
         {
             resourcesHaveBeenAboveBefore = TRUE;
         }
@@ -1637,7 +1638,7 @@ void cmBuildTaskFunction(void)
             {
                 for (index = 0, progress = &sinprogress->progress[0]; index < TOTAL_NUM_SHIPS; index++, progress++)
                 {                                                   //for all classes of ships
-                    if (universe.curPlayerPtr->resourceUnits <= 0)
+                    if (!resourceUnitsCanAfford(universe.curPlayerPtr, 1))
                     {
                         break;
                     }
@@ -1669,9 +1670,9 @@ void cmBuildTaskFunction(void)
                                 if (!multiPlayerGame)
                                 {
                                     //xxx
-                                    universe.curPlayerPtr->resourceUnits -= decrement;// decrement RU's
+                                    resourceUnitsSpend(universe.curPlayerPtr, decrement);// decrement RU's
                                 }
-                                if(universe.curPlayerPtr->resourceUnits <= 0)
+                                if(!resourceUnitsCanAfford(universe.curPlayerPtr, 1))
                                 {
                                     if (resourcesHaveBeenAboveBefore)
                                     {
@@ -1707,9 +1708,9 @@ void cmBuildTaskFunction(void)
                                     if (!multiPlayerGame)
                                     {
                                         //xxx
-                                        universe.curPlayerPtr->resourceUnits--;
+                                        resourceUnitsSpend(universe.curPlayerPtr, 1);
                                     }
-                                    if(universe.curPlayerPtr->resourceUnits <= 0)
+                                    if(!resourceUnitsCanAfford(universe.curPlayerPtr, 1))
                                     {
                                         if (resourcesHaveBeenAboveBefore)
                                         {
@@ -3595,11 +3596,12 @@ void cmNumberRUsDraw(featom *atom, regionhandle region)
     glClear(GL_DEPTH_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
 
-    width = fontWidthf("%d", universe.curPlayerPtr->resourceUnits);//width of number
+    char ruText[32];
+    width = fontWidthf("%s", resourceUnitsFormat(universe.curPlayerPtr, ruText, sizeof(ruText)));
     feStaticRectangleDraw(region);                          //draw regular rectangle as backdrop
     fontPrintf(region->rect.x1 - width - CM_RUMarginRight,
                (region->rect.y1 - region->rect.y0 - fontHeight(NULL)) / 2 + region->rect.y0,
-               FEC_ListItemStandard, "%d", universe.curPlayerPtr->resourceUnits);
+               FEC_ListItemStandard, "%s", ruText);
 
     fontMakeCurrent(oldfont);
 }
@@ -4014,13 +4016,22 @@ sdword cmUpdateFactory(Ship* shipfactory)
     return(1);
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : cmConstructionBegin
-    Description : Region callback handler for starting the construction manager.
-    Inputs      : Standard region callback.
-    Outputs     : Starts up the construction manager and returns.
-    Return      : void
-----------------------------------------------------------------------------*/
+/* Focus an already-open docked Build Manager on a selected owned factory. */
+bool32 cmShowSelectedFactory(Ship *ship)
+{
+    if (!cmActive || !mdManagerDockEnabled() || !cmDockFactoryVisible(ship)) return FALSE;
+    cmDockEnsureOwnedFactoriesRegistered();
+    if (cmDockSelectedFactory != ship)
+    {
+        cmDockSelectedFactory = ship;
+        cmDockFactoryNormalizeSelection();
+        cmUpdateFactory(ship);
+        updateShipView();
+    }
+    return TRUE;
+}
+
+/* Region callback for opening the construction manager. */
 sdword cmConstructionBegin(regionhandle region, smemsize ID, udword event, udword data)
 {
     sdword status = 0;
@@ -4662,8 +4673,8 @@ bool32 cmDeterministicSanityCheck(cmDetermProgress_t* dprog)
 
     //check type.  Non-standard P1/P2 types are only valid when the same
     //captured production hull is explicitly allowed to build that native type.
-    if (dprog->shipType < STD_FIRST_SHIP ||
-        dprog->shipType > STD_LAST_SHIP)
+    if ((dprog->shipType < STD_FIRST_SHIP ||
+         dprog->shipType > STD_LAST_SHIP))
     {
         if (dprog->creator == NULL ||
             !cmCapturedForeignFactory(dprog->creator) ||
@@ -4765,6 +4776,7 @@ void cmDeterministicBuildStart(
 void cmAdjustRU(cmDetermProgress_t* dprog, sdword amount)
 {
     Player* player = &universe.players[dprog->playerIndex];
+    if (resourceUnitsUnlimited(player)) return;
     player->resourceUnits += amount;
 
     universe.gameStats.playerStats[player->playerIndex].totalResourceUnitsSpent += min(player->resourceUnits, ABS(amount));
@@ -4897,7 +4909,7 @@ void cmDeterministicBuildProcess(void)
             lastCost = (sdword)dprog->costSoFar;
             newCost = (sdword)(dprog->costSoFar + dprog->costPerTick);
 
-            if (player->resourceUnits == 0)
+            if (!resourceUnitsCanAfford(player, 1))
             {
                 continue;
             }
@@ -4923,7 +4935,7 @@ void cmDeterministicBuildProcess(void)
                              dprog->creator);
 
                 //@todo is this adjustment correct ?
-                if (player->resourceUnits > 0)
+                if (resourceUnitsCanAfford(player, 1))
                 {
                     cmAdjustRU(dprog, -1);
                 }
@@ -5060,21 +5072,25 @@ shipsinprogress *Load_shipsinprogress(void)
 
     chunk = LoadNextChunk();
     VerifyChunkNoSize(chunk,BASIC_STRUCTURE|SAVE_SHIPSINPROGRESS);
-    dbgAssertOrIgnore(chunk->contentsSize == sizeof(shipsinprogress) ||
-                      chunk->contentsSize == sizeof(cmLegacyShipsInProgress));
+    /* The queue has no fields after progress. Its record length tells us
+       whether it contains the original or expanded HW1 factory roster. */
+    progressCount = (chunk->contentsSize - offsetof(shipsinprogress, progress)) /
+                    sizeof(shipinprogress);
+    if (chunk->contentsSize < offsetof(shipsinprogress, progress) ||
+        chunk->contentsSize != offsetof(shipsinprogress, progress) +
+                               progressCount * sizeof(shipinprogress) ||
+        (progressCount != TOTAL_STD_SHIPS &&
+         progressCount != ResearchStationTower + 1 &&
+         progressCount != TOTAL_NUM_SHIPS))
+    {
+        dbgFatalf(DBG_Loc,"Unsupported saved construction queue (%d bytes)",chunk->contentsSize);
+        memFree(chunk);
+        return NULL;
+    }
 
     sinprogress = memAlloc(sizeof(shipsinprogress),"sinprogress",NonVolatile);
     memset(sinprogress,0,sizeof(shipsinprogress));
-    if (chunk->contentsSize == sizeof(cmLegacyShipsInProgress))
-    {
-        memcpy(sinprogress,chunkContents(chunk),sizeof(cmLegacyShipsInProgress));
-        progressCount = TOTAL_STD_SHIPS;
-    }
-    else
-    {
-        memcpy(sinprogress,chunkContents(chunk),sizeof(shipsinprogress));
-        progressCount = TOTAL_NUM_SHIPS;
-    }
+    memcpy(sinprogress,chunkContents(chunk),chunk->contentsSize);
 
     memFree(chunk);
 
@@ -5085,6 +5101,7 @@ shipsinprogress *Load_shipsinprogress(void)
     {
         sinprogress->progress[i].info = ConvertRaceTypeToShipStaticInfo((sdword)sinprogress->progress[i].info);
     }
+
 
     return sinprogress;
 }
@@ -5176,6 +5193,7 @@ void LoadConsMgrDetermListCB(LinkedList *list)
 {
     cmDetermProgress_t *dp = LoadStructureOfSize(sizeof(cmDetermProgress_t));
     dp->creator = SpaceObjRegistryGetShip((sdword)dp->creator);
+
 
     listAddNode(list,&dp->node,dp);
 }

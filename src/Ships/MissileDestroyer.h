@@ -11,5 +11,6 @@
 #include "SpaceObj.h"
 
 extern CustShipHeader MissileDestroyerHeader;
+real32 missileDestroyerSpecialReadiness(Ship *ship);
 
 #endif

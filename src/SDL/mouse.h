@@ -155,6 +155,8 @@ void mouseShutdown(void);
 void mouseCursorHide(void);
 void mouseCursorShow(void);
 void mouseCursorDelayShow(uword delay);
+/* Refresh the OS-owned pointer after visibility, size, or focus changes. */
+void mouseRefreshSystemCursor(void);
 
 //disable/enable cursor
 void mouseDisable(void);
@@ -169,6 +171,8 @@ void mouseClickShipDied(ShipPtr deadship);
 //set new position for mouse
 void mousePositionSet(sdword x, sdword y);
 void mouseClipToRect(rectangle *rect);
+void mouseRefreshWindowConfinement(void);
+void mouseReleaseWindowConfinement(void);
 void mouseClipPointToRect(sdword *x, sdword *y, rectangle *rect);
 
 //draw mouse cursor and update cursor position/button flags

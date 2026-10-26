@@ -4034,20 +4034,25 @@ void aiuSplitAttack(SelectCommand *ships, SelectCommand *targets)
 void aiuSwarmDock(SelectCommand *ships, SelectCommand *pods)
 {
     extern real32 BUSY_ADD_TO_DISTANCE;
-    SelectCommand *dockgroups[20];
+    SelectCommand **dockgroups;
     real32 dist, busyadddist, mindist = REALlyBig;
     vector diff;
-    udword i, j, closestDockat = 0;
+    sdword i, j, closestDockat;
     ShipPtr ship, dockat;
 
-    dbgAssertOrIgnore(pods->numShips);
+    if (ships == NULL || pods == NULL || ships->numShips <= 0 || pods->numShips <= 0)
+        return;
 
     if (pods->numShips == 1)
     {
-        aiuWrapDock(ships, DOCK_AT_SPECIFIC_SHIP, pods->ShipPtr[0]);
+        dockat = pods->ShipPtr[0];
+        if (dockat != NULL && !aiuShipIsntSelectable(dockat) &&
+            dockat->dockInfo != NULL && dockat->staticinfo != NULL)
+            aiuWrapDock(ships, DOCK_AT_SPECIFIC_SHIP, dockat);
         return;
     }
 
+    dockgroups = memAlloc((memsize)pods->numShips * sizeof(*dockgroups), "swarmDockGroups", Pyrophoric);
     for (i=0;i<pods->numShips;i++)
     {
         aiuNewPyroSelection(dockgroups[i], ships->numShips, "aswd");
@@ -4056,10 +4061,17 @@ void aiuSwarmDock(SelectCommand *ships, SelectCommand *pods)
     for (i=0;i<ships->numShips;i++)
     {
         ship = ships->ShipPtr[i];
+        if (ship == NULL || aiuShipIsntSelectable(ship))
+            continue;
+        mindist = REALlyBig;
+        closestDockat = -1;
 
         for (j=0;j<pods->numShips;j++)
         {
             dockat = pods->ShipPtr[j];
+            if (dockat == NULL || aiuShipIsntSelectable(dockat) ||
+                dockat->dockInfo == NULL || dockat->staticinfo == NULL)
+                continue;
 
             vecSub(diff,dockat->posinfo.position,ship->posinfo.position);
             dist = fsqrt(vecMagnitudeSquared(diff));
@@ -4078,13 +4090,16 @@ void aiuSwarmDock(SelectCommand *ships, SelectCommand *pods)
             }
         }
 
-        selSelectionAddSingleShip((MaxSelection *)dockgroups[closestDockat], ship);
+        if (closestDockat >= 0)
+            selSelectionAddSingleShip((MaxSelection *)dockgroups[closestDockat], ship);
     }
     for (i=0;i<pods->numShips;i++)
     {
-        aiuWrapDock(dockgroups[i], DOCK_AT_SPECIFIC_SHIP, pods->ShipPtr[i]);
+        if (dockgroups[i]->numShips > 0)
+            aiuWrapDock(dockgroups[i], DOCK_AT_SPECIFIC_SHIP, pods->ShipPtr[i]);
         aiumemFree(dockgroups[i]);
     }
+    aiumemFree(dockgroups);
 }
 
 
@@ -4810,7 +4825,5 @@ void aiuDeleteBlobArrays(void)
 
     aiumemFree(myMothershipBlob);
 }
-
-
 
 

@@ -5,13 +5,28 @@
 #include <cstddef>
 #include <d3d12.h>
 #include <dxgi1_6.h>
+#include "ResolvedSceneLighting.h"
+#include "RasterEmissionSource.h"
 
 namespace hwlegacyd3d12
 {
+void setEmissionBrightness(float strength);
+void setEmissionSource(hwmodern::RasterEmissionDescribe describe,hwmodern::RasterEmissionRead read);
+void beginScene(const float view[16]);
+void endScene();
+const float *sceneView();
+void setMissionLighting(bool enabled,const std::vector<hwmodern::ResolvedSceneLight>& lights,
+    float exposure,float shadowStrength,float receiverBias,float normalBias);
 bool initialize(ID3D12Device *device, unsigned int width, unsigned int height);
 void shutdown();
 bool resize(ID3D12Device *device, unsigned int width, unsigned int height);
 void beginFrame(unsigned int frameSlot);
+struct RasterCacheStats
+{
+    // Current-frame uploads and instantaneous live/reserved cache ownership.
+    unsigned long long uploadedBytes, cacheChargeBytes;
+};
+RasterCacheStats cacheStats();
 /* Exact native-raster depth used by ships/world geometry. The presenter calls
    prepareDepthForSampling only after raster replay is complete. */
 ID3D12Resource *depthResource();

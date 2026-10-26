@@ -353,6 +353,9 @@ void trInternalTexturesDelete(trhandle handle);
 
 //'refresh' the texture registry which will load in all the textures requested.
 void trRegistryRefresh(void);
+/* Load one editor preview handle and its shared parent, without a mission
+   loading screen, global cache refresh or registry-wide size/recolor pass. */
+bool32 trPreparePreviewTexture(trhandle handle);
 
 //'unregister' a texture handle, i.e. decrement it's usage count
 sdword trTextureUnregister(trhandle handle);

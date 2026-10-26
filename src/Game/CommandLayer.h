@@ -166,6 +166,7 @@ bool32 ShipHasToLaunch(Ship *InsideShip, Ship *ship);
 
 // launch functions
 void LaunchAllInternalShipsOfPlayerThatMustBeLaunched(struct Player *player);
+void clMissionStartLaunch(struct Player *player, udword autoLaunch, udword mode);
 sdword LaunchAllInternalShipsOfPlayer(struct Player *player, udword carriermask);
 
 // checks if can ChangeOrderToPassiveAttack

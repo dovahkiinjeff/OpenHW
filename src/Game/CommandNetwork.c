@@ -1649,6 +1649,9 @@ void clProcessSyncPacket(CommandLayer *comlayer,ubyte *packet,udword sizeofPacke
                     case MISCCOMMAND_PARADE:
                         clSetMilitaryParade(comlayer,miscselection);
                         break;
+                    case MISCCOMMAND_FORMATION_SPREAD:
+                        formationSetSpreadForSelection(comlayer,miscselection,misccom->miscData);
+                        break;
                     default:
                         dbgAssertOrIgnore(FALSE);
                         break;

@@ -1,0 +1,9 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_tai_carrierresource_hw1_8134f8149c
+scale 1
+hull @/Subsystems/tai_carrierresource/model.hod
+mad -
+
+presentation Hull component_events.owevents
+[Weapons]
+[End]

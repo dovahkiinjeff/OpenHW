@@ -17,6 +17,7 @@
 #include "Randy.h"
 #include "SinglePlayer.h"
 #include "SoundEvent.h"
+#include "RemasteredPresentation.h"
 #include "SoundEventDefs.h"
 #include "StatScript.h"
 #include "Tutor.h"
@@ -176,6 +177,15 @@ bool32 ResourceAlreadyBeingHarvested(struct CommandLayer *comlayer,struct Comman
     Node *curnode = comlayer->todolist.head;
     ResourceStaticInfo *resourcestaticinfo = resource->staticinfo;
     CommandToDo *command;
+
+    /* Asteroids are shared deposits: do not reserve them for a fixed number
+       of collectors. This also covers scaled asteroids and existing saves;
+       keep authored reservation limits for dust, gas and nebula resources.
+       CollectResources still consumes the one shared RU balance per ship. */
+    if (resource->objtype == OBJ_AsteroidType)
+    {
+        return FALSE;
+    }
 
     if (!resourcestaticinfo->harvestableByMultipleShips)
     {
@@ -768,10 +778,13 @@ void TurnHarvestEffectOn(Ship *ship,Resource *resource,vector *trajectory, real3
     if (stat != NULL && !etgFrequencyExceeded(stat))
 #endif
     {
-        if (resource->objtype == OBJ_AsteroidType)
-            ship->soundevent.specialHandle = soundEvent(ship, Ship_ResourceAsteroid);
-        else //if (resource->objtype == OBJ_DustType)
-            ship->soundevent.specialHandle = soundEvent(ship, Ship_ResourceDustCloud);
+        if (!rmPresentationOwnsHarvestSound(ship))
+        {
+            if (resource->objtype == OBJ_AsteroidType)
+                ship->soundevent.specialHandle = soundEvent(ship, Ship_ResourceAsteroid);
+            else //if (resource->objtype == OBJ_DustType)
+                ship->soundevent.specialHandle = soundEvent(ship, Ship_ResourceDustCloud);
+        }
         /* should have other resource types too? */
         ship->rceffect = etgEffectCreate(stat, ship, &nozzleposition, &ship->posinfo.velocity, &nozzlecoordsys, 1.0f, EAF_Velocity | EAF_NLips, 2, SCALECAST(intLength), SCALECAST(intWidth));
     }

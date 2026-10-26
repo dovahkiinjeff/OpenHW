@@ -21,6 +21,7 @@
 #include "mainrgn.h"
 #include "Memory.h"
 #include "ModernMissionBackdrop.h"
+#include "RemasteredBackdrop.h"
 #include "render.h"
 #include "rglu.h"
 #include "texreg.h"
@@ -239,6 +240,7 @@ void btgReset(void)
 ----------------------------------------------------------------------------*/
 void btgShutdown(void)
 {
+    remasteredBackdropShutdown();
     btgReset();
 }
 
@@ -1438,6 +1440,9 @@ void btgRender(void)
 #if MR_KEYBOARD_CHEATS
     extern bool32 gMosaic;
 #endif
+
+    modernMissionBackdropPrepare();
+    if (remasteredBackdropRender((real32)btgFade / 255.0f)) return;
 
     if (btgHead == NULL)
     {

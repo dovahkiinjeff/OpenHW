@@ -1,0 +1,6 @@
+OPENHW_SHIP_1
+type Derelict_Junk0_antenna
+scale 2.85714268
+hull hull.hod
+mad -
+surface 0 0 c0_m0

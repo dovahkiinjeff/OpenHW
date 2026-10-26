@@ -39,6 +39,10 @@ void shSpecularColour(sdword specInd, sdword side, vector* vobj, vector* norm,
 void shColour(sdword side, vector* norm, ubyte* color, real32* minv);
 void shColourSet(sdword side, vector* norm, real32* minv);
 void shColourSet0(vector* norm);
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+#include "PersistentMeshSource.h"
+int shCapturePersistentShade(HWLegacyShadeState *state);
+#endif
 void shInvertMatrix(real32* out, real32 const* m);
 void shSetExponent(sdword index, real32 exponent);
 void shSetLightPosition(sdword index, real32* position, real32* m);

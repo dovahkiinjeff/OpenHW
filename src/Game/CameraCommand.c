@@ -15,6 +15,7 @@
 #include "Sensors.h"
 #include "Ships.h"
 #include "SinglePlayer.h"
+#include "ModernGraphics.h"
 #include "ModernMapEditor.h"
 #include "StatScript.h"
 #include "Tutor.h"
@@ -1620,6 +1621,9 @@ void ccControl(CameraCommand *cameracommand)
 
    if ((cameracommand->ccMode & CCMODE_LOCK_OUT_USER_INPUT) == 0)
    {
+#ifdef HW_ENABLE_D3D12_BACKEND
+      const real32 distanceBeforeUserZoom = curentry->remembercam.distance;
+#endif
       UserAction = cameraControl(&curentry->remembercam, TRUE);
 
       if(UserAction)
@@ -1630,6 +1634,14 @@ void ccControl(CameraCommand *cameracommand)
 
          if(curentry->remembercam.distance < targetDistance)
             curentry->remembercam.distance = targetDistance;
+
+#ifdef HW_ENABLE_D3D12_BACKEND
+         /* Arm diagnostics from an applied gameplay zoom, not camera orbit,
+            scripted focus changes, previews, or input clamped at a limit. */
+         if ((UserAction & CAM_USER_ZOOMED) &&
+             curentry->remembercam.distance != distanceBeforeUserZoom)
+            hwModernGraphicsNotifyCameraZoom();
+#endif
       }
    }
 

@@ -1,3 +1,4 @@
+#include "DiagnosticPolicy.h"
 #include "ModernDlaa.h"
 
 #if defined(_WIN32)
@@ -35,15 +36,35 @@ struct DlaaState
     bool supported = false;
     bool outputReadable = false;
     bool loggedEvaluateFailure = false;
+    bool evaluateFailed = false;
+    bool dlssResourcesUsed = false;
     bool rrPluginRequested = false;
     bool rrRequested = true;
     bool rrSupported = false;
     bool loggedRrEvaluateFailure = false;
+    bool rrEvaluateFailed = false;
+    bool rrResourcesUsed = false;
     bool loggedRrActive = false;
     bool frameGenerationPluginRequested = false;
     bool frameGenerationSupported = false;
     bool frameGenerationRequested = false;
     bool frameGenerationActive = false;
+    bool frameGenerationConfigured = false;
+    bool frameGenerationOptionsKnown = false;
+    bool frameGenerationFailed = false;
+    bool frameGenerationDisableFailed = false;
+    bool reflexConfigured = false;
+    bool frameOpen = false;
+    bool frameGenerationPrepared = false;
+    bool renderSubmitMarked = false;
+    bool presentMarked = false;
+    sl::FrameToken *frameToken = nullptr;
+    unsigned int presentationFrameIndex = 0;
+    unsigned int fgInputWidth = 0, fgInputHeight = 0;
+    unsigned int fgOutputWidth = 0, fgOutputHeight = 0;
+    unsigned long long fgPresentedFrames = 0, fgApplicationFrames = 0;
+    unsigned long long fgWindowPresentedFrames = 0, fgWindowApplicationFrames = 0;
+    char frameGenerationReason[192] = "NVIDIA frame generation is off";
     bool loggedFrameGenerationFailure = false;
     unsigned int width = 0;
     unsigned int height = 0;
@@ -55,11 +76,38 @@ struct DlaaState
 
 DlaaState state;
 
+bool evaluationFailed(sl::Result result, bool rayReconstruction,
+                      const char *stage)
+{
+    bool &failed = rayReconstruction ? state.rrEvaluateFailed : state.evaluateFailed;
+    bool &logged = rayReconstruction ? state.loggedRrEvaluateFailure : state.loggedEvaluateFailure;
+    failed = true;
+    state.outputReadable = false;
+    // FG has its own full-resolution color/depth/motion preparation and failure
+    // latch. A failed SR/RR evaluation must not invalidate those independent
+    // inputs or force another reconstruction allocation attempt.
+    if (!logged)
+    {
+        HW_DIAG_FPRINTF(stderr,
+            "[ModernGraphics] NVIDIA %s failed at %s (result %d); %s "
+            "Retry waits for an explicit output/configuration reset.\n",
+            rayReconstruction ? "DLSS Ray Reconstruction" : "DLSS/DLAA full-scene evaluation",
+            stage, static_cast<int>(result),
+            rayReconstruction ? "Falling back to normal DLSS SR." : "Native scene presentation retained.");
+        logged = true;
+    }
+    // In particular, eWarnOutOfVRAM must not re-enter tagging/evaluation on
+    // every frame. Volatile tags can otherwise allocate another clone before
+    // reporting the same warning. Existing in-flight resources stay alive;
+    // release them only at the drained output lifecycle boundary below.
+    return false;
+}
+
 void streamlineLog(sl::LogType type, const char *message)
 {
-    if (type == sl::LogType::eWarn || type == sl::LogType::eError)
+    if (message)
     {
-        std::fprintf(stderr, "[Streamline] %s", message != nullptr ? message : "");
+        HW_DIAG_FPRINTF(stderr, "[Streamline] %s", message != nullptr ? message : "");
     }
 }
 
@@ -88,6 +136,62 @@ void setPerspective(sl::float4x4 &projection, sl::float4x4 &inverse,
     inverse.row[1] = { 0.0f, 1.0f / y, 0.0f, 0.0f };
     inverse.row[2] = { 0.0f, 0.0f, 0.0f, 1.0f / d };
     inverse.row[3] = { 0.0f, 0.0f, 1.0f, -c / d };
+}
+
+sl::Result frameTokenForEvaluation(sl::FrameToken *&token)
+{
+    if (state.frameOpen && state.frameToken)
+    {
+        token = state.frameToken;
+        return sl::Result::eOk;
+    }
+    const unsigned int index = state.frameOpen ? state.presentationFrameIndex : state.frameIndex++;
+    const sl::Result result = slGetNewFrameToken(token, &index);
+    if (result == sl::Result::eOk && token && state.frameOpen) state.frameToken = token;
+    return result;
+}
+
+bool frameGenerationOff()
+{
+    if (!state.frameGenerationConfigured && state.frameGenerationOptionsKnown) return true;
+    if (!state.initialized || !state.deviceReady || !state.frameGenerationSupported) return true;
+    if (state.frameGenerationDisableFailed) return false;
+    sl::DLSSGOptions options = {};
+    options.mode = sl::DLSSGMode::eOff;
+    options.numFramesToGenerate = 1;
+    options.numBackBuffers = 3;
+    options.enableUserInterfaceRecomposition = sl::Boolean::eFalse;
+    const sl::Result result = slDLSSGSetOptions(sl::ViewportHandle(0u), options);
+    state.frameGenerationActive = false;
+    if (result != sl::Result::eOk)
+    {
+        state.frameGenerationConfigured = true; // SDK state is uncertain until Off succeeds.
+        state.frameGenerationFailed = state.frameGenerationDisableFailed = true;
+        std::snprintf(state.frameGenerationReason,sizeof(state.frameGenerationReason),
+            "NVIDIA FG could not be disabled (result %d); renderer restart required",static_cast<int>(result));
+        HW_DIAG_FPRINTF(stderr,"[ModernGraphics] %s.\n",state.frameGenerationReason);
+        return false;
+    }
+    state.frameGenerationConfigured = false;
+    state.frameGenerationOptionsKnown = true;
+    return true;
+}
+
+bool frameGenerationFailure(const char *stage, sl::Result result, unsigned int status = 0)
+{
+    state.frameGenerationFailed = true;
+    state.frameGenerationActive = false;
+    std::snprintf(state.frameGenerationReason, sizeof(state.frameGenerationReason),
+        "NVIDIA FG failed at %s (result %d, status 0x%x); change FG mode to retry",
+        stage, static_cast<int>(result), status);
+    if (!state.loggedFrameGenerationFailure)
+    {
+        HW_DIAG_FPRINTF(stderr,"[ModernGraphics] %s.\n",state.frameGenerationReason);
+        state.loggedFrameGenerationFailure = true;
+    }
+    // Do not free tagged resources here: the present queue may still use them.
+    frameGenerationOff();
+    return false;
 }
 
 void transition(ID3D12GraphicsCommandList *commands,
@@ -167,8 +271,8 @@ void dlaaEarlyInitialize(void)
     };
     sl::Preferences preferences = {};
     preferences.showConsole = false;
-    preferences.logLevel = sl::LogLevel::eDefault;
-    preferences.logMessageCallback = streamlineLog;
+    preferences.logLevel = HW_ENABLE_DIAGNOSTICS ? sl::LogLevel::eVerbose : sl::LogLevel::eOff;
+    preferences.logMessageCallback = HW_ENABLE_DIAGNOSTICS ? streamlineLog : nullptr;
     preferences.flags = sl::PreferenceFlags::eDisableCLStateTracking |
                         sl::PreferenceFlags::eDisableDebugText |
                         sl::PreferenceFlags::eUseDXGIFactoryProxy |
@@ -184,14 +288,14 @@ void dlaaEarlyInitialize(void)
     state.initialized = result == sl::Result::eOk;
     if (!state.initialized)
     {
-        std::fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
                      "[ModernGraphics] NVIDIA Streamline initialization "
                      "failed (result %d); DLSS/DLAA will remain off.\n",
                      static_cast<int>(result));
     }
     else if (!state.rrPluginRequested)
     {
-        std::fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[ModernGraphics] NVIDIA DLSS Ray Reconstruction runtime is not "
             "beside the executable; DLSS/DLAA remains available and RR will "
             "fall back until sl.dlss_d.dll + nvngx_dlssd.dll are installed.\n");
@@ -204,6 +308,8 @@ void dlaaSetMode(int mode)
     if (state.mode != clampedMode)
     {
         state.forceHistoryReset = true;
+        state.evaluateFailed = state.rrEvaluateFailed = false;
+        state.loggedEvaluateFailure = state.loggedRrEvaluateFailure = false;
     }
     state.mode = clampedMode;
     if (state.mode == 0 || state.mode == 2)
@@ -220,6 +326,8 @@ void dlaaSetRayReconstructionEnabled(bool enabled)
     if (state.rrRequested != enabled)
     {
         state.forceHistoryReset = true;
+        state.evaluateFailed = state.rrEvaluateFailed = false;
+        state.loggedEvaluateFailure = state.loggedRrEvaluateFailure = false;
     }
     state.rrRequested = enabled;
     if (!enabled)
@@ -229,35 +337,59 @@ void dlaaSetRayReconstructionEnabled(bool enabled)
 
 void dlaaSetFrameGenerationEnabled(bool enabled)
 {
+    const bool changed = state.frameGenerationRequested != enabled;
     state.frameGenerationRequested = enabled;
+    if (changed)
+    {
+        // An explicit request change permits one further disable attempt.
+        // Never enable another NVIDIA configuration on top of uncertain SDK
+        // state left by a failed Off operation.
+        if (state.frameGenerationDisableFailed)
+        {
+            state.frameGenerationDisableFailed = false;
+            if (!frameGenerationOff()) return;
+        }
+        if (enabled)
+        {
+            // Auto disables a failed provider while selecting its fallback.
+            // Preserve that failure on the false edge or Auto would select
+            // NVIDIA again at the very next provider query.
+            state.frameGenerationFailed = false;
+            state.loggedFrameGenerationFailure = false;
+            state.fgWindowPresentedFrames = state.fgWindowApplicationFrames = 0;
+            state.frameGenerationActive = false;
+        }
+    }
+    if (!enabled)
+    {
+        if (!frameGenerationOff()) return;
+        if (state.reflexConfigured && state.initialized && state.deviceReady)
+        {
+            sl::ReflexOptions reflex = {};
+            reflex.mode = sl::ReflexMode::eOff;
+            slReflexSetOptions(reflex);
+        }
+        state.reflexConfigured = false;
+        std::snprintf(state.frameGenerationReason, sizeof(state.frameGenerationReason),
+            "NVIDIA frame generation is off");
+        return;
+    }
     if (!state.initialized || !state.deviceReady ||
         !state.frameGenerationSupported)
     {
         state.frameGenerationActive = false;
+        std::snprintf(state.frameGenerationReason, sizeof(state.frameGenerationReason),
+            "NVIDIA DLSS-G / Reflex is unavailable on this adapter or runtime");
         return;
     }
+    if (state.frameGenerationFailed || state.reflexConfigured) return;
     sl::ReflexOptions reflex = {};
-    reflex.mode = enabled ? sl::ReflexMode::eLowLatency : sl::ReflexMode::eOff;
-    sl::Result result = slReflexSetOptions(reflex);
-    sl::DLSSGOptions options = {};
-    options.mode = enabled ? sl::DLSSGMode::eOn : sl::DLSSGMode::eOff;
-    options.numFramesToGenerate = 1;
-    options.numBackBuffers = 3;
-    options.enableUserInterfaceRecomposition = sl::Boolean::eFalse;
-    if (result == sl::Result::eOk)
-        result = slDLSSGSetOptions(sl::ViewportHandle(0u), options);
-    state.frameGenerationActive = enabled && result == sl::Result::eOk;
-    if (enabled && !state.frameGenerationActive &&
-        !state.loggedFrameGenerationFailure)
-    {
-        std::fprintf(stderr,
-            "[ModernGraphics] NVIDIA DLSS-G activation failed (result %d).\n",
-            static_cast<int>(result));
-        state.loggedFrameGenerationFailure = true;
-    }
-    if (state.frameGenerationActive)
-        std::fprintf(stderr,
-            "[ModernGraphics] NVIDIA DLSS-G 2x frame generation ACTIVE with Reflex Low Latency.\n");
+    reflex.mode = sl::ReflexMode::eLowLatency;
+    const sl::Result result = slReflexSetOptions(reflex);
+    if (result != sl::Result::eOk) { frameGenerationFailure("Reflex options",result); return; }
+    state.reflexConfigured = true;
+    std::snprintf(state.frameGenerationReason, sizeof(state.frameGenerationReason),
+        "NVIDIA frame generation is waiting for a gameplay frame");
 }
 
 bool dlaaFrameGenerationAvailable(void)
@@ -268,6 +400,176 @@ bool dlaaFrameGenerationAvailable(void)
 bool dlaaFrameGenerationActive(void)
 {
     return state.frameGenerationActive;
+}
+
+bool dlaaFrameGenerationFailed(void) { return state.frameGenerationFailed; }
+bool dlaaFrameGenerationDisableFailed(void) { return state.frameGenerationDisableFailed; }
+const char *dlaaFrameGenerationReason(void) { return state.frameGenerationReason; }
+unsigned long long dlaaFrameGenerationPresentedFrames(void) { return state.fgPresentedFrames; }
+unsigned long long dlaaFrameGenerationApplicationFrames(void) { return state.fgApplicationFrames; }
+
+void dlaaFrameGenerationBeginFrame(unsigned long long frameId)
+{
+    state.frameOpen = true;
+    state.frameToken = nullptr;
+    state.presentationFrameIndex = static_cast<unsigned int>(frameId);
+    state.frameGenerationPrepared = state.renderSubmitMarked = state.presentMarked = false;
+    if (!state.frameGenerationRequested || !state.frameGenerationSupported ||
+        !state.initialized || !state.deviceReady || state.frameGenerationFailed) return;
+    dlaaSetFrameGenerationEnabled(true);
+    if (state.frameGenerationFailed) return;
+    sl::FrameToken *token = nullptr;
+    sl::Result result = frameTokenForEvaluation(token);
+    if (result != sl::Result::eOk || !token)
+    { frameGenerationFailure("frame token",result == sl::Result::eOk ? sl::Result::eErrorInvalidState : result); return; }
+    result = slReflexSleep(*token);
+    if (result == sl::Result::eOk)
+        result = slPCLSetMarker(sl::PCLMarker::eRenderSubmitStart,*token);
+    if (result != sl::Result::eOk) { frameGenerationFailure("Reflex frame start",result); return; }
+    state.renderSubmitMarked = true;
+}
+
+bool dlaaFrameGenerationPrepare(ID3D12GraphicsCommandList *commands,
+    ID3D12Resource *hudless, ID3D12Resource *depth, ID3D12Resource *motion,
+    unsigned int inputWidth, unsigned int inputHeight,
+    unsigned int outputWidth, unsigned int outputHeight,
+    float verticalFieldOfViewDegrees, float jitterX, float jitterY,
+    bool resetHistory, D3D12_RESOURCE_STATES hudlessState,
+    D3D12_RESOURCE_STATES depthState, D3D12_RESOURCE_STATES motionState)
+{
+    if (!state.frameGenerationRequested || !state.frameGenerationSupported ||
+        !state.initialized || !state.deviceReady || state.frameGenerationFailed) return false;
+    if (!state.frameOpen || !commands || !hudless || !depth || !motion ||
+        !inputWidth || !inputHeight || !outputWidth || !outputHeight)
+    {
+        state.frameGenerationActive = false;
+        std::snprintf(state.frameGenerationReason,sizeof(state.frameGenerationReason),
+            "NVIDIA frame generation is waiting for color, depth and motion");
+        return false;
+    }
+    sl::FrameToken *token = nullptr;
+    sl::Result result = frameTokenForEvaluation(token);
+    if (result != sl::Result::eOk || !token)
+        return frameGenerationFailure("frame token",result == sl::Result::eOk ? sl::Result::eErrorInvalidState : result);
+    if (!state.frameGenerationConfigured || state.fgInputWidth != inputWidth ||
+        state.fgInputHeight != inputHeight || state.fgOutputWidth != outputWidth ||
+        state.fgOutputHeight != outputHeight)
+    {
+        sl::DLSSGOptions options = {};
+        options.mode = sl::DLSSGMode::eOn;
+        options.numFramesToGenerate = 1;
+        options.numBackBuffers = 3;
+        options.mvecDepthWidth = inputWidth; options.mvecDepthHeight = inputHeight;
+        options.colorWidth = outputWidth; options.colorHeight = outputHeight;
+        options.colorBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+        options.hudLessBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+        options.depthBufferFormat = DXGI_FORMAT_R32_FLOAT;
+        options.mvecBufferFormat = DXGI_FORMAT_R16G16_FLOAT;
+        options.enableUserInterfaceRecomposition = sl::Boolean::eFalse;
+        result = slDLSSGSetOptions(sl::ViewportHandle(0u),options);
+        // A failed On call may have partially changed the SDK. Own that
+        // uncertain configuration so failure makes exactly one Off attempt.
+        state.frameGenerationConfigured = true;
+        state.frameGenerationOptionsKnown = true;
+        if (result != sl::Result::eOk) return frameGenerationFailure("DLSS-G options",result);
+        state.fgInputWidth = inputWidth; state.fgInputHeight = inputHeight;
+        state.fgOutputWidth = outputWidth; state.fgOutputHeight = outputHeight;
+        // Discard presentation counts from earlier off/menu frames. GetState
+        // without options/VRAM-estimate flags does not create another output.
+        sl::DLSSGState previous = {};
+        result = slDLSSGGetState(sl::ViewportHandle(0u),previous,nullptr);
+        if (result != sl::Result::eOk) return frameGenerationFailure("initial runtime state",result);
+        state.fgWindowPresentedFrames = state.fgWindowApplicationFrames = 0;
+        state.frameGenerationActive = false;
+    }
+    sl::Constants constants = {};
+    constexpr float degreesToRadians = 0.01745329251994329577f;
+    const float fov = std::max(verticalFieldOfViewDegrees,1.0f) * degreesToRadians;
+    setPerspective(constants.cameraViewToClip,constants.clipToCameraView,fov,
+        static_cast<float>(outputWidth)/outputHeight);
+    setIdentity(constants.clipToLensClip); setIdentity(constants.clipToPrevClip); setIdentity(constants.prevClipToClip);
+    constants.jitterOffset = {jitterX,jitterY};
+    constants.mvecScale = {1.0f/inputWidth,1.0f/inputHeight};
+    constants.cameraPinholeOffset = {0,0}; constants.cameraPos = {0,0,0};
+    constants.cameraUp = {0,1,0}; constants.cameraRight = {1,0,0}; constants.cameraFwd = {0,0,1};
+    constants.cameraNear = cameraNearPlane; constants.cameraFar = cameraFarPlane;
+    constants.cameraFOV = fov; constants.cameraAspectRatio = static_cast<float>(outputWidth)/outputHeight;
+    constants.depthInverted = sl::Boolean::eFalse; constants.cameraMotionIncluded = sl::Boolean::eTrue;
+    constants.motionVectors3D = sl::Boolean::eFalse;
+    constants.reset = resetHistory ? sl::Boolean::eTrue : sl::Boolean::eFalse;
+    constants.orthographicProjection = sl::Boolean::eFalse;
+    constants.motionVectorsDilated = sl::Boolean::eFalse; constants.motionVectorsJittered = sl::Boolean::eFalse;
+    result = slSetConstants(constants,*token,sl::ViewportHandle(0u));
+    if (result != sl::Result::eOk) return frameGenerationFailure("FG constants",result);
+    sl::Extent inputExtent = {0,0,inputWidth,inputHeight}, outputExtent = {0,0,outputWidth,outputHeight};
+    sl::Resource color(sl::ResourceType::eTex2d,hudless,static_cast<unsigned int>(hudlessState));
+    sl::Resource depthResource(sl::ResourceType::eTex2d,depth,static_cast<unsigned int>(depthState));
+    sl::Resource motionResource(sl::ResourceType::eTex2d,motion,static_cast<unsigned int>(motionState));
+    color.width = outputWidth; color.height = outputHeight; color.nativeFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+    depthResource.width = motionResource.width = inputWidth;
+    depthResource.height = motionResource.height = inputHeight;
+    depthResource.nativeFormat = DXGI_FORMAT_R32_FLOAT; motionResource.nativeFormat = DXGI_FORMAT_R16G16_FLOAT;
+    sl::ResourceTag tags[] = {
+        {&depthResource,sl::kBufferTypeDepth,sl::ResourceLifecycle::eValidUntilPresent,&inputExtent},
+        {&motionResource,sl::kBufferTypeMotionVectors,sl::ResourceLifecycle::eValidUntilPresent,&inputExtent},
+        {&color,sl::kBufferTypeHUDLessColor,sl::ResourceLifecycle::eValidUntilPresent,&outputExtent},
+    };
+    result = slSetTagForFrame(*token,sl::ViewportHandle(0u),tags,static_cast<unsigned int>(_countof(tags)),
+        reinterpret_cast<sl::CommandBuffer*>(commands));
+    if (result != sl::Result::eOk) return frameGenerationFailure("FG resource tags",result);
+    state.frameGenerationPrepared = true;
+    return true;
+}
+
+void dlaaFrameGenerationPresentBegin(void)
+{
+    if (!state.frameGenerationPrepared || state.frameGenerationFailed)
+    {
+        frameGenerationOff();
+        if (!state.frameGenerationFailed && state.frameGenerationRequested)
+            std::snprintf(state.frameGenerationReason,sizeof(state.frameGenerationReason),
+                "NVIDIA frame generation is waiting for a gameplay frame");
+    }
+    if (state.frameGenerationFailed || !state.frameToken || !state.renderSubmitMarked) return;
+    sl::Result result = sl::Result::eOk;
+    if (state.renderSubmitMarked)
+        result = slPCLSetMarker(sl::PCLMarker::eRenderSubmitEnd,*state.frameToken);
+    if (result == sl::Result::eOk)
+        result = slPCLSetMarker(sl::PCLMarker::ePresentStart,*state.frameToken);
+    if (result != sl::Result::eOk) { frameGenerationFailure("Reflex present start",result); return; }
+    state.presentMarked = true;
+}
+
+void dlaaFrameGenerationPresentEnd(bool presentSucceeded)
+{
+    if (state.presentMarked && state.frameToken)
+    {
+        const sl::Result marker = slPCLSetMarker(sl::PCLMarker::ePresentEnd,*state.frameToken);
+        if (marker != sl::Result::eOk) frameGenerationFailure("Reflex present end",marker);
+    }
+    if (presentSucceeded && state.frameGenerationPrepared && state.frameGenerationConfigured && !state.frameGenerationFailed)
+    {
+        sl::DLSSGState current = {};
+        const sl::Result result = slDLSSGGetState(sl::ViewportHandle(0u),current,nullptr);
+        if (result != sl::Result::eOk || current.status != sl::DLSSGStatus::eOk)
+            frameGenerationFailure("runtime status",result,static_cast<unsigned int>(current.status));
+        else
+        {
+            ++state.fgApplicationFrames;
+            state.fgPresentedFrames += current.numFramesActuallyPresented;
+            ++state.fgWindowApplicationFrames;
+            state.fgWindowPresentedFrames += current.numFramesActuallyPresented;
+            const bool observed = state.fgWindowPresentedFrames > state.fgWindowApplicationFrames;
+            if (observed && !state.frameGenerationActive)
+                HW_DIAG_FPRINTF(stderr,"[ModernGraphics] NVIDIA DLSS-G ACTIVE: runtime status OK; extra presentations observed.\n");
+            state.frameGenerationActive = observed;
+            std::snprintf(state.frameGenerationReason,sizeof(state.frameGenerationReason),
+                observed ? "NVIDIA DLSS-G is generating additional displayed frames" :
+                           "NVIDIA DLSS-G inputs accepted; waiting for generated presentations");
+        }
+    }
+    state.frameOpen = false; state.frameToken = nullptr;
+    state.frameGenerationPrepared = state.renderSubmitMarked = state.presentMarked = false;
 }
 
 ID3D12Resource *dlaaOutputResource(void) { return state.output.Get(); }
@@ -286,7 +588,7 @@ bool dlaaSetDevice(ID3D12Device *device, IDXGIAdapter1 *adapter)
     const sl::Result deviceResult = slSetD3DDevice(device);
     if (deviceResult != sl::Result::eOk)
     {
-        std::fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
                      "[ModernGraphics] Streamline rejected the D3D12 device "
                      "(result %d).\n", static_cast<int>(deviceResult));
         return false;
@@ -307,13 +609,13 @@ bool dlaaSetDevice(ID3D12Device *device, IDXGIAdapter1 *adapter)
     state.supported = support == sl::Result::eOk;
     if (state.supported)
     {
-        std::fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
                      "[ModernGraphics] NVIDIA DLSS Super Resolution and "
                      "DLAA are available.\n");
     }
     else
     {
-        std::fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
                      "[ModernGraphics] NVIDIA DLSS/DLAA unavailable on this adapter "
                      "(result %d).\n", static_cast<int>(support));
     }
@@ -324,12 +626,12 @@ bool dlaaSetDevice(ID3D12Device *device, IDXGIAdapter1 *adapter)
         state.rrSupported = rrSupport == sl::Result::eOk;
         if (state.rrSupported)
         {
-            std::fprintf(stderr,
+            HW_DIAG_FPRINTF(stderr,
                 "[ModernGraphics] NVIDIA DLSS Ray Reconstruction is available.\n");
         }
         else
         {
-            std::fprintf(stderr,
+            HW_DIAG_FPRINTF(stderr,
                 "[ModernGraphics] NVIDIA DLSS Ray Reconstruction unavailable "
                 "on this adapter/runtime (result %d); DLSS SR fallback remains live.\n",
                 static_cast<int>(rrSupport));
@@ -343,18 +645,23 @@ bool dlaaSetDevice(ID3D12Device *device, IDXGIAdapter1 *adapter)
             sl::kFeatureReflex, adapterInfo);
         state.frameGenerationSupported =
             fgSupport == sl::Result::eOk && reflexSupport == sl::Result::eOk;
-        std::fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[ModernGraphics] NVIDIA DLSS-G/Reflex %s (FG result %d, Reflex result %d).\n",
             state.frameGenerationSupported ? "available" : "unavailable",
             static_cast<int>(fgSupport), static_cast<int>(reflexSupport));
-        if (state.frameGenerationRequested)
-            dlaaSetFrameGenerationEnabled(true);
+        // Initialize Off once even when FG was never selected. The intercepted
+        // swapchain may Present menus before any scene/FG preparation occurs.
+        dlaaSetFrameGenerationEnabled(state.frameGenerationRequested);
     }
     return state.supported;
 }
 
 void dlaaReleaseDevice(void)
 {
+    // This boundary is drained by the presenter; permit one last cleanup
+    // attempt if an earlier in-frame disable failed.
+    state.frameGenerationDisableFailed = false;
+    frameGenerationOff();
     dlaaReleaseOutput();
     state.device.Reset();
     state.deviceReady = false;
@@ -362,6 +669,15 @@ void dlaaReleaseDevice(void)
     state.rrSupported = false;
     state.frameGenerationSupported = false;
     state.frameGenerationActive = false;
+    state.frameGenerationConfigured = state.reflexConfigured = false;
+    state.frameGenerationOptionsKnown = false;
+    state.frameGenerationFailed = false;
+    state.frameGenerationDisableFailed = false;
+    state.frameOpen = false; state.frameToken = nullptr;
+    state.frameGenerationPrepared = state.renderSubmitMarked = state.presentMarked = false;
+    state.fgInputWidth = state.fgInputHeight = state.fgOutputWidth = state.fgOutputHeight = 0;
+    state.fgPresentedFrames = state.fgApplicationFrames = 0;
+    state.fgWindowPresentedFrames = state.fgWindowApplicationFrames = 0;
 }
 
 bool dlaaCreateOutput(ID3D12DescriptorHeap *shaderVisibleHeap,
@@ -398,7 +714,7 @@ bool dlaaCreateOutput(ID3D12DescriptorHeap *shaderVisibleHeap,
         IID_PPV_ARGS(&state.output));
     if (FAILED(result))
     {
-        std::fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
                      "[ModernGraphics] DLAA output allocation failed "
                      "(HRESULT 0x%08lx).\n",
                      static_cast<unsigned long>(result));
@@ -419,16 +735,33 @@ bool dlaaCreateOutput(ID3D12DescriptorHeap *shaderVisibleHeap,
     state.outputReadable = false;
     state.loggedEvaluateFailure = false;
     state.loggedRrEvaluateFailure = false;
+    state.evaluateFailed = state.rrEvaluateFailed = false;
     state.forceHistoryReset = true;
+    // Output recreation is an explicit, drained configuration boundary. A
+    // generation request paused by native fallback may now be retried once.
+    if (state.frameGenerationRequested && !state.frameGenerationActive)
+        dlaaSetFrameGenerationEnabled(true);
     return true;
 }
 
 void dlaaReleaseOutput(void)
 {
+    // Callers already drain submitted GPU work before replacing/releasing
+    // output resources. slFreeResources is unsafe inside failed Evaluate:
+    // its command list may still contain work referencing these allocations.
+    if (state.initialized && state.deviceReady)
+    {
+        const sl::ViewportHandle viewport(0u);
+        if (state.rrResourcesUsed) slFreeResources(sl::kFeatureDLSS_RR, viewport);
+        if (state.dlssResourcesUsed) slFreeResources(sl::kFeatureDLSS, viewport);
+    }
+    state.rrResourcesUsed = state.dlssResourcesUsed = false;
     state.output.Reset();
     state.width = 0;
     state.height = 0;
     state.outputReadable = false;
+    state.evaluateFailed = state.rrEvaluateFailed = false;
+    state.loggedEvaluateFailure = state.loggedRrEvaluateFailure = false;
 }
 
 bool dlaaGetOptimalRenderSize(int mode,
@@ -497,7 +830,7 @@ bool dlaaEvaluate(ID3D12GraphicsCommandList *commands,
                   float jitterY,
                   bool resetHistory)
 {
-    if ((state.mode == 0 || state.mode == 2) || !state.supported ||
+    if (state.evaluateFailed || (state.mode == 0 || state.mode == 2) || !state.supported ||
         !state.output || commands == nullptr || inputColor == nullptr ||
         depth == nullptr || motion == nullptr || inputWidth == 0 ||
         inputHeight == 0)
@@ -515,11 +848,11 @@ bool dlaaEvaluate(ID3D12GraphicsCommandList *commands,
     }
 
     sl::FrameToken *frame = nullptr;
-    const unsigned int frameIndex = state.frameIndex++;
-    sl::Result result = slGetNewFrameToken(frame, &frameIndex);
+    sl::Result result = frameTokenForEvaluation(frame);
     if (result != sl::Result::eOk || frame == nullptr)
     {
-        return false;
+        return evaluationFailed(result == sl::Result::eOk ? sl::Result::eErrorInvalidState : result,
+                                false, "frame token");
     }
     const sl::ViewportHandle viewport(0u);
     constexpr float pi = 3.14159265358979323846f;
@@ -554,13 +887,7 @@ bool dlaaEvaluate(ID3D12GraphicsCommandList *commands,
     result = slSetConstants(constants, *frame, viewport);
     if (result != sl::Result::eOk)
     {
-        return false;
-    }
-    if (state.frameGenerationActive)
-    {
-        slPCLSetMarker(sl::PCLMarker::eSimulationStart, *frame);
-        slPCLSetMarker(sl::PCLMarker::eSimulationEnd, *frame);
-        slPCLSetMarker(sl::PCLMarker::eRenderSubmitStart, *frame);
+        return evaluationFailed(result, false, "constants");
     }
 
     sl::DLSSOptions options = {};
@@ -579,10 +906,11 @@ bool dlaaEvaluate(ID3D12GraphicsCommandList *commands,
     options.balancedPreset = sl::DLSSPreset::ePresetK;
     options.performancePreset = sl::DLSSPreset::ePresetM;
     options.ultraPerformancePreset = sl::DLSSPreset::ePresetL;
+    state.dlssResourcesUsed = true;
     result = slDLSSSetOptions(viewport, options);
     if (result != sl::Result::eOk)
     {
-        return false;
+        return evaluationFailed(result, false, "DLSS options");
     }
 
     sl::Extent inputExtent = { 0, 0, inputWidth, inputHeight };
@@ -608,21 +936,23 @@ bool dlaaEvaluate(ID3D12GraphicsCommandList *commands,
     depthIn.nativeFormat = DXGI_FORMAT_R32_FLOAT;
     motionIn.nativeFormat = DXGI_FORMAT_R16G16_FLOAT;
 
+    // Inputs/guides remain intact through Present; later passes only read
+    // them or transition their states. Output has the shorter Evaluate life
+    // because a failed RR attempt can run SR into that same output this frame.
+    // eOnlyValidNow unnecessarily asks SL to clone the inputs.
     sl::ResourceTag tags[] = {
         { &colorIn, sl::kBufferTypeScalingInputColor,
-          sl::ResourceLifecycle::eOnlyValidNow, &inputExtent },
+          sl::ResourceLifecycle::eValidUntilPresent, &inputExtent },
         { &colorOut, sl::kBufferTypeScalingOutputColor,
-          sl::ResourceLifecycle::eOnlyValidNow, &outputExtent },
+          sl::ResourceLifecycle::eValidUntilEvaluate, &outputExtent },
         { &depthIn, sl::kBufferTypeDepth,
-          sl::ResourceLifecycle::eOnlyValidNow, &inputExtent },
+          sl::ResourceLifecycle::eValidUntilPresent, &inputExtent },
         { &motionIn, sl::kBufferTypeMotionVectors,
-          sl::ResourceLifecycle::eOnlyValidNow, &inputExtent }
+          sl::ResourceLifecycle::eValidUntilPresent, &inputExtent }
     };
     result = slSetTagForFrame(*frame, viewport, tags,
                               static_cast<unsigned int>(_countof(tags)),
                               reinterpret_cast<sl::CommandBuffer *>(commands));
-    if (state.frameGenerationActive)
-        slPCLSetMarker(sl::PCLMarker::eRenderSubmitEnd, *frame);
     if (result == sl::Result::eOk)
     {
         const sl::BaseStructure *inputs[] = { &viewport };
@@ -633,15 +963,7 @@ bool dlaaEvaluate(ID3D12GraphicsCommandList *commands,
     }
     if (result != sl::Result::eOk)
     {
-        if (!state.loggedEvaluateFailure)
-        {
-            std::fprintf(stderr,
-                         "[ModernGraphics] NVIDIA DLSS/DLAA full-scene evaluation failed "
-                         "(result %d); native scene presentation retained.\n",
-                         static_cast<int>(result));
-            state.loggedEvaluateFailure = true;
-        }
-        return false;
+        return evaluationFailed(result, false, "resource tagging/evaluation");
     }
 
     D3D12_RESOURCE_BARRIER barrier = {};
@@ -674,7 +996,7 @@ bool dlaaEvaluateRayReconstruction(
                   float jitterY,
                   bool resetHistory)
 {
-    if (!state.rrRequested || !state.rrSupported || state.mode < 3 ||
+    if (state.evaluateFailed || state.rrEvaluateFailed || !state.rrRequested || !state.rrSupported || state.mode < 3 ||
         state.mode > 6 || !state.output || commands == nullptr ||
         inputColor == nullptr || depth == nullptr || motion == nullptr ||
         diffuseAlbedo == nullptr || specularAlbedo == nullptr ||
@@ -694,11 +1016,11 @@ bool dlaaEvaluateRayReconstruction(
     }
 
     sl::FrameToken *frame = nullptr;
-    const unsigned int frameIndex = state.frameIndex++;
-    sl::Result result = slGetNewFrameToken(frame, &frameIndex);
+    sl::Result result = frameTokenForEvaluation(frame);
     if (result != sl::Result::eOk || frame == nullptr)
     {
-        return false;
+        return evaluationFailed(result == sl::Result::eOk ? sl::Result::eErrorInvalidState : result,
+                                true, "frame token");
     }
     const sl::ViewportHandle viewport(0u);
     constexpr float pi = 3.14159265358979323846f;
@@ -733,7 +1055,7 @@ bool dlaaEvaluateRayReconstruction(
     result = slSetConstants(constants, *frame, viewport);
     if (result != sl::Result::eOk)
     {
-        return false;
+        return evaluationFailed(result, true, "constants");
     }
 
     /* NVIDIA's DLSS-RR contract requires compatible DLSS Super Resolution
@@ -755,10 +1077,11 @@ bool dlaaEvaluateRayReconstruction(
     dlssOptions.balancedPreset = sl::DLSSPreset::ePresetK;
     dlssOptions.performancePreset = sl::DLSSPreset::ePresetM;
     dlssOptions.ultraPerformancePreset = sl::DLSSPreset::ePresetL;
+    state.dlssResourcesUsed = true;
     result = slDLSSSetOptions(viewport, dlssOptions);
     if (result != sl::Result::eOk)
     {
-        return false;
+        return evaluationFailed(result, true, "DLSS options");
     }
 
     sl::DLSSDOptions options = {};
@@ -777,10 +1100,11 @@ bool dlaaEvaluateRayReconstruction(
     options.balancedPreset = sl::DLSSDPreset::ePresetE;
     options.performancePreset = sl::DLSSDPreset::ePresetE;
     options.ultraPerformancePreset = sl::DLSSDPreset::ePresetE;
+    state.rrResourcesUsed = true;
     result = slDLSSDSetOptions(viewport, options);
     if (result != sl::Result::eOk)
     {
-        return false;
+        return evaluationFailed(result, true, "ray reconstruction options");
     }
 
     sl::Extent inputExtent = { 0, 0, inputWidth, inputHeight };
@@ -817,21 +1141,21 @@ bool dlaaEvaluateRayReconstruction(
 
     sl::ResourceTag tags[] = {
         { &colorIn, sl::kBufferTypeScalingInputColor,
-          sl::ResourceLifecycle::eOnlyValidNow, &inputExtent },
+          sl::ResourceLifecycle::eValidUntilPresent, &inputExtent },
         { &colorOut, sl::kBufferTypeScalingOutputColor,
-          sl::ResourceLifecycle::eOnlyValidNow, &outputExtent },
+          sl::ResourceLifecycle::eValidUntilEvaluate, &outputExtent },
         { &depthIn, sl::kBufferTypeDepth,
-          sl::ResourceLifecycle::eOnlyValidNow, &inputExtent },
+          sl::ResourceLifecycle::eValidUntilPresent, &inputExtent },
         { &motionIn, sl::kBufferTypeMotionVectors,
-          sl::ResourceLifecycle::eOnlyValidNow, &inputExtent },
+          sl::ResourceLifecycle::eValidUntilPresent, &inputExtent },
         { &diffuseIn, sl::kBufferTypeAlbedo,
-          sl::ResourceLifecycle::eOnlyValidNow, &inputExtent },
+          sl::ResourceLifecycle::eValidUntilPresent, &inputExtent },
         { &specularIn, sl::kBufferTypeSpecularAlbedo,
-          sl::ResourceLifecycle::eOnlyValidNow, &inputExtent },
+          sl::ResourceLifecycle::eValidUntilPresent, &inputExtent },
         { &normalRoughnessIn, sl::kBufferTypeNormalRoughness,
-          sl::ResourceLifecycle::eOnlyValidNow, &inputExtent },
+          sl::ResourceLifecycle::eValidUntilPresent, &inputExtent },
         { &motionIn, sl::kBufferTypeSpecularMotionVectors,
-          sl::ResourceLifecycle::eOnlyValidNow, &inputExtent }
+          sl::ResourceLifecycle::eValidUntilPresent, &inputExtent }
     };
     result = slSetTagForFrame(*frame, viewport, tags,
                               static_cast<unsigned int>(_countof(tags)),
@@ -846,16 +1170,7 @@ bool dlaaEvaluateRayReconstruction(
     }
     if (result != sl::Result::eOk)
     {
-        if (!state.loggedRrEvaluateFailure)
-        {
-            std::fprintf(stderr,
-                "[ModernGraphics] NVIDIA DLSS Ray Reconstruction evaluation "
-                "failed (result %d); falling back to normal DLSS SR for this run.\n",
-                static_cast<int>(result));
-            state.loggedRrEvaluateFailure = true;
-        }
-        state.rrSupported = false;
-        return false;
+        return evaluationFailed(result, true, "resource tagging/evaluation");
     }
 
     D3D12_RESOURCE_BARRIER barrier = {};
@@ -870,7 +1185,7 @@ bool dlaaEvaluateRayReconstruction(
     state.forceHistoryReset = false;
     if (!state.loggedRrActive)
     {
-        std::fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[ModernGraphics] NVIDIA DLSS Ray Reconstruction ACTIVE: "
             "FP16 HDR low-resolution scene + depth/motion/diffuse/specular/normal-roughness guides.\n");
         state.loggedRrActive = true;
@@ -885,14 +1200,14 @@ bool dlaaAvailable(void)
 
 bool dlaaActive(void)
 {
-    return state.mode != 0 && state.mode != 2 && state.supported &&
+    return state.mode != 0 && state.mode != 2 && state.supported && !state.evaluateFailed &&
            state.output.Get() != nullptr;
 }
 
 bool dlaaRayReconstructionAvailable(void)
 {
     return state.initialized && state.supported && state.rrPluginRequested &&
-           state.rrSupported;
+           state.rrSupported && !state.evaluateFailed && !state.rrEvaluateFailed;
 }
 
 }

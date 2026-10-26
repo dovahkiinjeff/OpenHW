@@ -103,6 +103,7 @@ extern bool32 mrCanFocusRoids;
 void mrStartup(void);
 void mrShutdown(void);
 void mrReset(void);
+/* Pending transformations belong to one world's ship-ID namespace only. */
 void mrRegisterGameplayKeyChildren(regionhandle parent, regionfunction handler);
 
 void mrShipDied(struct Ship *ship);

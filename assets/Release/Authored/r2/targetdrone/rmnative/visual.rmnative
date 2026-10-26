@@ -1,0 +1,8 @@
+HW_RM_R2_VISUAL_1
+type Taiidan_TargetDrone
+scale 2.88139601
+hull hull.hod
+mad animation.mad
+marker engine_0 Hull EngineNozzle1
+surface 0 0 c0_m0
+surface 0 1 c0_m1

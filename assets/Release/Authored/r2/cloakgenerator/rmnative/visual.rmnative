@@ -1,0 +1,7 @@
+HW_RM_R2_VISUAL_1
+type Taiidan_CloakGenerator
+scale 2.857387
+hull hull.hod
+mad -
+surface 0 0 c0_m0
+surface 0 1 c0_m1

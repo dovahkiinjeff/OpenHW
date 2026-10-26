@@ -1,0 +1,9 @@
+HW_RM_R1_VISUAL_1
+type TargetDrone
+scale 2.50858169
+hull hull.hod
+mad -
+marker engine_0 Hull EngineNozzle1
+marker engine_1 Hull EngineNozzle2
+surface 0 0 c0_m0
+surface 0 1 c0_m1

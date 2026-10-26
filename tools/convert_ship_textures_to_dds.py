@@ -26,6 +26,8 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--converter", type=Path, required=True)
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--normals-only", action="store_true",
+                        help="rebuild BC5 normal siblings without rewriting color DDS files")
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--normal-source", choices=("upscaled", "vanilla"),
                         default="upscaled",
@@ -46,6 +48,17 @@ def main() -> int:
             output = (args.output / relative).with_suffix(".dds")
             normal = output.with_name(output.stem + "_normal.dds")
             output.parent.mkdir(parents=True, exist_ok=True)
+            if args.normals_only:
+                if args.overwrite or not normal.is_file():
+                    result = subprocess.run((str(args.converter), "normalonly",
+                                             str(color), str(normal)))
+                    if result.returncode:
+                        raise RuntimeError(
+                            f"normal converter failed ({result.returncode}): {relative}")
+                return [{"kind": "normal-bc5", "source": relative.as_posix(),
+                         "normal_source": "upscaled-baseline-1.35",
+                         "output": normal.relative_to(args.output).as_posix(),
+                         "bytes": normal.stat().st_size, "sha256": digest(normal)}]
             if args.overwrite or not output.is_file() or not normal.is_file():
                 if args.normal_source == "upscaled":
                     command = (str(args.converter), "colorfull", str(color),

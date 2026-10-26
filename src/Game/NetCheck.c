@@ -791,7 +791,7 @@ void netcheckInit(void)
     netcheckReset();
 
     netlogfile = NULL;
-    if (logEnable)
+    if (HW_ENABLE_DIAGNOSTICS && logEnable)
     {
         if (logFilePath[0])
             netlogfileFH = fileOpen(logFilePath, FF_WriteMode | FF_TextMode | FF_ReturnNULLOnFail | FF_IgnorePrepend);

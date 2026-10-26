@@ -1,7 +1,9 @@
 #ifndef HW_LEGACY_D3D12_GL_H
 #define HW_LEGACY_D3D12_GL_H
 
+
 #include <stddef.h>
+#include "RemasteredSceneTypes.h"
 
 /*
  * OpenGL-free fixed-function compatibility front end.
@@ -16,7 +18,22 @@
 extern "C" {
 #endif
 
+void hwglSurfaceMaterial(const void *identity);
+void hwglSurfaceEmission(float intensity);
+
 void hwglAlphaFunc(GLenum func, GLclampf ref);
+/* Scoped capital-plume shading. A nonpositive exponent disables it. */
+void hwglEngineGlow(float red, float green, float blue, float alpha, float exponent);
+void hwglCaptureEngineIdle(float blend);
+/* Scoped self-lit, covering ship exhaust; never enable for generic FX. */
+void hwglEngineTrail(int enabled);
+int hwglEngineGlowActive(void);
+unsigned int hwglCreateBackgroundProgram(const void *bytecode, size_t size);
+int hwglRecordBackgroundFlares(unsigned int texture, const float *records,
+    unsigned int count, float fade);
+int hwglRecordBackgroundMesh(unsigned int program, const unsigned int *textures,
+    const HWBackgroundVertex *vertices, unsigned int count, const float *parameters,
+    const float *objectToWorld, unsigned int flags, float atmosphereExpansion);
 void hwglArrayElement(GLint i);
 void hwglBegin(GLenum mode);
 void hwglBindBuffer(GLenum target, GLuint buffer);
@@ -54,6 +71,7 @@ void hwglFlush(void);
 /* Records the modern fullscreen mission environment in the native command
    stream. Returns zero when the texture/state cannot be represented safely. */
 int hwglRecordMissionSky(GLuint texture, GLfloat fade);
+int hwglRecordBackgroundStars(GLuint texture, const float *stars, unsigned int count, float fade);
 /* Native-renderer bridge used by DXR environment lighting. The resource is
    borrowed; callers must not retain or release it. prepare-for-compute moves
    the texture into a combined pixel/non-pixel SRV state and updates the native
@@ -149,9 +167,25 @@ void hwglMarkSnapshot(int snapshot);
 size_t hwglSnapshotCommandCount(int snapshot);
 void hwglEndFrame(void);
 void hwglResetAll(void);
+int hwglGetClipPlaneEye(float equation[4]);
 
 #ifdef __cplusplus
 }
+
+#if defined(_WIN32) && defined(HW_ENABLE_D3D12_NATIVE_RASTER)
+struct ID3D12Resource;
+namespace hwlegacyd3d12 {
+// Render-thread setting. Optional FX storage is allocated during replay only.
+void setFrameGenerationGuidesEnabled(bool enabled);
+// Borrowed R32_FLOAT: ordinary FX use positive view Z; covering engine cores
+// use -1000000/viewZ (nearest wins MIN blending); FLT_MAX means no visible FX.
+// Bottom-up native-raster orientation, like depthResource(). Valid only after
+// this frame's world replay; final state is PIXEL|NON_PIXEL_SHADER_RESOURCE.
+ID3D12Resource *frameGenerationEffectDepthResource();
+// Allocation/shader/PSO failure, latched until an explicit enable edge/device reset.
+bool frameGenerationEffectDepthFailed();
+}
+#endif
 #endif
 
 #endif

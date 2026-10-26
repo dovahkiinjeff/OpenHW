@@ -49,6 +49,7 @@
 #include "uiscale.h"
 #include "Universe.h"
 #include "utility.h"
+#include "MissionLoadProgress.h"
 
 #ifdef HW_ENABLE_D3D12_BACKEND
 #include "ModernGraphics.h"
@@ -99,6 +100,8 @@ static fonthandle hrModernBodyFont;
 
 static sdword JustInit;
 static sdword localbar;
+static bool32 hrLoadingDrawInProgress = FALSE;
+static Uint64 hrLoadingLastDraw = 0;
 
 // Pixels and info about the background image chosen
 static bool32 hrBackgroundInitFrame = 0;
@@ -161,6 +164,45 @@ ChatPacket chathistory[NUM_CHAT_LINES];
 udword      chatline=0;
 
 void horseRaceRender(void);
+void hrDirtyProgressBar(void);
+
+static double hrLoadingSeconds(void)
+{
+    return (double)SDL_GetTicks64() / 1000.0;
+}
+
+void HorseRaceLoadingPhaseBegin(int phase, const char *task)
+{
+    if (hrRunning && singlePlayerGame)
+        hwMissionLoadProgressPhaseBegin(phase, task, hrLoadingSeconds());
+}
+
+void HorseRaceLoadingPhaseComplete(int phase)
+{
+    if (hrRunning && singlePlayerGame)
+        hwMissionLoadProgressPhaseComplete(phase, hrLoadingSeconds());
+}
+
+void HorseRaceLoadingTask(const char *task)
+{
+    if (hrRunning && singlePlayerGame)
+        hwMissionLoadProgressTask(task, hrLoadingSeconds());
+}
+
+void HorseRaceLoadingProgress(unsigned int completed, unsigned int total, const char *task)
+{
+    if (hrRunning && singlePlayerGame)
+        hwMissionLoadProgressItems(completed, total, task, hrLoadingSeconds());
+}
+
+void HorseRaceLoadingRefresh(void)
+{
+    Uint64 now = SDL_GetTicks64();
+    if (!hrRunning || !singlePlayerGame || hrLoadingDrawInProgress ||
+        (hrLoadingLastDraw != 0 && now - hrLoadingLastDraw < 100)) return;
+    hrDirtyProgressBar();
+    horseRaceRender();
+}
 void hrDrawPlayersProgress(featom *atom, regionhandle region);
 void hrDrawChatBox(featom *atom, regionhandle region);
 void hrDrawFile(char* filename, sdword x, sdword y);
@@ -235,6 +277,42 @@ void hrBarDraw(rectangle *rect, color back, color fore, real32 percent)
     temp.y1 = rect->y1;
 
     primRectSolid2(&temp, fore);
+}
+
+/* Fit using the game's actual current font metrics. Resource paths never
+   overwrite the timer/percentage or escape the loading panel. */
+static void hrLoadingPrintFit(sdword x, sdword y, sdword width, color tint, const char *text)
+{
+    char fitted[HW_MISSION_LOAD_TEXT_SIZE];
+    size_t length;
+    if (width <= 0 || text == NULL) return;
+    snprintf(fitted, sizeof(fitted), "%s", text);
+    length = strlen(fitted);
+    if (fontWidth(fitted) > width)
+    {
+        while (length > 0)
+        {
+            fitted[--length] = 0;
+            if (length + 3 < sizeof(fitted))
+            {
+                memcpy(fitted + length, "...", 4);
+                if (fontWidth(fitted) <= width) break;
+                fitted[length] = 0;
+            }
+        }
+        if (length == 0 && fontWidth(fitted) > width) fitted[0] = 0;
+    }
+    fontPrint(x, y, tint, fitted);
+}
+
+static void hrLoadingElapsed(double elapsed, char *text, size_t capacity)
+{
+    unsigned long long seconds = (unsigned long long)fmax(0.0, elapsed);
+    if (seconds >= 3600)
+        snprintf(text, capacity, "%llu:%02llu:%02llu", seconds / 3600,
+            seconds / 60 % 60, seconds % 60);
+    else
+        snprintf(text, capacity, "%llu:%02llu", seconds / 60, seconds % 60);
 }
 
 void hrDrawPlayersProgress(featom *atom, regionhandle region)
@@ -317,34 +395,52 @@ void hrDrawPlayersProgress(featom *atom, regionhandle region)
             "BRIDGE OF SIGHS", "CHAPEL PERILOUS", "HIIGARA"
         };
         static const char *stages[] = {
-            "ALLOCATING UNIVERSE", "STAGING EFFECT SYSTEMS",
-            "STREAMING FLEET ASSETS", "FINALIZING COMMAND SYSTEMS"
+            "PREPARING MISSION", "LOADING FLEET ASSETS", "BUILDING MISSION WORLD",
+            "LOADING EFFECTS", "PREPARING TEXTURES", "UPLOADING TEXTURES",
+            "FINALIZING COMMAND SYSTEMS"
         };
+        HWMissionLoadProgressSnapshot loading;
         rectangle panel;
         rectangle bar;
         rectangle fill;
         rectangle accent;
         char mission[96];
-        char progress[32];
-        char stage[96];
+        char line[256];
+        char elapsed[32], taskElapsed[32];
+        sdword margin, padding, bodyHeight, headingHeight, lineHeight, gap;
+        sdword historyRows = HW_MISSION_LOAD_HISTORY_LINES;
+        sdword panelHeight, x, y, textWidth, row;
         sdword missionIndex = spGetCurrentMission();
-        sdword stageIndex = horseBarInfo.numBars > 0 ?
-            (localbar * 4 / horseBarInfo.numBars) : 0;
-        if (stageIndex < 0) stageIndex = 0;
-        if (stageIndex > 3) stageIndex = 3;
-        percent = horseracestatus.percent[0];
-        if (percent < 0.0f) percent = 0.0f;
-        if (percent > 1.0f) percent = 1.0f;
+        hwMissionLoadProgressSnapshot(&loading);
+        percent = (real32)loading.percentHundredths / 10000.0f;
         if (hrModernBodyFont == 0)
         {
             hrModernBodyFont = frFontRegister("simplixssk_13.hff");
             hrModernHeadingFont = frFontRegister("eurosewideheavy_i17.hff");
             if (hrModernHeadingFont == 0) hrModernHeadingFont = hrModernBodyFont;
         }
-        panel.x0 = uiScaleSize(36);
-        panel.x1 = MAIN_WindowWidth - uiScaleSize(36);
-        panel.y1 = MAIN_WindowHeight - uiScaleSize(34);
-        panel.y0 = panel.y1 - uiScaleSize(142);
+        fontMakeCurrent(hrModernHeadingFont);
+        headingHeight = fontHeight(" ");
+        fontMakeCurrent(hrModernBodyFont);
+        bodyHeight = fontHeight(" ");
+        gap = uiScaleSize(3);
+        if (gap < 1) gap = 1;
+        lineHeight = bodyHeight + gap;
+        margin = uiScaleSize(28);
+        padding = uiScaleSize(18);
+        if (margin < 4) margin = 4;
+        if (padding < 4) padding = 4;
+        panelHeight = padding * 2 + headingHeight + lineHeight * (6 + historyRows) + uiScaleSize(10);
+        while (historyRows > 0 && panelHeight > MAIN_WindowHeight * 3 / 5)
+        {
+            --historyRows;
+            panelHeight -= lineHeight;
+        }
+        panel.x0 = margin;
+        panel.x1 = MAIN_WindowWidth - margin;
+        panel.y1 = MAIN_WindowHeight - margin;
+        panel.y0 = panel.y1 - panelHeight;
+        if (panel.y0 < margin) panel.y0 = margin;
         primRectTranslucent2(&panel, colRGBA(8, 15, 21, 226));
         primRectOutline2(&panel, 1, colRGB(78, 105, 114));
         accent = panel;
@@ -357,31 +453,50 @@ void hrDrawPlayersProgress(featom *atom, regionhandle region)
         else
             snprintf(mission, sizeof(mission), "MISSION %02d / FLEET TRANSIT",
                      missionIndex);
-        currentfont = fontMakeCurrent(hrModernBodyFont);
-        fontPrint(panel.x0 + uiScaleSize(24), panel.y0 + uiScaleSize(18),
-                  colRGB(222, 162, 62), "FLEET COMMAND / TRANSIT");
+        x = panel.x0 + padding;
+        y = panel.y0 + padding;
+        textWidth = panel.x1 - padding - x;
+        hrLoadingPrintFit(x, y, textWidth, colRGB(222, 162, 62), "FLEET COMMAND / TRANSIT");
+        y += lineHeight;
         fontMakeCurrent(hrModernHeadingFont);
-        fontPrint(panel.x0 + uiScaleSize(24), panel.y0 + uiScaleSize(45),
-                  colRGB(225, 222, 206), mission);
+        hrLoadingPrintFit(x, y, textWidth, colRGB(225, 222, 206), mission);
+        y += headingHeight + gap;
         fontMakeCurrent(hrModernBodyFont);
-        snprintf(stage, sizeof(stage), "%s / %d OF %d",
-                 stages[stageIndex], localbar + 1,
-                 horseBarInfo.numBars > 0 ? horseBarInfo.numBars : 1);
-        fontPrint(panel.x0 + uiScaleSize(24), panel.y0 + uiScaleSize(80),
-                  colRGB(143, 157, 157), stage);
-        snprintf(progress, sizeof(progress), "%03d%%", (sdword)(percent * 100.0f));
-        fontPrint(panel.x1 - uiScaleSize(74), panel.y0 + uiScaleSize(80),
-                  colRGB(225, 222, 206), progress);
-        bar.x0 = panel.x0 + uiScaleSize(24);
-        bar.x1 = panel.x1 - uiScaleSize(24);
-        bar.y0 = panel.y1 - uiScaleSize(26);
+        snprintf(line, sizeof(line), "%s", loading.currentPhase >= 0 &&
+            loading.currentPhase < HW_MISSION_LOAD_PHASE_COUNT ? stages[loading.currentPhase] : "PREPARING MISSION");
+        hrLoadingPrintFit(x, y, textWidth, colRGB(105, 184, 196), line);
+        y += lineHeight;
+        hrLoadingPrintFit(x, y, textWidth, colRGB(225, 222, 206), loading.task);
+        y += lineHeight;
+        hrLoadingElapsed(hrLoadingSeconds() - loading.startedSeconds, elapsed, sizeof(elapsed));
+        hrLoadingElapsed(hrLoadingSeconds() - loading.taskStartedSeconds, taskElapsed, sizeof(taskElapsed));
+        if (loading.totalItems != 0)
+            snprintf(line, sizeof(line), "%u / %u ITEMS  |  ELAPSED %s  |  TASK %s",
+                loading.completedItems, loading.totalItems, elapsed, taskElapsed);
+        else
+            snprintf(line, sizeof(line), "ELAPSED %s  |  TASK %s", elapsed, taskElapsed);
+        hrLoadingPrintFit(x, y, textWidth, colRGB(143, 157, 157), line);
+        y += lineHeight;
+        hrLoadingPrintFit(x, y, textWidth, colRGB(222, 162, 62), "RECENT ACTIVITY");
+        y += lineHeight;
+        for (row = 0; row < historyRows; ++row)
+        {
+            hrLoadingPrintFit(x, y, textWidth, colRGB(143, 157, 157), loading.history[row]);
+            y += lineHeight;
+        }
+        snprintf(line, sizeof(line), "%u.%02u%% WORK COMPLETED  /  %u OF %u PHASES COMPLETE",
+            loading.percentHundredths / 100, loading.percentHundredths % 100,
+            loading.phasesComplete, loading.totalPhases);
+        hrLoadingPrintFit(x, y, textWidth, colRGB(225, 222, 206), line);
+        bar.x0 = x;
+        bar.x1 = panel.x1 - padding;
+        bar.y0 = y + lineHeight;
         bar.y1 = bar.y0 + uiScaleSize(7);
         primRectSolid2(&bar, colRGB(25, 37, 44));
         fill = bar;
         fill.x1 = fill.x0 + (sdword)((fill.x1 - fill.x0) * percent);
         primRectSolid2(&fill, colRGB(105, 184, 196));
         primRectOutline2(&bar, 1, colRGB(78, 105, 114));
-        fontMakeCurrent(currentfont);
         ++hrProgressCounter;
     }
     else
@@ -471,6 +586,15 @@ void hrChooseSinglePlayerBitmap(char* pFilenameBuffer)
 #endif
     }
 
+    /* Optional native high-resolution replacement, preserving the original
+       mission artwork as a fallback. stb_image detects the PNG format. */
+    {
+        char highResolution[128];char *name=strstr(fname,"loading.jpg");
+        if(name){
+            snprintf(highResolution,sizeof(highResolution),"%.*sloading_4k.png",(int)(name-fname),fname);
+            if(fileExists(highResolution,0))strcpy(fname,highResolution);
+        }
+    }
     if (!fileExists(fname, 0))
     {
         pFilenameBuffer[0] = '\0';
@@ -774,6 +898,40 @@ long hrShipsToLoadForRace(ShipRace shiprace)
     return ShipsToLoad;
 }
 
+static real32 hrArtworkCubic(real32 x)
+{
+    x=fabsf(x);
+    if(x<1)return 1.5f*x*x*x-2.5f*x*x+1;
+    if(x<2)return -.5f*x*x*x+2.5f*x*x-4*x+2;
+    return 0;
+}
+
+/* Separable Catmull-Rom reconstruction avoids magnifying bilinear blocks.
+   Only the upload copy changes; original mission image files stay intact. */
+static unsigned char *hrUpscaleArtwork(const unsigned char *source,int w,int h,int outW,int outH)
+{
+    float *rows;unsigned char *output;int x,y,c,tap;
+    rows=malloc((size_t)outW*h*3*sizeof(float));output=malloc((size_t)outW*outH*3);
+    if(!rows||!output){free(rows);free(output);return NULL;}
+    for(x=0;x<outW;x++){
+        float p=(x+.5f)*w/outW-.5f;int base=(int)floorf(p);float weights[4];
+        for(tap=0;tap<4;tap++)weights[tap]=hrArtworkCubic(p-(base+tap-1));
+        for(y=0;y<h;y++)for(c=0;c<3;c++){
+            float value=0;for(tap=0;tap<4;tap++){int sx=base+tap-1;if(sx<0)sx=0;if(sx>=w)sx=w-1;value+=source[((size_t)y*w+sx)*3+c]*weights[tap];}
+            rows[((size_t)y*outW+x)*3+c]=value;
+        }
+    }
+    for(y=0;y<outH;y++){
+        float p=(y+.5f)*h/outH-.5f;int base=(int)floorf(p);float weights[4];
+        for(tap=0;tap<4;tap++)weights[tap]=hrArtworkCubic(p-(base+tap-1));
+        for(x=0;x<outW;x++)for(c=0;c<3;c++){
+            float value=0;for(tap=0;tap<4;tap++){int sy=base+tap-1;if(sy<0)sy=0;if(sy>=h)sy=h-1;value+=rows[((size_t)sy*outW+x)*3+c]*weights[tap];}
+            if(value<0)value=0;if(value>255)value=255;output[((size_t)y*outW+x)*3+c]=(unsigned char)(value+.5f);
+        }
+    }
+    free(rows);return output;
+}
+
 void hrInitBackground(void)
 {
     char CurDir[PATH_MAX], NewDir[PATH_MAX];
@@ -804,6 +962,16 @@ void hrInitBackground(void)
         uint32_t fileSize = fileLoadAlloc(hrImageName, (void**)&fileData, 0);
 
         unsigned char *pixels = stbi_load_from_memory(fileData, fileSize, &width, &height, &channels, 3);
+        unsigned char *upscaled=NULL;GLint unpackAlignment;
+        if(!pixels||width<=0||height<=0){if(pixels)stbi_image_free(pixels);memFree(fileData);return;}
+        {
+            float factor=fminf(3840.0f/width,2160.0f/height);
+            if(factor>1){
+                int outW=(int)(width*factor+.5f),outH=(int)(height*factor+.5f);
+                upscaled=hrUpscaleArtwork(pixels,width,height,outW,outH);
+                if(upscaled){width=outW;height=outH;}
+            }
+        }
         
         hrBackXSize = width;
         hrBackYSize = height;
@@ -811,12 +979,14 @@ void hrInitBackground(void)
         glGenTextures(1, &hrBackgroundTexture);
         trClearCurrent();
         glBindTexture(GL_TEXTURE_2D, hrBackgroundTexture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glGetIntegerv(GL_UNPACK_ALIGNMENT,&unpackAlignment);glPixelStorei(GL_UNPACK_ALIGNMENT,1);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, hrBackXSize, hrBackYSize,
-                    0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+                    0, GL_RGB, GL_UNSIGNED_BYTE, upscaled?upscaled:pixels);
+        glPixelStorei(GL_UNPACK_ALIGNMENT,unpackAlignment);free(upscaled);
         
         stbi_image_free(pixels);
         memFree(fileData);
@@ -906,6 +1076,7 @@ void hrDrawBackground(void)
         real32 screenAspect = (real32)MAIN_WindowWidth / (real32)MAIN_WindowHeight;
         real32 u0 = 0.0f, u1 = hrBackXFrac;
         real32 v0 = 0.0f, v1 = hrBackYFrac;
+        real32 drawWidth=(real32)MAIN_WindowWidth,drawHeight=(real32)MAIN_WindowHeight,left,top;
         GLfloat v[8], t[8];
 
         sdword oldTex = rndTextureEnable(TRUE);
@@ -918,29 +1089,26 @@ void hrDrawBackground(void)
         trClearCurrent();
         glBindTexture(GL_TEXTURE_2D, hrBackgroundTexture);
 
-        /* Aspect-cover the official mission artwork; crop instead of
-           stretching or centering a 640x480 island on modern displays. */
+        /* Fit the complete artwork. Preserve its proportions on widescreen,
+           ultrawide and portrait displays without zooming/cropping details. */
         if (screenAspect > imageAspect)
         {
-            real32 visible = imageAspect / screenAspect;
-            v0 = (1.0f - visible) * 0.5f;
-            v1 = 1.0f - v0;
+            drawWidth=drawHeight*imageAspect;
         }
         else
         {
-            real32 visible = screenAspect / imageAspect;
-            u0 = (1.0f - visible) * 0.5f;
-            u1 = 1.0f - u0;
+            drawHeight=drawWidth/imageAspect;
         }
         t[0] = u0; t[1] = v0;
         t[2] = u1; t[3] = v0;
         t[4] = u0; t[5] = v1;
         t[6] = u1; t[7] = v1;
 
-        v[0] = primScreenToGLX(0);                v[1] = primScreenToGLY(0);
-        v[2] = primScreenToGLX(MAIN_WindowWidth); v[3] = primScreenToGLY(0);
-        v[4] = primScreenToGLX(0);                v[5] = primScreenToGLY(MAIN_WindowHeight);
-        v[6] = primScreenToGLX(MAIN_WindowWidth); v[7] = primScreenToGLY(MAIN_WindowHeight);
+        left=(MAIN_WindowWidth-drawWidth)*.5f;top=(MAIN_WindowHeight-drawHeight)*.5f;
+        v[0] = primScreenToGLX(left);           v[1] = primScreenToGLY(top);
+        v[2] = primScreenToGLX(left+drawWidth); v[3] = primScreenToGLY(top);
+        v[4] = primScreenToGLX(left);           v[5] = primScreenToGLY(top+drawHeight);
+        v[6] = primScreenToGLX(left+drawWidth); v[7] = primScreenToGLY(top+drawHeight);
 
         glEnableClientState(GL_VERTEX_ARRAY);
         glEnableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -1157,11 +1325,28 @@ void horseRaceInit(void)
     hrRunning=TRUE;
     hrBackgroundDirty = 3;
     hrBackgroundReinit = FALSE;
+    hrLoadingLastDraw = 0;
+    hrLoadingDrawInProgress = FALSE;
+    if (singlePlayerGame)
+    {
+        hwMissionLoadProgressReset(hrLoadingSeconds());
+        HorseRaceLoadingPhaseBegin(HR_LOAD_PREPARE, "Preparing mission loading systems");
+    }
 }
 
 void horseRaceShutdown(void)
 {
     sdword i;
+    HWMissionLoadProgressSnapshot loading;
+
+    hwMissionLoadProgressSnapshot(&loading);
+    if (hrRunning && singlePlayerGame && !hrAbortLoadingGame &&
+        loading.percentHundredths == 10000 && !hrLoadingDrawInProgress)
+    {
+        hrDirtyProgressBar();
+        horseRaceRender();
+    }
+    hwMissionLoadProgressStop();
 
     if (!ShouldHaveMousePtr) mouseCursorShow();
 
@@ -1247,6 +1432,9 @@ void hrUncleanDecorative(void)
 void horseRaceRender(void)
 {
     SDL_Event e;
+    hrLoadingDrawInProgress = TRUE;
+    hrLoadingLastDraw = SDL_GetTicks64();
+    if (singlePlayerGame) hrDirtyProgressBar();
 
 #ifdef HW_ENABLE_D3D12_BACKEND
     /* HorseRace owns its own render loop.  Without a presenter frame the
@@ -1446,6 +1634,7 @@ void horseRaceRender(void)
     hwModernGraphicsEndFrame();
 #endif
     primErrorMessagePrint();
+    hrLoadingDrawInProgress = FALSE;
 }
 
 //function that returns the doctored percentage for conversion of

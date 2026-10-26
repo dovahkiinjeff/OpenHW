@@ -15,6 +15,7 @@
 #include "File.h"
 #include "soundcmn.h"
 #include "main.h"
+#include "RemasteredPcmStream.h"
 
 #define SOUNDFXDIR "SoundFX\\"
 
@@ -220,7 +221,7 @@ sdword soundinit(bool32 mode)
 	coopDSound = FALSE;
 
 	// Set up wave format structure.
-	aspec.freq = FQ_RATE;
+	aspec.freq = FQ_DRATE;
 	aspec.format = AUDIO_S16;
 	aspec.channels = 2;
 	aspec.samples = SDL_BUFFERSIZE;
@@ -285,6 +286,7 @@ void soundrestore(void)
 #endif
 
 	isoundmixerrestore();
+	rmPcmStreamReset();
 
 	return;
 }

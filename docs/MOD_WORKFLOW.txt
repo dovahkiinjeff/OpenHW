@@ -1,0 +1,6 @@
+OpenHW 1.0 mod workflow
+
+The current guide is docs/MODDING.md.
+SAVE MOD / APPEND TO MOD publish supported native ship edits. Enable and order them in Mod Manager, then restart. Test changed weapon counts in a fresh mission.
+
+The former private-development extra-turret Assault Frigate example is not a shipped release modification.

@@ -88,8 +88,19 @@ extern udword opSuperSalvagers;
 /* Single-player capture extension.  Exceptional capturable production hulls
    keep their native factory roster and launch/docking capability. */
 extern udword opCaptureBuildAll;
+/* Single-player construction option.  Unit-cap accounting remains active for
+   mission logic, but player build availability ignores every cap while set. */
+extern udword opDisableUnitCaps;
+/* Disabling rank progression/bonuses preserves already earned ranks. */
+extern udword opRankSystem;
+/* Campaign arrival only: vanilla / hold combat craft / hold all carried ships. */
+extern udword opMissionStartLaunch;
 /* Single-player resource economy scale.  Values are clamped to 1x-4x at use. */
 extern udword opResourceMultiplier;
+/* Use full authored resource populations when starting single-player missions. */
+extern udword opDisableSPResourceScaling;
+/* Single-player spending override; does not inflate the saved RU balance. */
+extern udword opUnlimitedRUs;
 
 void opOptionsSaveCustomEffectsSettings(void);
 

@@ -1,0 +1,39 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_kus_assaultgun_hw1_ae85dfad25
+scale 1
+hull @/Subsystems/kus_assaultgun/model.hod
+mad -
+surface 0 0 @/Subsystems/kus_assaultgun/m0
+gun 0 Hull Weapon_Gun0_Position Weapon_Gun0_Latitude Weapon_Gun0_Latitude Weapon_Gun0_Muzzle
+
+presentation Hull component_events.owevents
+[Weapons]
+GUN 0
+//Desired Range = 4800
+//ADD this amount: 147 to compensate for centrepoint
+//ADD this amount: 784 to compensate for stopping distance
+{
+WeaponFire @/RemasteredFX/WeaponFire/hw1kinetic_small.wf
+
+Type                                GUN_NewGimble
+SoundType                           GS_LargeEnergyCannon
+DamageLo                            40
+DamageHi                            45
+BulletLength                        18.0
+BulletRange                         5731.0
+BulletSpeed                         4300.0
+BulletMass                          0.75
+FireTime                            2.9
+TriggerHappy                         12.0
+minturnangle                       -110.0                      ; degrees
+maxturnangle                        110.0
+mindeclination                      -10.0
+maxdeclination                       10.0
+maxanglespeed                       360.0                        ; degrees/s
+maxdeclinationspeed                 360.0
+angletracking                       2.5
+declinationtracking                 2.5
+BarrelLength                        21.0
+RecoilLength                        15
+}
+[End]

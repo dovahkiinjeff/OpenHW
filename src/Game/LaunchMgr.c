@@ -20,6 +20,8 @@
 #include "Globals.h"
 #include "InfoOverlay.h"
 #include "LaunchMgr.h"
+#include "LaunchHoldLayout.h"
+#include "uiscale.h"
 #include "LinkedList.h"
 #include "mainrgn.h"
 #include "ManagerDock.h"
@@ -169,6 +171,8 @@ fibfileheader *lmScreensHandle = NULL;
 regionhandle  lmBaseRegion = NULL;
 ShipsInsideMe *shipsin = NULL;
 Ship          *launchship = NULL;
+static regionhandle lmHoldRegion = NULL;
+static sdword lmHoldPage = 0;
 
 listwindowhandle lmListWindow=NULL;
 
@@ -227,6 +231,8 @@ char lmShipListFontName[LM_FontNameLength] = LM_ShipListFont;
 
 // Variable to keep track of the ship displayed in the shipview
 ShipType lmcurshipview=DefaultShip;
+
+#include "LaunchHoldRoster.inc"
 
 
 /*=============================================================================
@@ -313,6 +319,9 @@ void lmLaunch(char *string, featom*atom)
     if((tutorial==TUTORIAL_ONLY) && !tutEnable.bLaunchLaunch)
         return;
 
+    if (!lmActive || lmBaseRegion == NULL || lmHoldIndexOf(launchship) < 0 ||
+        shipsin != launchship->shipsInsideMe || lmListWindow == NULL) return;
+
     if (lmListWindow->CurLineSelected!=NULL)
     {
         shipnum = (sdword)lmListWindow->CurLineSelected->data;
@@ -360,6 +369,7 @@ void lmLaunch(char *string, featom*atom)
 /*
     feScreenDelete(lmBaseRegion);
     lmBaseRegion = NULL;
+    lmHoldRegion = NULL;
 
     // play the exit sound
     soundEvent(NULL, UI_ManagerExit);
@@ -507,6 +517,8 @@ void lmAutoLaunchC4(char *string, featom *atom)
     Outputs     : none
     Return      : void
 ----------------------------------------------------------------------------*/
+#include "LaunchManagerLifecycle.inc"
+
 void lmLaunchAll(char *string, featom *atom)
 {
     Node *walk;
@@ -519,11 +531,8 @@ void lmLaunchAll(char *string, featom *atom)
     if((tutorial==TUTORIAL_ONLY) && !tutEnable.bLaunchLaunchAll)
         return;
 
-    feScreenDelete(lmBaseRegion);
-    lmBaseRegion = NULL;
-
-    if (lmIoSaveState)
-        ioEnable();
+    if (!lmActive || lmBaseRegion == NULL || lmHoldIndexOf(launchship) < 0 ||
+        shipsin != launchship->shipsInsideMe) return;
 
     numShips = shipsin->insideList.num;
     if (numShips > 0)
@@ -551,22 +560,7 @@ void lmLaunchAll(char *string, featom *atom)
         speechEventFleet(COMM_F_Launch, 0, universe.curPlayerIndex);
     }
 
-    /* play the exit sound */
-    soundEvent(NULL, UI_ManagerExit);
-    if (!mdManagerDockEnabled())
-    {
-        //restart the sound of space ambient
-        soundEvent(NULL, UI_SoundOfSpace);
-    }
-
-    // enable rendering of main game screen
-    mrRenderMainScreen = TRUE;
-    lmActive = FALSE;
-
-    if (!mdManagerDockEnabled())
-    {
-        tbDisable = FALSE;
-    }
+    lmDismiss();
 }
 
 /*-----------------------------------------------------------------------------
@@ -580,34 +574,7 @@ void lmClose(char *string, featom *atom)
 {
     if((tutorial==TUTORIAL_ONLY) && !tutEnable.bLaunchClose)
         return;
-
-    feScreenDelete(lmBaseRegion);
-    lmBaseRegion = NULL;
-
-    if (lmIoSaveState)
-        ioEnable();
-
-    /* play the exit sound */
-    soundEvent(NULL, UI_ManagerExit);
-    if (!mdManagerDockEnabled())
-    {
-        //restart the sound of space ambient
-        soundEvent(NULL, UI_SoundOfSpace);
-    }
-
-    // enable rendering of main game screen
-    mrRenderMainScreen = TRUE;
-    lmActive = FALSE;
-
-    lmRenderEverythingCounter = 0;
-
-    if (!mdManagerDockEnabled())
-    {
-        tbDisable = FALSE;
-    }
-
-    // shutdown the shipview
-    svClose();
+    lmDismiss();
 }
 
 void lmCloseIfOpen(void)
@@ -883,10 +850,15 @@ void lmShipsToLaunchDraw(char *string, featom *atom)
         lmListWindow = NULL;
         return;
     }
-    else if (lmListWindow->message == CM_NewItemSelected)
+    else if (lmListWindow != NULL && lmListWindow->message == CM_NewItemSelected &&
+             lmListWindow->CurLineSelected != NULL)
     {
-        lmcurshipview = (sdword)lmListWindow->CurLineSelected->data;
-        svSelectShip(lmcurshipview);
+        sdword selectedType = (sdword)(memsize)lmListWindow->CurLineSelected->data;
+        if (selectedType >= 0 && selectedType < TOTAL_NUM_SHIPS && lmShipInList[selectedType])
+        {
+            lmcurshipview = (ShipType)selectedType;
+            svSelectShip(lmcurshipview);
+        }
     }
 /*    fonthandle currentFont;
     rectangle  rect = region->rect, select;
@@ -1011,21 +983,30 @@ void lmFighterUsedDraw(featom *atom, regionhandle region)
         feRenderEverything = TRUE;
     }
 
-    if (launchship->shipsInsideMe == NULL) return;
+    if (launchship == NULL || launchship->shipsInsideMe == NULL) return;
 
     currentFont = fontMakeCurrent(lmShipListFont);
 
     numused = (sdword)launchship->shipsInsideMe->FightersInsideme;
 
-    percent = (real32)(launchship->shipsInsideMe->FightersInsideme) /
-              (real32)(launchship->staticinfo->maxDockableFighters);
+    percent = launchship->staticinfo->maxDockableFighters > 0 ?
+        (real32)launchship->shipsInsideMe->FightersInsideme /
+        (real32)launchship->staticinfo->maxDockableFighters : 0.0f;
 
     if (numused >= launchship->staticinfo->maxDockableFighters)
         numused = launchship->staticinfo->maxDockableFighters;
 
     lmBarDraw(&region->rect, lmAvailableColor, lmUsedColor, percent);
 
-    fontPrintf(region->rect.x1,region->rect.y0,FEC_ListItemStandard/*lmShipListTextColor*/," %i",numused);
+    if (mdManagerDockEnabled())
+    {
+        bool32 fighter = atom->name != NULL && strcmp(atom->name, "LM_FighterUsed") == 0;
+        fontPrint(region->rect.x0 - uiScaleSize(78), region->rect.y0, FEC_ListItemStandard,
+            fighter ? "FIGHTERS" : "CORVETTES");
+        fontPrintf(region->rect.x1, region->rect.y0, FEC_ListItemStandard, " %i/%i", numused,
+            fighter ? launchship->staticinfo->maxDockableFighters : launchship->staticinfo->maxDockableCorvettes);
+    }
+    else fontPrintf(region->rect.x1,region->rect.y0,FEC_ListItemStandard," %i",numused);
 
     fontMakeCurrent(currentFont);
 }
@@ -1044,21 +1025,30 @@ void lmCorvetteUsedDraw(featom *atom, regionhandle region)
     sdword numused;
     fonthandle currentFont;
 
-    if (launchship->shipsInsideMe == NULL) return;
+    if (launchship == NULL || launchship->shipsInsideMe == NULL) return;
 
     currentFont = fontMakeCurrent(lmShipListFont);
 
     numused = (sdword)launchship->shipsInsideMe->CorvettesInsideme;
 
-    percent = (real32)(launchship->shipsInsideMe->CorvettesInsideme) /
-              (real32)(launchship->staticinfo->maxDockableCorvettes);
+    percent = launchship->staticinfo->maxDockableCorvettes > 0 ?
+        (real32)launchship->shipsInsideMe->CorvettesInsideme /
+        (real32)launchship->staticinfo->maxDockableCorvettes : 0.0f;
 
     if (numused >= launchship->staticinfo->maxDockableCorvettes)
         numused = launchship->staticinfo->maxDockableCorvettes;
 
     lmBarDraw(&region->rect, lmAvailableColor, lmUsedColor, percent);
 
-    fontPrintf(region->rect.x1,region->rect.y0,FEC_ListItemStandard/*lmShipListTextColor*/," %i",numused);
+    if (mdManagerDockEnabled())
+    {
+        bool32 fighter = atom->name != NULL && strcmp(atom->name, "LM_FighterUsed") == 0;
+        fontPrint(region->rect.x0 - uiScaleSize(78), region->rect.y0, FEC_ListItemStandard,
+            fighter ? "FIGHTERS" : "CORVETTES");
+        fontPrintf(region->rect.x1, region->rect.y0, FEC_ListItemStandard, " %i/%i", numused,
+            fighter ? launchship->staticinfo->maxDockableFighters : launchship->staticinfo->maxDockableCorvettes);
+    }
+    else fontPrintf(region->rect.x1,region->rect.y0,FEC_ListItemStandard," %i",numused);
 
     fontMakeCurrent(currentFont);
 }
@@ -1195,6 +1185,8 @@ void lmDrawShipImage(regionhandle region, smemsize shipID)
     Outputs     :
     Return      : void
 ----------------------------------------------------------------------------*/
+#include "LaunchHoldSelector.inc"
+
 void lmMotherShipDraw(featom *atom, regionhandle region)
 {
     Ship *shipfactory = universe.curPlayerPtr->PlayerMothership;
@@ -1615,6 +1607,19 @@ sdword lmLaunchBegin(regionhandle region, smemsize ID, udword event, udword data
         return (0);
     }
 
+    if (mdManagerDockEnabled())
+    {
+        Ship *preferred = ID != 0 ? (Ship *)ID : launchship;
+        /* A saved carrier index cannot represent an unlimited live hold roster. */
+        if (lmHoldIndexOf(preferred) < 0) preferred = lmHoldAt(0);
+        if (preferred == NULL) return 0;
+        launchship = preferred;
+        lmHoldPage = lmHoldIndexOf(preferred) / LM_HOLD_PAGE_SIZE;
+        lmCurrentSelect = 0;
+        lmFillInCarrierXs();
+    }
+    else
+    {
     launchship = (Ship *)ID;
 
     if (universe.curPlayerPtr->PlayerMothership == NULL)
@@ -1690,6 +1695,8 @@ sdword lmLaunchBegin(regionhandle region, smemsize ID, udword event, udword data
             return(0);
     }
 
+    }
+
     if (!mdManagerDockEnabled())
     {
         mrRenderMainScreen = FALSE;
@@ -1749,6 +1756,7 @@ sdword lmLaunchBegin(regionhandle region, smemsize ID, udword event, udword data
 
     lmBaseRegion = feScreenStart(region, LM_LaunchScreen);  //add new regions as siblings of current one
     mdInstallManagerToggleKeys(lmBaseRegion);
+    lmHoldInstall(lmBaseRegion);
 
     mouseCursorShow();
 
@@ -1859,6 +1867,21 @@ void lmReLaunch(Ship *newship)
 void lmLaunchCapableShipDied(Ship *ship)
 {
     featom* atom;
+    if (mdManagerDockEnabled())
+    {
+        /* Captured stations and other holds use the same live-list repair as
+           carriers. Never leave a stale selected-host pointer in UI callbacks. */
+        if (launchship == ship || lmHoldIndexOf(launchship) < 0)
+        {
+            Ship *replacement = lmHoldAt(0);
+            launchship = NULL;
+            shipsin = NULL;
+            if (replacement != NULL) lmHoldSelect(replacement, TRUE);
+            else if (lmBaseRegion != NULL) lmClose(NULL, NULL);
+        }
+        return;
+    }
+
 
     // if shipptr passed is not a carrier or mothership then get the players mothership
 /*    launchship = universe.curPlayerPtr->PlayerMothership;

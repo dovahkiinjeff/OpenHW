@@ -1,0 +1,26 @@
+{
+  "name": "D3D12MemoryAllocator",
+  "version": "v3.2.0",
+  "commit": "1d86c1130f61453634b1df85782e1fecfd59a525",
+  "repository": "https://github.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator",
+  "release": "https://github.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator/releases/tag/v3.2.0",
+  "license": "MIT",
+  "modifications": "None. Upstream source/header/license bytes are unchanged.",
+  "files": [
+    {
+      "file": "D3D12MemAlloc.h",
+      "sha256": "672193f18428428832ca9c9f22d7940229a7afea5a2280435f7dabf1cc19b903",
+      "url": "https://raw.githubusercontent.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator/1d86c1130f61453634b1df85782e1fecfd59a525/include/D3D12MemAlloc.h"
+    },
+    {
+      "file": "D3D12MemAlloc.cpp",
+      "sha256": "cb81d9184e4a69407f7b9f204bd7b56247a014c82cd698cc7002c03aeb41bdd8",
+      "url": "https://raw.githubusercontent.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator/1d86c1130f61453634b1df85782e1fecfd59a525/src/D3D12MemAlloc.cpp"
+    },
+    {
+      "file": "LICENSE.txt",
+      "sha256": "5478a2f36b736e13dd3250b9c71a4ab521bc327fb9d112a92c647bf3e69ddb68",
+      "url": "https://raw.githubusercontent.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator/1d86c1130f61453634b1df85782e1fecfd59a525/LICENSE.txt"
+    }
+  ]
+}

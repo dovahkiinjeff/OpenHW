@@ -75,4 +75,24 @@ void recievedHorsePacketCB(ubyte *packet,udword sizeofpacket);
 void HorseRaceBeginBar(uword barnum);
 bool32 HorseRaceNext(real32 percent);
 
+/* Local mission-loading detail; deliberately separate from network horse
+   packets and their original percentages. Calls outside an active story load
+   are ignored. Task/item callbacks only update data, never graphics state. */
+enum
+{
+    HR_LOAD_PREPARE = 0,
+    HR_LOAD_FLEET,
+    HR_LOAD_WORLD,
+    HR_LOAD_EFFECTS,
+    HR_LOAD_TEXTURE_LAYOUT,
+    HR_LOAD_TEXTURE_UPLOAD,
+    HR_LOAD_FINALIZE
+};
+void HorseRaceLoadingPhaseBegin(int phase, const char *task);
+void HorseRaceLoadingPhaseComplete(int phase);
+void HorseRaceLoadingTask(const char *task);
+void HorseRaceLoadingProgress(unsigned int completed, unsigned int total, const char *task);
+/* Render-thread-only, safe loader boundaries. Throttled and reentry guarded. */
+void HorseRaceLoadingRefresh(void);
+
 #endif

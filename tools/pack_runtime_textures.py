@@ -14,6 +14,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=pathlib.Path)
     parser.add_argument("output", type=pathlib.Path)
+    parser.add_argument("--exclude-local-imports", action="store_true",
+                        help="exclude user-imported Remastered assets from a release")
     args = parser.parse_args()
     files = []
     for root_name in ROOTS:
@@ -23,6 +25,10 @@ def main() -> int:
         if not folder.exists():
             continue
         for path in folder.rglob("*.dds"):
+            if args.exclude_local_imports:
+                from audit_local_import_release import prohibited
+                if prohibited(path.relative_to(args.root).as_posix()):
+                    continue
             key = path.relative_to(args.root).as_posix().replace("/", "\\").lower()
             encoded = key.encode("utf-8")
             if len(encoded) >= 256:

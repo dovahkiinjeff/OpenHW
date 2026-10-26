@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     Name    : render.c
     Purpose : Render module initialization and render a specific scene.
@@ -33,6 +34,8 @@
 #include "glinc.h"
 #include "Globals.h"
 #include "Gun.h"
+#include "RemasteredWeaponFX.h"
+#include "RemasteredPresentation.h"
 #include "HS.h"
 #include "Key.h"
 #include "LagPrint.h"
@@ -44,9 +47,14 @@
 #include "Memory.h"
 #include "Mesh.h"
 #include "ModernPlanet.h"
+#include "RemasteredBackdrop.h"
 #include "ModernAsteroid.h"
+#include "ModernHarvestableDust.h"
+#include "ModernParticleFields.h"
 #include "ModernMissionBackdrop.h"
+#include "ModernUI.h"
 #include "mouse.h"
+#include "ShipPilot.h"
 #include "NavLights.h"
 #include "Nebulae.h"
 #include "NetCheck.h"
@@ -92,6 +100,7 @@
 
 #ifdef _WIN32
     #include <windows.h>
+    #include "WindowsSplash.h"
 #else
     #include <sys/mman.h>
 #endif
@@ -203,7 +212,7 @@ static bool32 rndApplyWindowMode(void)
 
         if (SDL_GetDesktopDisplayMode(displayIndex, &requested) != 0)
         {
-            fprintf(stderr, "Unable to query the desktop display mode: %s\n", SDL_GetError());
+            HW_DIAG_FPRINTF(stderr, "Unable to query the desktop display mode: %s\n", SDL_GetError());
             return FALSE;
         }
 
@@ -215,15 +224,22 @@ static bool32 rndApplyWindowMode(void)
         if (SDL_GetClosestDisplayMode(displayIndex, &requested, &closest) == NULL ||
             closest.w != MAIN_WindowWidth || closest.h != MAIN_WindowHeight)
         {
-            fprintf(stderr, "No exclusive display mode matches %dx%d@%d.\n",
+            HW_DIAG_FPRINTF(stderr, "No exclusive display mode matches %dx%d@%d; falling back to the desktop mode.\n",
                     MAIN_WindowWidth, MAIN_WindowHeight, mainRefreshRate);
-            return FALSE;
+            /* Saved window dimensions can differ by a few pixels from a
+               supported monitor mode. Never fail renderer startup for that:
+               keep exclusive fullscreen but use a valid display mode. */
+            if (SDL_GetDesktopDisplayMode(displayIndex, &closest) != 0)
+            {
+                HW_DIAG_FPRINTF(stderr, "Unable to query fallback display mode: %s\n", SDL_GetError());
+                return FALSE;
+            }
         }
 
         if (SDL_SetWindowDisplayMode(sdlwindow, &closest) != 0 ||
             SDL_SetWindowFullscreen(sdlwindow, SDL_WINDOW_FULLSCREEN) != 0)
         {
-            fprintf(stderr, "Unable to enter exclusive fullscreen: %s\n", SDL_GetError());
+            HW_DIAG_FPRINTF(stderr, "Unable to enter exclusive fullscreen: %s\n", SDL_GetError());
             return FALSE;
         }
 
@@ -235,7 +251,7 @@ static bool32 rndApplyWindowMode(void)
 
     if (SDL_SetWindowFullscreen(sdlwindow, SDL_WINDOW_FULLSCREEN_DESKTOP) != 0)
     {
-        fprintf(stderr, "Unable to enter borderless fullscreen: %s\n", SDL_GetError());
+        HW_DIAG_FPRINTF(stderr, "Unable to enter borderless fullscreen: %s\n", SDL_GetError());
         return FALSE;
     }
 
@@ -369,6 +385,7 @@ real32 btgFieldOfView = 50.0f;
 #define btgFieldOfViewDelta 1.0f
 static char fovString[256] = "";
 #endif
+
 
 #if DEBUG_VERBOSE_SHIP_STATS
 static sdword shipsAtLOD[5];
@@ -991,7 +1008,7 @@ bool32 setupPixelFormat()
         SDL_WINDOWPOS_CENTERED, MAIN_WindowWidth, MAIN_WindowHeight, flags);
     if (sdlwindow == NULL)
     {
-        fprintf(stderr, "Couldn't create native D3D12 window: %s\n", SDL_GetError());
+        HW_DIAG_FPRINTF(stderr, "Couldn't create native D3D12 window: %s\n", SDL_GetError());
         return FALSE;
     }
     if (!rndApplyWindowMode())
@@ -1027,7 +1044,7 @@ bool32 setupPixelFormat()
     hwModernGraphicsLogCapabilities();
 #endif
 #if defined(HW_MODERN_FORCE_LOD0) && defined(HW_MODERN_DISABLE_NLIPS)
-    fprintf(stderr, "[ModernGraphics] Detail policy: LOD0 forced globally; "
+    HW_DIAG_FPRINTF(stderr, "[ModernGraphics] Detail policy: ship distance LOD0-4 enabled; other assets retain LOD0; "
                     "N-LIPS distance scaling disabled.\n");
 #endif
 #ifdef HW_ENABLE_D3D12_BACKEND
@@ -1066,16 +1083,21 @@ bool32 setupPixelFormat()
         (float)mainFilmGrainPercent / 100.0f,
         (float)mainGodRaysPercent / 100.0f,
         (float)mainBloomPercent / 100.0f);
+    hwModernGraphicsSetLensFlaresEnabled(mainLensFlares);
+    hwModernGraphicsSetRasterGlowBrightness(mainRasterGlowBrightnessPercent / 100.0f);
     hwModernGraphicsSetOutputDitherStrength(
         (float)mainOutputDitherPercent / 100.0f);
     if (!hwModernGraphicsInitialize(ghMainWindow,
                                     (unsigned int)MAIN_WindowWidth,
                                     (unsigned int)MAIN_WindowHeight))
     {
-        fprintf(stderr, "[ModernGraphics] Native D3D12 raster/presenter initialization failed.\n");
+        HW_DIAG_FPRINTF(stderr, "[ModernGraphics] Native D3D12 raster/presenter initialization failed.\n");
         return FALSE;
     }
     hwModernGraphicsSetVSync(mainVSync);
+    /* DX11 evaluates lighting per pixel. Do not feed it the original CPU
+       shader's pre-lit vertex colors (or omit the mesh normal stream). */
+    usingShader = hwModernGraphicsIsD3D11() ? FALSE : TRUE;
 #endif
 
     SDL_ShowCursor(SDL_DISABLE);
@@ -1084,7 +1106,7 @@ bool32 setupPixelFormat()
     lastDepth = MAIN_WindowDepth;
     lastFull = fullScreen;
     gl_extensions = glGetString(GL_EXTENSIONS);
-    printf("Native raster compatibility features:\n%s\n", gl_extensions);
+    HW_DIAG_PRINTF("Native raster compatibility features:\n%s\n", gl_extensions);
     useVBO = TRUE;
     return TRUE;
 #else /* HW_ENABLE_D3D12_NATIVE_RASTER */
@@ -1127,40 +1149,40 @@ bool32 setupPixelFormat()
 
     SDL_VERSION(&info.version);
     if (SDL_GetWMInfo(&info) != 1) {
-        fprintf(stderr, "EGL cannot use this SDL version\n");
+        HW_DIAG_FPRINTF(stderr, "EGL cannot use this SDL version\n");
         return FALSE;
     }
 
     egl_display = eglGetDisplay((EGLNativeDisplayType)info.info.x11.gfxdisplay);
     if (egl_display == EGL_NO_DISPLAY) {
-        fprintf(stderr, "EGL found no available displays\n");
+        HW_DIAG_FPRINTF(stderr, "EGL found no available displays\n");
         return FALSE;
     }
 
     if (!eglInitialize(egl_display, NULL, NULL)) {
-        fprintf(stderr, "EGL failed to initialize: code 0x%x\n", eglGetError());
+        HW_DIAG_FPRINTF(stderr, "EGL failed to initialize: code 0x%x\n", eglGetError());
         return FALSE;
     }
 
     if (!eglChooseConfig(egl_display, attribs, &egl_config, 1, &num_config) || num_config < 1) {
-        fprintf(stderr, "EGL failed to find any valid config with required attributes: code 0x%x\n", eglGetError());
+        HW_DIAG_FPRINTF(stderr, "EGL failed to find any valid config with required attributes: code 0x%x\n", eglGetError());
         return FALSE;
     }
 
     new_context = eglCreateContext(egl_display, egl_config, EGL_NO_CONTEXT, NULL);
     if (new_context == EGL_NO_CONTEXT) {
-        fprintf(stderr, "EGL failed to create context: code 0x%x\n", eglGetError());
+        HW_DIAG_FPRINTF(stderr, "EGL failed to create context: code 0x%x\n", eglGetError());
         return FALSE;
     }
     
     new_surface = eglCreateWindowSurface(egl_display, egl_config, (EGLNativeWindowType)info.info.x11.window, NULL);
     if (new_surface == EGL_NO_SURFACE) {
-        fprintf(stderr, "EGL failed to create a window surface: 0x%x\n", eglGetError());
+        HW_DIAG_FPRINTF(stderr, "EGL failed to create a window surface: 0x%x\n", eglGetError());
         return FALSE;
     }
 
     if (!eglMakeCurrent(egl_display, new_surface, new_surface, new_context)) {
-        fprintf(stderr, "EGL failed to change current surface: 0x%x\n", eglGetError());
+        HW_DIAG_FPRINTF(stderr, "EGL failed to change current surface: 0x%x\n", eglGetError());
         return FALSE;
     }
 
@@ -1189,13 +1211,13 @@ bool32 setupPixelFormat()
             if (!(sdlwindow=SDL_CreateWindow("Homeworld Modern", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                 MAIN_WindowWidth, MAIN_WindowHeight, flags)))
             {
-            fprintf (stderr, "Couldn't set video mode: %s\n", SDL_GetError ());
+            HW_DIAG_FPRINTF(stderr, "Couldn't set video mode: %s\n", SDL_GetError ());
             //exit (1);
                     return FALSE;
             }
         }
 
-	    fprintf (stderr, "Couldn't set %dx MSAA video mode: %s\n", MSAA, SDL_GetError ());
+	    HW_DIAG_FPRINTF(stderr, "Couldn't set %dx MSAA video mode: %s\n", MSAA, SDL_GetError ());
 
         MSAA /= 2;
         
@@ -1242,7 +1264,7 @@ bool32 setupPixelFormat()
 #endif
 
 #if defined(HW_MODERN_FORCE_LOD0) && defined(HW_MODERN_DISABLE_NLIPS)
-    fprintf(stderr, "[ModernGraphics] Detail policy: LOD0 forced globally; "
+    HW_DIAG_FPRINTF(stderr, "[ModernGraphics] Detail policy: ship distance LOD0-4 enabled; other assets retain LOD0; "
                     "N-LIPS distance scaling disabled.\n");
 #endif
 
@@ -1282,13 +1304,15 @@ bool32 setupPixelFormat()
         (float)mainFilmGrainPercent / 100.0f,
         (float)mainGodRaysPercent / 100.0f,
         (float)mainBloomPercent / 100.0f);
+    hwModernGraphicsSetLensFlaresEnabled(mainLensFlares);
+    hwModernGraphicsSetRasterGlowBrightness(mainRasterGlowBrightnessPercent / 100.0f);
     hwModernGraphicsSetOutputDitherStrength(
         (float)mainOutputDitherPercent / 100.0f);
     if (!hwModernGraphicsInitialize(ghMainWindow,
                                     (unsigned int)MAIN_WindowWidth,
                                     (unsigned int)MAIN_WindowHeight))
     {
-        fprintf(stderr, "[ModernGraphics] D3D12 frame bridge unavailable; "
+        HW_DIAG_FPRINTF(stderr, "[ModernGraphics] D3D12 frame bridge unavailable; "
                         "continuing with the OpenGL compatibility renderer.\n");
     }
     else
@@ -1318,7 +1342,7 @@ bool32 setupPixelFormat()
 #endif
 
     gl_extensions = glGetString(GL_EXTENSIONS);
-    printf("GL Extensions:\n%s\n", gl_extensions);
+    HW_DIAG_PRINTF("GL Extensions:\n%s\n", gl_extensions);
 
     useVBO = glCheckExtension("GL_ARB_vertex_buffer_object");
 
@@ -1670,7 +1694,7 @@ static void rndSoftStarBillboardsDraw(Camera *camera)
     glBindTexture(GL_TEXTURE_2D, rndSoftStarTexture);
     rndTextureEnvironment(RTE_Modulate);
     glEnable(GL_BLEND);
-    rndAdditiveBlends(showBackgrounds);
+    rndAdditiveBlends(TRUE);
 
     glBegin(GL_QUADS);
     for (index = 0, star = universe.star3dinfo->Stars;
@@ -1750,7 +1774,9 @@ void rndBackgroundRender(real32 radius, Camera* camera, bool32 bDrawStars)
                     rndNear(camera->clipPlaneNear), camera->clipPlaneFar);
     glMatrixMode(GL_MODELVIEW);
 
-    if (showBackgrounds && gameIsRunning)
+    /* Mission backgrounds are part of the scene, not an effects-quality
+       switch. btgRender also prepares the mission's sky lighting metadata. */
+    if (gameIsRunning)
     {
         btgRender();
     }
@@ -1759,7 +1785,7 @@ void rndBackgroundRender(real32 radius, Camera* camera, bool32 bDrawStars)
     trClearCurrent();
     glBindTexture(GL_TEXTURE_2D, 0);
     rndTextureEnable(FALSE);
-    if (bDrawStars && gameIsRunning)
+    if (bDrawStars && gameIsRunning && !remasteredBackdropActive())
     {
         /* Render the procedural orientation field as soft camera-facing
            micro-quads.  This fully replaces the old GL_POINTS path so there
@@ -1811,27 +1837,6 @@ bool32 rndCameraInside(SpaceObj* spaceobj, Camera* camera)
     {
         return FALSE;
     }
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : rndInsideShip
-    Description : determines whether the camera is inside a ship
-    Inputs      : spaceobj - the object to consider
-                  camera - current camera object
-    Outputs     :
-    Return      : TRUE if camera inside, else FALSE
-----------------------------------------------------------------------------*/
-bool32 rndInsideShip(SpaceObj* spaceobj, Camera* camera)
-{
-    if (nisIsRunning)
-    {
-        return FALSE;
-    }
-    if (bitTest(universe.mainCameraCommand.ccMode,CCMODE_PILOT_SHIP))
-    {
-        return FALSE;
-    }
-    return rndCameraInside(spaceobj, camera);
 }
 
 /*-----------------------------------------------------------------------------
@@ -2119,6 +2124,23 @@ void rndRenderAHomeworld(void* voidCamera, void *voidWorld)
     hmatrix coordMatrixForGL;
     sdword colorScheme = world->colorScheme;
 
+    /* These visual-only worlds are already supplied by the imported scene.
+       Keep the objects for NIS/scripts and preserve all other world effects. */
+    if (gameIsRunning && remasteredBackdropActive())
+    {
+        switch (world->derelicttype)
+        {
+            case PlanetOfOrigin:
+            case PlanetOfOrigin_scarred:
+            case Homeworld:
+            case AngelMoon:
+            case AngelMoon_clean:
+                return;
+            default:
+                break;
+        }
+    }
+
     planetScale = world->staticinfo->scaleFactor;
     position = &world->posinfo.position;
     worldMesh = (meshdata *)world->staticinfo->staticheader.LOD->level[0].pData;
@@ -2171,7 +2193,7 @@ void rndRenderAWorldEffect(Camera *camera, Effect *effect)
     rndNormalizeEnable(TRUE);
     glDisable(GL_DEPTH_TEST);
 
-    etgEffectDraw(effect);
+    if(!etgDrawRemasteredEffect(effect,camera))etgEffectDraw(effect);
 
     glEnable(GL_DEPTH_TEST);
     rndNormalizeEnable(FALSE);
@@ -2307,7 +2329,7 @@ void rndDrawAsteroid0(sdword n, Camera *camera)
     GLboolean depthWriteWasEnabled;
     GLint previousTextureBinding;
 
-    if (n <= 0 || camera == NULL)
+    if (n <= 0 || camera == NULL || !modernParticleFieldsOriginalVisible() || modernParticleFieldsOriginalOpacity()<=0)
     {
         return;
     }
@@ -2345,6 +2367,9 @@ void rndDrawAsteroid0(sdword n, Camera *camera)
     glGetBooleanv(GL_DEPTH_WRITEMASK, &depthWriteWasEnabled);
     glDepthMask(GL_FALSE);
 
+    float originalDustColor[3];
+    const int originalDustColorEnabled=modernParticleFieldsOriginalColor(originalDustColor);
+    const GLubyte originalDustAlpha=(GLubyte)(255.0f*modernParticleFieldsOriginalOpacity()+.5f);
     glBegin(GL_QUADS);
     for (index = 0; index < n; index++)
     {
@@ -2376,7 +2401,10 @@ void rndDrawAsteroid0(sdword n, Camera *camera)
         /* Keep the original point colour, but let the radial alpha texture
            define the edge.  Lower vertex alpha makes the expanded footprint
            read as a soft luminous mote rather than a larger solid dot. */
-        glColor4ub(colRed(c), colGreen(c), colBlue(c), 168);
+        if(originalDustColorEnabled){
+            const real32 brightness=(real32)max(colRed(c),max(colGreen(c),colBlue(c)));
+            glColor4ub((GLubyte)(originalDustColor[0]*brightness),(GLubyte)(originalDustColor[1]*brightness),(GLubyte)(originalDustColor[2]*brightness),originalDustAlpha);
+        }else glColor4ub(colRed(c), colGreen(c), colBlue(c), originalDustAlpha);
 
         glTexCoord2f(0.0f, 0.0f);
         glVertex3f(v->x - rx - ux, v->y - ry - uy, v->z - rz - uz);
@@ -2832,6 +2860,12 @@ static enum WhetherToDraw onRenderEffect(Effect* effect) {
 
     // effect is owned by a bullet
     Bullet* const bullet = (Bullet const*)effectowner;
+    if(bullet->effect==effect&&rmPresentationOwnsProjectileFx(bullet))return DontDraw;
+    /* Loaded saves can still contain the original attached projectile effect.
+       Do not double draw it beside its supported native RM replacement. */
+    if (bullet->effect == effect && bullet->bulletType != BULLET_SpecialBurst &&
+        etgBulletEffectsEnabled && rmWeaponFxProjectileAvailable(bullet->owner,bullet->gunowner))
+        return DontDraw;
     if (bullet->bulletType == BULLET_Beam && bullet->timelived <= UNIVERSE_UPDATE_PERIOD) {
         return DontDraw;
     }
@@ -2977,7 +3011,7 @@ static void rndSubmitModernBulletLight(const Bullet *bullet)
             if (!loggedIonSegmentLight)
             {
                 loggedIonSegmentLight = TRUE;
-                fprintf(stderr,
+                HW_DIAG_FPRINTF(stderr,
                     "[Renderer] ion-beam analytic segment lighting boosted: "
                     "full start/end line radiates with perpendicular falloff.\n");
             }
@@ -3117,11 +3151,13 @@ static void rndSubmitModernOffscreenShadowCasters(Camera *camera)
                 glScalef(staticInfo->scaleFactor, staticInfo->scaleFactor,
                          staticInfo->scaleFactor);
 #endif
+            meshSetEngineMaterialOwner(ship);
             if (ship->bindings != NULL)
                 meshSubmitRaytracingShadowShipHierarchy(ship->bindings,
                     ship->currentLOD, shadowMesh, colorScheme);
             else
                 meshSubmitRaytracingShadow(shadowMesh, colorScheme);
+            meshSetEngineMaterialOwner(NULL);
         }
         else
         {
@@ -3176,7 +3212,24 @@ void rndMainViewRenderFunction(Camera *camera)
     mouseCursorObjPtr  = NULL;               //Falko: got an obscure crash where mouseCursorObjPtr was mangled, will this work?
 
     dbgAssertOrIgnore(camera != NULL); //verify parameters
-
+    {
+        /* A captured Mission 12 orbit handed this boundary FOV=0 and up=0.
+           Repair before BOTH raster projection and DXR camera extraction;
+           fixing only the shader/upscaler cannot restore a collapsed view. */
+        const real32 oldFov = camera->fieldofview;
+        const vector oldUp = camera->upvector;
+        if (cameraEnsureRenderable(camera))
+        {
+            static unsigned int reports = 0;
+            if (reports++ < 8u)
+                HW_DIAG_FPRINTF(stderr, "[CameraRecovery] mission=%d camera=%p main=%d nisCapture=%d fov=%g up=(%g,%g,%g) restoredFov=%g restoredUp=(%g,%g,%g).\n",
+                    (int)spGetCurrentMission(), (void *)camera,
+                    camera == &universe.mainCameraCommand.actualcamera,
+                    (int)nisCaptureCamera, oldFov, oldUp.x, oldUp.y, oldUp.z,
+                    camera->fieldofview, camera->upvector.x,
+                    camera->upvector.y, camera->upvector.z);
+        }
+    }
 
     primModeClear2();                                       //go to 3D rendering mode
 
@@ -3257,10 +3310,9 @@ void rndMainViewRenderFunction(Camera *camera)
         primErrorMessagePrint();
         if (singlePlayerGame && spGetCurrentMission() == MISSION_13_THE_KAROS_GRAVEYARD)
         {
-            // third arg = draw stars => don't draw stars at Karos graveyard since the large
-            // hulks would obscure them but if we're not drawing backgrounds for performance
-            // reasons anyway, then draw stars to provide player with orientation reference
-            rndBackgroundRender(BG_RADIUS, camera, !showBackgrounds);
+            // The Karos hulks obscure the separate orientation stars. Its
+            // authored mission background still renders normally.
+            rndBackgroundRender(BG_RADIUS, camera, FALSE);
         }
         else
         {
@@ -3302,6 +3354,11 @@ void rndMainViewRenderFunction(Camera *camera)
             camera->eyeposition.x + scaledOffset[2],
             camera->eyeposition.y + scaledOffset[0],
             camera->eyeposition.z + scaledOffset[1]};
+        const real32 shaftFocus[3] = {
+            camera->lookatpoint.x + scaledOffset[2],
+            camera->lookatpoint.y + scaledOffset[0],
+            camera->lookatpoint.z + scaledOffset[1]};
+        hwModernGraphicsSetGodRayFocus(shaftFocus);
         GLint dustViewport[4];
         GLfloat dustUv00Point[3], dustUv10Point[3], dustUv01Point[3];
         real32 dustRayUv00[3], dustRayUv10[3], dustRayUv01[3];
@@ -3402,6 +3459,8 @@ void rndMainViewRenderFunction(Camera *camera)
     hwModernGraphicsBeginRaytracingScene(
         camera->fieldofview, rndAspectRatio,
         (const float *)(&rndCameraMatrix));
+    /* Classify asteroid shafts against this frame's resource cloud bounds. */
+    modernHarvestableDustUpdate();
 #endif
 
 #if PIE_MOVE_NEARTO
@@ -3425,9 +3484,11 @@ void rndMainViewRenderFunction(Camera *camera)
         switch (spaceobj->objtype)
         {
             case OBJ_BulletType:                            //type bullet
+                if(rmPresentationOwnsProjectileFx(spaceobj))break;
 #ifdef HW_ENABLE_D3D12_BACKEND
                 rndSubmitModernBulletLight((Bullet *)spaceobj);
 #endif
+                if (rmWeaponFxDrawBullet((Bullet *)spaceobj,camera)) break;
                 if (((Bullet *)spaceobj)->effect == NULL)
                 {                                           //if there is no effect for this bullet
                     rndLightingEnable(FALSE);               //draw default line
@@ -3452,10 +3513,15 @@ dontdraw:
             case OBJ_EffectType: { // if type effect
                 Effect* effect = (Effect*)spaceobj;
                 if (onRenderEffect(effect) == Draw) {
-                    etgEffectDraw(effect);
+                    if(!etgDrawRemasteredEffect(effect,camera))etgEffectDraw(effect);
                 }
             } break;
             case OBJ_ShipType:
+                if(shipPilotCockpit() && shipPilotOwns((Ship *)spaceobj)) break;
+                /* A containing hull is invisible. Skip before pose, mesh,
+                   ray tracing submission, nav lights and trails; the former
+                   two-sided wireframe path was expensive at close range. */
+                if (rndCameraInside(spaceobj, camera)) break;
 #ifdef HW_MODERN_DISABLE_NLIPS
                 /* Keep one true world-space scale even when a ship is hidden,
                    culled, or represented by a non-mesh legacy LOD. */
@@ -3613,12 +3679,6 @@ dontdraw:
                                     {
                                         meshRenders++;
 
-                                        if (rndInsideShip(spaceobj, camera))
-                                        {
-                                            g_WireframeHack = TRUE;
-                                            g_HiddenRemoval = FALSE;
-                                        }
-
                                         if (ssinfo != NULL &&
                                             ssinfo->hsState != HS_INACTIVE &&
                                             ssinfo->hsState != HS_FINISHED)
@@ -3662,6 +3722,11 @@ dontdraw:
                                             extern bool32 g_Points;
                                             extern bool32 g_SpecificPoly;
 #endif
+                                            meshSetEngineMaterialOwner(spaceobj);
+                                            meshPrepareRemasteredShipPose(spaceobj,
+                                                ((Ship *)spaceobj)->bindings,
+                                                ((Ship *)spaceobj)->currentLOD,
+                                                (meshdata *)level->pData);
                                             if (((Ship *)spaceobj)->bindings != NULL)
                                             {
                                                 meshRenderShipHierarchy(((Ship *)spaceobj)->bindings,
@@ -3706,6 +3771,7 @@ dontdraw:
                                                 }
 #endif
                                             }
+                                            meshSetEngineMaterialOwner(NULL);
                                             spaceobj->renderedLODs |= (1 << spaceobj->currentLOD);
 
                                             //navlights
@@ -3758,6 +3824,7 @@ dontdraw:
                                         shadowSsinfo->hsState != HS_FINISHED ||
                                         singlePlayerGameInfo.hyperspaceFails)
                                     {
+                                        meshSetEngineMaterialOwner(shadowShip);
                                         if (shadowShip->bindings != NULL)
                                         {
                                             meshSubmitRaytracingShadowShipHierarchy(
@@ -3770,6 +3837,7 @@ dontdraw:
                                             meshSubmitRaytracingShadow(
                                                 (meshdata *)level->pData, i);
                                         }
+                                        meshSetEngineMaterialOwner(NULL);
                                     }
                                 }
 #endif
@@ -3916,6 +3984,7 @@ dontdraw:
 #endif
 #endif
 
+                    if(spaceobj->objtype==OBJ_DustType && rmFxDrawResourceDust((DustCloud *)spaceobj,camera)) break;
                     glPushMatrix();
                     level = lodLevelGet((void *)spaceobj, &camera->eyeposition, &((SpaceObjRotImp *)spaceobj)->collInfo.collPosition);
 
@@ -3958,6 +4027,8 @@ dontdraw:
                             {
                             case OBJ_GasType:
                             case OBJ_DustType:
+                                if (spaceobj->objtype == OBJ_DustType &&
+                                    modernHarvestableDustActiveFor(((DustCloud *)spaceobj)->resourceID.resourceNumber)) break;
                                 rndFade(spaceobj, camera);
                                 meshRenders++;
                                 cloudRenderSystem((void*)level->pData, ((DustCloud*)spaceobj)->stub, spaceobj->currentLOD);
@@ -3988,9 +4059,20 @@ renderDefault:
                                     }
                                     else
                                     {
+                                        if (spaceobj->objtype == OBJ_AsteroidType)
+                                            meshSetAsteroidMotionOwner(spaceobj);
+                                        else if (spaceobj->objtype == OBJ_DerelictType)
+                                            meshSetDerelictMotionOwner(spaceobj);
                                         meshRender((meshdata *)level->pData,colorScheme);
+                                        if (spaceobj->objtype == OBJ_AsteroidType || spaceobj->objtype == OBJ_DerelictType)
+                                            meshSetEngineMaterialOwner(NULL);
                                     }
-                                    spaceobj->renderedLODs |= (1 << spaceobj->currentLOD);
+                                    // Derelict discovery must retain its authored
+                                    // distance limit even when visuals force LOD0.
+                                    spaceobj->renderedLODs |= (1 <<
+                                        (spaceobj->objtype == OBJ_DerelictType
+                                            ? lodDiscoveryLevelGet(spaceobj)
+                                            : spaceobj->currentLOD));
                                     rndGLStateLog("After Derelict");
                                     //navlights
                                     if (spaceobj->objtype == OBJ_DerelictType && !bitTest(spaceobj->flags, SOF_Cloaked))
@@ -4076,7 +4158,7 @@ renderDefault:
                                     if (!loggedModernAsteroidFailure)
                                     {
                                         loggedModernAsteroidFailure = TRUE;
-                                        fprintf(stderr,
+                                        HW_DIAG_FPRINTF(stderr,
                                             "[ModernAsteroid] Harvestable sub-pixel mesh render failed; "
                                             "legacy point fallback intentionally suppressed.\n");
                                     }
@@ -4115,8 +4197,16 @@ renderDefault:
                         if (mis->trail != NULL)
                         {
                             playerIndex = (sdword)mis->playerowner->playerIndex;
-                            mistrailDraw(&mis->enginePosition, mis->trail,
-                                         spaceobj->currentLOD, mis->colorScheme);
+                            vector rmSegments[40];sdword count=0,index=mis->trail->iHead<=0?mis->trail->staticInfo->nSegments-1:mis->trail->iHead-1;
+                            rmSegments[count++]=mis->enginePosition;
+                            while(count<40 && count<mis->trail->nLength) {
+                                rmSegments[count++]=mis->trail->segments[index].position;
+                                index=index<=1?mis->trail->staticInfo->nSegments-1:index-1;
+                                if(index==mis->trail->iHead)break;
+                            }
+                            if(!rmFxDrawMissileTrail(mis,rmSegments,count,camera))
+                                mistrailDraw(&mis->enginePosition, mis->trail,
+                                             spaceobj->currentLOD, mis->colorScheme);
                         }
                     }
                 }
@@ -4180,21 +4270,20 @@ renderDefault:
     alodAdjustScaleFactor();
 
     nebRender();
+    modernHarvestableDustUpdate();
+    rmWeaponFxDrawTransient(camera);
 
+#ifdef HW_ENABLE_D3D12_BACKEND
+    /* Finish the world BEFORE tactical move UI: it is an overlay, not fogged,
+       upscaled or ray-lit scene geometry. */
+    hwModernGraphicsEndRaytracingScene();
+    hwModernGraphicsCaptureOpenGLWorld();
+#endif
     if (rndPostObjectCallback != NULL)
-    {                                                       //render the post-object callback if needed
+    {
         rndPostObjectCallback();
         rndPostObjectCallback = NULL;
     }
-#ifdef HW_ENABLE_D3D12_BACKEND
-    /* Debug overlays and selection helpers are not world geometry and must
-       never enter the acceleration structures. */
-    hwModernGraphicsEndRaytracingScene();
-    /* Preserve the completed 3D world before debug regions, taskbar and all
-       other UI render callbacks alter the back buffer. The D3D12 presenter
-       uses this image solely as a per-pixel UI exclusion mask. */
-    hwModernGraphicsCaptureOpenGLWorld();
-#endif
     rndPostRenderDebug3DStuff(camera);
     primModeSet2();
     rndPostRenderDebug2DStuff(camera);
@@ -4857,7 +4946,7 @@ DEFINE_TASK(rndRenderTask)
 
 
         /* need to update audio event layer */
-        soundEventUpdate();
+        soundEventUpdateBegin();
 
         //draw the subtitle text.  It's done here because it has to draw over everything
         for (index = 0; index < SUB_NumberRegions; index++)
@@ -4906,7 +4995,7 @@ DEFINE_TASK(rndRenderTask)
 
             // Take a screenshot every 112 universe ticks
             if (universe.univUpdateCounter >= screenshotTimer) {
-                printf("debugScreenshots univUpdateCounter: %d\n", universe.univUpdateCounter);
+                HW_DIAG_PRINTF("debugScreenshots univUpdateCounter: %d\n", universe.univUpdateCounter);
                 screenshotTimer += 112 * UNIVERSE_UPDATE_RATE_FACTOR;
                 sprintf(screenshotName, "golden-%02d-%05d.jpg", spGetCurrentMission(),
                         universe.univUpdateCounter / UNIVERSE_UPDATE_RATE_FACTOR);
@@ -4916,7 +5005,7 @@ DEFINE_TASK(rndRenderTask)
             // We can't hyperspace early while a NIS is playing - abort any playing NIS
             if (universe.univUpdateCounter > 800 * UNIVERSE_UPDATE_RATE_FACTOR) {
                 if (thisNisPlaying) {
-                    printf("debugScreenshots nisGoToEnd()\n");
+                    HW_DIAG_PRINTF("debugScreenshots nisGoToEnd()\n");
                     nisGoToEnd(thisNisPlaying);
                 }
             }
@@ -4930,7 +5019,7 @@ DEFINE_TASK(rndRenderTask)
 
                 // Engage docking and hyperspace routine to jump to next mission
                 if (singlePlayerGameInfo.hyperspaceState == NO_HYPERSPACE) {
-                    printf("debugScreenshots singlePlayerNextLevel()\n");
+                    HW_DIAG_PRINTF("debugScreenshots singlePlayerNextLevel()\n");
                     hyperspaceOverride = TRUE;
                     singlePlayerNextLevel();
                 }
@@ -4941,7 +5030,7 @@ DEFINE_TASK(rndRenderTask)
             if (universe.univUpdateCounter > 832 * UNIVERSE_UPDATE_RATE_FACTOR) {
                 if ((universe.univUpdateCounter % (16 * UNIVERSE_UPDATE_RATE_FACTOR) == 0) &&
                     (singlePlayerGameInfo.hyperspaceState == HYPERSPACE_WAITINGROLLCALL)) {
-                    printf("debugScreenshots keyPressDown()\n");
+                    HW_DIAG_PRINTF("debugScreenshots keyPressDown()\n");
                     keyPressDown(SDL_SCANCODE_SPACE);
                 }
             }
@@ -4990,6 +5079,7 @@ DEFINE_TASK(rndRenderTask)
             primRectSolid2(&r, rndFillColour);
             rndFillCounter--;
         }
+        modernUIDrawFPS();
         //demo-specific update code
         if (demDemoPlaying && gameIsRunning)
         {                                                   //if a demo is playing and we're in the actual game
@@ -5019,11 +5109,13 @@ afterTheSwap:
 
 #ifdef HW_ENABLE_D3D12_BACKEND
         hwModernGraphicsEndFrame();
+
 #endif
 
 #if RND_GL_STATE_DEBUG
         rndGLStateSaving = FALSE;                           //done saving the file for now
 #endif //RND_GL_STATE_DEBUG
+        soundEventUpdateEnd(); /* Release borrowed ships/camera before simulation resumes. */
         tutPointersDrawnThisFrame = FALSE;
         taskYield(0);                                       //hold off to next frame
     }
@@ -5090,6 +5182,15 @@ void rndBackFaceCullEnable(sdword bEnable)
 sdword rndTextureEnable(sdword bEnable)
 {
     sdword enabled = rndTextureEnabled;
+#ifdef HW_ENABLE_D3D12_BACKEND
+    /* UI/editor draws change GL_TEXTURE_2D directly. The legacy cache is
+       not authoritative after those draws: an untextured/invalid material
+       must not sample the last UI logo, and a textured one must re-enable. */
+    if (bEnable) glEnable(GL_TEXTURE_2D);
+    else glDisable(GL_TEXTURE_2D);
+    rndTextureEnabled = bEnable ? TRUE : FALSE;
+    return enabled;
+#endif
     if (bEnable)
     {
         if (!rndTextureEnabled)
@@ -5666,5 +5767,15 @@ void rndFlush(void)
     }
 #endif
     SDL_GL_SwapWindow(sdlwindow);
+#ifdef _WIN32
+    if (hwWindowsSplashIsActive() && hwWindowsSplashTaskIsRunning("main.firstframe"))
+    {
+#define HW_STARTUP_TASK(id,label) if (strncmp(id,"renderer.",9)==0) hwWindowsSplashTaskSkip(id,"Using the OpenGL renderer");
+#include "WindowsStartupTasks.inc"
+#undef HW_STARTUP_TASK
+        hwWindowsSplashTaskComplete("main.firstframe", "First main menu frame presented / ready");
+        hwWindowsSplashFinish();
+    }
+#endif
 #endif
 }

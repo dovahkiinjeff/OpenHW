@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 #include "SinglePlayer.h"
 
 #include <ctype.h>
@@ -25,6 +26,7 @@
 #include "File.h"
 #include "font.h"
 #include "GravWellGenerator.h"
+#include "Globals.h"
 #include "HorseRace.h"
 #include "HS.h"
 #include "InfoOverlay.h"
@@ -390,6 +392,68 @@ MissionEnum spGetCurrentMission(void)
     return singlePlayerGameInfo.currentMission;
 }
 
+bool32 spMission6SkipAvailable(void)
+{
+    return gameIsRunning && singlePlayerGame &&
+        spGetCurrentMission() == MISSION_6_DIAMOND_SHOALS &&
+        singlePlayerGameInfo.hyperspaceState == NO_HYPERSPACE &&
+        !aivarValueGet(aivarFind("M06AsteroidSkipUsed")) &&
+        !aivarValueGet(aivarFind("PlayerHasClearedField"));
+}
+
+bool32 spSkipMission6Asteroids(void)
+{
+    Node *node;
+    AIVar *used, *cleared;
+    sdword removed = 0;
+    if (!spMission6SkipAvailable() || nisIsRunning || universePause) return FALSE;
+    used = aivarFind("M06AsteroidSkipUsed");
+    if (!used) used = aivarCreate("M06AsteroidSkipUsed");
+    aivarValueSet(used, TRUE); /* Saved KAS state prevents repeated RU grants. */
+
+    for (node = universe.ResourceVolumeList.head; node; node = node->next)
+    {
+        ResourceVolume *volume = (ResourceVolume *)listGetStructOfNode(node);
+        if (volume->resourceObjType == OBJ_AsteroidType) volume->number = 0;
+    }
+    for (node = universe.ResourceList.head; node; node = node->next)
+    {
+        Resource *resource = (Resource *)listGetStructOfNode(node);
+        if (resource->objtype != OBJ_AsteroidType) continue;
+        /* Normal deferred deletion cleans selections, harvest orders and
+           targets. Zero value prevents BreakAsteroidUp creating new fragments,
+           including asteroids already queued for deletion this frame. */
+        resource->resourcevalue = 0;
+        if (!bitTest(resource->flags, SOF_Dead))
+        {
+            AddResourceToDeleteResourceList(resource);
+            ++removed;
+        }
+    }
+    /* Asteroid0 decoration lives outside ResourceList; "entirely" includes
+       those tiny rocks too. The same deletion routine handles its minor list. */
+    for (node = universe.MinorSpaceObjList.head; node; node = node->next)
+    {
+        Resource *resource = (Resource *)listGetStructOfNode(node);
+        if (resource->objtype != OBJ_AsteroidType) continue;
+        resource->resourcevalue = 0;
+        if (!bitTest(resource->flags, SOF_Dead))
+        {
+            AddResourceToDeleteResourceList(resource);
+            ++removed;
+        }
+    }
+    universe.players[0].resourceUnits += 5000; /* Exact grant, no harvest multiplier. */
+    cleared = aivarFind("PlayerHasClearedField");
+    if (!cleared) cleared = aivarCreate("PlayerHasClearedField");
+    aivarValueSet(cleared, TRUE);
+    /* Mission06 WATCH sees the same completion flag as its asteroid timer.
+       It owns the cleared-field speech, Bentusi NIS/trade and hyperspace
+       unlock. Never force mission completion or create a second trader team. */
+    HW_DIAG_FPRINTF(stderr, "[Mission6Skip] Queued %d asteroids for removal, granted 5000 RU; normal Bentusi sequence enabled.\n", removed);
+    return TRUE;
+}
+
 MissionEnum spGetNextMission(void)
 {
     return spGetAdjacentMission(+1);
@@ -710,6 +774,9 @@ void spAbortHyperspaceCB(char *string, featom *atom)
 
 void spGoNowHyperspaceCB(char *string, featom *atom)
 {
+    HW_DIAG_FPRINTF(stderr, "[Mission7Hyperspace] Quick Dock clicked: mission=%d state=%d time=%.2f\n",
+            singlePlayerGameInfo.currentMission, singlePlayerGameInfo.hyperspaceState,
+            universe.totaltimeelapsed);
     if (singlePlayerGameInfo.hyperspaceState == HYPERSPACE_WAITINGROLLCALL)
     {
         SelectCommand *selectAll;
@@ -732,7 +799,7 @@ void spGoNowHyperspaceCB(char *string, featom *atom)
         for (i=0;i<selectAll->numShips;i++)
         {
             ship = selectAll->ShipPtr[i];
-            if (ship->shiptype != Mothership)
+            if (ship != mothership)
             {
                 SelectCommand selectone;
 //                if (!(ship->specialFlags & SPECIAL_SinglePlayerWithinHyperSpaceRange))
@@ -762,6 +829,8 @@ void spGoNowHyperspaceCB(char *string, featom *atom)
         memFree(selectAll);
         militaryGroup = GetMilitaryGroupAroundShip(&universe.mainCommandLayer,universe.curPlayerPtr->PlayerMothership);
         if (militaryGroup) setMilitaryParade(militaryGroup);
+
+        HW_DIAG_FPRINTF(stderr, "[Mission7Hyperspace] Quick Dock completed; awaiting roll call/orientation.\n");
 
         feScreenDelete(spHyperspaceRollCallScreen);
         spHyperspaceRollCallScreen = NULL;
@@ -821,7 +890,7 @@ void CalculateRollCall(void)
             {
                 singlePlayerGameInfo.rollcallShipsRemaining++;
             }
-            else if (ship->shiptype != Mothership)  // non-mothership hyperspacecapable ships must get in range
+            else if (ship != universe.curPlayerPtr->PlayerMothership)  // captured motherships must also get in range
             {
                 // is ship in range?
                 if (ship->specialFlags & SPECIAL_SinglePlayerWithinHyperSpaceRange)
@@ -926,7 +995,7 @@ void TellHyperspacingShipsToReady(void)
     for (i=0;i<selectAll->numShips;i++)
     {
         ship = selectAll->ShipPtr[i];
-        if (ship->shiptype == Mothership)
+        if (ship == universe.curPlayerPtr->PlayerMothership)
         {
             bitSet(ship->specialFlags,SPECIAL_SinglePlayerWithinHyperSpaceRange);
         }
@@ -1358,6 +1427,32 @@ bool32 UpdateHyperspacingShips(void)
     return shipsAllHyperspacedAway;
 }
 
+// Roll call owns the fleet's orders, including ships still docking. Damage and
+// enemy AI remain active; the guard ends automatically on failure or cancellation.
+bool32 singlePlayerHyperspaceSuppressesAutoCombat(Ship *ship)
+{
+    sdword state = singlePlayerGameInfo.hyperspaceState;
+    return singlePlayerGame && ship != NULL &&
+           ship->playerowner == universe.curPlayerPtr &&
+           (state == HYPERSPACE_WAITINGROLLCALL ||
+            state == HYPERSPACE_WAITINGFORFLEETCOMMAND ||
+            state == HYPERSPACE_SHIPSLEAVING);
+}
+
+// Parade slots can face sideways/backwards. Once in jump range, only the
+// hyperspace controller may steer, or the parade undoes its heading each frame.
+bool32 singlePlayerHyperspaceOwnsSteering(Ship *ship)
+{
+    sdword state = singlePlayerGameInfo.hyperspaceState;
+    return singlePlayerGame &&
+           (state == HYPERSPACE_WAITINGROLLCALL ||
+            state == HYPERSPACE_WAITINGFORFLEETCOMMAND ||
+            (state == HYPERSPACE_SHIPSLEAVING &&
+             singlePlayerGameInfo.hyperspaceSubState == FOCUSING_ON_MOTHERSHIP)) &&
+           allianceIsShipAlly(ship, universe.curPlayerPtr) &&
+           !(ship->flags & SOF_Disabled) && ShipCanMakeHyperspace(ship);
+}
+
 bool32 OrientHyperspacingShips(void)
 {
     Node *objnode;
@@ -1384,7 +1479,7 @@ bool32 OrientHyperspacingShips(void)
                 ship->autostabilizeship = FALSE;        // ship is doing something, don't want to autostabilize
                 ship->shipidle = FALSE;
 
-                if (ship->shiptype != Mothership)
+                if (ship != mothership)
                 {
                     if (ship->specialFlags & SPECIAL_SinglePlayerWithinHyperSpaceRange)
                     {
@@ -2195,6 +2290,8 @@ void singlePlayerSetMissionAttributes(char *directory,char *filename)
 
 void singlePlayerLevelLoaded(void)
 {
+    HorseRaceLoadingTask("Applying persistent fleet formations");
+    paradeCampaignLoaded();
     // need to fix up the mission sequence index to match the currentMission
     singlePlayerCurrentMissionIndex
         = convertMissionToSequenceIndex(spGetCurrentMission());
@@ -2423,6 +2520,69 @@ void UpdateMidLevelHyperspacingShips(void)
     }
 }
 
+// Mission 7's Events FSM can leave Engage when an objective briefing is replayed.
+// Deliver the mandatory failed-jump transition independently of that state and
+// of Tutor's small, transient UI-message queue. AIVars already persist in saves;
+// do not change the mission function table or any serialized structure layout.
+bool32 singlePlayerMissionEventsUpdate(struct AITeam *team)
+{
+    AIVar *pending;
+    AIVar *handled;
+    Objective *hyperspace;
+    Objective *defend;
+
+    if (!singlePlayerGame ||
+        singlePlayerGameInfo.currentMission != MISSION_7_THE_GARDENS_OF_KADESH ||
+        strcmp(team->kasFSMName, "Events") != 0)
+    {
+        return FALSE;
+    }
+
+    pending = aivarFind("M07HyperspaceFailurePending");
+    handled = aivarFind("M07HyperspaceFailureHandled");
+
+    // Recover old saves made after the failed jump but before its briefing.
+    // ContinueProtecting removes Hyperspace and recreates DefendFleet incomplete;
+    // the later successful-exit states must never replay this first failure.
+    hyperspace = objectiveFind("Hyperspace");
+    defend = objectiveFind("DefendFleet");
+    if (!pending && !handled && hyperspace && defend && defend->status &&
+        singlePlayerGameInfo.hyperspaceState == NO_HYPERSPACE &&
+        singlePlayerGameInfo.hyperspaceSubState == LOCKED_FOCUS_FOR_HOP &&
+        singlePlayerGameInfo.hyperspaceTimeStamp > 0.0f &&
+        !singlePlayerGameInfo.hyperspaceFails &&
+        !singlePlayerGameInfo.playerCanHyperspace &&
+        (strcmp(team->kasStateName, "Engage") == 0 ||
+         strcmp(team->kasStateName, "NullState") == 0))
+    {
+        pending = aivarCreate("M07HyperspaceFailurePending");
+        aivarValueSet(pending, TRUE);
+    }
+
+    if (!pending || !aivarValueGet(pending))
+    {
+        return FALSE;
+    }
+    if (!handled || !aivarValueGet(handled))
+    {
+        if (!handled)
+        {
+            handled = aivarCreate("M07HyperspaceFailureHandled");
+        }
+        aivarValueSet(handled, TRUE);
+        kasJump("HyperdriveFail", Init_Mission07_Events_HyperdriveFail,
+                Watch_Mission07_Events_HyperdriveFail);
+        return TRUE;
+    }
+    if (strcmp(team->kasStateName, "ContinueProtecting") == 0)
+    {
+        aivarValueSet(pending, FALSE);
+    }
+    // While the failure dialogue plays, don't let objective-click briefings
+    // replace it. The normal state watcher still runs and resumes the mission.
+    return TRUE;
+}
+
 void singlePlayerGameUpdate(void)
 {
     AIVar *tgui;
@@ -2430,6 +2590,89 @@ void singlePlayerGameUpdate(void)
     AIVar *nisletVariable = aivarFindAnyFSM("PlayNislet");
     sdword value;
     static real32 hyperspaceStartTime;
+    static sdword mission7LoggedState = -1;
+    static real32 mission7NextLogTime = 0.0f;
+
+    if (singlePlayerGameInfo.currentMission == MISSION_7_THE_GARDENS_OF_KADESH ||
+        singlePlayerGameInfo.hyperspaceState != NO_HYPERSPACE)
+    {
+        if (mission7LoggedState != singlePlayerGameInfo.hyperspaceState ||
+            universe.totaltimeelapsed >= mission7NextLogTime)
+        {
+            AIPlayer *missionAI = universe.players[1].aiPlayer;
+            Node *node;
+            sdword i;
+            sdword reported = 0;
+            HW_DIAG_FPRINTF(stderr, "[Mission7Hyperspace] time=%.2f state=%d substate=%d docked=%d remaining=%d fails=%d allowed=%d pending=%d handled=%d\n",
+                   universe.totaltimeelapsed, singlePlayerGameInfo.hyperspaceState,
+                   singlePlayerGameInfo.hyperspaceSubState,
+                   singlePlayerGameInfo.rollcallShipsDocked,
+                   singlePlayerGameInfo.rollcallShipsRemaining,
+                   singlePlayerGameInfo.hyperspaceFails,
+                   singlePlayerGameInfo.playerCanHyperspace,
+                   aivarValueGet(aivarFind("M07HyperspaceFailurePending")),
+                   aivarValueGet(aivarFind("M07HyperspaceFailureHandled")));
+            if (missionAI)
+            {
+                for (i = 0; i < missionAI->teamsUsed; i++)
+                {
+                    AITeam *team = missionAI->teams[i];
+                    if (strcmp(team->kasFSMName, "Events") == 0)
+                        HW_DIAG_FPRINTF(stderr, "[Mission7Hyperspace] Events state=%s tutorial=%d\n",
+                                team->kasStateName, tutorial);
+                }
+            }
+            if (singlePlayerGameInfo.hyperspaceState != NO_HYPERSPACE)
+            {
+                HW_DIAG_FPRINTF(stderr, "[Hyperspace] mission=%d state=%d substate=%d remaining=%d\n",
+                        singlePlayerGameInfo.currentMission, singlePlayerGameInfo.hyperspaceState,
+                        singlePlayerGameInfo.hyperspaceSubState, singlePlayerGameInfo.rollcallShipsRemaining);
+                for (node = universe.ShipList.head; node && reported < 32; node = node->next)
+                {
+                    Ship *ship = listGetStructOfNode(node);
+                    ShipSinglePlayerGameInfo *info = ship->shipSinglePlayerGameInfo;
+                    if (!allianceIsShipAlly(ship, universe.curPlayerPtr))
+                        continue;
+                    HW_DIAG_FPRINTF(stderr, "[Mission7HyperspaceShip] id=%u type=%s flags=%08x special=%08x canJump=%d phase=%d window=%u clip=%.3f delta=%.5f\n",
+                            ship->shipID.shipNumber, ShipTypeToStr(ship->shiptype),
+                            ship->flags, ship->specialFlags, ShipCanMakeHyperspace(ship) != 0,
+                            info ? info->shipHyperspaceState : -1,
+                            info ? info->hsState : 0,
+                            info ? info->clipt : 0.0f, info ? info->cliptDelta : 0.0f);
+                    reported++;
+                }
+                // The first 32 entries can miss a large fleet's lone blocker.
+                for (node = universe.ShipList.head; node; node = node->next)
+                {
+                    Ship *ship = listGetStructOfNode(node);
+                    Ship *mother = universe.curPlayerPtr->PlayerMothership;
+                    vector heading, target, up;
+                    CommandToDo *command;
+                    if (!mother || ship == mother || !allianceIsShipAlly(ship, universe.curPlayerPtr) ||
+                        (ship->flags & SOF_Disabled) || ship->shiptype == CryoTray || ship->shiptype == Probe)
+                        continue;
+                    matGetVectFromMatrixCol3(heading, ship->rotinfo.coordsys);
+                    matGetVectFromMatrixCol3(target, mother->rotinfo.coordsys);
+                    matGetVectFromMatrixCol1(up, ship->rotinfo.coordsys);
+                    if (ShipCanMakeHyperspace(ship) && vecDotProduct(heading, target) >= HYPERSPACE_HEADINGACCURACY &&
+                        (up.z >= HYPERSPACE_HEADINGACCURACY || ship->dontrotateever))
+                        continue;
+                    command = getShipAndItsCommand(&universe.mainCommandLayer, ship);
+                    HW_DIAG_FPRINTF(stderr, "[HyperspaceBlocker] id=%u type=%s race=%d capital=%d special=%08x heading=%.5f up=%.5f order=%d\n",
+                            ship->shipID.shipNumber, ShipTypeToStr(ship->shiptype), ship->shiprace,
+                            ShipCanHyperspace(ship) != 0, ship->specialFlags,
+                            vecDotProduct(heading, target), up.z, command ? command->ordertype.order : -1);
+                }
+            }
+            mission7LoggedState = singlePlayerGameInfo.hyperspaceState;
+            mission7NextLogTime = universe.totaltimeelapsed + 10.0f;
+        }
+    }
+    else
+    {
+        mission7LoggedState = -1;
+        mission7NextLogTime = 0.0f;
+    }
 
     //play an nis when the time is right
     if (nisVariable)
@@ -2470,6 +2713,8 @@ void singlePlayerGameUpdate(void)
     nisTaskPauseOrResume();
 
     UpdateMidLevelHyperspacingShips();
+
+    paradeCampaignUpdate();
 
     if (universe.curPlayerPtr->PlayerMothership == NULL)
     {
@@ -2649,17 +2894,8 @@ void singlePlayerGameUpdate(void)
 //                ccFocusOnFleetSmooth(&universe.mainCameraCommand);
                 spUnlockout();
 
-                //launch all necessary ships first
-                LaunchAllInternalShipsOfPlayerThatMustBeLaunched(universe.curPlayerPtr);
-
-                clAutoLaunch(singlePlayerGameInfo.oldAutoLaunch,universe.curPlayerIndex);
-                /*
-                if (!singlePlayerGameInfo.oldAutoLaunch)
-                {
-                    // auto launch not set to true, therefore manually launch all ships that must be:
-                    LaunchAllInternalShipsOfPlayerThatMustBeLaunched(universe.curPlayerPtr);
-                }
-                */
+                clMissionStartLaunch(universe.curPlayerPtr,
+                    singlePlayerGameInfo.oldAutoLaunch, opMissionStartLaunch);
 
                 if (singlePlayerGameInfo.onLoadPlayNIS <= 0)
                 {
@@ -2697,6 +2933,15 @@ hyperspacefailed:
                 clAutoLaunch(singlePlayerGameInfo.oldAutoLaunch,universe.curPlayerIndex);
 
                 tutGameMessage("Game_HyperspaceFailed");
+                if (singlePlayerGameInfo.currentMission == MISSION_7_THE_GARDENS_OF_KADESH)
+                {
+                    AIVar *pending = aivarFind("M07HyperspaceFailurePending");
+                    if (!pending)
+                    {
+                        pending = aivarCreate("M07HyperspaceFailurePending");
+                    }
+                    aivarValueSet(pending, TRUE);
+                }
                 singlePlayerGameInfo.hyperspaceFails = FALSE;
             }
             break;
@@ -2913,7 +3158,7 @@ static void spRepairPersistentDockingByRace(void)
         lmUpdateShipsInside();
     if (moved > 0 || stranded > 0)
     {
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
                 "[CaptureBuildAll] pre-mission race docking repair: moved=%d stranded=%d\n",
                 moved, stranded);
     }
@@ -2967,7 +3212,11 @@ void singlePlayerLoadNewLevel(void)
     universe.players[1].race = (universe.players[0].race == R1) ? R2 : R1;
     //!!! should we reset the other things like RU's and OnMissionLoad stuff?
     horseRaceInit();
+    HorseRaceLoadingPhaseBegin(HR_LOAD_PREPARE, "Scanning next mission and carried fleet");
+    HorseRaceLoadingRefresh();
     levelPreInit(spMissionsDir,spMissionsFile);                 //see what ships need to be loaded and what ships we can toss
+    if (!hrAbortLoadingGame)
+        HorseRaceLoadingPhaseComplete(HR_LOAD_PREPARE);
 
     // pause sound engine
     soundEventPause(TRUE);
@@ -2979,6 +3228,9 @@ void singlePlayerLoadNewLevel(void)
         goto abortload;
     }
 
+    HorseRaceLoadingPhaseBegin(HR_LOAD_WORLD, "Creating next mission and positioning the fleet");
+    HorseRaceLoadingRefresh();
+
     trailsRecolorize();
     mistrailsRecolorize();
 
@@ -2986,15 +3238,29 @@ void singlePlayerLoadNewLevel(void)
     levelStartNext(spMissionsDir,spMissionsFile);
     clPresetShipsToPosition(&universe.mainCommandLayer);
     singlePlayerLevelLoaded();
+    if (!hrAbortLoadingGame)
+        HorseRaceLoadingPhaseComplete(HR_LOAD_WORLD);
 
+    HorseRaceLoadingPhaseBegin(HR_LOAD_EFFECTS, "Resetting effects for the next mission");
+    HorseRaceLoadingRefresh();
     etgReloadReset();
+    if (!hrAbortLoadingGame)
+        HorseRaceLoadingPhaseComplete(HR_LOAD_EFFECTS);
 
     trRegistryRefresh();                                    //refresh registry - load in all textures
     //if (hrAbortLoadingGame) goto abortload;
+    if (!hrAbortLoadingGame)
+    {
+        HorseRaceLoadingPhaseBegin(HR_LOAD_FINALIZE, "Completing the mission loading handoff");
+        HorseRaceLoadingRefresh();
+    }
 
 abortload:
     //start the sound engine playing again
     soundEventPause(FALSE);
+
+    if (!hrAbortLoadingGame)
+        HorseRaceLoadingPhaseComplete(HR_LOAD_FINALIZE);
 
     horseRaceShutdown();
     //... end of crazy starting code from utility.c
@@ -4268,4 +4534,3 @@ void LoadSinglePlayerGame(void)
 
     LoadGrowSelectionAndFix(&singlePlayerGameInfo.ShipsToHyperspace);
 }
-

@@ -134,15 +134,18 @@ void DDDFrigateDied(Ship *ship)
                 // ship is outside, so delete it
                 deleteme->howDidIDie = ship->howDidIDie;
                 deleteme->whoKilledMe = ship->whoKilledMe;
-                univDeleteDeadShip(deleteme,EDT_AccumDamage);
+                bool32 detachedDeath = univDeleteDeadShip(deleteme,EDT_AccumDamage);
                 listRemoveNode(&deleteme->shiplink);
                 listRemoveNode(&deleteme->impactablelink);
 
 #if ETG_DISABLEABLE
-                if (!etgEffectsEnabled)
+                if (!etgEffectsEnabled || detachedDeath)
                 {
                     univWipeShipOutOfExistence(deleteme);
                 }
+#else
+                if (detachedDeath)
+                    univWipeShipOutOfExistence(deleteme);
 #endif
             }
         }

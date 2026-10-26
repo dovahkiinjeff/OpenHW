@@ -1,0 +1,78 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_kus_cruiserion_hw1_b191bcb35f
+scale 1
+hull @/Subsystems/kus_cruiserion/model.hod
+mad -
+surface 0 0 @/Subsystems/kus_cruiserion/m0
+gun 0 Hull Weapon_Turret_Ion1_Position Weapon_Turret_Ion1_Latitude Weapon_Turret_Ion1_Latitude Weapon_Turret_Ion1_Muzzle
+gun 1 Hull Weapon_Turret_Ion1Slave_Position Weapon_Turret_Ion1Slave_Latitude Weapon_Turret_Ion1Slave_Latitude Weapon_Turret_Ion1Slave_Muzzle
+
+presentation Hull component_events.owevents
+[Weapons]
+GUN 0
+//Desired Range = 6000
+//ADD this amount: 690 to compensate for centrepoint
+//ADD this amount:1058 to compensate for stopping distance
+{
+WeaponFire @/RemasteredFX/WeaponFire/kus_ionbeam.wf
+FireAnimation Weapon_Turret_Ion1
+
+Type                                GUN_NewGimble
+SoundType                           GS_LargeIonCannon
+BulletType                          BULLET_Beam
+DamageLo                            30
+DamageHi                            33
+BulletLength                        7748.0
+BulletRange                         7748.0
+BulletSpeed                         0.0
+BulletLifeTime                      2.2
+BulletMass                          0.0
+FireTime                            6.0
+TriggerHappy                        7.0
+minturnangle                       -85.0                         ; degrees
+maxturnangle                        85.0
+mindeclination                     -1.0
+maxdeclination                     13.0
+maxanglespeed                     360.0                         ; degrees/s
+maxdeclinationspeed               360.0
+angletracking                       1.5
+declinationtracking                 1.5
+BarrelLength                      82.0
+OffsetX                             0.01
+OffsetY                             -19
+}
+
+GUN 1
+//Desired Range = 6000
+//ADD this amount: 690 to compensate for centrepoint
+//ADD this amount:1058 to compensate for stopping distance
+{
+WeaponFire @/RemasteredFX/WeaponFire/kus_ionbeam.wf
+FireAnimation Weapon_Turret_Ion1
+
+Type                                GUN_NewGimble
+SoundType                           GS_LargeIonCannon
+BulletType                          BULLET_Beam
+DamageLo                            30
+DamageHi                            33
+BulletLength                        7748.0
+BulletRange                         7748.0
+BulletSpeed                         0.0
+BulletLifeTime                      2.2
+BulletMass                          0.0
+FireTime                            6.0
+TriggerHappy                        7.0
+minturnangle                      -85.0                        ; degrees
+maxturnangle                       85.0
+mindeclination                     -1.0
+maxdeclination                     13.0
+maxanglespeed                     360.0                         ; degrees/s
+maxdeclinationspeed               360.0
+angletracking                       1.5
+declinationtracking                 1.5
+BarrelLength                      82.0
+OffsetX                             0.01
+OffsetY                             19
+SlaveDriver                         0
+}
+[End]

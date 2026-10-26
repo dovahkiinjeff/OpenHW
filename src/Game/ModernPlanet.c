@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 #include "ModernPlanet.h"
 
 #include <SDL2/SDL.h>
@@ -70,7 +71,7 @@ static void *modernPlanetLoadAsset(const char *relativePath, size_t *fileSize)
     *fileSize = 0;
     if (basePath != NULL)
     {
-        snprintf(path, sizeof(path), "%s%s", basePath, relativePath);
+        snprintf(path, sizeof(path), "%sData/%s", basePath, relativePath);
         data = SDL_LoadFile(path, fileSize);
         if (data == NULL)
         {
@@ -105,7 +106,7 @@ static bool32 modernPlanetEnsureTexture(sdword variantIndex)
     fileData = modernPlanetLoadAsset(variant->assetPath, &fileSize);
     if (fileData == NULL)
     {
-        fprintf(stderr, "[ModernPlanet] %s albedo '%s' was not found; using legacy GEO.\n",
+        HW_DIAG_FPRINTF(stderr, "[ModernPlanet] %s albedo '%s' was not found; using legacy GEO.\n",
                 variant->debugName, variant->assetPath);
         return FALSE;
     }
@@ -130,7 +131,7 @@ static bool32 modernPlanetEnsureTexture(sdword variantIndex)
                  GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     if (glGenerateMipmap != NULL) glGenerateMipmap(GL_TEXTURE_2D);
     stbi_image_free(pixels);
-    fprintf(stderr, "[ModernPlanet] %s albedo loaded from %s (%dx%d).\n",
+    HW_DIAG_FPRINTF(stderr, "[ModernPlanet] %s albedo loaded from %s (%dx%d).\n",
             variant->debugName, variant->assetPath, width, height);
     return TRUE;
 }
@@ -208,7 +209,7 @@ static bool32 modernPlanetEnsureMesh(sdword variantIndex)
     }
 
     mesh->indexCount = index;
-    fprintf(stderr, "[ModernPlanet] %s mesh generated (%s).\n",
+    HW_DIAG_FPRINTF(stderr, "[ModernPlanet] %s mesh generated (%s).\n",
             modernPlanetVariants[variantIndex].debugName,
             variantIndex == 1 ? "perfect sphere / scarred albedo only" : "pristine sphere");
     return TRUE;

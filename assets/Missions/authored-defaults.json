@@ -1,0 +1,192 @@
+{
+  "schema": 1,
+  "baseline": "Effective WIP Missions 1-16, using runtime override precedence",
+  "files": [
+    {
+      "mission": 1,
+      "path": "Mission01.rtxmap",
+      "sha256": "fd46f74802f5bd567fefe69d96f230208dd9ff184406fc1e69252ff333d8fa7a",
+      "origin": "Dev/RTXExports/Maps/Mission01.rtxmap"
+    },
+    {
+      "mission": 1,
+      "path": "Mission01.rtxlight",
+      "sha256": "daef418b9213cda395b5d0cf10d647794cfef5e59b46b452e48b925ed1106d51",
+      "origin": "RTXLighting/Mission01.rtxlight"
+    },
+    {
+      "mission": 2,
+      "path": "Mission02.rtxmap",
+      "sha256": "a55df52834b17c3ced38c26ba2b51d88bac5dc6edd6dcc3dd352d6abe8217277",
+      "origin": "Dev/RTXExports/Maps/Mission02.rtxmap"
+    },
+    {
+      "mission": 2,
+      "path": "Mission02.rtxlight",
+      "sha256": "f7facc499f8a31ab6b966c21d22d8f7f259eea2ff7a84370293eca5522918ece",
+      "origin": "RTXLighting/Mission02.rtxlight"
+    },
+    {
+      "mission": 3,
+      "path": "Mission03.rtxmap",
+      "sha256": "6d85d196cfb8eb575f013fc76000ee9b3687cab38ae5402352adc970e82f8954",
+      "origin": "Dev/RTXExports/Maps/Mission03.rtxmap"
+    },
+    {
+      "mission": 3,
+      "path": "Mission03.rtxlight",
+      "sha256": "fec28628c3d32c6ef56f23cc8d650f4cc39c3c46c7ab9edde1ab0d5fa66e9342",
+      "origin": "RTXLighting/Mission03.rtxlight"
+    },
+    {
+      "mission": 4,
+      "path": "Mission04.rtxmap",
+      "sha256": "6cdad3f06a08b24e3b9454bc737a0b13e63669b2936a8f901c1e09d3ea73d9c6",
+      "origin": "Dev/RTXExports/Maps/Mission04.rtxmap"
+    },
+    {
+      "mission": 4,
+      "path": "Mission04.rtxlight",
+      "sha256": "ed2cc63ec680a976697974c2c9638360b20a76c57c71d47914579720315c69dc",
+      "origin": "RTXLighting/Mission04.rtxlight"
+    },
+    {
+      "mission": 5,
+      "path": "Mission05.rtxmap",
+      "sha256": "994f2760bf5ad43f7408103b790096fc5f6a8e8329b1493a54e0480c6cf05d0c",
+      "origin": "Dev/RTXExports/Maps/Mission05.rtxmap"
+    },
+    {
+      "mission": 5,
+      "path": "Mission05.rtxlight",
+      "sha256": "6772a025b1cbef799a46124edcb5ed571141823df5c3b4edf900fa4d38a38f78",
+      "origin": "RTXLighting/Mission05.rtxlight"
+    },
+    {
+      "mission": 6,
+      "path": "Mission06.rtxmap",
+      "sha256": "5acc23e9c64a0295b723212a078714b17a41dd1a5ca8a6e546af86d2f05612d6",
+      "origin": "Dev/RTXExports/Maps/Mission06.rtxmap"
+    },
+    {
+      "mission": 6,
+      "path": "Mission06.rtxlight",
+      "sha256": "49af85a0c2a006d0ec01ee106acc784fbecc8104473a7b919b5083e868cfb152",
+      "origin": "RTXLighting/Mission06.rtxlight"
+    },
+    {
+      "mission": 7,
+      "path": "Mission07.rtxmap",
+      "sha256": "5617c691ecb71f60239bcc87b642660262eb199a9daced229d4ffe9b844b8847",
+      "origin": "Dev/RTXExports/Maps/Mission07.rtxmap"
+    },
+    {
+      "mission": 7,
+      "path": "Mission07.rtxlight",
+      "sha256": "9919aeb8aaaea9a2b401643e2a8f45fe005a7226441a0a6ba59638b8f1b7f549",
+      "origin": "RTXLighting/Mission07.rtxlight"
+    },
+    {
+      "mission": 8,
+      "path": "Mission08.rtxmap",
+      "sha256": "33a51fa5ee1840bfccf829bf8e86a860638e9efb6f70585e09e426150b15f749",
+      "origin": "Dev/RTXExports/Maps/Mission08.rtxmap"
+    },
+    {
+      "mission": 8,
+      "path": "Mission08.rtxlight",
+      "sha256": "c8b7b0119b626387359f8736b864b683254327ee89bee9e835afe29615f9de02",
+      "origin": "RTXLighting/Mission08.rtxlight"
+    },
+    {
+      "mission": 9,
+      "path": "Mission09.rtxmap",
+      "sha256": "c8fb3087936abfdaec8a18078a46e522251c6b25d15097bc631d6a496da0b28d",
+      "origin": "Dev/RTXExports/Maps/Mission09.rtxmap"
+    },
+    {
+      "mission": 9,
+      "path": "Mission09.rtxlight",
+      "sha256": "96825e46381ccdae0d8936759740d89ae2ba9b16ac3dff5e27db967966123964",
+      "origin": "RTXLighting/Mission09.rtxlight"
+    },
+    {
+      "mission": 10,
+      "path": "Mission10.rtxmap",
+      "sha256": "50189f75e761611f425c747dded09a0867303bcfc672701e416672a8369db6eb",
+      "origin": "Dev/RTXExports/Maps/Mission10.rtxmap"
+    },
+    {
+      "mission": 10,
+      "path": "Mission10.rtxlight",
+      "sha256": "b026a59504cf57e9ef71cfa4b52c919a1e653d797075bf46af6f0a9f7200753f",
+      "origin": "RTXLighting/Mission10.rtxlight"
+    },
+    {
+      "mission": 11,
+      "path": "Mission11.rtxmap",
+      "sha256": "9304ede17bf691632225d7be3245da25859d0f74f09bc3a468448192c7f4b193",
+      "origin": "Dev/RTXExports/Maps/Mission11.rtxmap"
+    },
+    {
+      "mission": 11,
+      "path": "Mission11.rtxlight",
+      "sha256": "ed8855572f945aedd172fca0019a1a8fe1751ffc80ed2f9bca124be5fc45c3cf",
+      "origin": "RTXLighting/Mission11.rtxlight"
+    },
+    {
+      "mission": 12,
+      "path": "Mission12.rtxmap",
+      "sha256": "5b433e773815dd5d5e1de8aa88d55394081f1f79da3e791a80e5fef32fa6ffcd",
+      "origin": "Dev/RTXExports/Maps/Mission12.rtxmap"
+    },
+    {
+      "mission": 12,
+      "path": "Mission12.rtxlight",
+      "sha256": "9fd4da0ca2307b700ddbf90123cddc4a17d124b8432289269d9667a76d79b663",
+      "origin": "RTXLighting/Mission12.rtxlight"
+    },
+    {
+      "mission": 13,
+      "path": "Mission13.rtxmap",
+      "sha256": "b469c20fbbbc61f58ef7ee094ef7c9a96011b6bdb4c0e408ed6c3dd23ddf3d12",
+      "origin": "Dev/RTXExports/Maps/Mission13.rtxmap"
+    },
+    {
+      "mission": 13,
+      "path": "Mission13.rtxlight",
+      "sha256": "1307278dbfccf15ff4e6f9ac55e883ef7dd9c758d02bcdd7d0f80c00d25dec91",
+      "origin": "RTXLighting/Mission13.rtxlight"
+    },
+    {
+      "mission": 14,
+      "path": "Mission14.rtxmap",
+      "sha256": "fc845a4e59cf056a107e436f1cb2e7323bb42eae0a0328797b8a6caf7596b68d",
+      "origin": "Dev/RTXExports/Maps/Mission14.rtxmap"
+    },
+    {
+      "mission": 14,
+      "path": "Mission14.rtxlight",
+      "sha256": "db3d83f23765a3c180804e03b4d26b398cffbc07b72e13c6b73092cf8f9c8f0a",
+      "origin": "RTXLighting/Mission14.rtxlight"
+    },
+    {
+      "mission": 15,
+      "path": "Mission15.rtxmap",
+      "sha256": "9b95d885fb4d22ce1582e747b5c9a60b5918d42eccf04f4c0a580a4794de3ee2",
+      "origin": "Dev/RTXExports/Maps/Mission15.rtxmap"
+    },
+    {
+      "mission": 16,
+      "path": "Mission16.rtxmap",
+      "sha256": "1b27678ee21105bfda79206d2f4960f1e8c776a89da67679c79add9f3e157876",
+      "origin": "Dev/RTXExports/Maps/Mission16.rtxmap"
+    },
+    {
+      "mission": 16,
+      "path": "Mission16.rtxlight",
+      "sha256": "36f1647dfcf4d98ccb2757f914ef8b851c9a08bf0aaf8813f923729590413e9c",
+      "origin": "RTXLighting/Mission16.rtxlight"
+    }
+  ]
+}

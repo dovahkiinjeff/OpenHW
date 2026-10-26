@@ -1,0 +1,36 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_kus_destroyergun_hw1_6904c452ab
+scale 1
+hull @/Subsystems/kus_destroyergun/model.hod
+mad -
+surface 0 0 @/Subsystems/kus_destroyergun/m0
+gun 0 Hull Weapon_Gun0_Position Weapon_Gun0_Latitude Weapon_Gun0_Latitude Weapon_Gun0_Muzzle
+
+presentation Hull component_events.owevents
+[Weapons]
+GUN 0
+{
+WeaponFire @/RemasteredFX/WeaponFire/kinetic_large.wf
+
+Type                                GUN_NewGimble                   ; type of gun - either GUN_Fixed or GUN_Gimble
+SoundType                           GS_VeryLargeEnergyCannon
+DamageLo                                100          ; damage variance per shot - low
+DamageHi                                125          ; damage variance per shot - high
+BulletLength                            20.0                ; visual only.  Length of bullet on screen
+BulletRange                           5183.0                ; distance bullets travel before disappearing
+BulletSpeed                           4300.0                ; measured in m/s.
+BulletMass                               1.8                    ; mass of bullet
+FireTime                                 2.7            ; fire repeat rate (reciprocal = shots/second)
+TriggerHappy                            10.0
+minturnangle                          -110.0                    ; degrees
+maxturnangle                           110.0
+mindeclination                         -5.0
+maxdeclination                          30.0
+maxanglespeed                          360.0                    ; degrees/s
+maxdeclinationspeed                    360.0
+angletracking                            2.3
+declinationtracking                      2.3
+BarrelLength                            26.0
+RecoilLength                            14.0
+}
+[End]

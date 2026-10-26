@@ -15,6 +15,23 @@ void dlaaSetRayReconstructionEnabled(bool enabled);
 void dlaaSetFrameGenerationEnabled(bool enabled);
 bool dlaaFrameGenerationAvailable(void);
 bool dlaaFrameGenerationActive(void);
+bool dlaaFrameGenerationFailed(void);
+bool dlaaFrameGenerationDisableFailed(void);
+const char *dlaaFrameGenerationReason(void);
+unsigned long long dlaaFrameGenerationPresentedFrames(void);
+unsigned long long dlaaFrameGenerationApplicationFrames(void);
+/* One SL frame token is shared by reconstruction, FG and its Present markers.
+   These hooks do not depend on the selected spatial/temporal upscaler. */
+void dlaaFrameGenerationBeginFrame(unsigned long long frameId);
+bool dlaaFrameGenerationPrepare(ID3D12GraphicsCommandList *commands,
+    ID3D12Resource *hudless, ID3D12Resource *depth, ID3D12Resource *motion,
+    unsigned int inputWidth, unsigned int inputHeight,
+    unsigned int outputWidth, unsigned int outputHeight,
+    float verticalFieldOfViewDegrees, float jitterX, float jitterY,
+    bool resetHistory, D3D12_RESOURCE_STATES hudlessState,
+    D3D12_RESOURCE_STATES depthState, D3D12_RESOURCE_STATES motionState);
+void dlaaFrameGenerationPresentBegin(void);
+void dlaaFrameGenerationPresentEnd(bool presentSucceeded);
 ID3D12Resource *dlaaOutputResource(void);
 bool dlaaSetDevice(ID3D12Device *device, IDXGIAdapter1 *adapter);
 void dlaaReleaseDevice(void);

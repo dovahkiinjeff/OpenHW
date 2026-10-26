@@ -8,11 +8,15 @@
 =============================================================================*/
 
 #include "ETG.h"
+#include "EffectOwner.h"
+#include "RemasteredWeaponFX.h"
+#include "RemasteredPresentation.h"
 
 #include <ctype.h>
 #include <math.h>
 #include <string.h>
 #include <stdarg.h>
+#include <stdio.h>
 
 #include "Battle.h"
 #include "BTG.h"
@@ -764,6 +768,10 @@ scriptEntry etgScriptParseTable[] =
 };
 sdword etgNumberEffectsExpected = -1;
 sdword etgNumberEffectsLoaded = 0;
+// UI-only accounting. The legacy declared effect estimate and network bar
+// remain untouched; script files give us a known, fixed denominator.
+static bool32 etgLoadingProgressActive = FALSE;
+static unsigned etgLoadingFilesCompleted = 0;
 //list of script files to load
 char *etgScriptFilename[] =
 {
@@ -978,7 +986,7 @@ void etgSoftwareEffect(char *directory,char *field,void *dataToFillIn)
 
 /*-----------------------------------------------------------------------------
     Name        : etgSetBigDeathFactor
-    Description : Set the factor at which a ship dies cataclysmically
+    Description : Set the factor at which a ship dies in a large explosion
     Inputs      : field in the format of <shipClass>, <number>
                     number is a negative, absolute number
     Outputs     :
@@ -1681,6 +1689,12 @@ void etgStartup(void)
 {
     sdword index = 0;
     sdword bigDeathInitialiser = -10;
+    char loadingTask[256];
+    const unsigned loadingScripts = sizeof(etgScriptFilename) / sizeof(etgScriptFilename[0]) - 1u;
+
+    etgLoadingProgressActive = TRUE;
+    etgLoadingFilesCompleted = 0;
+    HorseRaceLoadingProgress(0, loadingScripts, "Loading visual-effect scripts");
     
 #if ETG_VERBOSE_LEVEL >= 1
     dbgMessagef("Starting effects");
@@ -1707,8 +1721,14 @@ void etgStartup(void)
     memset(etgEventTable, 0, sizeof(etgEventTable));        //initial clear out of the event registry
     for (index = 0; etgScriptFilename[index] != NULL; index++)
     {
+        snprintf(loadingTask, sizeof(loadingTask), "Loading effect script: %.180s", etgScriptFilename[index]);
+        HorseRaceLoadingTask(loadingTask);
         scriptSet(ETG_Directory, etgScriptFilename[index], etgScriptParseTable);
+        snprintf(loadingTask, sizeof(loadingTask), "Effect script ready: %.160s (%u effect files compiled)",
+                 etgScriptFilename[index], etgLoadingFilesCompleted);
+        HorseRaceLoadingProgress((unsigned)index + 1u, loadingScripts, loadingTask);
     }
+    etgLoadingProgressActive = FALSE;
     etgNumberEffectsExpected = -1;
 //    scriptSet(ETG_Directory, ETG_Script, etgScriptParseTable);
 }
@@ -1722,6 +1742,7 @@ void etgStartup(void)
 ----------------------------------------------------------------------------*/
 void etgShutdown(void)
 {
+    rmWeaponFxShutdown();
     sdword index, j, k;
 
     //free all effect statics
@@ -1842,6 +1863,7 @@ void etgShutdown(void)
 ----------------------------------------------------------------------------*/
 void etgReloadReset(void)
 {
+    rmWeaponFxReset();
     sdword index, j;
     etgeffectstatic *newStatic;
 
@@ -1896,6 +1918,7 @@ void etgFixupUV(void)
 ----------------------------------------------------------------------------*/
 void etgReset(void)
 {
+    rmWeaponFxReset();
     sdword index, j;
     char path[PATH_MAX];
     etgeffectstatic *newStat;
@@ -2723,6 +2746,57 @@ static void etgSubmitModernLight(const Effect *effect,
     Return      :
     Note        : it is assumed that the effect's matrix has already been applied
 ----------------------------------------------------------------------------*/
+void etgSubmitEffectLighting(Effect *effect)
+{
+#ifdef HW_ENABLE_D3D12_BACKEND
+    color resolved;bool32 overridden=FALSE;
+    bool32 resource=etgModernResolveResourceColor(effect,&resolved,&overridden);
+    etgSubmitModernLight(effect,resource,resolved);
+#endif
+}
+bool32 etgDrawRemasteredEffect(Effect *effect,Camera *camera)
+{
+    if(rmFxDrawUtilityEffect(effect,camera)) {
+        Ship *ship = effectOwnerShip(effect);
+        if(!(ship && ship->shiptype==ResourceCollector &&
+             rmPresentationOwnsHarvestFx(ship)))
+            etgSubmitEffectLighting(effect);
+        return TRUE;
+    }
+#ifdef HW_ENABLE_D3D12_BACKEND
+    {
+        sdword race,cls,event,gun,kind=-1;
+        float radius=12;
+        etgeffectstatic *stat=(etgeffectstatic*)effect->staticinfo;
+        StaticInfo *ownerStatic = effectOwnerModelStatic(effect);
+        if(!stat)return FALSE;
+        if(ownerStatic)
+            radius=ownerStatic->staticheader.staticCollInfo.collspheresize;
+        for(cls=0;cls<NUM_CLASSES && kind<0;++cls)
+            for(event=0;event<DMG_NumberDamageTypes;++event)
+                if(etgModernStatInLOD(stat,etgDamageEffectTable[cls][event])) {kind=event;radius*=.15f;break;}
+        for(race=0;race<NUM_RACES && kind<0;++race)
+            for(cls=0;cls<NUM_CLASSES && kind<0;++cls)
+                for(event=0;event<EDT_NumberExplosionTypes;++event)
+                    if(etgModernStatInLOD(stat,etgDeathEventTable[race][cls][event])) {kind=4;break;}
+        for(cls=0;cls<NUM_DERELICTTYPES && kind<0;++cls)
+            for(event=0;event<EDT_NumberExplosionTypes;++event)
+                if(etgModernStatInLOD(stat,etgDeathEventTableDerelict[cls][event])) {kind=4;break;}
+        for(race=0;race<NUM_RACES && kind<0;++race)
+            for(gun=0;gun<NUM_GUN_SOUND_TYPES;++gun)
+                if(etgModernStatInLOD(stat,etgGunEventTable[race][gun][EGT_GunHit]) ||
+                   etgModernStatInLOD(stat,etgGunEventTable[race][gun][EGT_BulletDestroyed])) {kind=5;radius*=.08f;break;}
+        if(kind<0 && (etgModernNameContains(stat->name,"genericboom") || etgModernNameContains(stat->name,"defaultblast")))kind=3;
+        if(kind<0 && etgModernStatInLOD(stat,etgHyperspaceEffect))kind=6;
+        if(kind<0 && (etgModernStatInLOD(stat,etgSpecialPurposeEffectTable[EGT_BURST_HIT_EFFECT]) ||
+                     etgModernStatInLOD(stat,etgSpecialPurposeEffectTable[EGT_BURST_EXPLOSION_EFFECT])))kind=5;
+        if(kind>=0 && rmFxDrawLegacyEffect(effect,kind,fmaxf(radius,1),camera)) {
+            etgSubmitEffectLighting(effect);return TRUE;
+        }
+    }
+#endif
+    return FALSE;
+}
 void etgEffectDraw(Effect *effect)
 {
     sdword index;
@@ -2754,23 +2828,13 @@ void etgEffectDraw(Effect *effect)
         return;
     }
 #ifdef HW_ENABLE_D3D12_BACKEND
-    /* Beam/laser FX are translucent, but they are still world geometry and
-       must respect opaque ship/asteroid depth.  The legacy particle path can
-       inherit a disabled depth test from unrelated FX, which made ion beams
-       visibly draw through asteroids. */
-    if (effect->owner != NULL && effect->owner->objtype == OBJ_BulletType)
-    {
-        const Bullet *depthBullet = (const Bullet *)effect->owner;
-        if (depthBullet->bulletType == BULLET_Beam ||
-            depthBullet->bulletType == BULLET_Laser)
-        {
-            savedFxDepthTest = glIsEnabled(GL_DEPTH_TEST);
-            glGetIntegerv(GL_DEPTH_FUNC, &savedFxDepthFunc);
-            glEnable(GL_DEPTH_TEST);
-            glDepthFunc(GL_LEQUAL);
-            forceFxDepthOcclusion = TRUE;
-        }
-    }
+    /* All ETG effects are world geometry, including harvest and explosions.
+       Do not inherit disabled depth testing from an earlier overlay/effect. */
+    savedFxDepthTest = glIsEnabled(GL_DEPTH_TEST);
+    glGetIntegerv(GL_DEPTH_FUNC, &savedFxDepthFunc);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    forceFxDepthOcclusion = TRUE;
 
     /* GunFire and burst-muzzle ETG effects are the visible source flashes for
        ordinary weapons, including the ion-cannon muzzle glow.  Their modern
@@ -2885,7 +2949,13 @@ void etgEffectDraw(Effect *effect)
                 hmatrix ownerCoordMatrix;
                 matrix tempMatrix;
 
-                dbgAssertOrIgnore(effect->owner != NULL);
+                // A captured/retired/deleted parent has been detached. These
+                // particles are owner-local, so they cannot render without it;
+                // world-space particles above can still finish normally.
+                if (effect->owner == NULL)
+                {
+                    continue;
+                }
 
 #ifdef HW_MODERN_DISABLE_NLIPS
                 matCopyAndScale(&tempMatrix, &effect->owner->rotinfo.coordsys, 1.0f);
@@ -3994,6 +4064,10 @@ etgeffectstatic *etgEffectCodeLoad(char *fileName)
     etgeffectstatic *newStatic;
     ubyte tempOpcode[OPCODE_MAX];
     sdword opcodeLength, index, offset;
+    char loadingTask[256];
+
+    snprintf(loadingTask, sizeof(loadingTask), "Loading effect: %.200s", fileName);
+    HorseRaceLoadingTask(loadingTask);
 
     //allocate and initialize the new effect static structure
     //newStatic = memAlloc(sizeof(etgeffectstatic), "EffectStatic", 0);
@@ -4001,6 +4075,8 @@ etgeffectstatic *etgEffectCodeLoad(char *fileName)
     newStatic = etgEffectStaticFind(fileName, TRUE);        //see if this effect already loaded
     if (newStatic->nParticleBlocks != 0xffffffff)
     {                                                       //if effect has already been loaded properly
+        snprintf(loadingTask, sizeof(loadingTask), "Using cached effect: %.190s", fileName);
+        HorseRaceLoadingTask(loadingTask);
         return(newStatic);                                  //return because we're done
     }
     if (etgNumberEffectsExpected > 0)
@@ -4110,6 +4186,8 @@ foundThisNewEffect:;
             fileClose(etgFileHandle);                       //close the handle
             etgFileHandle = 0;
             etgErrorEncountered = FALSE;
+            snprintf(loadingTask, sizeof(loadingTask), "Effect unavailable (parse failed): %.180s", fileName);
+            HorseRaceLoadingTask(loadingTask);
             return(NULL);
         }
     }
@@ -4186,6 +4264,13 @@ foundThisNewEffect:;
     memFree(etgFileName);
     fileClose(etgFileHandle);                               //close the handle
     etgFileHandle = 0;
+    if (etgLoadingProgressActive)
+    {
+        ++etgLoadingFilesCompleted;
+        snprintf(loadingTask, sizeof(loadingTask), "%u effect files compiled; ready: %.180s",
+                 etgLoadingFilesCompleted, fileName);
+        HorseRaceLoadingTask(loadingTask);
+    }
     return(newStatic);                                      //all done
 }
 

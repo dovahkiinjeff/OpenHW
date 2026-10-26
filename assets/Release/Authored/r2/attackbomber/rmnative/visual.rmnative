@@ -1,0 +1,9 @@
+HW_RM_R2_VISUAL_1
+type Taiidan_AttackBomber
+scale 3.14742227
+hull hull.hod
+mad -
+marker engine_0 Hull EngineNozzle1
+surface 0 0 c0_m0
+surface 0 1 c0_m1
+surface 0 2 c0_m2

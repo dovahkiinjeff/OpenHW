@@ -1,4 +1,18 @@
+#include "DiagnosticPolicy.h"
 #include "ModernRaytracing.h"
+#include "DustShadowPolicy.h"
+#include "OpaqueSurfacePolicy.h"
+#include "LosslessTexelPages.h"
+#include "MaterialTextureResidency.h"
+#include "PreparedMaterialLayout.h"
+#include "GpuMemoryAllocator.h"
+#include "SamplerFeedbackTexture.h"
+#include "WindowsSplash.h"
+#include "MotionHistory.h"
+/* Query the compatibility clip plane without importing OpenGL types. */
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+extern "C" int hwglGetClipPlaneEye(float equation[4]);
+#endif
 
 #if defined(_WIN32)
 
@@ -12,14 +26,19 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <sstream>
+#include <iomanip>
 #include <unordered_map>
 #include <vector>
 
 #include <d3dcompiler.h>
 #include <dxgi1_6.h>
 #include <wrl/client.h>
+#include <DirectXTex.h>
 
 #include "ModernRaytracingShader.h"
+#include "ModernRaytracingFeedbackShader.h"
+#include "MaterialMipFeedbackShader.h"
 
 using Microsoft::WRL::ComPtr;
 
@@ -31,7 +50,7 @@ constexpr DXGI_FORMAT outputFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 constexpr DXGI_FORMAT accumulationFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 constexpr DXGI_FORMAT depthFormat = DXGI_FORMAT_R32_FLOAT;
 constexpr DXGI_FORMAT motionFormat = DXGI_FORMAT_R16G16_FLOAT;
-constexpr unsigned int maximumLights = 512;
+constexpr unsigned int maximumLights = resolvedSceneLightCapacity;
 /* Ship glow maps remain true emissive surfaces in the path shader, but using
    every emissive triangle as an independent next-event point light is
    catastrophic when the camera enters a large illuminated production bay.
@@ -50,6 +69,8 @@ constexpr unsigned int gpuLightPoint = 2;
 constexpr unsigned int gpuLightSpot = 3;
 constexpr unsigned int gpuLightLine = 4;
 constexpr unsigned int gpuSurfaceHasTexture = 0x80000000u;
+constexpr unsigned int gpuSurfaceNativeNormal = 0x40000000u;
+constexpr unsigned int gpuSurfaceRmMaterial = 0x20000000u;
 
 template<typename T>
 T alignUp(T value, T alignment)
@@ -59,12 +80,14 @@ T alignUp(T value, T alignment)
 
 void logFailure(const char *operation, HRESULT result)
 {
-    std::fprintf(stderr, "[ModernGraphics] DXR %s failed (HRESULT 0x%08lx).\n",
+    HW_DIAG_FPRINTF(stderr, "[ModernGraphics] DXR %s failed (HRESULT 0x%08lx).\n",
                  operation, static_cast<unsigned long>(result));
 }
 
 bool surfaceDiagEnabled()
 {
+#if HW_ENABLE_DIAGNOSTICS
+
     static int cached = -1;
     if (cached < 0)
     {
@@ -73,10 +96,19 @@ bool surfaceDiagEnabled()
                   std::strcmp(value, "0") != 0) ? 1 : 0;
     }
     return cached != 0;
+
+#else
+return false;
+#endif
 }
 
 struct SurfaceTextureRecord
 {
+    bool hasEmission = false;
+    bool rmMaterial = false;
+    bool nativeNormal = false;
+    unsigned int minimumAlpha = 0;
+    unsigned int textureIndex = 0;
     unsigned int offset = 0;
     unsigned int width = 0;
     unsigned int height = 0;
@@ -103,15 +135,21 @@ struct GpuTriangleSurface
     unsigned int textureWidth;
     unsigned int textureHeight;
     unsigned int flags;
+    unsigned int textureIndex;
+    unsigned int idleTextureIndex;
+    unsigned int idleTextureOffset;
+    unsigned int engineBlendEnabled;
 };
 
 static_assert(sizeof(GpuSurfaceTexel) == 16,
               "DXR surface-texel layout mismatch");
-static_assert(sizeof(GpuTriangleSurface) == 72,
+static_assert(sizeof(GpuTriangleSurface) == 88,
               "DXR triangle-surface layout mismatch");
 
 struct EmissiveLightPrototype
 {
+    float idleColor[3] = {};
+    bool engineBlendEnabled = false;
     float position[3] = {};
     float color[3] = {};
     float radius = 0.0f;
@@ -129,9 +167,11 @@ struct GeometryRecord
            derelict textures can then patch an already-cached surface variant
            instead of leaving it permanently on the flat fallback. */
         std::vector<const void *> materialIdentities;
+        std::vector<unsigned int> materialTextureIndices;
         std::vector<EmissiveLightPrototype> emissiveLights;
         ComPtr<ID3D12Resource> buffer;
         bool emissiveLightsBuilt = false;
+        bool opaqueForRays = false;
     };
 
     std::vector<float> positions;
@@ -148,9 +188,17 @@ struct GeometryRecord
 
 struct SceneInstance
 {
+    motionhistory::StableKey motionIdentity;
+    float engineBlend = 0;
+    float clipEquationEye[4] = {};
+    unsigned int clipEnabled = 0;
+    unsigned int historyIdentity = 0;
     GeometryRecord *geometry = nullptr;
     GeometryRecord::SurfaceVariant *surfaceVariant = nullptr;
     float modelView[16] = {};
+    float worldTransform[16] = {};
+    bool worldTransformValid = false;
+    bool surfaceHistoryValid = false;
     float previousModelView[16] = {};
     float baseColor[3] = { 0.6f, 0.6f, 0.6f };
     unsigned int instanceMask = 0x03u;
@@ -181,26 +229,17 @@ struct PreviousInstanceKeyHash
 struct GpuInstanceMotion
 {
     float previousRows[3][4];
+    unsigned int historyIdentity;
+    float clipEquationEye[4];
+    unsigned int flags;
+    float engineBlend;
 };
 
-static_assert(sizeof(GpuInstanceMotion) == 48,
+static_assert(sizeof(GpuInstanceMotion) == 76,
               "DXR instance-motion layout mismatch");
 
 /* This layout is shared with ModernRaytracing.hlsl. */
-struct GpuLight
-{
-    float position[3];
-    unsigned int type;
-    float direction[3];
-    float radius;
-    float color[3];
-    float intensity;
-    float endPosition[3];
-    float coneCos;
-    float edgeCos;
-    float source;
-    float padding[2];
-};
+using GpuLight = ResolvedSceneLight;
 
 static_assert(sizeof(GpuLight) == 80, "GpuLight/HLSL layout mismatch");
 
@@ -248,9 +287,11 @@ struct FrameConstants
     float previousWorldToViewRow2[4];
     unsigned int environmentIsDualParaboloid;
     unsigned int viewHistoryValid;
+    float previousTanHalfFieldOfView;
+    float previousAspectRatio;
 };
 
-static_assert(sizeof(FrameConstants) == 216,
+static_assert(sizeof(FrameConstants) == 224,
               "DXR frame constants must match the HLSL cbuffer");
 
 struct LocalRootArguments
@@ -272,6 +313,12 @@ struct ReusableUploadBuffer
 
 struct DxrFrameResources
 {
+    ReusableUploadBuffer constantsUpload;
+    // Texture-copy uploads and one-time BLAS scratch retire with this slot's fence.
+    std::vector<ComPtr<ID3D12Resource>> textureStaging;
+    std::vector<std::shared_ptr<SamplerFeedbackTexture>> streamingStaging;
+    std::vector<std::shared_ptr<SamplerFeedbackTexture>> feedbackTextures;
+    unsigned long long feedbackSerial = 0;
     ReusableUploadBuffer instanceUpload;
     ReusableUploadBuffer lightUpload;
     ReusableUploadBuffer instanceMotionUpload;
@@ -290,6 +337,7 @@ struct DxrFrameResources
 struct RaytracingState
 {
     ComPtr<ID3D12Device5> device;
+    GpuMemoryAllocator gpuMemory;
     ID3D12DescriptorHeap *descriptorHeap = nullptr;
     unsigned int descriptorSize = 0;
     unsigned int outputSrvIndex = 0;
@@ -306,10 +354,21 @@ struct RaytracingState
     ComPtr<ID3D12RootSignature> localRootSignature;
     ComPtr<ID3D12StateObject> stateObject;
     ComPtr<ID3D12StateObjectProperties> stateObjectProperties;
+    ComPtr<ID3D12StateObject> feedbackStateObject;
+    ComPtr<ID3D12StateObjectProperties> feedbackStateObjectProperties;
+    SamplerFeedbackContext samplerFeedback;
+    ComPtr<ID3D12RootSignature> materialMipRoot;
+    ComPtr<ID3D12PipelineState> materialMipPipeline;
+    ComPtr<ID3D12Resource> materialMipRequests;
+    ComPtr<ID3D12DescriptorHeap> materialMipClearHeap;
+    bool materialMipRequestsActivated = false;
 
     ComPtr<ID3D12Resource> output;
     ComPtr<ID3D12Resource> accumulation;
     ComPtr<ID3D12Resource> accumulationHistory;
+    ComPtr<ID3D12Resource> surfaceHistory;
+    ComPtr<ID3D12Resource> surfaceHistoryPrevious;
+    unsigned int nextHistoryIdentity = 1;
     ComPtr<ID3D12Resource> depth;
     ComPtr<ID3D12Resource> motion;
     ComPtr<ID3D12Resource> diffuseAlbedo;
@@ -327,11 +386,17 @@ struct RaytracingState
     std::vector<unsigned char> previousInstanceMatched;
     std::unordered_map<PreviousInstanceKey, std::vector<size_t>,
                        PreviousInstanceKeyHash> previousInstanceBuckets;
+    motionhistory::StableIndex previousInstanceIdentities;
+    motionhistory::StableIndex currentInstanceIdentities;
     bool sceneOpen = false;
     float verticalFieldOfViewDegrees = 60.0f;
     float aspectRatio = 4.0f / 3.0f;
     float viewMatrix[16] = {};
     float previousViewMatrix[16] = {};
+    float worldFromViewMatrix[16] = {};
+    float previousVerticalFieldOfViewDegrees = 60.0f;
+    float previousAspectRatio = 4.0f / 3.0f;
+    bool worldFromViewValid = false;
     bool currentViewValid = false;
     bool previousViewValid = false;
     float jitter[2] = {};
@@ -342,6 +407,19 @@ struct RaytracingState
     std::array<DxrFrameResources, dxrFrameResourceCount> frames;
     unsigned int activeFrameSlot = 0;
     ComPtr<ID3D12Resource> surfaceTexelUpload;
+    std::vector<ComPtr<ID3D12Resource>> materialTextures;
+    std::vector<std::shared_ptr<SamplerFeedbackTexture>> streamingMaterials;
+    unsigned long long feedbackCaptures = 0, feedbackTrimmedBytes = 0;
+    MaterialTextureResidency<dxrFrameResourceCount> materialResidency;
+    std::vector<unsigned int> requiredMaterialTextures;
+    bool sensorViewActive = false;
+    unsigned long long sensorReturnGraceFrame = 0;
+    ComPtr<IDXGIAdapter3> memoryBudgetAdapter;
+    unsigned long long materialFrameSerial = 0;
+    unsigned long long nextMaterialBudgetQuery = 0;
+    unsigned long long materialBudgetLimitBytes = ~0ull;
+    unsigned long long materialAdapterBudgetBytes = 0;
+    unsigned long long materialUploads = 0, materialEvictions = 0;
     std::vector<ComPtr<ID3D12Resource>> retiredSurfaceTexelUploads;
     std::vector<ComPtr<ID3D12Resource>> retiredSurfaceVariantUploads;
     std::vector<D3D12_RAYTRACING_INSTANCE_DESC> instanceDescriptions;
@@ -415,7 +493,9 @@ std::string normalizedSurfaceTextureKey(const char *textureKey)
     }
     return key;
 }
-std::vector<GpuSurfaceTexel> surfaceTexels(1);
+LosslessTexelPages<GpuSurfaceTexel> surfaceTexels(1);
+PreparedMaterialCache materialUploadCache;
+std::vector<SurfaceTextureRecord> materialRecords;
 bool surfaceTexelsDirty = true;
 
 D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptor(unsigned int index)
@@ -450,10 +530,22 @@ void refreshAccumulationUavs()
         cpuDescriptor(state.historyUavIndex));
 }
 
+void activatePooledResource(ID3D12GraphicsCommandList *commands,
+                            ID3D12Resource *resource)
+{
+    if (!gpuMemoryResourceInfo(resource).placed) return;
+    D3D12_RESOURCE_BARRIER alias = {};
+    alias.Type = D3D12_RESOURCE_BARRIER_TYPE_ALIASING;
+    alias.Aliasing.pResourceAfter = resource;
+    commands->ResourceBarrier(1, &alias);
+}
+
 bool createBuffer(unsigned long long size, D3D12_HEAP_TYPE heapType,
                   D3D12_RESOURCE_FLAGS flags,
                   D3D12_RESOURCE_STATES initialState,
-                  ComPtr<ID3D12Resource> &resource)
+                  ComPtr<ID3D12Resource> &resource,
+                  GpuMemoryInitialization initialization =
+                      GpuMemoryInitialization::PreserveZeroInitialization)
 {
     size = std::max<unsigned long long>(size, 256);
     D3D12_HEAP_PROPERTIES heap = {};
@@ -471,9 +563,11 @@ bool createBuffer(unsigned long long size, D3D12_HEAP_TYPE heapType,
     description.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     description.Flags = flags;
 
-    HRESULT result = state.device->CreateCommittedResource(
-        &heap, D3D12_HEAP_FLAG_NONE, &description, initialState, nullptr,
-        IID_PPV_ARGS(&resource));
+    HRESULT result = state.gpuMemory.active()
+        ? state.gpuMemory.createResource(heap, D3D12_HEAP_FLAG_NONE,
+            description, initialState, nullptr, resource, initialization)
+        : state.device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE,
+            &description, initialState, nullptr, IID_PPV_ARGS(&resource));
     if (FAILED(result))
     {
         logFailure("buffer allocation", result);
@@ -506,6 +600,37 @@ bool createUpload(const void *data, unsigned long long size,
         std::memcpy(mapped, data, static_cast<size_t>(size));
     }
     resource->Unmap(0, nullptr);
+    return true;
+}
+
+void transitionResource(ID3D12GraphicsCommandList *commands,
+                        ID3D12Resource *resource,
+                        D3D12_RESOURCE_STATES before,
+                        D3D12_RESOURCE_STATES after);
+
+bool createImmutableGeometryBuffer(ID3D12GraphicsCommandList *commands,
+                                   const void *data, unsigned long long size,
+                                   ComPtr<ID3D12Resource> &resource)
+{
+    ComPtr<ID3D12Resource> upload, created;
+    if (!data || !size || !createUpload(data, size, upload) ||
+        !createBuffer(size, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_NONE,
+            D3D12_RESOURCE_STATE_COPY_DEST, created,
+            GpuMemoryInitialization::FullyWrittenBeforeRead))
+        return false;
+    // Both BLAS construction and subsequent ray shaders read the same local
+    // immutable geometry. Its temporary CPU upload retires with this fence.
+    auto &staging = state.frames[state.activeFrameSlot].textureStaging;
+    // Complete fallible retention before recording references to either resource.
+    staging.push_back(upload);
+    // An index-buffer allocation can still fail later in this build. Preserve
+    // this destination too if a subsequent retry replaces the owning geometry.
+    staging.push_back(created);
+    activatePooledResource(commands, created.Get());
+    commands->CopyBufferRegion(created.Get(), 0, upload.Get(), 0, size);
+    transitionResource(commands, created.Get(), D3D12_RESOURCE_STATE_COPY_DEST,
+                       D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    resource = std::move(created);
     return true;
 }
 
@@ -565,7 +690,8 @@ bool updateReusableUpload(const void *data, unsigned long long size,
     return true;
 }
 
-bool ensureAccelerationBuffer(unsigned long long requested,
+bool ensureAccelerationBuffer(ID3D12GraphicsCommandList *commands,
+                              unsigned long long requested,
                               unsigned long long &capacity,
                               D3D12_RESOURCE_STATES initialState,
                               ComPtr<ID3D12Resource> &resource)
@@ -578,11 +704,14 @@ bool ensureAccelerationBuffer(unsigned long long requested,
     resource.Reset();
     if (!createBuffer(requested, D3D12_HEAP_TYPE_DEFAULT,
                       D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
-                      initialState, resource))
+                      initialState, resource,
+                      GpuMemoryInitialization::FullyWrittenBeforeRead))
     {
         capacity = 0;
         return false;
     }
+    state.frames[state.activeFrameSlot].textureStaging.push_back(resource);
+    activatePooledResource(commands, resource.Get());
     capacity = requested;
     return true;
 }
@@ -606,7 +735,11 @@ bool createRootSignatures(void)
     environmentRange.BaseShaderRegister = 4;
     environmentRange.OffsetInDescriptorsFromTableStart = 0;
 
-    D3D12_ROOT_PARAMETER globalParameters[7] = {};
+    D3D12_DESCRIPTOR_RANGE materialRange = {};
+    materialRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    materialRange.NumDescriptors = materialDescriptorCount;
+    materialRange.BaseShaderRegister = 5;
+    D3D12_ROOT_PARAMETER globalParameters[11] = {};
     globalParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
     globalParameters[0].Descriptor.ShaderRegister = 0;
     globalParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
@@ -629,16 +762,31 @@ bool createRootSignatures(void)
     globalParameters[5].DescriptorTable.NumDescriptorRanges = 1;
     globalParameters[5].DescriptorTable.pDescriptorRanges = &environmentRange;
     globalParameters[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    globalParameters[6].ParameterType =
-        D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-    globalParameters[6].Constants.ShaderRegister = 0;
-    globalParameters[6].Constants.Num32BitValues =
-        sizeof(FrameConstants) / sizeof(unsigned int);
+    globalParameters[6].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    globalParameters[6].Descriptor.ShaderRegister = 0;
     globalParameters[6].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    globalParameters[7].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    globalParameters[7].DescriptorTable.NumDescriptorRanges = 1;
+    globalParameters[7].DescriptorTable.pDescriptorRanges = &materialRange;
+    for (unsigned int index = 8; index < 10; ++index)
+    {
+        globalParameters[index].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
+        globalParameters[index].Descriptor.ShaderRegister = index;
+    }
+    globalParameters[10].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
+    globalParameters[10].Descriptor.ShaderRegister = 10;
+    D3D12_STATIC_SAMPLER_DESC materialSampler = {};
+    materialSampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+    materialSampler.AddressU = materialSampler.AddressV = materialSampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    materialSampler.MaxLOD = D3D12_FLOAT32_MAX;
+    materialSampler.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+    materialSampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
     D3D12_ROOT_SIGNATURE_DESC globalDescription = {};
-    globalDescription.NumParameters = 7;
+    globalDescription.NumParameters = state.samplerFeedback.supported() ? 11 : 10;
     globalDescription.pParameters = globalParameters;
+    globalDescription.NumStaticSamplers = 1;
+    globalDescription.pStaticSamplers = &materialSampler;
 
     ComPtr<ID3DBlob> serialized;
     ComPtr<ID3DBlob> errors;
@@ -695,7 +843,67 @@ bool createRootSignatures(void)
     return true;
 }
 
-bool createStateObject(void)
+bool createMaterialMipPipeline()
+{
+    D3D12_DESCRIPTOR_RANGE ranges[2] = {};
+    ranges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    ranges[0].BaseShaderRegister = 5;
+    ranges[0].NumDescriptors = materialDescriptorCount;
+    ranges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+    ranges[1].RegisterSpace = 2;
+    ranges[1].NumDescriptors = materialDescriptorCount;
+    D3D12_ROOT_PARAMETER parameters[3] = {};
+    for (unsigned i = 0; i < 2; ++i)
+    {
+        parameters[i].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+        parameters[i].DescriptorTable.NumDescriptorRanges = 1;
+        parameters[i].DescriptorTable.pDescriptorRanges = ranges + i;
+    }
+    parameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
+    parameters[2].Descriptor.ShaderRegister = 0;
+    parameters[2].Descriptor.RegisterSpace = 3;
+    D3D12_STATIC_SAMPLER_DESC sampler = {};
+    sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+    sampler.AddressU = sampler.AddressV = sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    sampler.MaxLOD = D3D12_FLOAT32_MAX;
+    sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+    D3D12_ROOT_SIGNATURE_DESC desc = {};
+    desc.NumParameters = 3; desc.pParameters = parameters;
+    desc.NumStaticSamplers = 1; desc.pStaticSamplers = &sampler;
+    ComPtr<ID3DBlob> bytes, errors;
+    HRESULT result = D3D12SerializeRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1, &bytes, &errors);
+    if (FAILED(result)) { logFailure("material mip root serialization", result); return false; }
+    result = state.device->CreateRootSignature(0, bytes->GetBufferPointer(), bytes->GetBufferSize(),
+        IID_PPV_ARGS(&state.materialMipRoot));
+    if (FAILED(result)) { logFailure("material mip root creation", result); return false; }
+    D3D12_COMPUTE_PIPELINE_STATE_DESC pipeline = {};
+    pipeline.pRootSignature = state.materialMipRoot.Get();
+    pipeline.CS = {g_hwMaterialMipFeedbackShader, sizeof(g_hwMaterialMipFeedbackShader)};
+    result = state.device->CreateComputePipelineState(&pipeline, IID_PPV_ARGS(&state.materialMipPipeline));
+    if (FAILED(result)) { logFailure("material mip feedback compute pipeline", result); return false; }
+    if (!createBuffer(materialDescriptorCount * sizeof(unsigned int), D3D12_HEAP_TYPE_DEFAULT,
+        D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+        state.materialMipRequests, GpuMemoryInitialization::FullyWrittenBeforeRead)) return false;
+    D3D12_DESCRIPTOR_HEAP_DESC clearHeap = {};
+    clearHeap.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; clearHeap.NumDescriptors = 1;
+    result = state.device->CreateDescriptorHeap(&clearHeap, IID_PPV_ARGS(&state.materialMipClearHeap));
+    if (FAILED(result)) { logFailure("material mip clear descriptor", result); return false; }
+    D3D12_UNORDERED_ACCESS_VIEW_DESC view = {};
+    view.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+    view.Format = DXGI_FORMAT_R32_TYPELESS;
+    view.Buffer.NumElements = materialDescriptorCount;
+    view.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+    // ClearUnorderedAccessViewUint requires a raw/typed clear view. The DXR
+    // root UAV and compute root SRV still interpret the same DWORD storage.
+    view.Buffer.StructureByteStride = 0;
+    const auto clearView = state.materialMipClearHeap->GetCPUDescriptorHandleForHeapStart();
+    state.device->CreateUnorderedAccessView(state.materialMipRequests.Get(), nullptr, &view, clearView);
+    state.device->CopyDescriptorsSimple(1, cpuDescriptor(materialMipRequestDescriptorIndex), clearView,
+        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    return true;
+}
+
+bool createStateObject(bool feedback = false)
 {
     static const wchar_t *libraryExports[] = {
         L"RayGeneration", L"PrimaryMiss", L"ShadowMiss",
@@ -708,9 +916,10 @@ bool createStateObject(void)
     }
 
     D3D12_DXIL_LIBRARY_DESC library = {};
-    library.DXILLibrary.pShaderBytecode = g_hwModernRaytracingLibrary;
-    library.DXILLibrary.BytecodeLength =
-        sizeof(g_hwModernRaytracingLibrary);
+    library.DXILLibrary.pShaderBytecode = feedback
+        ? g_hwModernRaytracingFeedbackLibrary : g_hwModernRaytracingLibrary;
+    library.DXILLibrary.BytecodeLength = feedback
+        ? sizeof(g_hwModernRaytracingFeedbackLibrary) : sizeof(g_hwModernRaytracingLibrary);
     library.NumExports = 6;
     library.pExports = exports;
 
@@ -726,7 +935,7 @@ bool createStateObject(void)
     shadowHitGroup.Type = D3D12_HIT_GROUP_TYPE_TRIANGLES;
 
     D3D12_RAYTRACING_SHADER_CONFIG shaderConfig = {};
-    shaderConfig.MaxPayloadSizeInBytes = 84;
+    shaderConfig.MaxPayloadSizeInBytes = 104;
     shaderConfig.MaxAttributeSizeInBytes = 8;
     static const wchar_t *shaderConfigExports[] = {
         L"RayGeneration", L"PrimaryMiss", L"ShadowMiss",
@@ -743,8 +952,8 @@ bool createStateObject(void)
         L"PrimaryHitGroup", L"ShadowHitGroup"
     };
     D3D12_RAYTRACING_PIPELINE_CONFIG pipelineConfig = {};
-    /* Three radiance bounces plus a nested visibility ray. */
-    pipelineConfig.MaxTraceRecursionDepth = 4;
+    /* Up to six radiance bounces plus a nested visibility ray. */
+    pipelineConfig.MaxTraceRecursionDepth = 7;
 
     D3D12_STATE_SUBOBJECT subobjects[9] = {};
     subobjects[0] = { D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY, &library };
@@ -779,14 +988,16 @@ bool createStateObject(void)
     description.Type = D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE;
     description.NumSubobjects = 9;
     description.pSubobjects = subobjects;
+    auto &object = feedback ? state.feedbackStateObject : state.stateObject;
+    auto &properties = feedback ? state.feedbackStateObjectProperties : state.stateObjectProperties;
     HRESULT result = state.device->CreateStateObject(
-        &description, IID_PPV_ARGS(&state.stateObject));
+        &description, IID_PPV_ARGS(&object));
     if (FAILED(result))
     {
         logFailure("pipeline creation", result);
         return false;
     }
-    result = state.stateObject.As(&state.stateObjectProperties);
+    result = object.As(&properties);
     if (FAILED(result))
     {
         logFailure("pipeline-properties query", result);
@@ -802,10 +1013,10 @@ bool buildGeometry(ID3D12GraphicsCommandList4 *commands,
     {
         return true;
     }
-    if (!createUpload(geometry.positions.data(),
+    if (!createImmutableGeometryBuffer(commands, geometry.positions.data(),
                       geometry.positions.size() * sizeof(float),
                       geometry.vertexBuffer) ||
-        !createUpload(geometry.indices.data(),
+        !createImmutableGeometryBuffer(commands, geometry.indices.data(),
                       geometry.indices.size() * sizeof(unsigned int),
                       geometry.indexBuffer))
     {
@@ -848,17 +1059,21 @@ bool buildGeometry(ID3D12GraphicsCommandList4 *commands,
                       D3D12_HEAP_TYPE_DEFAULT,
                       D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
                       D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                      geometry.blasScratch) ||
+                      geometry.blasScratch,
+                      GpuMemoryInitialization::FullyWrittenBeforeRead) ||
         !createBuffer(prebuild.ResultDataMaxSizeInBytes,
                       D3D12_HEAP_TYPE_DEFAULT,
                       D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
                       D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
-                      geometry.blas))
+                      geometry.blas,
+                      GpuMemoryInitialization::FullyWrittenBeforeRead))
     {
         return false;
     }
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC build = {};
+    activatePooledResource(commands, geometry.blasScratch.Get());
+    activatePooledResource(commands, geometry.blas.Get());
     build.Inputs = inputs;
     build.ScratchAccelerationStructureData =
         geometry.blasScratch->GetGPUVirtualAddress();
@@ -870,6 +1085,11 @@ bool buildGeometry(ID3D12GraphicsCommandList4 *commands,
     barrier.UAV.pResource = geometry.blas.Get();
     commands->ResourceBarrier(1, &barrier);
     geometry.built = true;
+    // Immutable BLAS geometry never rebuilds in place. Keep scratch alive
+    // until this submission completes, then release it with the flight slot
+    // instead of retaining one GPU scratch allocation for every loaded mesh.
+    state.frames[state.activeFrameSlot].textureStaging.push_back(
+        std::move(geometry.blasScratch));
     return true;
 }
 
@@ -883,32 +1103,319 @@ bool buildSurfaceVariant(GeometryRecord::SurfaceVariant &variant)
     {
         return false;
     }
+    // Gather once per immutable variant, including the idle side of engine
+    // blends. Late material binding resets variant.buffer and rebuilds this
+    // list together with the corrected surface metadata.
+    variant.materialTextureIndices.clear();
+    for (const auto &surface : variant.surfaces)
+        appendMaterialTextureReferences(variant.materialTextureIndices,
+            (surface.flags & gpuSurfaceHasTexture) != 0,
+            surface.textureIndex, surface.engineBlendEnabled != 0,
+            surface.idleTextureIndex, materialRecords.size());
+    std::sort(variant.materialTextureIndices.begin(), variant.materialTextureIndices.end());
+    variant.materialTextureIndices.erase(std::unique(variant.materialTextureIndices.begin(),
+        variant.materialTextureIndices.end()), variant.materialTextureIndices.end());
     return createUpload(variant.surfaces.data(),
                         variant.surfaces.size() * sizeof(GpuTriangleSurface),
                         variant.buffer);
 }
 
-bool ensureSurfaceTexelUpload()
+void trimMaterialTextures(bool refreshBudget = false, bool requirementsKnown = true)
 {
-    if (state.surfaceTexelUpload && !surfaceTexelsDirty)
+    // Retire completed tile mappings even while Sensors retains the fleet.
+    state.samplerFeedback.collectRetiredHeaps();
+    // Sensors temporarily replaces the world renderer. An absent DXR scene
+    // there is not a discarded fleet: keep its textures ready for the return.
+    // One return frame allows requirements to be gathered before trimming.
+    if (state.sensorViewActive || state.materialFrameSerial <= state.sensorReturnGraceFrame)
+        return;
+    const auto residentBytes = state.materialResidency.residentBytes();
+    if (state.memoryBudgetAdapter &&
+        (refreshBudget || state.materialFrameSerial >= state.nextMaterialBudgetQuery))
     {
-        return true;
+        DXGI_QUERY_VIDEO_MEMORY_INFO memory = {};
+        if (SUCCEEDED(state.memoryBudgetAdapter->QueryVideoMemoryInfo(
+            0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &memory)))
+        {
+            state.materialAdapterBudgetBytes = memory.Budget;
+            const auto budgetHeadroomBytes = std::max<unsigned long long>(
+                512ull * 1024 * 1024, memory.Budget / 16);
+            const auto allowed = memory.Budget > budgetHeadroomBytes
+                ? memory.Budget - budgetHeadroomBytes : 0;
+            // Detached tile heaps remain physically allocated until their
+            // mapping-retirement fence completes. They are still our charge,
+            // not a new external allocation that warrants another eviction.
+            const auto pendingBytes = state.samplerFeedback.pendingRetiredBytes();
+            const auto ownedBytes = residentBytes +
+                std::min<unsigned long long>(pendingBytes, ~0ull - residentBytes);
+            const auto otherUsage = memory.CurrentUsage > ownedBytes
+                ? memory.CurrentUsage - ownedBytes : 0;
+            state.materialBudgetLimitBytes = allowed > otherUsage
+                ? allowed - otherUsage : 0;
+        }
+        state.nextMaterialBudgetQuery = state.materialFrameSerial + 60;
     }
-    ComPtr<ID3D12Resource> replacement;
-    if (!createUpload(surfaceTexels.data(),
-                      surfaceTexels.size() * sizeof(GpuSurfaceTexel),
-                      replacement))
+    // At slot retirement today's scene has not been gathered yet. Enforce
+    // actual memory pressure there, not a falsely empty scene target. Retain
+    // recently seen views using measured spare GPU memory instead of repeatedly
+    // evicting them to a fixed 512 MiB allowance while half the adapter is free.
+    const auto target = materialRetentionTarget(state.materialResidency.requiredBytes(),
+        state.materialBudgetLimitBytes, state.materialAdapterBudgetBytes, requirementsKnown);
+    if (state.materialResidency.residentBytes() <= target) return;
+
+    // The policy supplies every eligible entry in oldest-use order. A partial
+    // trim may retain a packed tail, so selecting only enough *whole* victims
+    // up front can miss other cold mips that satisfy the deficit without eviction.
+    const auto candidates = state.materialResidency.evictionCandidates(0);
+    for (const auto index : candidates)
     {
+        if (state.materialResidency.residentBytes() <= target) break;
+        if (index >= state.streamingMaterials.size()) continue;
+        const auto &streaming = state.streamingMaterials[index];
+        if (!streaming) continue;
+        const auto trimmed = streaming->trimInactive(state.samplerFeedback, true);
+        if (trimmed)
+        {
+            state.materialResidency.resident(index, streaming->residentBytes());
+            state.feedbackTrimmedBytes += trimmed;
+        }
+    }
+    // Only discard whole resources if the eligible finer mips could not meet
+    // the existing target. Required and in-flight entries remain pinned.
+    for (const auto index : candidates)
+    {
+        if (state.materialResidency.residentBytes() <= target) break;
+        if (state.materialResidency.evict(index))
+        {
+            // All slots that used this index have completed. Leave its unused
+            // descriptor unchanged until a future scene requests a reupload;
+            // no queued dispatch can observe a rewritten/invalid resource.
+            if (index < state.streamingMaterials.size() && state.streamingMaterials[index])
+            {
+                state.streamingMaterials[index]->releaseInactive(state.samplerFeedback);
+                state.streamingMaterials[index].reset();
+            }
+            state.materialTextures[index].Reset();
+            ++state.materialEvictions;
+        }
+    }
+}
+
+bool ensureMaterialTextures(ID3D12GraphicsCommandList *commands, DxrFrameResources &frame)
+{
+    // t2 remains a harmless compatibility binding. CPU texels are retained
+    // for emissive proxies/deduplication, but are no longer sampled over the
+    // upload heap by every ray. Material resources live in GPU default memory.
+    if (!state.surfaceTexelUpload && !createUpload(nullptr, 256, state.surfaceTexelUpload))
         return false;
-    }
-    if (state.surfaceTexelUpload)
+    // Registered textures describe the whole loaded fleet. Only material pages
+    // referenced by the current DXR scene need full-resolution GPU resources.
+    // Null holes retain stable shader descriptor indices without uploading
+    // unused ship types or every material from previous missions.
+    state.materialTextures.resize(materialRecords.size());
+    state.streamingMaterials.resize(materialRecords.size());
+    state.materialResidency.resize(materialRecords.size());
+    state.requiredMaterialTextures.clear();
+    for (const auto &instance : state.instances)
     {
-        /* A registration can arrive while an older frame is still queued.
-           Keep the immutable prior atlas alive until renderer shutdown rather
-           than forcing a whole-GPU fence for a rare texture-table growth. */
-        state.retiredSurfaceTexelUploads.push_back(state.surfaceTexelUpload);
+        if (!instance.surfaceVariant) continue;
+        for (const auto index : instance.surfaceVariant->materialTextureIndices)
+            if (state.materialResidency.require(index))
+                state.requiredMaterialTextures.push_back(index);
     }
-    state.surfaceTexelUpload = replacement;
+    trimMaterialTextures();
+    bool uploaded = false;
+    for (const auto textureIndex : state.requiredMaterialTextures)
+    {
+        auto streaming = state.streamingMaterials[textureIndex];
+        if (state.materialTextures[textureIndex] && (!streaming || streaming->readyForSampling())) continue;
+        const bool restoringStreamedTexture = streaming != nullptr;
+        const auto &record = materialRecords[textureIndex];
+        D3D12_RESOURCE_DESC desc = {};
+        desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        desc.Width = record.width; desc.Height = record.height;
+        desc.DepthOrArraySize = 4;
+        desc.MipLevels = static_cast<UINT16>(materialMipCount(record.width, record.height));
+        desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        desc.SampleDesc.Count = 1;
+        const auto allocation = state.device->GetResourceAllocationInfo(0, 1, &desc);
+        if (!allocation.SizeInBytes || allocation.SizeInBytes == ~0ull) return false;
+        D3D12_HEAP_PROPERTIES heap = {};
+        heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+        heap.CreationNodeMask = heap.VisibleNodeMask = 1;
+        ComPtr<ID3D12Resource> texture, upload;
+        std::vector<SamplerFeedbackMipRange> uploadRanges;
+        if (!streaming && state.feedbackStateObject)
+        {
+            auto candidate = std::make_shared<SamplerFeedbackTexture>();
+            if (candidate->create(state.samplerFeedback, desc, textureIndex,
+                cpuDescriptor(materialFeedbackDescriptorBase + textureIndex)))
+                streaming = std::move(candidate);
+        }
+        if (streaming)
+        {
+            // A fresh map allocation can safely fall back before any tile
+            // mapping has been queued. Rehydration retains its existing owner
+            // and retries without exposing uninitialized mips to a dispatch.
+            if (!streaming->mapAll(state.samplerFeedback, uploadRanges))
+            {
+                if (restoringStreamedTexture) return false;
+                state.samplerFeedback.createNullViews(
+                    cpuDescriptor(materialFeedbackDescriptorBase + textureIndex),
+                    state.descriptorSize, 1);
+                streaming.reset();
+            }
+        }
+        if (streaming)
+        {
+            // Retain every mapped destination through this flight slot even
+            // if upload allocation/preparation fails before the first draw.
+            frame.streamingStaging.push_back(streaming);
+            if (restoringStreamedTexture)
+                state.materialResidency.resident(textureIndex, streaming->residentBytes());
+            texture = streaming->resource();
+            D3D12_RESOURCE_BARRIER alias = {};
+            alias.Type = D3D12_RESOURCE_BARRIER_TYPE_ALIASING;
+            alias.Aliasing.pResourceAfter = texture.Get();
+            commands->ResourceBarrier(1, &alias);
+        }
+        else
+        {
+            const HRESULT textureResult = state.gpuMemory.active()
+                ? state.gpuMemory.createResource(heap, D3D12_HEAP_FLAG_NONE, desc,
+                    D3D12_RESOURCE_STATE_COPY_DEST, nullptr, texture,
+                    GpuMemoryInitialization::FullyWrittenBeforeRead)
+                : state.device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE,
+                    &desc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&texture));
+            if (FAILED(textureResult)) return false;
+            activatePooledResource(commands, texture.Get());
+            uploadRanges.push_back({0, desc.MipLevels});
+        }
+        frame.textureStaging.push_back(texture);
+        UINT count = desc.MipLevels * 4u;
+        std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> layouts(count);
+        UINT64 bytes = 0;
+        state.device->GetCopyableFootprints(&desc, 0, count, 0, layouts.data(), nullptr, nullptr, &bytes);
+        if (!createUpload(nullptr, bytes, upload)) return false;
+        void *mapped = nullptr;
+        D3D12_RANGE noRead = {0, 0};
+        if (FAILED(upload->Map(0, &noRead, &mapped))) return false;
+        const std::uint64_t payloadKey = (static_cast<std::uint64_t>(record.width) << 32) | record.height;
+        const PreparedMaterialLayout preparedLayout(record.width, record.height);
+        std::vector<PreparedMaterialCache::Range> cachedRanges;
+        for (UINT channel = 0; channel < 4; ++channel)
+        for (const auto &range : uploadRanges)
+        for (UINT mip = range.firstMip; mip < range.firstMip + range.mipCount; ++mip)
+        {
+            const UINT subresource = channel * desc.MipLevels + mip;
+            const auto widthBytes = std::max(1u, record.width >> mip) * 4ull;
+            const auto height = std::max(1u, record.height >> mip);
+            const auto &layout = layouts[subresource];
+            preparedLayout.appendReadRanges(cachedRanges, subresource,
+                static_cast<UINT>(widthBytes / 4), height, layout.Offset, layout.Footprint.RowPitch);
+        }
+        if (!materialUploadCache.read(textureIndex, payloadKey, mapped, bytes, cachedRanges))
+        {
+            // Only first use (or unavailable disposable cache storage) performs
+            // the expensive lossless texel expansion and identical mip filter.
+            const auto prepare = [&]() -> bool {
+                DirectX::ScratchImage base;
+                auto prepared = std::make_shared<DirectX::ScratchImage>();
+                auto &mips = *prepared;
+                if (FAILED(base.Initialize2D(DXGI_FORMAT_R8G8B8A8_UNORM,
+                    record.width, record.height, 4, 1))) return false;
+                const DirectX::Image *images[4];
+                for (size_t channel = 0; channel < 4; ++channel)
+                    images[channel] = base.GetImage(0, channel, 0);
+                for (unsigned int y = 0; y < record.height; ++y)
+                for (unsigned int x = 0; x < record.width;)
+                {
+                    const auto texels = surfaceTexels.span(
+                        static_cast<size_t>(record.offset) + y * record.width + x, record.width - x);
+                    if (texels.size == 0) return false;
+                    for (size_t channel = 0; channel < 4; ++channel)
+                    for (size_t pixel = 0; pixel < texels.size; ++pixel)
+                    {
+                        const auto &texel = texels.data[pixel];
+                        const unsigned int packed[4] = {texel.surfaceRgba, texel.emissiveRgba,
+                            texel.generatedNormalRgba, texel.ormRgba};
+                        std::memcpy(images[channel]->pixels + y * images[channel]->rowPitch +
+                            (x + pixel) * 4u, &packed[channel], 4);
+                    }
+                    x += static_cast<unsigned int>(texels.size);
+                }
+                HRESULT mipResult = S_OK;
+                if (desc.MipLevels == 1) mips = std::move(base);
+                else mipResult = DirectX::GenerateMipMaps(base.GetImages(), base.GetImageCount(),
+                    base.GetMetadata(), DirectX::TEX_FILTER_FANT | DirectX::TEX_FILTER_FORCE_NON_WIC, 0, mips);
+                if (FAILED(mipResult)) { logFailure("material mip generation", mipResult); return false; }
+                if (mips.GetMetadata().mipLevels != desc.MipLevels) return false;
+                bool cacheLayoutValid = preparedLayout.bytes == mips.GetPixelsSize();
+                for (UINT channel = 0; channel < 4; ++channel)
+                for (UINT mip = 0; mip < desc.MipLevels; ++mip)
+                {
+                    const auto *image = mips.GetImage(mip, channel, 0);
+                    const auto &layout = layouts[channel * desc.MipLevels + mip];
+                    cacheLayoutValid = cacheLayoutValid && image->rowPitch == image->width * 4 &&
+                        image->pixels == mips.GetPixels() + preparedLayout.offsets[channel * desc.MipLevels + mip];
+                    for (size_t y = 0; y < image->height; ++y)
+                        std::memcpy(static_cast<unsigned char *>(mapped) + layout.Offset +
+                            y * layout.Footprint.RowPitch, image->pixels + y * image->rowPitch, image->width * 4);
+                }
+                // The writer owns existing ordinary CPU mip memory; it never
+                // reads GPU upload memory and never blocks a game frame on
+                // writing hundreds of MiB to the disposable cache file.
+                if (cacheLayoutValid)
+                    materialUploadCache.queue(textureIndex, payloadKey, prepared, mips.GetPixels(), preparedLayout.bytes);
+                return true;
+            };
+            if (!prepare()) { upload->Unmap(0, nullptr); return false; }
+        }
+        if (restoringStreamedTexture)
+            transitionResource(commands, texture.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+                D3D12_RESOURCE_STATE_COPY_DEST);
+        for (UINT channel = 0; channel < 4; ++channel)
+        for (const auto &range : uploadRanges)
+        for (UINT mip = range.firstMip; mip < range.firstMip + range.mipCount; ++mip)
+        {
+            UINT subresource = channel * desc.MipLevels + mip;
+            const auto &layout = layouts[subresource];
+            D3D12_TEXTURE_COPY_LOCATION destination = {};
+            destination.pResource = texture.Get();
+            destination.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+            destination.SubresourceIndex = subresource;
+            D3D12_TEXTURE_COPY_LOCATION source = {};
+            source.pResource = upload.Get();
+            source.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+            source.PlacedFootprint = layout;
+            commands->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+        }
+        upload->Unmap(0, nullptr);
+        if (streaming) streaming->uploadsRecorded(uploadRanges);
+        D3D12_RESOURCE_BARRIER barrier = {};
+        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        barrier.Transition.pResource = texture.Get();
+        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        commands->ResourceBarrier(1, &barrier);
+        D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
+        srv.Format = desc.Format;
+        srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+        srv.Texture2DArray.MipLevels = desc.MipLevels;
+        srv.Texture2DArray.ArraySize = 4;
+        state.device->CreateShaderResourceView(texture.Get(), &srv,
+            cpuDescriptor(materialDescriptorBase + record.textureIndex));
+        state.materialTextures[textureIndex] = texture;
+        state.streamingMaterials[textureIndex] = streaming;
+        state.materialResidency.resident(textureIndex,
+            streaming ? streaming->residentBytes() : allocation.SizeInBytes);
+        ++state.materialUploads;
+        uploaded = true;
+        frame.textureStaging.push_back(upload);
+    }
+    if (uploaded) trimMaterialTextures(true);
     surfaceTexelsDirty = false;
     return true;
 }
@@ -963,6 +1470,12 @@ bool buildTopLevel(ID3D12GraphicsCommandList4 *commands,
             static_cast<unsigned int>(index) * rayTypeCount;
         description.Flags =
             D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_FRONT_COUNTERCLOCKWISE;
+        if (!instance.clipEnabled && instance.surfaceVariant && instance.surfaceVariant->opaqueForRays)
+            description.Flags |= D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE;
+        if (instance.clipEnabled)
+            description.Flags |= D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_NON_OPAQUE;
+        const UINT instanceFlagsForHash = description.Flags;
+        hashBytesLocal(contentHash, &instanceFlagsForHash, sizeof(instanceFlagsForHash));
         description.AccelerationStructure =
             instance.geometry->blas->GetGPUVirtualAddress();
         hashBytesLocal(topologyHash, &description.AccelerationStructure,
@@ -1012,13 +1525,15 @@ bool buildTopLevel(ID3D12GraphicsCommandList4 *commands,
     state.device->GetRaytracingAccelerationStructurePrebuildInfo(
         &inputs, &prebuild);
     ID3D12Resource *previousTlas = frame.tlas.Get();
+    const bool tlasNeedsAllocation = !frame.tlas || frame.tlasCapacity <
+        alignUp<unsigned long long>(prebuild.ResultDataMaxSizeInBytes, 256);
     const unsigned long long scratchSize = std::max<unsigned long long>(
         prebuild.ScratchDataSizeInBytes,
         prebuild.UpdateScratchDataSizeInBytes);
-    if (!ensureAccelerationBuffer(
+    if (!ensureAccelerationBuffer(commands,
             scratchSize, frame.tlasScratchCapacity,
             D3D12_RESOURCE_STATE_UNORDERED_ACCESS, frame.tlasScratch) ||
-        !ensureAccelerationBuffer(
+        !ensureAccelerationBuffer(commands,
             prebuild.ResultDataMaxSizeInBytes, frame.tlasCapacity,
             D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
             frame.tlas))
@@ -1026,7 +1541,7 @@ bool buildTopLevel(ID3D12GraphicsCommandList4 *commands,
         return false;
     }
 
-    const bool canUpdate = frame.tlasBuilt &&
+    const bool canUpdate = frame.tlasBuilt && !tlasNeedsAllocation &&
         previousTlas == frame.tlas.Get() &&
         frame.tlasTopologyHash == topologyHash;
     if (canUpdate)
@@ -1228,6 +1743,16 @@ void buildEmissiveLightPrototypes(
                                p2[2] * barycentric[2];
             best.radius = std::max(
                 3.0f, std::sqrt(std::max(area, 1.0f)) * 8.0f);
+            best.engineBlendEnabled = surface.engineBlendEnabled != 0;
+            float idleEmission[4] = {};
+            if (best.engineBlendEnabled) {
+                GpuTriangleSurface idleSurface=surface;
+                idleSurface.textureOffset=surface.idleTextureOffset;
+                sampleEmissiveTexel(idleSurface,barycentric[0],barycentric[1],barycentric[2],idleEmission);
+            } else {
+                std::copy(emissive,emissive+4,idleEmission);
+            }
+            std::copy(idleEmission,idleEmission+3,best.idleColor);
             best.color[0] = emissive[0];
             best.color[1] = emissive[1];
             best.color[2] = emissive[2];
@@ -1304,6 +1829,14 @@ void appendEmissiveTriangleLights(std::vector<GpuLight> &result)
             candidate.light.color[0] = prototype.color[0];
             candidate.light.color[1] = prototype.color[1];
             candidate.light.color[2] = prototype.color[2];
+            if(prototype.engineBlendEnabled) {
+                for(unsigned channel=0;channel<3;++channel)
+                    candidate.light.color[channel]=prototype.idleColor[channel]+instance.engineBlend*
+                        (prototype.color[channel]-prototype.idleColor[channel]);
+                float onLuma=0.2126f*prototype.color[0]+0.7152f*prototype.color[1]+0.0722f*prototype.color[2];
+                float blendLuma=0.2126f*candidate.light.color[0]+0.7152f*candidate.light.color[1]+0.0722f*candidate.light.color[2];
+                candidate.score*=onLuma>0 ? blendLuma/onLuma : 0;
+            }
             candidate.light.intensity = prototype.intensity *
                                         fxLightingStrength;
             candidate.light.source =
@@ -1339,8 +1872,10 @@ void appendEmissiveTriangleLights(std::vector<GpuLight> &result)
 void buildLights(
     const HWModernMapLightEmitter *mapLights, unsigned int mapLightCount,
     const HWModernDynamicLightEmitter *dynamicLights,
-    unsigned int dynamicLightCount, std::vector<GpuLight> &result)
+    unsigned int dynamicLightCount, std::vector<GpuLight> &result,
+    const float *view = nullptr, bool geometryEmission = true)
 {
+    if (!view) view=state.viewMatrix;
     result.clear();
     if (result.capacity() < maximumLights)
     {
@@ -1357,7 +1892,7 @@ void buildLights(
         GpuLight sun = {};
         sun.type = gpuLightDirectional;
         transformDirection(sun.direction, missionSunWorldDirection,
-                           state.viewMatrix);
+                           view);
         /* RTX-0068: SceneLight.direction is a surface-to-light vector. The
            mission sky metadata already stores the world-space direction FROM
            the scene TOWARD the visible key source, exactly matching the HLSL
@@ -1411,8 +1946,8 @@ void buildLights(
         {
             light.type = source.type == HW_MODERN_MISSION_LIGHT_SPOT
                 ? gpuLightSpot : gpuLightPoint;
-            transformPoint(light.position, source.position, state.viewMatrix);
-            transformDirection(light.direction, source.direction, state.viewMatrix);
+            transformPoint(light.position, source.position, view);
+            transformDirection(light.direction, source.direction, view);
             light.radius = std::max(1.0f, source.radius);
             light.coneCos = degreesToCosine(source.coneAngle);
             light.edgeCos = degreesToCosine(source.coneAngle + source.edgeAngle);
@@ -1461,15 +1996,15 @@ void buildLights(
         {
             light.type = gpuLightDirectional;
             transformDirection(light.direction, source.renderDirection,
-                               state.viewMatrix);
+                               view);
         }
         else
         {
             light.type = source.type == 2 ? gpuLightSpot : gpuLightPoint;
             transformPoint(light.position, source.renderPosition,
-                           state.viewMatrix);
+                           view);
             transformDirection(light.direction, source.renderDirection,
-                               state.viewMatrix);
+                               view);
         }
         result.push_back(light);
     }
@@ -1499,6 +2034,7 @@ void buildLights(
                     case HW_MODERN_LIGHT_EXPLOSION: return 5;
                     case HW_MODERN_LIGHT_ION_BEAM: return 4;
                     case HW_MODERN_LIGHT_WEAPON: return 3;
+                    case HW_MODERN_LIGHT_NATIVE_FX: return 3;
                     case HW_MODERN_LIGHT_NAV: return 2;
                     case HW_MODERN_LIGHT_ENGINE: return 1;
                     default: return 0;
@@ -1525,9 +2061,9 @@ void buildLights(
         GpuLight light = {};
         light.type = source.shape == HW_MODERN_LIGHT_LINE
             ? gpuLightLine : gpuLightPoint;
-        transformPoint(light.position, source.position, state.viewMatrix);
-        transformPoint(light.endPosition, source.endPosition, state.viewMatrix);
-        transformDirection(light.direction, source.direction, state.viewMatrix);
+        transformPoint(light.position, source.position, view);
+        transformPoint(light.endPosition, source.endPosition, view);
+        transformDirection(light.direction, source.direction, view);
         light.radius = std::max(1.0f, source.radius);
         light.color[0] = source.color[0];
         light.color[1] = source.color[1];
@@ -1535,7 +2071,8 @@ void buildLights(
         const bool dedicatedWeaponEndpoint =
             source.source == HW_MODERN_LIGHT_MUZZLE_FLASH ||
             source.source == HW_MODERN_LIGHT_WEAPON_IMPACT;
-        light.intensity = std::max(0.0f, source.intensity) * 0.02f *
+        light.intensity = std::max(0.0f, source.intensity) *
+                          (source.source == HW_MODERN_LIGHT_NATIVE_FX ? 1.0f : 0.02f) *
                           (dedicatedWeaponEndpoint ? 1.0f : fxLightingStrength);
         light.source = static_cast<float>(source.source);
         result.push_back(light);
@@ -1544,7 +2081,7 @@ void buildLights(
     /* Texture-driven emitters are ranked after authored map and exact dynamic
        lights, ensuring nav/weapon/engine emitters are never displaced by a
        large number of small glow-map triangles. */
-    appendEmissiveTriangleLights(result);
+    if (geometryEmission) appendEmissiveTriangleLights(result);
 
     if (result.empty())
     {
@@ -1557,7 +2094,7 @@ void buildLights(
 }
 
 bool createShaderTable(DxrFrameResources &frame,
-                       D3D12_DISPATCH_RAYS_DESC &dispatch)
+                       D3D12_DISPATCH_RAYS_DESC &dispatch, bool feedback)
 {
     const unsigned int rayGenerationOffset = 0;
     const unsigned int rayGenerationSize = shaderIdentifierSize;
@@ -1591,8 +2128,9 @@ bool createShaderTable(DxrFrameResources &frame,
             signature *= 1099511628211ull;
         }
     };
-    hashValue(static_cast<unsigned long long>(
-        reinterpret_cast<uintptr_t>(state.stateObject.Get())));
+    const auto object = feedback ? state.feedbackStateObject.Get() : state.stateObject.Get();
+    const auto properties = feedback ? state.feedbackStateObjectProperties.Get() : state.stateObjectProperties.Get();
+    hashValue(static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(object)));
     hashValue(static_cast<unsigned long long>(state.instances.size()));
     for (const SceneInstance &instance : state.instances)
     {
@@ -1607,15 +2145,15 @@ bool createShaderTable(DxrFrameResources &frame,
     if (rebuild)
     {
         const void *rayGeneration =
-            state.stateObjectProperties->GetShaderIdentifier(L"RayGeneration");
+            properties->GetShaderIdentifier(L"RayGeneration");
         const void *primaryMiss =
-            state.stateObjectProperties->GetShaderIdentifier(L"PrimaryMiss");
+            properties->GetShaderIdentifier(L"PrimaryMiss");
         const void *shadowMiss =
-            state.stateObjectProperties->GetShaderIdentifier(L"ShadowMiss");
+            properties->GetShaderIdentifier(L"ShadowMiss");
         const void *primaryHit =
-            state.stateObjectProperties->GetShaderIdentifier(L"PrimaryHitGroup");
+            properties->GetShaderIdentifier(L"PrimaryHitGroup");
         const void *shadowHit =
-            state.stateObjectProperties->GetShaderIdentifier(L"ShadowHitGroup");
+            properties->GetShaderIdentifier(L"ShadowHitGroup");
         if (!rayGeneration || !primaryMiss || !shadowMiss || !primaryHit || !shadowHit)
             return false;
 
@@ -1710,6 +2248,12 @@ bool uploadInstanceMotion(DxrFrameResources &frame)
     {
         storeInstanceTransform(state.instanceMotion[index].previousRows,
                                state.instances[index].previousModelView);
+        state.instanceMotion[index].historyIdentity = state.instances[index].historyIdentity;
+        std::memcpy(state.instanceMotion[index].clipEquationEye,state.instances[index].clipEquationEye,
+                    sizeof(state.instanceMotion[index].clipEquationEye));
+        state.instanceMotion[index].flags = (state.instances[index].clipEnabled ? 1u : 0u) |
+            (state.instances[index].surfaceHistoryValid ? 2u : 0u);
+        state.instanceMotion[index].engineBlend=state.instances[index].engineBlend;
     }
     return updateReusableUpload(
         state.instanceMotion.data(),
@@ -1741,13 +2285,21 @@ unsigned long long buildSceneHash()
 }
 }
 
+void resolveRasterSceneLights(const float view[16],
+    const HWModernMapLightEmitter *map,unsigned mapCount,
+    const HWModernDynamicLightEmitter *dynamic,unsigned dynamicCount,
+    std::vector<ResolvedSceneLight>& output) {
+    buildLights(map,mapCount,dynamic,dynamicCount,output,view,false);
+}
+
 bool raytracingInitialize(ID3D12Device *device,
                           ID3D12DescriptorHeap *shaderVisibleHeap,
                           unsigned int descriptorSize,
                           unsigned int outputSrvIndex,
                           unsigned int outputUavIndex,
                           unsigned int environmentSrvIndex,
-                          unsigned int rrGuideUavBaseIndex)
+                          unsigned int rrGuideUavBaseIndex,
+                          ID3D12CommandQueue *directQueue)
 {
     raytracingShutdown();
     if (device == nullptr || shaderVisibleHeap == nullptr || descriptorSize == 0)
@@ -1759,6 +2311,15 @@ bool raytracingInitialize(ID3D12Device *device,
     {
         return false;
     }
+    // Optional budget feedback. Failure leaves the bounded warm-cache policy
+    // active; it does not change texture resolution or disable rendering.
+    ComPtr<IDXGIFactory4> memoryFactory;
+    if (SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&memoryFactory))))
+        memoryFactory->EnumAdapterByLuid(state.device->GetAdapterLuid(),
+            IID_PPV_ARGS(&state.memoryBudgetAdapter));
+    // Pool only explicitly initialized resources. Histories retain their
+    // committed zero-fill contract; allocator failure preserves the old path.
+    state.gpuMemory.initialize(state.device.Get(), state.memoryBudgetAdapter.Get());
     state.descriptorHeap = shaderVisibleHeap;
     state.descriptorSize = descriptorSize;
     state.outputSrvIndex = outputSrvIndex;
@@ -1770,13 +2331,59 @@ bool raytracingInitialize(ID3D12Device *device,
     state.motionSrvIndex = outputUavIndex + 5;
     state.environmentSrvIndex = environmentSrvIndex;
     state.rrGuideUavBaseIndex = rrGuideUavBaseIndex;
-    if (!createRootSignatures() || !createStateObject())
+    // Old tools/unsupported devices retain the original lib_6_3 path. The
+    // added descriptor range must exist before any feedback resources bind.
+    hwWindowsSplashTaskBegin("renderer.dxr.feedback", "Hardware feedback setup");
+    if (directQueue && shaderVisibleHeap->GetDesc().NumDescriptors >=
+        materialMipRequestDescriptorIndex + 1u &&
+        state.samplerFeedback.initialize(device, directQueue, materialDescriptorCount))
+    {
+        state.samplerFeedback.createNullViews(cpuDescriptor(materialFeedbackDescriptorBase),
+            descriptorSize, materialDescriptorCount);
+        hwWindowsSplashTaskComplete("renderer.dxr.feedback", "Hardware feedback descriptors ready");
+    }
+    else hwWindowsSplashTaskSkip("renderer.dxr.feedback", "Hardware feedback unavailable");
+    hwWindowsSplashTaskBegin("renderer.dxr.roots", "Raytracing root signatures");
+    if (!createRootSignatures())
     {
         raytracingShutdown();
         return false;
     }
+    hwWindowsSplashTaskComplete("renderer.dxr.roots", "Raytracing bindings ready");
+    hwWindowsSplashTaskBegin("renderer.dxr.pipeline", "Raytracing pipeline");
+    if (!createStateObject())
+    {
+        raytracingShutdown();
+        return false;
+    }
+    hwWindowsSplashTaskComplete("renderer.dxr.pipeline", "Raytracing pipeline ready");
+    if (state.samplerFeedback.supported())
+    {
+        hwWindowsSplashTaskBegin("renderer.dxr.feedback-pipeline", "Raytracing feedback pipelines");
+        hwWindowsSplashUpdate("Creating material-feedback compute pipeline");
+        const bool mipPipelineReady = createMaterialMipPipeline();
+        if (mipPipelineReady)
+            hwWindowsSplashUpdate("Creating raytracing feedback capture pipeline");
+        if (!mipPipelineReady || !createStateObject(true))
+        {
+            state.feedbackStateObject.Reset();
+            state.feedbackStateObjectProperties.Reset();
+            state.materialMipRequests.Reset();
+            state.materialMipClearHeap.Reset();
+            state.materialMipPipeline.Reset();
+            state.materialMipRoot.Reset();
+            state.samplerFeedback = {};
+            HW_DIAG_FPRINTF(stderr, "[TexturePerf] Sampler feedback pipeline unavailable; full-resolution committed fallback.\n");
+            hwWindowsSplashTaskSkip("renderer.dxr.feedback-pipeline", "Optional feedback pipeline unavailable");
+        }
+        else hwWindowsSplashTaskComplete("renderer.dxr.feedback-pipeline", "Feedback pipelines ready");
+    }
+    else hwWindowsSplashTaskSkip("renderer.dxr.feedback-pipeline", "Hardware feedback unavailable");
     state.active = true;
-    std::fprintf(stderr,
+    if (state.feedbackStateObject)
+        HW_DIAG_FPRINTF(stderr, "[TexturePerf] Exact-quality sampler feedback warm-mip streaming enabled (tier=%u, capture=1/60); active/in-flight materials remain fully resident.\n",
+            static_cast<unsigned int>(state.samplerFeedback.tier()));
+    HW_DIAG_FPRINTF(stderr,
                  "[ModernGraphics] DXR multi-bounce path-tracing pipeline "
                  "created; waiting for scene geometry.\n");
     return true;
@@ -1784,21 +2391,41 @@ bool raytracingInitialize(ID3D12Device *device,
 
 void raytracingShutdown(void)
 {
+    const auto &uploadCacheStats = materialUploadCache.stats();
+    if (uploadCacheStats.stores || uploadCacheStats.hits || uploadCacheStats.failures)
+        HW_DIAG_FPRINTF(stderr, "[TexturePerf] Prepared material cache: %llu stores, %llu restores without texel decode/mip rebuild; %.1f MiB temporary backing, %llu I/O failures.\n",
+            uploadCacheStats.stores, uploadCacheStats.hits,
+            static_cast<double>(materialUploadCache.storedBytes()) / (1024.0 * 1024.0), uploadCacheStats.failures);
+    materialUploadCache.clear();
+    if (state.feedbackCaptures)
+        HW_DIAG_FPRINTF(stderr, "[TexturePerf] Sampler feedback capture frames=%llu; inactive fine-mip physical heaps retired=%.1f MiB; pending retirement=%.1f MiB.\n",
+            state.feedbackCaptures, static_cast<double>(state.feedbackTrimmedBytes) / (1024.0 * 1024.0),
+            static_cast<double>(state.samplerFeedback.pendingRetiredBytes()) / (1024.0 * 1024.0));
+    if (state.materialUploads)
+        HW_DIAG_FPRINTF(stderr,
+            "[TexturePerf] DXR material residency=%zu/%zu records %.1f MiB; "
+            "%llu full-resolution uploads, %llu fence-safe cache evictions.\n",
+            state.materialResidency.residentCount(), materialRecords.size(),
+            static_cast<double>(state.materialResidency.residentBytes()) / (1024.0 * 1024.0),
+            state.materialUploads, state.materialEvictions);
     if (surfaceRegistrationCalls != 0)
     {
-        std::fprintf(stderr,
-            "[TexturePerf] DXR surface registration=%llu calls %.1f Mtexels %.1f ms; atlas=%.1f MiB\n",
+        HW_DIAG_FPRINTF(stderr,
+            "[TexturePerf] DXR surface registration=%llu calls %.1f Mtexels %.1f ms; logical atlas=%.1f MiB; lossless CPU backing/cache=%.1f MiB\n",
             surfaceRegistrationCalls,
             static_cast<double>(surfaceRegistrationTexels) / 1000000.0,
             surfaceRegistrationMilliseconds,
             static_cast<double>(surfaceTexels.size() * sizeof(GpuSurfaceTexel)) /
-                (1024.0 * 1024.0));
+                (1024.0 * 1024.0),
+            static_cast<double>(surfaceTexels.storageBytes()) / (1024.0 * 1024.0));
     }
     state.active = false;
     state.sceneOpen = false;
     state.output.Reset();
     state.accumulation.Reset();
     state.accumulationHistory.Reset();
+    state.surfaceHistory.Reset();
+    state.surfaceHistoryPrevious.Reset();
     state.depth.Reset();
     state.motion.Reset();
     state.diffuseAlbedo.Reset();
@@ -1809,6 +2436,11 @@ void raytracingShutdown(void)
         releaseReusableUpload(frame.instanceUpload);
         releaseReusableUpload(frame.lightUpload);
         releaseReusableUpload(frame.instanceMotionUpload);
+        releaseReusableUpload(frame.constantsUpload);
+        frame.textureStaging.clear();
+        frame.streamingStaging.clear();
+        frame.feedbackTextures.clear();
+        frame.feedbackSerial = 0;
         releaseReusableUpload(frame.shaderTable);
         frame.tlasScratch.Reset();
         frame.tlas.Reset();
@@ -1822,6 +2454,19 @@ void raytracingShutdown(void)
     }
     state.activeFrameSlot = 0;
     state.surfaceTexelUpload.Reset();
+    state.materialTextures.clear();
+    state.streamingMaterials.clear();
+    state.samplerFeedback = {};
+    state.feedbackCaptures = state.feedbackTrimmedBytes = 0;
+    state.materialResidency.reset();
+    state.requiredMaterialTextures.clear();
+    state.memoryBudgetAdapter.Reset();
+    state.sensorViewActive = false;
+    state.sensorReturnGraceFrame = 0;
+    state.materialFrameSerial = state.nextMaterialBudgetQuery = 0;
+    state.materialBudgetLimitBytes = ~0ull;
+    state.materialAdapterBudgetBytes = 0;
+    state.materialUploads = state.materialEvictions = 0;
     state.retiredSurfaceTexelUploads.clear();
     state.retiredSurfaceVariantUploads.clear();
     state.instanceDescriptions.clear();
@@ -1834,10 +2479,22 @@ void raytracingShutdown(void)
     state.instances.clear();
     state.previousInstances.clear();
     state.previousInstanceMatched.clear();
+    state.previousInstanceBuckets.clear();
+    state.previousInstanceIdentities.clear();
+    state.currentInstanceIdentities.clear();
+    state.currentViewValid = state.previousViewValid = state.worldFromViewValid = false;
+    state.materialMipRequests.Reset();
+    state.materialMipClearHeap.Reset();
+    state.materialMipPipeline.Reset();
+    state.materialMipRoot.Reset();
+    state.materialMipRequestsActivated = false;
+    state.feedbackStateObjectProperties.Reset();
+    state.feedbackStateObject.Reset();
     state.stateObjectProperties.Reset();
     state.stateObject.Reset();
     state.localRootSignature.Reset();
     state.globalRootSignature.Reset();
+    state.gpuMemory.reset();
     state.device.Reset();
     state.descriptorHeap = nullptr;
     state.descriptorSize = 0;
@@ -1916,6 +2573,16 @@ bool raytracingCreateOutput(unsigned int width, unsigned int height)
         raytracingReleaseOutput();
         return false;
     }
+    if (!createBuffer(static_cast<UINT64>(width) * height * 16,
+        D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+        D3D12_RESOURCE_STATE_UNORDERED_ACCESS, state.surfaceHistory) ||
+        !createBuffer(static_cast<UINT64>(width) * height * 16,
+        D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+        D3D12_RESOURCE_STATE_UNORDERED_ACCESS, state.surfaceHistoryPrevious))
+    {
+        raytracingReleaseOutput();
+        return false;
+    }
     D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
     srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srv.Format = outputFormat;
@@ -1966,6 +2633,8 @@ bool raytracingCreateOutput(unsigned int width, unsigned int height)
 
 void raytracingReleaseOutput(void)
 {
+    state.surfaceHistory.Reset();
+    state.surfaceHistoryPrevious.Reset();
     state.output.Reset();
     state.accumulation.Reset();
     state.accumulationHistory.Reset();
@@ -1992,19 +2661,34 @@ void raytracingBeginFrame(void)
         std::memcpy(state.previousViewMatrix, state.viewMatrix,
                     sizeof(state.previousViewMatrix));
         state.previousViewValid = true;
+        state.previousVerticalFieldOfViewDegrees = state.verticalFieldOfViewDegrees;
+        state.previousAspectRatio = state.aspectRatio;
     }
     else
     {
         state.previousViewValid = false;
     }
+    state.currentViewValid = false;
+    state.worldFromViewValid = false;
     state.previousInstances = state.instances;
     state.previousInstanceMatched.assign(state.previousInstances.size(), 0u);
     state.previousInstanceBuckets.clear();
     state.previousInstanceBuckets.reserve(
         std::max<size_t>(16u, state.previousInstances.size()));
+    state.previousInstanceIdentities.clear();
+    state.previousInstanceIdentities.reserve(state.previousInstances.size());
+    state.currentInstanceIdentities.clear();
+    state.currentInstanceIdentities.reserve(state.previousInstances.size());
     for (size_t index = 0; index < state.previousInstances.size(); ++index)
     {
         const SceneInstance &previous = state.previousInstances[index];
+        if (previous.motionIdentity.owner != 0)
+        {
+            state.previousInstanceIdentities.insert(previous.motionIdentity, index);
+            continue;
+        }
+        // Unowned scenery may retain its existing matching policy, but it
+        // must never consume the history of an explicitly identified ship.
         PreviousInstanceKey key = {
             previous.geometry, previous.surfaceVariant};
         state.previousInstanceBuckets[key].push_back(index);
@@ -2013,9 +2697,33 @@ void raytracingBeginFrame(void)
     state.sceneOpen = false;
 }
 
+void raytracingSetSensorViewActive(bool active)
+{
+    if (state.sensorViewActive && !active)
+        state.sensorReturnGraceFrame = state.materialFrameSerial + 1;
+    state.sensorViewActive = active;
+}
+
 void raytracingSetFrameSlot(unsigned int frameSlot)
 {
     state.activeFrameSlot = frameSlot % dxrFrameResourceCount;
+    // The presenter has waited for this exact flight slot's actual GPU fence.
+    // The monotonically increasing token only identifies the completed work;
+    // it is never a guessed frame delay used as a replacement for that fence.
+    auto &completedFrame = state.frames[state.activeFrameSlot];
+    for (const auto &texture : completedFrame.feedbackTextures)
+        texture->consumeFeedback(state.activeFrameSlot, completedFrame.feedbackSerial);
+    completedFrame.feedbackTextures.clear();
+    completedFrame.feedbackSerial = 0;
+    completedFrame.streamingStaging.clear();
+    completedFrame.textureStaging.clear();
+    ++state.materialFrameSerial;
+    state.gpuMemory.setCurrentFrameIndex(static_cast<unsigned int>(state.materialFrameSerial));
+    state.materialResidency.beginFencedSlot(state.activeFrameSlot);
+    // Today's material requirements are not known yet. Keep warm resources
+    // ready for returning views; menus still release cold data under real
+    // DXGI budget pressure. The known-scene path enforces the 512 MiB cache.
+    trimMaterialTextures(false, false);
 }
 
 void raytracingSetJitter(float jitterX, float jitterY)
@@ -2034,7 +2742,7 @@ void raytracingSetPathSettings(unsigned int samplesPerPixel,
                                float generatedNormalStrength)
 {
     requestedSamplesPerPixel = std::max(1u, std::min(samplesPerPixel, 4u));
-    requestedMaximumBounces = std::max(1u, std::min(maximumBounces, 3u));
+    requestedMaximumBounces = std::max(1u, std::min(maximumBounces, 6u));
     requestedGeneratedNormalStrength = std::max(
         0.0f, std::min(generatedNormalStrength, 4.0f));
     state.previousSceneHash = 0;
@@ -2183,7 +2891,7 @@ void raytracingSetMissionSkyLighting(int sourceValid,
         state.previousSceneHash = 0;
         if (missionSunValid)
         {
-            std::fprintf(stderr,
+            HW_DIAG_FPRINTF(stderr,
                 "[DXR] Mission sky key sourceDir=(%.4f, %.4f, %.4f); "
                 "directional key uses scene-to-source convention directly.\n",
                 missionSunWorldDirection[0], missionSunWorldDirection[1],
@@ -2198,7 +2906,7 @@ void raytracingSetMissionAuthoringReplacesMapLights(bool replace)
     {
         missionAuthoringReplacesMapLights = replace;
         state.previousSceneHash = 0;
-        std::fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[DXR] HSF local map lights %s by live mission authoring copies.\n",
             replace ? "replaced" : "restored");
     }
@@ -2259,7 +2967,7 @@ void raytracingSetMissionAuthoringLights(
     if (changed)
     {
         state.previousSceneHash = 0;
-        std::fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[DXR] Live mission authoring lights updated: %zu active records.\n",
             missionAuthoringLights.size());
     }
@@ -2326,6 +3034,25 @@ unsigned int generateSurfaceNormal(const unsigned int *surfaceRgba,
     return packGeneratedNormal(normalX, normalY, normalZ);
 }
 
+static void classifyOpaqueVariant(GeometryRecord::SurfaceVariant &variant)
+{
+    variant.opaqueForRays = !variant.surfaces.empty();
+    for (size_t index = 0; index < variant.surfaces.size(); ++index)
+    {
+        const auto &surface = variant.surfaces[index];
+        const bool resolved = (surface.flags & gpuSurfaceHasTexture) != 0 &&
+            surface.textureIndex < materialRecords.size();
+        const bool hasMaterial = resolved || (index < variant.materialIdentities.size() &&
+            variant.materialIdentities[index] != nullptr);
+        const unsigned int minimumAlpha = resolved ? materialRecords[surface.textureIndex].minimumAlpha : 0u;
+        if (!hwmodern::canSkipSurfaceAnyHit(surface.opacity, hasMaterial, resolved, minimumAlpha))
+        {
+            variant.opaqueForRays = false;
+            return;
+        }
+    }
+}
+
 static void bindSurfaceTextureToExistingVariants(
     const void *materialIdentity, const SurfaceTextureRecord &record)
 {
@@ -2361,9 +3088,10 @@ static void bindSurfaceTextureToExistingVariants(
                     continue;
                 }
                 surface.textureOffset = record.offset;
+                surface.textureIndex = record.textureIndex;
                 surface.textureWidth = record.width;
                 surface.textureHeight = record.height;
-                surface.flags |= gpuSurfaceHasTexture;
+                surface.flags |= gpuSurfaceHasTexture | (record.nativeNormal ? gpuSurfaceNativeNormal : 0u) | (record.rmMaterial ? gpuSurfaceRmMaterial : 0u);
                 patchedVariant = true;
             }
             if (!patchedVariant)
@@ -2381,6 +3109,7 @@ static void bindSurfaceTextureToExistingVariants(
             }
             variant.emissiveLights.clear();
             variant.emissiveLightsBuilt = false;
+            classifyOpaqueVariant(variant);
             patchedAny = true;
         }
     }
@@ -2401,7 +3130,9 @@ void raytracingRegisterSurfaceTexture(
     const unsigned int *normalRgba, const unsigned int *ormRgba,
     const char *textureKey)
 {
+#if HW_ENABLE_DIAGNOSTICS
     const auto metricStarted = std::chrono::steady_clock::now();
+#endif
     if (materialIdentity == nullptr || width == 0 || height == 0 ||
         surfaceRgba == nullptr || emissiveRgba == nullptr)
     {
@@ -2490,36 +3221,34 @@ void raytracingRegisterSurfaceTexture(
             return;
         }
         record.offset = static_cast<unsigned int>(surfaceTexels.size());
+        if (materialRecords.size() >= materialDescriptorCount) return;
+        record.textureIndex = static_cast<unsigned int>(materialRecords.size());
         record.width = width;
         record.height = height;
-        const size_t requiredTexels = surfaceTexels.size() + texelCount;
-        if (requiredTexels > surfaceTexels.capacity())
-        {
-            /* Never reserve exactly one texture at a time. With hundreds of
-               high-resolution ship maps that turns atlas construction into
-               an O(n^2) sequence of multi-hundred-megabyte copies. Grow by
-               50% (with an initial 1M-texel slab) so each texel is relocated
-               only a bounded number of times. */
-            const size_t minimumGrowth = 1024u * 1024u;
-            const size_t geometric = surfaceTexels.capacity() != 0
-                ? surfaceTexels.capacity() + surfaceTexels.capacity() / 2u
-                : minimumGrowth;
-            surfaceTexels.reserve(std::max(requiredTexels, geometric));
-        }
+        record.minimumAlpha = 255u;
+        record.rmMaterial = ormRgba != nullptr && namedKey.find("|rm-material") != std::string::npos;
+        record.nativeNormal = namedKey.find("/rmnative/") != std::string::npos ||
+            namedKey.compare(0,11,"subsystems/")==0 || namedKey.find("/subsystems/")!=std::string::npos;
+        // Keep numeric offsets unchanged while storing completed CPU pages
+        // losslessly compressed. Only a bounded decoded cache stays expanded;
+        // GPU material textures still receive the exact original texel bits.
         for (size_t index = 0; index < texelCount; ++index)
         {
             GpuSurfaceTexel texel = {};
             texel.surfaceRgba = surfaceRgba[index];
+            record.minimumAlpha = std::min(record.minimumAlpha, surfaceRgba[index] >> 24u);
             texel.emissiveRgba = emissiveRgba[index];
+            record.hasEmission = record.hasEmission || (texel.emissiveRgba & 0x00ffffffu)!=0;
             const unsigned int x = static_cast<unsigned int>(index % width);
             const unsigned int y = static_cast<unsigned int>(index / width);
             texel.generatedNormalRgba = normalRgba != nullptr
                 ? normalRgba[index]
-                : generateSurfaceNormal(surfaceRgba, width, height, x, y);
+                : (record.nativeNormal ? 0xffff8080u : generateSurfaceNormal(surfaceRgba, width, height, x, y));
             /* Alpha zero marks the legacy/global material fallback. */
             texel.ormRgba = ormRgba != nullptr ? ormRgba[index] : 0x0000ffffu;
             surfaceTexels.push_back(texel);
         }
+        materialRecords.push_back(record);
         if (namedKey.empty()) surfaceTextureContents[contentHash].push_back(record);
         surfaceTexelsDirty = true;
     }
@@ -2545,7 +3274,7 @@ void raytracingRegisterSurfaceTexture(
     }
     if (surfaceDiagEnabled())
     {
-        std::fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[SurfaceDiag][DXR] register id=%p size=%ux%u hash=%llu offset=%u content=%s identity=%s oldOffset=%u oldSize=%ux%u\n",
             materialIdentity, width, height, contentHash, record.offset,
             foundRecord ? "reused" : "new",
@@ -2557,11 +3286,14 @@ void raytracingRegisterSurfaceTexture(
     {
         surfaceTextureNames[namedKey] = record;
     }
+#if HW_ENABLE_DIAGNOSTICS
     ++surfaceRegistrationCalls;
     surfaceRegistrationTexels += texelCount;
     surfaceRegistrationMilliseconds +=
         std::chrono::duration<double, std::milli>(
             std::chrono::steady_clock::now() - metricStarted).count();
+
+#endif
 }
 
 bool raytracingTryAliasSurfaceTexture(const void *materialIdentity,
@@ -2577,6 +3309,28 @@ bool raytracingTryAliasSurfaceTexture(const void *materialIdentity,
     return true;
 }
 
+bool raytracingRasterEmissionSource(const void *materialIdentity,RasterEmissionSource &source)
+{
+    source={};const auto found=surfaceTextures.find(materialIdentity);
+    if(found==surfaceTextures.end() || !found->second.hasEmission)return false;
+    const auto&r=found->second;source.token=std::uint64_t(r.textureIndex)+1;
+    source.width=r.width;source.height=r.height;return true;
+}
+bool raytracingReadRasterEmission(std::uint64_t token,std::vector<unsigned char> &rgba)
+{
+    if(!token || token-1>=materialRecords.size())return false;
+    const auto&record=materialRecords[size_t(token-1)];
+    const size_t count=size_t(record.width)*record.height;
+    if(!record.hasEmission || count>16u*1024u*1024u || record.offset+count>surfaceTexels.size())return false;
+    rgba.resize(count*4);
+    for(size_t copied=0;copied<count;){
+        const auto span=surfaceTexels.span(record.offset+copied,count-copied);
+        if(!span.size)return false;
+        for(size_t i=0;i<span.size;++i)std::memcpy(rgba.data()+(copied+i)*4,&span.data[i].emissiveRgba,4);
+        copied+=span.size;
+    }
+    return true;
+}
 void raytracingUnregisterSurfaceTexture(const void *materialIdentity)
 {
     if (materialIdentity == nullptr)
@@ -2588,14 +3342,14 @@ void raytracingUnregisterSurfaceTexture(const void *materialIdentity)
         const auto found = surfaceTextures.find(materialIdentity);
         if (found != surfaceTextures.end())
         {
-            std::fprintf(stderr,
+            HW_DIAG_FPRINTF(stderr,
                 "[SurfaceDiag][DXR] unregister id=%p offset=%u size=%ux%u\n",
                 materialIdentity, found->second.offset, found->second.width,
                 found->second.height);
         }
         else
         {
-            std::fprintf(stderr,
+            HW_DIAG_FPRINTF(stderr,
                 "[SurfaceDiag][DXR] unregister id=%p not-registered\n",
                 materialIdentity);
         }
@@ -2613,6 +3367,7 @@ void raytracingBeginScene(float verticalFieldOfViewDegrees, float aspectRatio,
     state.verticalFieldOfViewDegrees = verticalFieldOfViewDegrees;
     state.aspectRatio = aspectRatio > 0.01f ? aspectRatio : 1.0f;
     std::memcpy(state.viewMatrix, viewMatrix, sizeof(state.viewMatrix));
+    state.worldFromViewValid = motionhistory::inverseAffine(viewMatrix, state.worldFromViewMatrix);
     state.currentViewValid = true;
     state.sceneOpen = true;
 }
@@ -2627,6 +3382,41 @@ bool raytracingSceneOpen(void)
     return state.active && state.sceneOpen;
 }
 
+std::string raytracingMotionSnapshot()
+{
+    std::ostringstream out;
+    out << std::setprecision(9);
+    const auto matrix = [&](const float *m) {
+        out << '['; for(unsigned i=0;i<16;++i){if(i)out<<',';out<<m[i];} out << ']';
+    };
+    out << "{\"previousViewValid\":" << (state.previousViewValid?"true":"false")
+        << ",\"view\":"; matrix(state.viewMatrix);
+    out << ",\"previousView\":"; matrix(state.previousViewMatrix);
+    const auto instances = [&](const std::vector<SceneInstance> &list) {
+        out << '[';
+        for(size_t i=0;i<list.size();++i) {
+            const auto &v=list[i]; if(i)out<<',';
+            const auto current=state.currentInstanceIdentities.find(v.motionIdentity);
+            const auto previous=state.previousInstanceIdentities.find(v.motionIdentity);
+            out << "{\"index\":"<<i<<",\"owner\":"<<v.motionIdentity.owner
+                <<",\"part\":"<<v.motionIdentity.part<<",\"geometry\":"<<reinterpret_cast<std::uintptr_t>(v.geometry)
+                <<",\"variant\":"<<reinterpret_cast<std::uintptr_t>(v.surfaceVariant)
+                <<",\"mask\":"<<v.instanceMask<<",\"worldValid\":"<<(v.worldTransformValid?"true":"false")
+                <<",\"surfaceHistoryValid\":"<<(v.surfaceHistoryValid?"true":"false")
+                <<",\"historyIdentity\":"<<v.historyIdentity
+                <<",\"currentIndex\":"<<(current==motionhistory::StableIndex::npos?-1:static_cast<long long>(current))
+                <<",\"previousIndex\":"<<(previous==motionhistory::StableIndex::npos?-1:static_cast<long long>(previous))
+                <<",\"modelView\":";matrix(v.modelView);
+            out <<",\"previousModelView\":";matrix(v.previousModelView);
+            out <<",\"world\":";matrix(v.worldTransform);out<<'}';
+        }
+        out << ']';
+    };
+    out << ",\"current\":";instances(state.instances);
+    out << ",\"previous\":";instances(state.previousInstances);out<<'}';
+    return out.str();
+}
+
 void raytracingSubmitGeometry(
     const void *geometryIdentity,
     const float *vertexPositions, unsigned int vertexCount,
@@ -2638,7 +3428,8 @@ void raytracingSubmitGeometry(
     unsigned int triangleSurfaceStrideBytes,
     const float modelViewMatrix[16],
     const float baseColor[3],
-    unsigned int instanceMask)
+    unsigned int instanceMask,
+    unsigned long long motionOwner, unsigned long long motionPart)
 {
     if (!raytracingSceneOpen() || geometryIdentity == nullptr ||
         vertexPositions == nullptr || vertexCount == 0 ||
@@ -2736,9 +3527,16 @@ void raytracingSubmitGeometry(
             if (texture != surfaceTextures.end())
             {
                 destination.textureOffset = texture->second.offset;
+                destination.textureIndex = texture->second.textureIndex;
                 destination.textureWidth = texture->second.width;
                 destination.textureHeight = texture->second.height;
-                destination.flags |= gpuSurfaceHasTexture;
+                destination.flags |= gpuSurfaceHasTexture | (texture->second.nativeNormal ? gpuSurfaceNativeNormal : 0u) | (texture->second.rmMaterial ? gpuSurfaceRmMaterial : 0u);
+                const auto idle=surfaceTextures.find(source->idleMaterialIdentity);
+                if(idle!=surfaceTextures.end() && idle->second.width==destination.textureWidth && idle->second.height==destination.textureHeight) {
+                    destination.engineBlendEnabled=1;
+                    destination.idleTextureIndex=idle->second.textureIndex;
+                    destination.idleTextureOffset=idle->second.offset;
+                }
                 ++diagTexturedTriangles;
             }
             else
@@ -2748,7 +3546,7 @@ void raytracingSubmitGeometry(
             if (surfaceDiagEnabled() &&
                 (firstDiagMaterial || source->materialIdentity != lastDiagMaterial))
             {
-                std::fprintf(stderr,
+                HW_DIAG_FPRINTF(stderr,
                     "[SurfaceDiag][DXR] variant geometry=%p variant=%u tri=%u/%u material=%p texture=%s offset=%u size=%ux%u base=%.3f,%.3f,%.3f uv0=%.5f,%.5f uv1=%.5f,%.5f uv2=%.5f,%.5f flags=0x%08x\n",
                     geometryIdentity, surfaceVariant, index, triangleCount,
                     source->materialIdentity,
@@ -2766,12 +3564,13 @@ void raytracingSubmitGeometry(
         }
         if (surfaceDiagEnabled())
         {
-            std::fprintf(stderr,
+            HW_DIAG_FPRINTF(stderr,
                 "[SurfaceDiag][DXR] variant-summary geometry=%p variant=%u triangles=%u textured=%u missing=%u\n",
                 geometryIdentity, surfaceVariant, triangleCount,
                 diagTexturedTriangles, diagMissingTriangles);
         }
         variant = created.get();
+        classifyOpaqueVariant(*variant);
         geometry->surfaceVariants.emplace(surfaceVariant, std::move(created));
     }
     else
@@ -2780,60 +3579,75 @@ void raytracingSubmitGeometry(
     }
 
     SceneInstance instance;
+    instance.motionIdentity = {motionOwner, motionPart};
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    instance.clipEnabled=hwglGetClipPlaneEye(instance.clipEquationEye);
+    instance.engineBlend=triangleSurfaces ? triangleSurfaces->engineBlend : 0.0f;
+#endif
+    instance.historyIdentity = state.nextHistoryIdentity++;
+    if (state.nextHistoryIdentity == 0) state.nextHistoryIdentity = 1;
     instance.geometry = geometry;
-    instance.instanceMask = instanceMask != 0u ? (instanceMask & 0xffu) : 0x03u;
+    instance.instanceMask = hwmodern::solidShadowMask(instanceMask);
     instance.surfaceVariant = variant;
     std::memcpy(instance.modelView, modelViewMatrix,
                 sizeof(instance.modelView));
-    /* An instance without a previous-frame identity is a disocclusion, not a
-       stationary object.  Using its current transform as the previous
-       transform generated a zero motion vector and let newly visible or
-       LOD-switched geometry inherit unrelated accumulated lighting at the
-       same screen-space depth.  A zero matrix makes the shader's previous
-       position invalid until the matcher below supplies a real transform. */
+    instance.worldTransformValid = state.worldFromViewValid &&
+        motionhistory::multiplyAffine(state.worldFromViewMatrix, modelViewMatrix, instance.worldTransform);
+    /* A new/LOD-switched instance still needs camera motion for FG. Keep a
+       fresh surface identity and invalid radiance-history depth until a real
+       match exists, but project its current world pose in the previous view. */
     std::memset(instance.previousModelView, 0,
                 sizeof(instance.previousModelView));
-    /* Render-list order is not an object identity.  Culling and transparent FX
-       can reorder submissions between frames, so index matching occasionally
-       gave one ship another ship's transform and poisoned temporal history.
-       Pair each current instance with the nearest unmatched prior instance of
-       the same geometry/material variant instead. */
+    if (state.previousViewValid && instance.worldTransformValid)
+        motionhistory::multiplyAffine(state.previousViewMatrix, instance.worldTransform, instance.previousModelView);
+    // Identified ships match only their exact owner lifetime and mesh part.
+    // A crossing/newly visible ship cannot steal a same-model neighbor's pose.
     size_t previousIndex = state.previousInstances.size();
-    float bestDistance = 3.402823466e+38f;
-    /* RTX-AAA: the old exact matcher scanned every prior scene instance even
-       though geometry/material mismatches were immediately rejected. Bucket
-       those invariant keys once per frame, then run the identical nearest
-       transform test only over candidates that can actually match. */
-    const PreviousInstanceKey matchKey = {geometry, variant};
-    const auto bucket = state.previousInstanceBuckets.find(matchKey);
-    if (bucket != state.previousInstanceBuckets.end())
+    if (instance.motionIdentity.owner != 0)
     {
-        for (const size_t index : bucket->second)
+        const size_t duplicate = state.currentInstanceIdentities.find(instance.motionIdentity);
+        const bool unique = state.currentInstanceIdentities.insert(
+            instance.motionIdentity, state.instances.size());
+        if (!unique && duplicate < state.instances.size())
         {
-            const SceneInstance &previous = state.previousInstances[index];
-            if (state.previousInstanceMatched[index] != 0u)
-                continue;
-            const float dx = previous.modelView[12] - modelViewMatrix[12];
-            const float dy = previous.modelView[13] - modelViewMatrix[13];
-            const float dz = previous.modelView[14] - modelViewMatrix[14];
-            float distance = dx * dx + dy * dy + dz * dz;
-            /* Translation identifies separated ships; orientation breaks ties
-               for docked formations and repeated mesh modules. */
-            for (size_t component = 0; component < 12; ++component)
-            {
-                const float delta = previous.modelView[component] -
-                                    modelViewMatrix[component];
-                distance += delta * delta * 0.01f;
-            }
-            if (distance < bestDistance)
-            {
-                bestDistance = distance;
-                previousIndex = index;
-            }
+            // Fail closed for repeated part keys in the same frame. Both
+            // submissions use camera-only motion, never arbitrary draw order.
+            SceneInstance &first = state.instances[duplicate];
+            first.surfaceHistoryValid = false;
+            first.historyIdentity = state.nextHistoryIdentity++;
+            if (state.nextHistoryIdentity == 0) state.nextHistoryIdentity = 1;
+            std::memset(first.previousModelView, 0, sizeof(first.previousModelView));
+            if (state.previousViewValid && first.worldTransformValid)
+                motionhistory::multiplyAffine(state.previousViewMatrix,
+                    first.worldTransform, first.previousModelView);
         }
+        if (unique && state.previousViewValid && instance.worldTransformValid)
+        {
+            const size_t exact = state.previousInstanceIdentities.find(instance.motionIdentity);
+            if (exact < state.previousInstances.size() &&
+                !state.previousInstanceMatched[exact] &&
+                geometry == state.previousInstances[exact].geometry &&
+                state.previousInstances[exact].worldTransformValid)
+                previousIndex = exact;
+        }
+    }
+    else
+    {
+        // Preserve existing unowned scenery behavior in a separate bucket.
+        // Identified ships never fall through to this proximity fallback.
+        const PreviousInstanceKey matchKey = {geometry, variant};
+        const auto bucket = state.previousInstanceBuckets.find(matchKey);
+        if (state.previousViewValid && instance.worldTransformValid &&
+            bucket != state.previousInstanceBuckets.end())
+            previousIndex = motionhistory::nearest(instance.worldTransform, state.previousInstances,
+                bucket->second, state.previousInstanceMatched);
     }
     if (previousIndex < state.previousInstances.size())
     {
+        const SceneInstance &previous = state.previousInstances[previousIndex];
+        instance.surfaceHistoryValid = geometry == previous.geometry &&
+            variant == previous.surfaceVariant;
+        if (instance.surfaceHistoryValid) instance.historyIdentity = previous.historyIdentity;
         state.previousInstanceMatched[previousIndex] = 1u;
         std::memcpy(instance.previousModelView,
                     state.previousInstances[previousIndex].modelView,
@@ -2877,7 +3691,7 @@ bool raytracingRecord(ID3D12GraphicsCommandList *commands,
             return false;
         }
     }
-    if (!ensureSurfaceTexelUpload() || !uploadInstanceMotion(frame))
+    if (!ensureMaterialTextures(commands, frame) || !uploadInstanceMotion(frame))
     {
         return false;
     }
@@ -2890,73 +3704,16 @@ bool raytracingRecord(ID3D12GraphicsCommandList *commands,
                 state.lightScratch);
     const std::vector<GpuLight> &lights = state.lightScratch;
     const unsigned long long sceneHash = buildSceneHash();
-    state.historyReset = sceneHash != state.previousSceneHash;
-    if (state.historyReset)
-    {
-        state.accumulationFrame = 0;
-    }
-    else
-    {
-        state.accumulationFrame = std::min(state.accumulationFrame + 1u, 63u);
-    }
-    state.previousSceneHash = sceneHash;
-    ++state.frameSeed;
+    const bool resetHistory = sceneHash != state.previousSceneHash;
+    const unsigned nextAccumulationFrame = resetHistory ? 0u :
+        std::min(state.accumulationFrame + 1u, 63u);
+    const unsigned nextFrameSeed = state.frameSeed + 1u;
     if (!updateReusableUpload(
             lights.data(), lights.size() * sizeof(GpuLight),
             L"Homeworld DXR light list", frame.lightUpload))
     {
         return false;
     }
-    D3D12_DISPATCH_RAYS_DESC dispatch = {};
-    if (!createShaderTable(frame, dispatch))
-    {
-        return false;
-    }
-
-    if (state.outputShaderReadable)
-    {
-        transitionOutput(commands, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-                         D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-    }
-    if (state.guidanceShaderReadable)
-    {
-        transitionResource(commands, state.depth.Get(),
-                           D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-                           D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-        transitionResource(commands, state.motion.Get(),
-                           D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
-                           D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-                           D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-    }
-    if (state.rrGuideShaderReadable)
-    {
-        transitionResource(commands, state.diffuseAlbedo.Get(),
-                           D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
-                           D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-                           D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-        transitionResource(commands, state.specularAlbedo.Get(),
-                           D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-                           D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-        transitionResource(commands, state.normalRoughness.Get(),
-                           D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-                           D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-    }
-    rayCommands->SetPipelineState1(state.stateObject.Get());
-    rayCommands->SetComputeRootSignature(state.globalRootSignature.Get());
-    ID3D12DescriptorHeap *heaps[] = { state.descriptorHeap };
-    rayCommands->SetDescriptorHeaps(1, heaps);
-    rayCommands->SetComputeRootShaderResourceView(
-        0, frame.tlas->GetGPUVirtualAddress());
-    rayCommands->SetComputeRootDescriptorTable(
-        1, gpuDescriptor(state.outputUavIndex));
-    rayCommands->SetComputeRootShaderResourceView(
-        2, frame.lightUpload.resource->GetGPUVirtualAddress());
-    rayCommands->SetComputeRootShaderResourceView(
-        3, state.surfaceTexelUpload->GetGPUVirtualAddress());
-    rayCommands->SetComputeRootShaderResourceView(
-        4, frame.instanceMotionUpload.resource->GetGPUVirtualAddress());
-    rayCommands->SetComputeRootDescriptorTable(
-        5, gpuDescriptor(state.environmentSrvIndex));
     constexpr float pi = 3.14159265358979323846f;
     FrameConstants constants = {};
     constants.tanHalfFieldOfView = std::tan(
@@ -2964,14 +3721,14 @@ bool raytracingRecord(ID3D12GraphicsCommandList *commands,
     constants.aspectRatio = state.aspectRatio;
     constants.lightCount = static_cast<unsigned int>(lights.size());
     constants.maximumRayDistance = 500000.0f;
-    constants.accumulationFrame = state.accumulationFrame;
+    constants.accumulationFrame = nextAccumulationFrame;
     constants.samplesPerPixel = requestedSamplesPerPixel;
     constants.maximumBounces = requestedMaximumBounces;
     constants.normalDetailStrength = requestedGeneratedNormalStrength;
     constants.nearPlane = 0.05f;
     constants.farPlane = constants.maximumRayDistance;
-    constants.resetAccumulation = state.historyReset ? 1u : 0u;
-    constants.frameSeed = state.frameSeed;
+    constants.resetAccumulation = resetHistory ? 1u : 0u;
+    constants.frameSeed = nextFrameSeed;
     constants.environmentStrength = requestedEnvironmentStrength;
     constants.surfaceReflectivity = requestedSurfaceReflectivity;
     constants.surfaceRoughness = requestedSurfaceRoughness;
@@ -3022,16 +3779,143 @@ bool raytracingRecord(ID3D12GraphicsCommandList *commands,
     constants.environmentIsDualParaboloid =
         state.environmentIsDualParaboloid ? 1u : 0u;
     constants.viewHistoryValid = state.previousViewValid ? 1u : 0u;
+    constants.previousTanHalfFieldOfView = state.previousViewValid ?
+        std::tan(state.previousVerticalFieldOfViewDegrees * (pi / 360.0f)) : constants.tanHalfFieldOfView;
+    constants.previousAspectRatio = state.previousViewValid ? state.previousAspectRatio : constants.aspectRatio;
 
-    rayCommands->SetComputeRoot32BitConstants(
-        6, sizeof(constants) / sizeof(unsigned int), &constants, 0);
+    if (!updateReusableUpload(&constants, sizeof(constants),
+        L"Homeworld DXR constants", frame.constantsUpload)) return false;
+
+    bool captureFeedback = state.feedbackStateObject && state.materialFrameSerial % 60u == 0;
+    std::vector<std::shared_ptr<SamplerFeedbackTexture>> captureTextures;
+    if (captureFeedback)
+        for (const auto index : state.requiredMaterialTextures)
+        {
+            const auto &texture = state.streamingMaterials[index];
+            if (texture && texture->prepareFeedback(state.samplerFeedback, state.activeFrameSlot))
+            {
+                state.materialResidency.resident(index, texture->residentBytes());
+                captureTextures.push_back(texture);
+            }
+        }
+    captureFeedback = !captureTextures.empty();
+    D3D12_DISPATCH_RAYS_DESC dispatch = {};
+    if (!createShaderTable(frame, dispatch, captureFeedback))
+    {
+        return false;
+    }
+
+    // Commit temporal state only after every fallible upload/table allocation.
+    // A failed preparation cannot suppress the next scene-history reset.
+    state.historyReset = resetHistory;
+    state.accumulationFrame = nextAccumulationFrame;
+    state.previousSceneHash = sceneHash;
+    state.frameSeed = nextFrameSeed;
+    if (state.outputShaderReadable)
+    {
+        transitionOutput(commands, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+                         D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    }
+    if (state.guidanceShaderReadable)
+    {
+        transitionResource(commands, state.depth.Get(),
+                           D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+                           D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        transitionResource(commands, state.motion.Get(),
+                           D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
+                           D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+                           D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    }
+    if (state.rrGuideShaderReadable)
+    {
+        transitionResource(commands, state.diffuseAlbedo.Get(),
+                           D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
+                           D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+                           D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        transitionResource(commands, state.specularAlbedo.Get(),
+                           D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+                           D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        transitionResource(commands, state.normalRoughness.Get(),
+                           D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+                           D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    }
+    rayCommands->SetPipelineState1(captureFeedback ? state.feedbackStateObject.Get() : state.stateObject.Get());
+    rayCommands->SetComputeRootSignature(state.globalRootSignature.Get());
+    ID3D12DescriptorHeap *heaps[] = { state.descriptorHeap };
+    rayCommands->SetDescriptorHeaps(1, heaps);
+    rayCommands->SetComputeRootShaderResourceView(
+        0, frame.tlas->GetGPUVirtualAddress());
+    rayCommands->SetComputeRootDescriptorTable(
+        1, gpuDescriptor(state.outputUavIndex));
+    rayCommands->SetComputeRootShaderResourceView(
+        2, frame.lightUpload.resource->GetGPUVirtualAddress());
+    rayCommands->SetComputeRootShaderResourceView(
+        3, state.surfaceTexelUpload->GetGPUVirtualAddress());
+    rayCommands->SetComputeRootShaderResourceView(
+        4, frame.instanceMotionUpload.resource->GetGPUVirtualAddress());
+    rayCommands->SetComputeRootDescriptorTable(
+        5, gpuDescriptor(state.environmentSrvIndex));
+    rayCommands->SetComputeRootConstantBufferView(6,
+        frame.constantsUpload.resource->GetGPUVirtualAddress());
+    rayCommands->SetComputeRootDescriptorTable(7, gpuDescriptor(materialDescriptorBase));
+    rayCommands->SetComputeRootUnorderedAccessView(8, state.surfaceHistory->GetGPUVirtualAddress());
+    rayCommands->SetComputeRootUnorderedAccessView(9, state.surfaceHistoryPrevious->GetGPUVirtualAddress());
+    if (captureFeedback)
+        rayCommands->SetComputeRootUnorderedAccessView(10, state.materialMipRequests->GetGPUVirtualAddress());
     if (!state.environmentIsDualParaboloid)
     {
         transitionResource(commands, environmentFrame,
                            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
                            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
     }
+    if (captureFeedback)
+    {
+        if (!state.materialMipRequestsActivated)
+        {
+            activatePooledResource(commands, state.materialMipRequests.Get());
+            state.materialMipRequestsActivated = true;
+        }
+        const UINT clear[4] = {UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX};
+        commands->ClearUnorderedAccessViewUint(gpuDescriptor(materialMipRequestDescriptorIndex),
+            state.materialMipClearHeap->GetCPUDescriptorHandleForHeapStart(),
+            state.materialMipRequests.Get(), clear, 0, nullptr);
+        D3D12_RESOURCE_BARRIER barrier = {};
+        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+        barrier.UAV.pResource = state.materialMipRequests.Get();
+        commands->ResourceBarrier(1, &barrier);
+    }
+    if (captureFeedback)
+        for (const auto index : state.requiredMaterialTextures)
+        {
+            const auto &texture = state.streamingMaterials[index];
+            if (texture && std::find(captureTextures.begin(), captureTextures.end(), texture) != captureTextures.end())
+                texture->beginFeedback(commands, gpuDescriptor(materialFeedbackDescriptorBase + index), state.activeFrameSlot);
+        }
     rayCommands->DispatchRays(&dispatch);
+    if (captureFeedback)
+    {
+        // Reduce the exact requested whole-material minimum with hardware
+        // sampler feedback in a compute pass. Direct feedback instructions in
+        // DXR hit shaders are deliberately absent (driver hang in validation).
+        transitionResource(commands, state.materialMipRequests.Get(),
+            D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        commands->SetPipelineState(state.materialMipPipeline.Get());
+        commands->SetComputeRootSignature(state.materialMipRoot.Get());
+        commands->SetComputeRootDescriptorTable(0, gpuDescriptor(materialDescriptorBase));
+        commands->SetComputeRootDescriptorTable(1, gpuDescriptor(materialFeedbackDescriptorBase));
+        commands->SetComputeRootShaderResourceView(2, state.materialMipRequests->GetGPUVirtualAddress());
+        commands->Dispatch((materialDescriptorCount + 63u) / 64u, 1, 1);
+        transitionResource(commands, state.materialMipRequests.Get(),
+            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        frame.feedbackSerial = state.materialFrameSerial;
+        for (const auto &texture : captureTextures)
+            if (texture->endFeedback(rayCommands.Get(), state.activeFrameSlot))
+            {
+                texture->feedbackSubmitted(state.activeFrameSlot, frame.feedbackSerial);
+                frame.feedbackTextures.push_back(texture);
+            }
+        ++state.feedbackCaptures;
+    }
 
     D3D12_RESOURCE_BARRIER uavBarriers[7] = {};
     ID3D12Resource *uavResources[7] = {
@@ -3046,6 +3930,12 @@ bool raytracingRecord(ID3D12GraphicsCommandList *commands,
         uavBarriers[index].UAV.pResource = uavResources[index];
     }
     commands->ResourceBarrier(7, uavBarriers);
+    D3D12_RESOURCE_BARRIER metadataBarriers[2] = {};
+    metadataBarriers[0].Type = metadataBarriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+    metadataBarriers[0].UAV.pResource = state.surfaceHistory.Get();
+    metadataBarriers[1].UAV.pResource = state.surfaceHistoryPrevious.Get();
+    commands->ResourceBarrier(2, metadataBarriers);
+    std::swap(state.surfaceHistory, state.surfaceHistoryPrevious);
 
     /* RTX-AAA: ping-pong accumulation/history instead of copying a full
        R16G16B16A16_FLOAT frame every dispatch. The resource written through
@@ -3084,26 +3974,26 @@ bool raytracingRecord(ID3D12GraphicsCommandList *commands,
 
     if (!state.loggedFirstDispatch)
     {
-        std::fprintf(stderr,
-                     "[ModernGraphics] DXR path tracing active: three "
+        HW_DIAG_FPRINTF(stderr,
+                     "[ModernGraphics] DXR path tracing active: up to %u "
                      "radiance bounces, motion-reprojected denoising, frame-"
                      "scrambled temporal sampling, mission environment emission, generated "
                      "detail normals, %zu mesh instances, "
                      "%zu BLAS records, %zu lights, "
                      "%zu authored surface texels at %ux%u. Alpha-tested "
                      "shadow rays are live.\n",
-                     state.instances.size(), state.geometries.size(),
+                     requestedMaximumBounces, state.instances.size(), state.geometries.size(),
                      lights.size(),
                      surfaceTexels.size() - 1,
                      state.width, state.height);
-        std::fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
                      "[ModernGraphics] DXR accumulation history uses ping-pong UAVs; "
                      "full-frame history CopyResource disabled.\n");
         state.loggedFirstDispatch = true;
     }
     if ((state.frameSeed % 600u) == 1u)
     {
-        std::fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[ModernGraphics] DXR optimization telemetry: %llu TLAS reuses, "
             "%llu TLAS refits, "
             "%llu full TLAS builds, %llu reusable upload allocations, "
@@ -3112,6 +4002,20 @@ bool raytracingRecord(ID3D12GraphicsCommandList *commands,
             state.tlasReuses, state.tlasUpdates, state.fullTlasBuilds,
             state.uploadBufferAllocations, state.shaderTableRebuilds,
             state.shaderTableCacheHits, state.emissiveCandidates.size());
+        HW_DIAG_FPRINTF(stderr,
+            "[TexturePerf] DXR material residency=%zu/%zu records %.1f MiB "
+            "(%zu required this frame); uploads=%llu evictions=%llu.\n",
+            state.materialResidency.residentCount(), materialRecords.size(),
+            static_cast<double>(state.materialResidency.residentBytes()) / (1024.0 * 1024.0),
+            state.requiredMaterialTextures.size(), state.materialUploads, state.materialEvictions);
+        const auto prepared = materialUploadCache.stats();
+        HW_DIAG_FPRINTF(stderr,
+            "[TexturePerf] Prepared mip cache: stores=%llu restores=%llu failures=%llu; "
+            "retention target=%.1f MiB material limit=%.1f MiB.\n",
+            prepared.stores, prepared.hits, prepared.failures,
+            static_cast<double>(materialRetentionTarget(state.materialResidency.requiredBytes(),
+                state.materialBudgetLimitBytes, state.materialAdapterBudgetBytes, true)) / (1024.0 * 1024.0),
+            static_cast<double>(state.materialBudgetLimitBytes) / (1024.0 * 1024.0));
     }
     return true;
 }
@@ -3119,6 +4023,12 @@ bool raytracingRecord(ID3D12GraphicsCommandList *commands,
 bool raytracingActive(void)
 {
     return state.active && state.output.Get() != nullptr;
+}
+
+RaytracingCacheStats raytracingCacheStats(void)
+{
+    return {state.materialUploads, state.materialEvictions,
+        state.feedbackTrimmedBytes, state.materialResidency.residentBytes()};
 }
 
 bool raytracingInitialized(void)
@@ -3162,6 +4072,16 @@ float raytracingAspectRatio(void)
 bool raytracingHistoryReset(void)
 {
     return state.historyReset;
+}
+
+unsigned long long raytracingSunVisibilityScene(float viewRows[12])
+{
+    auto &frame = state.frames[state.activeFrameSlot];
+    if (!state.active || !frame.tlasBuilt || !frame.tlas || !viewRows) return 0;
+    for (unsigned int row=0; row<3; ++row)
+        for (unsigned int col=0; col<4; ++col)
+            viewRows[row*4+col]=state.viewMatrix[col*4+row];
+    return frame.tlas->GetGPUVirtualAddress();
 }
 
 }

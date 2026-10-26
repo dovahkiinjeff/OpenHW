@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     UTILITY.C: General utilities for Windows interface of Homeworld
 
@@ -140,6 +141,7 @@
 
 #ifdef _WIN32
     #include "debugwnd.h"
+    #include "WindowsSplash.h"
 #endif
 
 extern bool32 debugScreenshots;
@@ -653,6 +655,7 @@ scriptEntry utyOptionsList[] =
 /* Does this need to be in here? Useful but possibly may cause problems */
     {"fullScreen",          scriptSetUdwordCB, &fullScreen},
     {"exclusiveFullscreen", scriptSetUdwordCB, &mainExclusiveFullscreen},
+    {"detectDisplayOnFirstBoot", scriptSetUdwordCB, &mainDetectDisplayOnFirstBoot},
     {"refreshRate",         scriptSetUdwordCB, &mainRefreshRate},
     {"uiScalePercent",      scriptSetUdwordCB, &mainUIScalePercent},
     {"raytracing",          scriptSetUdwordCB, &mainRaytracing},
@@ -671,12 +674,15 @@ scriptEntry utyOptionsList[] =
     {"authoredLight",       scriptSetUdwordCB, &mainAuthoredLightingPercent},
     {"surfaceReflectivity", scriptSetUdwordCB, &mainSurfaceReflectivityPercent},
     {"surfaceRoughness",    scriptSetUdwordCB, &mainSurfaceRoughnessPercent},
+    {"rasterGlowBrightness", scriptSetUdwordCB, &mainRasterGlowBrightnessPercent},
     {"lightingExposure",    scriptSetUdwordCB, &mainLightingExposurePercent},
     {"chromaticAberration", scriptSetUdwordCB, &mainChromaticAberrationPercent},
     {"motionBlur",          scriptSetUdwordCB, &mainMotionBlurPercent},
     {"filmGrain",           scriptSetUdwordCB, &mainFilmGrainPercent},
     {"godRays",             scriptSetUdwordCB, &mainGodRaysPercent},
     {"bloom",               scriptSetUdwordCB, &mainBloomPercent},
+    {"lensFlares",          scriptSetUdwordCB, &mainLensFlares},
+    {"textureResolution",   scriptSetUdwordCB, &mainTextureResolution},
     {"shadowStrength",        scriptSetUdwordCB, &mainShadowStrengthPercent},
     {"sunShadowRadiusCentiDeg",scriptSetUdwordCB, &mainSunShadowAngularRadiusCentidegrees},
     {"sunShadowSamples",      scriptSetUdwordCB, &mainSunShadowSamples},
@@ -703,7 +709,6 @@ scriptEntry utyOptionsList[] =
     {"noLOD",                   scriptSetUdwordCB, &opNoLODVal},
     {"detailThreshold",         scriptSetUdwordCB, &opDetailThresholdVal},
     {"enableSmoothing",         scriptSetUdwordCB, &enableSmoothing},
-    {"showBackgrounds",         scriptSetUdwordCB, &showBackgrounds},
     {"texLinearFiltering",      scriptSetUdwordCB, &texLinearFiltering},
     {"enableStipple",           scriptSetUdwordCB, &enableStipple},
     {"enableTrails",            scriptSetUdwordCB, &enableTrails},
@@ -717,6 +722,7 @@ scriptEntry utyOptionsList[] =
     {"fuzzyBlobs",              scriptSetUdwordCB, &smFuzzyBlobs},
     {"InstantTransition",       scriptSetUdwordCB, &smInstantTransition},
     {"brightnessVal",           scriptSetUdwordCB, &opBrightnessVal},
+    {"displayGammaPercent",     scriptSetUdwordCB, &mainDisplayGammaPercent},
 
 
   {"\n[sound options]\n", scriptSetStringCB, &filecfgblankspace},
@@ -868,7 +874,13 @@ scriptEntry utyOptionsList[] =
     {"UnlimitedFuel",                  scriptSetUdwordCB, &opUnlimitedFuel},
     {"SuperSalvagers",                 scriptSetUdwordCB, &opSuperSalvagers},
     {"CaptureBuildAll",                scriptSetUdwordCB, &opCaptureBuildAll},
+    {"DisableUnitCaps",                scriptSetUdwordCB, &opDisableUnitCaps},
+    {"RankSystem",                     scriptSetUdwordCB, &opRankSystem},
+    {"MissionStartLaunch",             scriptSetUdwordCB, &opMissionStartLaunch},
     {"ResourceMultiplier",             scriptSetUdwordCB, &opResourceMultiplier},
+    {"UnlimitedRUs",                   scriptSetUdwordCB, &opUnlimitedRUs},
+    {"DisableSPResourceScaling",       scriptSetUdwordCB, &opDisableSPResourceScaling},
+    {"showFPS",                        scriptSetUdwordCB, &mainShowFPS},
     {"PlayIntros",                     scriptSetUdwordCB, &aviPlayIntros},
     {"ShipRecoil",                     scriptSetUdwordCB, &opShipRecoil},
     {"ShipsAlwaysUseOwnerColors",      scriptSetBool,     &utyShipsAlwaysUseOwnerColors},
@@ -971,6 +983,13 @@ bool32 utyOptionsFileRead(void)
         ch_buf[0] = '\0';
     }
     strcpy(optionsPath, ch_buf);
+#ifdef _WINDOWS
+    if (getenv("HW_PORTABLE_ROOT"))
+    {
+        snprintf(ch_buf, sizeof(ch_buf), "%s/", getenv("HW_PORTABLE_ROOT"));
+        strcpy(optionsPath, ch_buf);
+    }
+#endif
     strcat(optionsPath, UTY_CONFIG_FILENAME);
     optionsFile = fopen(optionsPath, "rt");
     optionsExist = optionsFile != NULL;
@@ -1026,15 +1045,19 @@ void utyOptionsFileWrite(void)
         pathLength = snprintf(ch_buf, sizeof(ch_buf), "%s", UTY_CONFIG_FILENAME);
     }
 
+#ifdef _WINDOWS
+    if (getenv("HW_PORTABLE_ROOT"))
+        pathLength = snprintf(ch_buf, sizeof(ch_buf), "%s/%s", getenv("HW_PORTABLE_ROOT"), UTY_CONFIG_FILENAME);
+#endif
     if (pathLength < 0 || pathLength >= (int)sizeof(ch_buf))
     {
-        fprintf(stderr, "Unable to save options: settings path is too long.\n");
+        HW_DIAG_FPRINTF(stderr, "Unable to save options: settings path is too long.\n");
         return;
     }
 
     if (!fileMakeDestinationDirectory(ch_buf))
     {
-        fprintf(stderr, "Unable to save options: cannot create directory for %s.\n",
+        HW_DIAG_FPRINTF(stderr, "Unable to save options: cannot create directory for %s.\n",
                 ch_buf);
         return;
     }
@@ -1042,7 +1065,7 @@ void utyOptionsFileWrite(void)
     f = fopen(ch_buf, "wt");
     if (f == NULL)
     {
-        fprintf(stderr, "Unable to save options: cannot open %s.\n", ch_buf);
+        HW_DIAG_FPRINTF(stderr, "Unable to save options: cannot open %s.\n", ch_buf);
         return;
     }
 
@@ -1176,37 +1199,28 @@ void utyFilterBitmapToggle(char *name, featom *atom)
 
     trFilterEnable(texLinearFiltering);
 }
+static void utyBackgroundAlwaysOn(char *name, featom *atom)
+{
+    // Retail front-end files still reference these callbacks. Retire their
+    // controls without removing callback bindings; mission skies have no off state.
+    if (atom == NULL) return;
+    feToggleButtonSet(name, TRUE);
+    bitSet(atom->flags, FAF_Disabled | FAF_Hidden);
+    if (atom->region != NULL)
+    {
+        bitSet(((region *)atom->region)->status, RSF_RegionDisabled);
+        // Call-on-create happens after region allocation, so the hidden flag
+        // alone would not remove this instance's already-installed draw hook.
+        regDrawFunctionSet((region *)atom->region, NULL);
+    }
+}
 void utyBackgroundToggle(char *name, featom *atom)
 {
-    if (FEFIRSTCALL(atom))
-    {
-        feToggleButtonSet(name, showBackgrounds);
-    }
-    else
-    {
-        if (FECHECKED(atom))
-            showBackgrounds = TRUE;
-        else
-            showBackgrounds = FALSE;
-        feToggleButtonSet("VO_BitmapBackground",showBackgrounds);
-    }
-
-    utySetCustomEffects();
+    utyBackgroundAlwaysOn(name, atom);
 }
 void utyBackgroundBitmapToggle(char *name, featom *atom)
 {
-    if (FEFIRSTCALL(atom))
-    {
-        feToggleButtonSet(name, showBackgrounds);
-    }
-    else
-    {
-        if (FECHECKED(atom))
-            showBackgrounds = TRUE;
-        else
-            showBackgrounds = FALSE;
-        feToggleButtonSet("VO_Background",showBackgrounds);
-    }
+    utyBackgroundAlwaysOn(name, atom);
 }
 void utyInstantTransitionToggle(char *name, featom *atom)
 {
@@ -1629,6 +1643,10 @@ void gameStart(char *loadfilename)
     uword i;
     //udword numCompPlayers = 0;
 
+    HorseRaceLoadingPhaseBegin(HR_LOAD_PREPARE, loadfilename != NULL
+        ? "Reading saved mission requirements" : "Preparing mission and fleet requirements");
+    HorseRaceLoadingRefresh();
+
 #if MAIN_CDCheck
     if (mainCDCheckEnabled)
     {
@@ -1830,6 +1848,7 @@ void gameStart(char *loadfilename)
 
     if (tutorial==1)
     {
+        HorseRaceLoadingTask("Scanning tutorial requirements");
         tutPreInitTutorial(dirfile, levelfile);
     }
     else if (!singlePlayerGame)
@@ -1871,6 +1890,8 @@ void gameStart(char *loadfilename)
 
     /* pause sound engine */
     soundEventPause(TRUE);
+    if (!hrAbortLoadingGame)
+        HorseRaceLoadingPhaseComplete(HR_LOAD_PREPARE);
 
     //load in all the ships, register all the textures
     universeStaticInit();
@@ -1878,6 +1899,10 @@ void gameStart(char *loadfilename)
     {
         goto abortloading;
     }
+
+    HorseRaceLoadingPhaseBegin(HR_LOAD_WORLD, loadfilename != NULL
+        ? "Restoring saved mission world" : "Creating mission players and world");
+    HorseRaceLoadingRefresh();
 
     if (loadfilename == NULL)
     {
@@ -1947,6 +1972,8 @@ void gameStart(char *loadfilename)
     }
     else
     {
+        HorseRaceLoadingTask("Restoring saved mission objects and campaign state");
+        HorseRaceLoadingRefresh();
         LoadGame(loadfilename);
     }
 
@@ -1964,7 +1991,11 @@ void gameStart(char *loadfilename)
         aiCurrentAIPlayer = universe.players[1].aiPlayer;
         aiCurrentAIPlayer->primaryEnemyPlayer = &universe.players[0];
         if (loadfilename == NULL)
+        {
+            HorseRaceLoadingTask("Starting mission world and campaign scripts");
+            HorseRaceLoadingRefresh();
             singlePlayerStartGame();
+        }
     }
     else
     {
@@ -2065,6 +2096,11 @@ void gameStart(char *loadfilename)
         soundEventPlayMusic(SongNumber);
     }
 
+    if (!hrAbortLoadingGame)
+        HorseRaceLoadingPhaseComplete(HR_LOAD_WORLD);
+    HorseRaceLoadingPhaseBegin(HR_LOAD_EFFECTS, etgHasBeenStarted
+        ? "Resetting loaded mission effects" : "Loading mission effects");
+    HorseRaceLoadingRefresh();
     if (etgHasBeenStarted)
     {                                                       //if effects already started
         etgReloadReset();
@@ -2075,6 +2111,8 @@ void gameStart(char *loadfilename)
         utySet(SSA_Effect);
         etgHasBeenStarted = TRUE;
     }
+    if (!hrAbortLoadingGame)
+        HorseRaceLoadingPhaseComplete(HR_LOAD_EFFECTS);
     pingReset();                                            //clear out all pings
 
     //clear out any persistent subtitles
@@ -2086,6 +2124,8 @@ void gameStart(char *loadfilename)
     {
         goto abortloading;
     }
+    HorseRaceLoadingPhaseBegin(HR_LOAD_FINALIZE, "Finalizing textures and mission handoff");
+    HorseRaceLoadingRefresh();
     etgFixupUV();
     utySet(SSA_RegistryRefreshed);
 
@@ -2130,6 +2170,8 @@ abortloading:
     cameraJoystickReset();
 
     gameIsRunning = TRUE;
+    if (!hrAbortLoadingGame)
+        HorseRaceLoadingPhaseComplete(HR_LOAD_FINALIZE);
 }
 
 /*-----------------------------------------------------------------------------
@@ -3271,36 +3313,81 @@ void utySaveRecordedGame(char *name, featom *atom)
 ----------------------------------------------------------------------------*/
 static void utyStartupStage(const char *stage)
 {
-    fprintf(stderr, "[Startup] %s\n", stage);
+    HW_DIAG_FPRINTF(stderr, "[Startup] %s\n", stage);
     fflush(stderr);
+#ifdef _WIN32
+    if (hwWindowsSplashIsActive()) hwWindowsSplashUpdate(stage);
+#endif
+}
+
+static void utyStartupTaskBegin(const char *id, const char *label)
+{
+#ifdef _WIN32
+    if (hwWindowsSplashIsActive()) hwWindowsSplashTaskBegin(id, label);
+#else
+    (void)id; (void)label;
+#endif
+}
+
+static void utyStartupTaskComplete(const char *id, const char *detail)
+{
+#ifdef _WIN32
+    if (hwWindowsSplashIsActive()) hwWindowsSplashTaskComplete(id, detail);
+#else
+    (void)id; (void)detail;
+#endif
+}
+
+static void utyStartupTaskSkip(const char *id, const char *reason)
+{
+#ifdef _WIN32
+    if (hwWindowsSplashIsActive()) hwWindowsSplashTaskSkip(id, reason);
+#else
+    (void)id; (void)reason;
+#endif
 }
 
 void utyFrontEndDataLoad(void)
 {
     sdword index;
 
+    utyStartupTaskBegin("frontend.font", "Loading the default interface font");
     utyStartupStage("default front-end font begin");
     ghDefaultFont = frFontRegister("default.hff");          //load in the default font
     fontMakeCurrent(ghDefaultFont);                         //make default font current
     utyStartupStage("default front-end font complete");
+    utyStartupTaskComplete("frontend.font", "Default interface font loaded");
 
     for (index = 0; utyFrontEndFiles[index] != NULL; index++)
     {
-        fprintf(stderr, "[Startup] front-end file %d begin: %s\n",
+        char taskId[48];
+        char activity[160];
+        snprintf(taskId, sizeof(taskId), "frontend.file.%d", index);
+        snprintf(activity, sizeof(activity), "Loading interface %d of %d: %s",
+                 index + 1, (int)(sizeof(utyFrontEndFiles) / sizeof(utyFrontEndFiles[0])) - 1,
+                 utyFrontEndFiles[index]);
+        utyStartupTaskBegin(taskId, activity);
+        HW_DIAG_FPRINTF(stderr, "[Startup] front-end file %d begin: %s\n",
                 index, utyFrontEndFiles[index]);
         fflush(stderr);
         utyFrontEndFiles[index] = (char *)feScreensLoad(utyFrontEndFiles[index]);
-        fprintf(stderr, "[Startup] front-end file %d complete\n", index);
+        HW_DIAG_FPRINTF(stderr, "[Startup] front-end file %d complete\n", index);
         fflush(stderr);
+        snprintf(activity, sizeof(activity), "Interface %d loaded", index + 1);
+        utyStartupTaskComplete(taskId, activity);
     }
+    utyStartupTaskBegin("frontend.callbacks", "Connecting interface controls");
     utyStartupStage("front-end callbacks begin");
     feCallbackAddMultiple(utyCallbacks);
     feDrawCallbackAddMultiple(utyDrawCallbacks);
     utyStartupStage("front-end callbacks complete");
+    utyStartupTaskComplete("frontend.callbacks", "Interface controls connected");
 
+    utyStartupTaskBegin("frontend.options", "Initializing the options interface");
     utyStartupStage("options UI initialization begin");
     opOptionsInit();
     utyStartupStage("options UI initialization complete");
+    utyStartupTaskComplete("frontend.options", "Options interface initialized");
 }
 
 /*-----------------------------------------------------------------------------
@@ -3653,17 +3740,24 @@ char* utyGameSystemsPreInit(void)
 #endif
 #endif
 
+    utyStartupTaskBegin("preinit.globals", "Initializing game state");
     memset(utyStartedBits, 0, SSA_NumberBits);              //clear all module startup bits
     globalsInit();
+    utyStartupTaskComplete("preinit.globals", "Game state initialized");
 
+    utyStartupTaskBegin("preinit.input", "Initializing keyboard input");
     keyInit();
+    utyStartupTaskComplete("preinit.input", "Keyboard input initialized");
 
     // Initialize the font registry
+    utyStartupTaskBegin("preinit.fonts", "Initializing the font registry");
     frStartup();
     utySet(SSA_FontReg);
+    utyStartupTaskComplete("preinit.fonts", "Font registry initialized");
 
     // where the Homeworld data files are
 
+    utyStartupTaskBegin("preinit.paths", "Resolving game data and settings paths");
     char *dataPath = getenv("HW_Data");
     // default to the current directory
     if (dataPath == NULL)
@@ -3762,6 +3856,8 @@ char* utyGameSystemsPreInit(void)
 #endif
     }
 
+    utyStartupTaskComplete("preinit.paths", "Game data and settings paths resolved");
+    utyStartupTaskBegin("preinit.filechecks", "Checking required game archives");
 #if MAIN_CDCheck
     if (mainCDCheckEnabled)
     {
@@ -3872,8 +3968,10 @@ char* utyGameSystemsPreInit(void)
             return(errorString);
         }
     }
+    utyStartupTaskComplete("preinit.filechecks", "Required game archives found");
 
     //start up the memory manager
+    utyStartupTaskBegin("preinit.memory", "Allocating the game memory heap");
     if (MemoryHeapSize == MEM_HeapSizeDefault)
     {                                                       //if the user has not specified a heap size
         sdword newSize = 0;
@@ -3917,8 +4015,11 @@ char* utyGameSystemsPreInit(void)
         return(errorString);
     }
     utySet(SSA_MemoryModule);
+    utyStartupTaskComplete("preinit.memory", "Game memory manager initialized");
 
+    utyStartupTaskBegin("preinit.archives", "Opening game archive directories");
     bigOpenAllBigFiles();
+    utyStartupTaskComplete("preinit.archives", "Game archive directories opened");
 
 
         HomeworldCRC[0] = 0;  // originally stored CRC for code block (WON hacked client check)
@@ -3928,11 +4029,19 @@ char* utyGameSystemsPreInit(void)
 
         if (!IgnoreBigfiles)
         {
+            utyStartupTaskBegin("preinit.crc", "Calculating archive directory checksums");
             bigCRC((udword *)HomeworldCRC, sizeof(HomeworldCRC));
+            utyStartupTaskComplete("preinit.crc", "Archive directory checksums calculated");
+        }
+        else
+        {
+            utyStartupTaskSkip("preinit.crc", "Archive checksums skipped for loose-file mode");
         }
 //  }
 
+    utyStartupTaskBegin("preinit.version", "Preparing game version information");
     PrepareVersionStringStuff();
+    utyStartupTaskComplete("preinit.version", "Game version information prepared");
 
     if (SecretWON)
     {
@@ -3949,7 +4058,9 @@ char* utyGameSystemsPreInit(void)
         }
     }
 
+    utyStartupTaskBegin("preinit.tweakables", "Loading game configuration scripts");
     scriptSetTweakableGlobals();   // Must be called after file stuff is initialized
+    utyStartupTaskComplete("preinit.tweakables", "Game configuration scripts loaded");
 
     return NULL;
 }
@@ -3966,7 +4077,9 @@ char *utyGameSystemsInit(void)
 {
     rndinitdata renderData;
     Uint32 sdlSubsystemFlags;
+    bool32 startupDemoRequested;
 
+    utyStartupTaskBegin("systems.language", "Loading language and interface text");
     utyStartupStage("language and strings begin");
     utyToggleKeyStatesSave();
     utySet2(SS2_ToggleKeys);
@@ -3982,6 +4095,7 @@ char *utyGameSystemsInit(void)
 
     utySet2(SS2_Strings);
     utyStartupStage("language and strings complete");
+    utyStartupTaskComplete("systems.language", "Language and interface text loaded");
 
     dbgMessagef(
         "Homeworld CRCs:\n"
@@ -3993,8 +4107,9 @@ char *utyGameSystemsInit(void)
         "Homeworld.big TOC",    HomeworldCRC[2],
         "(not used)",           HomeworldCRC[3]  // never been used
     );
-    utyStartupStage("archive CRC calculation complete");
+    utyStartupStage("archive directory checksums reported");
     
+    utyStartupTaskBegin("systems.timer", "Initializing the system timer");
     // startup any SDL systems we want that haven't already been kicked off
     sdlSubsystemFlags = SDL_WasInit(SDL_INIT_EVERYTHING);
 
@@ -4010,7 +4125,9 @@ char *utyGameSystemsInit(void)
     utyTimerDivisor = 1000 / UTY_TimerResolutionMax;
     utySet(SSA_Timer);
     utyStartupStage("SDL timer ready");
+    utyStartupTaskComplete("systems.timer", "System timer initialized");
                                                             //start the task manager
+    utyStartupTaskBegin("systems.tasks", "Initializing the task manager");
     taskStartup((udword)(1000 / utyTimerDivisor));
     utySet(SSA_Task);
     utyStartupStage("task manager ready");
@@ -4021,8 +4138,10 @@ char *utyGameSystemsInit(void)
         memStatsTaskHandle = taskStart(memStatsTaskFunction, MEM_TaskStatsPeriod, 0);//start frame rate task
     }
 #endif
+    utyStartupTaskComplete("systems.tasks", "Task manager initialized");
 
     // create the autorun lock file
+    utyStartupTaskBegin("systems.region", "Initializing interface regions");
     utyLockFilehandle = 0;
     utyLockFilehandle = fileOpen(utyLockFilename, FF_WriteMode|FF_IgnoreBIG|FF_UserSettingsPath);
 
@@ -4032,11 +4151,14 @@ char *utyGameSystemsInit(void)
     }
     utySet(SSA_Region);
     utyStartupStage("region processor ready");
+    utyStartupTaskComplete("systems.region", "Interface region processor initialized");
 
     // initialize sound engine
+    utyStartupTaskBegin("systems.sound", "Loading audio banks and Remastered effects");
     soundEventInit();
     utySet2(SS2_SoundEngine);
     utyStartupStage("sound engine ready");
+    utyStartupTaskComplete("systems.sound", "Audio and Remastered presentation initialized");
 
 #ifndef HW_GAME_DEMO
     /* Intro playing requires a window, which we have not made yet thanks to
@@ -4062,8 +4184,9 @@ char *utyGameSystemsInit(void)
     }
     utyStartupStage("renderer initialization complete");
 
+    utyStartupTaskBegin("systems.mouse", "Configuring interface scale and mouse input");
     uiScaleConfigure(MAIN_WindowWidth, MAIN_WindowHeight, mainUIScalePercent);
-    fprintf(stderr, "UI scale: %.2fx at %dx%d (%d%% automatic modifier).\n",
+    HW_DIAG_FPRINTF(stderr, "UI scale: %.2fx at %dx%d (%d%% automatic modifier).\n",
             uiScaleGet(), MAIN_WindowWidth, MAIN_WindowHeight,
             mainUIScalePercent);
 
@@ -4073,8 +4196,10 @@ char *utyGameSystemsInit(void)
     }
     utySet(SSA_Mouse);
     utyStartupStage("mouse ready");
+    utyStartupTaskComplete("systems.mouse", "Interface scale and mouse input configured");
 
     //create a region for the main window
+    utyStartupTaskBegin("systems.baseui", "Initializing the main interface and overlays");
     mrStartup();
     utySet(SSA_MainRegion);
 
@@ -4082,7 +4207,9 @@ char *utyGameSystemsInit(void)
     ioStartup();
     utySet2(SS2_InfoOverlay);
     utyStartupStage("base UI ready");
+    utyStartupTaskComplete("systems.baseui", "Main interface and overlays initialized");
 
+    utyStartupTaskBegin("systems.textures", "Initializing lights and texture registries");
     utySet(SSA_Render);
     lightStartup();
     utySet(SSA_Lights);
@@ -4090,7 +4217,9 @@ char *utyGameSystemsInit(void)
     trStartup();
     utySet(SSA_TextureRegistry);
     utyStartupStage("lights and texture registry ready");
+    utyStartupTaskComplete("systems.textures", "Lights and texture registries initialized");
 
+    utyStartupTaskBegin("systems.universe", "Initializing the universe and update tasks");
     taskCallBackInit();
     utySet2(SS2_BabyCallBackRegistry);
 
@@ -4102,7 +4231,9 @@ char *utyGameSystemsInit(void)
     utyStartupStage("universe ready");
 
     taskStart(universeUpdateTask, UNIVERSE_UPDATE_PERIOD, 0);
+    utyStartupTaskComplete("systems.universe", "Universe and update tasks initialized");
 
+    utyStartupTaskBegin("systems.network", "Initializing multiplayer message queues");
     autodownloadmapStartup();
     KeepAliveStartup();
     InitQueue(&ProcessSyncPktQ,50000);
@@ -4112,18 +4243,24 @@ char *utyGameSystemsInit(void)
     InitLastSyncPktsQ();
     utySet2(SS2_NetworkQueues);
     taskStart(captainServerTask, CAPTAINSERVER_PERIOD, 0);
+    utyStartupTaskComplete("systems.network", "Multiplayer message queues initialized");
 
+    utyStartupTaskBegin("systems.flow", "Initializing game controls and interface flow");
+    utyStartupStage("initializing weapons and selection controls");
     gunStartup();
     utySet2(SS2_Guns);
 
     selStartup();
     utySet(SSA_Selection);
 
+    utyStartupStage("initializing interface controls");
     uicStartup();                                           //start up UI controls
     utySet(SSA_UIControls);
 
+    utyStartupStage("initializing model registries");
     meshStartup();
 
+    utyStartupStage("initializing front-end flow");
     if (feStartup() != OKAY)
     {                                                       //start the front end
         return("Unable to start front end.");
@@ -4134,15 +4271,19 @@ char *utyGameSystemsInit(void)
     utyClipMouse(startupClipMouse);                         //clip mouse to window if needed
 #endif
     utySet(SSA_MouseClipped);
+    utyStartupTaskComplete("systems.flow", "Game controls and interface flow initialized");
 
     utyStartupStage("front-end data load begin");
     utyFrontEndDataLoad();
     utySet(SSA_FrontEndData);
     utyStartupStage("front-end data load complete");
 
+    utyStartupTaskBegin("systems.tactics", "Loading tactics settings");
     tacticsStartUp();
     utyStartupStage("tactics ready");
+    utyStartupTaskComplete("systems.tactics", "Tactics settings loaded");
 
+    utyStartupTaskBegin("systems.managers", "Initializing launch, trade, and research");
     lmStartup();
     utySet2(SS2_LaunchMgr);
 
@@ -4151,12 +4292,18 @@ char *utyGameSystemsInit(void)
     rmAPIStartup();
     utySet2(SS2_ResearchMgr);
     utyStartupStage("launch, trade, and research managers ready");
+    utyStartupTaskComplete("systems.managers", "Launch, trade, and research initialized");
 
 #if defined(HW_GAME_DEMO) || defined(HW_GAME_RAIDER_RETREAT)
+    utyStartupTaskBegin("systems.plug", "Initializing introductory screens");
     psStartup();
     utySet2(SS2_PlugScreen);
+    utyStartupTaskComplete("systems.plug", "Introductory screen system initialized");
+#else
+    utyStartupTaskSkip("systems.plug", "Introductory plug screens are not part of this build");
 #endif
 
+    utyStartupTaskBegin("systems.sensors", "Initializing sensors and ship information");
     smStartup();                                            //start the sensors manager
     utySet(SSA_SensorsManager);
 
@@ -4169,7 +4316,9 @@ char *utyGameSystemsInit(void)
     battleChatterStartup();
     utySet2(SS2_BattleChatter);
     utyStartupStage("sensors, ship view, ping, and battle chatter ready");
+    utyStartupTaskComplete("systems.sensors", "Sensors and ship information initialized");
 
+    utyStartupTaskBegin("systems.teams", "Initializing team colors, subtitles, and tutorials");
     teStartup();                                            //start the team-specific stuff
     if (!cpColorsPicked)
     {
@@ -4187,21 +4336,29 @@ char *utyGameSystemsInit(void)
     tutStartup();
     utySet2(SS2_Tutorial);
     utyStartupStage("teams, colors, subtitles, and tutorial ready");
+    utyStartupTaskComplete("systems.teams", "Teams, subtitles, and tutorials initialized");
 
+    utyStartupTaskBegin("systems.pickers", "Loading scenario and game-selection data");
+    utyStartupStage("initializing animatics");
     animStartup();      //start the animatics module
 
+    utyStartupStage("loading scenario selection data");
     spStartup();                                            //start the scenario picker
     utySet(SSA_ScenarioPicker);
 
+    utyStartupStage("loading game selection data");
     gpStartup();
     utySet2(SS2_GamePicker);
 
+    utyStartupStage("loading multiplayer game settings");
     mgStartup();
     lgStartup();
     mgGameTypeScriptInit();
     utySet2(SS2_MultiplayerGame);
     utyStartupStage("scenario and game pickers ready");
+    utyStartupTaskComplete("systems.pickers", "Scenario and game-selection data loaded");
 
+    utyStartupTaskBegin("systems.construction", "Initializing construction and cinematic systems");
     cmStartup();                                            //start the construction manager
     utySet(SSA_ConstructionManager);
 
@@ -4214,25 +4371,33 @@ char *utyGameSystemsInit(void)
     nisStartup();
     utySet2(SS2_NIS);
     utyStartupStage("construction, random, spline, and NIS systems ready");
+    utyStartupTaskComplete("systems.construction", "Construction and cinematic systems initialized");
 
+    utyStartupTaskBegin("systems.effects", "Initializing particles, clouds, and visual effects");
     udStartup();                                            //start the undo module
     utySet(SSA_Undo);
 
     toStartup();                                            //start the TO module
     utySet(SSA_TacticalOverlay);
 
+    utyStartupStage("initializing damage effects");
     dmgStartup();
 
+    utyStartupStage("initializing cloud rendering");
     cloudStartup();
 
+    utyStartupStage("initializing scene lighting");
     shStartup();
 
+    utyStartupStage("initializing nebula rendering");
     nebStartup();
 
+    utyStartupStage("initializing mission backgrounds");
     btgStartup();
 
     alodStartup();
 
+    utyStartupStage("initializing particles");
     partStartup();
 
     pieStartup();
@@ -4240,6 +4405,7 @@ char *utyGameSystemsInit(void)
     trailStartup();                                         //start the trails module
     utySet(SSA_ShipTrails);
     utyStartupStage("render-effect systems ready");
+    utyStartupTaskComplete("systems.effects", "Particles, clouds, and visual effects initialized");
 
     //clear out the task timer.  Make sure this is the last call in this function.
     utyTaskTimerClear();
@@ -4248,33 +4414,58 @@ char *utyGameSystemsInit(void)
     if (fetEnableTextures)
 #endif
     {
+        utyStartupTaskBegin("systems.frontendtextures", "Initializing interface textures");
         ferStartup();                                       //start front end texture registry
+        utyStartupTaskComplete("systems.frontendtextures", "Interface texture registry initialized");
     }
+#if FEF_TEXTURES_DISABLABLE
+    else
+    {
+        utyStartupTaskSkip("systems.frontendtextures", "Interface textures are disabled");
+    }
+#endif
     utyStartupStage("front-end texture registry ready");
 
+    utyStartupTaskBegin("systems.primitives", "Initializing primitive rendering");
     utyStartupStage("primitive renderer begin");
     prim3dStartup();                                        //start the prim 3d stuff
     utySet2(SS2_Prim3D);
     utyStartupStage("primitive renderer ready");
+    utyStartupTaskComplete("systems.primitives", "Primitive rendering initialized");
 
     utySystemStarted = TRUE;
 
+    utyStartupTaskBegin("systems.settings", "Applying and saving game settings");
     utyStartupStage("settings application begin");
     opUpdateSettings();
     utyStartupStage("settings application complete");
+    utyStartupTaskComplete("systems.settings", "Game settings applied and saved");
 
+    utyStartupTaskBegin("systems.music", "Starting menu audio");
     utyStartupStage("front-end music begin");
     soundEventPlayMusic(SOUND_FRONTEND_TRACK);
     utyStartupStage("front-end music complete");
+    utyStartupTaskComplete("systems.music", "Menu audio initialized");
     utyStartupStage("front-end content ready");
 
 //    if (!nisEnabled)
 //    {
+        utyStartupTaskBegin("systems.mainscreen", "Activating the main menu");
         utyStartupStage("main screen activation begin");
         feScreenStart(ghMainRegion, "Main_game_screen");
         mouseCursorShow();
         utyStartupStage("main screen activation complete");
+        utyStartupTaskComplete("systems.mainscreen", "Main menu activated");
 //    }
+
+    startupDemoRequested = demDemoRecording || demDemoPlaying;
+#if defined(HW_GAME_DEMO) && !defined(__EMSCRIPTEN__)
+    if (enableAVI) startupDemoRequested = TRUE;
+#endif
+    if (startupDemoRequested)
+        utyStartupTaskBegin("systems.demo", "Preparing the requested introductory or recorded demo");
+    else
+        utyStartupTaskSkip("systems.demo", "No introductory or recorded demo requested");
 
 #ifdef HW_GAME_DEMO
 #ifndef __EMSCRIPTEN__
@@ -4310,6 +4501,8 @@ char *utyGameSystemsInit(void)
             demDemoPlaying = FALSE;
         }
     }
+    if (startupDemoRequested)
+        utyStartupTaskComplete("systems.demo", "Introductory and recorded demo requests processed");
 
 /*
     if (nisEnabled)
@@ -4325,8 +4518,12 @@ char *utyGameSystemsInit(void)
     // when we want to take debug screenshots directly start the singleplayer campaing
     if (debugScreenshots)
     {
+        utyStartupTaskBegin("systems.debugmission", "Loading the requested screenshot mission");
         utySinglePlayerGameStart("", NULL);
+        utyStartupTaskComplete("systems.debugmission", "Screenshot mission startup returned");
     }
+    else
+        utyStartupTaskSkip("systems.debugmission", "Automatic screenshot mission not requested");
 
     return(NULL);                                           //success, return no error
 }

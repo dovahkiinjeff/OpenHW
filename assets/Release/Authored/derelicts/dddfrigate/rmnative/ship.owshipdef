@@ -1,0 +1,8 @@
+OPENHW_SHIP_1
+type Derelict_DDDFrigate
+scale 2.9554563
+hull hull.hod
+mad -
+surface 0 0 c0_m0
+surface 0 1 c0_m1
+presentation Hull hull_events.owevents

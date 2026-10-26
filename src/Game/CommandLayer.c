@@ -8,7 +8,9 @@
 //  Created 7/5/1997 by gshaw
 // =============================================================================
 
+#include "ResourceUnits.h"
 #include "CommandLayer.h"
+#include "ShipPilot.h"
 
 #include "AIPlayer.h"
 #include "AIShip.h"
@@ -23,6 +25,7 @@
 #include "Memory.h"
 #include "NetCheck.h"
 #include "Options.h"
+#include "MissionStartLaunchPolicy.h"
 #include "Ping.h"
 #include "Randy.h"
 #include "Select.h"
@@ -4991,10 +4994,10 @@ void clMpHyperspace(CommandLayer *comlayer,SelectCommand *selectcom,vector from,
 
     playerindex = selectcom->ShipPtr[0]->playerowner->playerIndex;
     if ( (playerindex >= tpGameCreated.numPlayers) ||    // computer player RU's arene't deterministic, always let it spend RUs (computer RUs can go negative)
-         (universe.players[playerindex].resourceUnits >= cost) )
+         resourceUnitsCanAfford(&universe.players[playerindex], cost) )
     {
-        universe.players[playerindex].resourceUnits -= cost;
-        universe.gameStats.playerStats[playerindex].totalResourceUnitsSpent += cost;
+        universe.gameStats.playerStats[playerindex].totalResourceUnitsSpent +=
+            resourceUnitsSpend(&universe.players[playerindex], cost);
     }
     else
     {
@@ -7015,38 +7018,7 @@ void clLaunchShip(CommandLayer *comlayer,SelectCommand *selectcom,ShipPtr receiv
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void clLaunchMultipleShips(CommandLayer *comlayer,SelectCommand *selectcom,ShipPtr launchFrom)
-{
-    sdword numShips = selectcom->numShips;
-    sdword i;
-    SelectCommand selectone;
-
-    if (numShips == 0)
-    {
-#if DEBUG_COMMAND_LAYER
-        dbgMessage("No Ships to launch");
-#endif
-        return;
-    }
-
-    if (launchFrom == NULL)
-    {
-#if DEBUG_COMMAND_LAYER
-        dbgMessage("No Ship to launch from");
-#endif
-        return;
-    }
-
-    selectone.numShips = 1;
-    for (i=0;i<numShips;i++)
-    {
-        if (!(selectcom->ShipPtr[i]->attributes & ATTRIBUTES_Defector))      // don't let the defector launch
-        {
-            selectone.ShipPtr[0] = selectcom->ShipPtr[i];
-            clLaunchShip(comlayer,&selectone,launchFrom);
-        }
-    }
-}
+#include "LaunchMultipleShips.inc"
 
 /*-----------------------------------------------------------------------------
     Name        : LaunchAllInternalShipsOfPlayerThatMustBeLaunched
@@ -7244,6 +7216,58 @@ void clAutoLaunch(udword OnOff,udword playerIndex)
     Outputs     :
     Return      : void
 ----------------------------------------------------------------------------*/
+/* Only called after campaign hyperspace arrival. No persistent override of
+   the launch-manager switches, new construction, or ordinary docking. */
+void clMissionStartLaunch(Player *player, udword autoLaunch, udword mode)
+{
+    Node *node;
+    Ship *mothership;
+    Ship *carriers[4];
+    if (!singlePlayerGame || mode == MISSION_START_LAUNCH_VANILLA ||
+        mode > MISSION_START_LAUNCH_HOLD_ALL)
+    {
+        LaunchAllInternalShipsOfPlayerThatMustBeLaunched(player);
+        clAutoLaunch(autoLaunch, (udword)(player - universe.players));
+        return;
+    }
+
+    FillInCarrierMothershipInfo(player, &mothership, carriers);
+    /* Restore the old switches without clAutoLaunch's unfiltered bulk launch.
+       Ships held below use the existing saved explicit-launch flag. */
+    player->autoLaunch = autoLaunch;
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        Ship *host = (Ship *)listGetStructOfNode(node);
+        Node *insideNode;
+        udword hostMask = host == mothership ? BIT0 : 0;
+        sdword index;
+        if (host->playerowner != player || !host->shipsInsideMe || host->shiptype == DDDFrigate)
+            continue;
+        for (index = 0; index < 4; ++index)
+            if (host == carriers[index]) hostMask |= BIT1 << index;
+        for (insideNode = host->shipsInsideMe->insideList.head; insideNode != NULL; )
+        {
+            InsideShip *inside = (InsideShip *)listGetStructOfNode(insideNode);
+            Ship *ship = inside->ship;
+            bool32 utility = ship->shiptype == ResourceCollector ||
+                ship->shiptype == RepairCorvette || ship->shiptype == SalCapCorvette;
+            bool32 combat = ship->staticinfo->shipclass == CLASS_Fighter ||
+                ship->staticinfo->shipclass == CLASS_Corvette;
+            insideNode = insideNode->next;
+            if (missionStartHoldShip(mode, combat, utility))
+                ship->specialFlags |= SPECIAL_STAY_TILL_EXPLICITLAUNCH;
+            else if (utility || (autoLaunch & hostMask) ||
+                (ship->attributes & ATTRIBUTES_Defector) || ShipHasToLaunch(host, ship))
+            {
+                SelectCommand selection;
+                selection.numShips = 1;
+                selection.ShipPtr[0] = ship;
+                clLaunchShip(&universe.mainCommandLayer, &selection, host);
+            }
+        }
+    }
+}
+
 void clSetAlliance(udword AllianceType, uword curalliance, uword newalliance)
 {
     allianceSetAlliance(AllianceType, curalliance, newalliance);
@@ -7509,8 +7533,8 @@ void clBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uwor
 
     //if (shipstaticinfo->buildCost <= player->resourceUnits)
     {
-        player->resourceUnits -= shipstaticinfo->buildCost;     // subtract cost right away
-        universe.gameStats.playerStats[player->playerIndex].totalResourceUnitsSpent += shipstaticinfo->buildCost;
+        universe.gameStats.playerStats[player->playerIndex].totalResourceUnitsSpent +=
+            resourceUnitsSpend(player, shipstaticinfo->buildCost);
         // make new command indicating delayed build:
 
         newcommand = memAlloc(sizeof(CommandToDo),"ToDo",NonVolatile);
@@ -8260,6 +8284,8 @@ void clProcess(CommandLayer *comlayer)
 
         commandselection = command->selection;
 
+        if(commandselection->numShips>0 && shipPilotControls(commandselection->ShipPtr[0]))
+            goto nextcommand;
         if(singlePlayerGame)
         {
             for (i=0;i<commandselection->numShips;i++)
@@ -8873,6 +8899,14 @@ processdock:
 
                 case COMMAND_MILITARY_PARADE:
                     passiveAttacked = FALSE;
+                    // An attack acquired before roll call can still rotate a
+                    // parade ship. Clear it before either attack or parade steering.
+                    if ((command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING) &&
+                        command->selection->numShips > 0 &&
+                        singlePlayerHyperspaceSuppressesAutoCombat(command->selection->ShipPtr[0]))
+                    {
+                        ClearPassiveAttacking(command);
+                    }
                     if (command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
                     {
                         if (processPassiveAttackToDo(command))
@@ -9033,6 +9067,8 @@ void clPostProcess(CommandLayer *comlayer)
         command = (CommandToDo *)listGetStructOfNode(curnode);
         nextnode = curnode->next;
 
+        if(command->selection->numShips>0 && shipPilotControls(command->selection->ShipPtr[0]))
+        { curnode=nextnode; continue; }
         if (command->ordertype.attributes & COMMAND_MASK_PROTECTING)
         {
             dbgAssertOrIgnore(command->protect->numShips > 0);
@@ -9474,4 +9510,3 @@ void clChecksum(void)
 }
 
 #endif
-

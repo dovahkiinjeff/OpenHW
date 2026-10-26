@@ -1,0 +1,36 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_kus_ltcorvette_armed
+scale 1
+hull @/Subsystems/kus_ltcorvette/model.hod
+mad -
+surface 0 0 @/Subsystems/kus_ltcorvette/m0
+gun 0 Hull Weapon_Gun0_Position - - Weapon_Gun0_Muzzle
+presentation Hull @/Subsystems/kus_hvcorvette1_hw1_019039add8/component_events.owevents
+[Weapons]
+GUN 0
+{
+WeaponFire @/RemasteredFX/WeaponFire/kinetic_small.wf
+
+Type GUN_NewGimble
+FireAnimation Weapon_Gun0
+SoundType GS_MediumEnergyCannon
+DamageLo 20
+DamageHi 31
+BulletLength 22
+BulletRange 5000
+BulletSpeed 15000
+BulletMass 0.01
+FireTime 2.7
+TriggerHappy 7
+minturnangle -30
+maxturnangle 30
+mindeclination -30
+maxdeclination 30
+maxanglespeed 360
+maxdeclinationspeed 360
+angletracking 4
+declinationtracking 4
+BarrelLength 10.5
+RecoilLength 0
+}
+[End]

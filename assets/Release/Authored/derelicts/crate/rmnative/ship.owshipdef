@@ -1,0 +1,6 @@
+OPENHW_SHIP_1
+type Derelict_Crate
+scale 2.24971445
+hull hull.hod
+mad -
+surface 0 0 c0_m0

@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 #include "ModernMissionBackdrop.h"
 
 #include <SDL2/SDL.h>
@@ -12,6 +13,7 @@
 #include "glinc.h"
 #include "render.h"
 #include "texreg.h"
+#include "main.h"
 
 /* RTX-0067: mission skies are pole-safe dual-paraboloid HDR maps packed into
    one 2:1 Texture2D. They are rendered by a native D3D12 fullscreen
@@ -53,6 +55,10 @@ typedef struct MMBLightingAuthoringOverride
     bool32 sourceValid;
     real32 direction[3];
     real32 sunIntensity;
+    real32 godRayStrength;
+    sdword tuning[14];
+    bool32 godRayColorOverride;
+    real32 godRayColor[3];
     real32 sourceColorScale[3];
     bool32 ambientEnabled;
     real32 ambientScale;
@@ -128,15 +134,20 @@ static void mmbSanitizeAuthoredLight(ModernMissionAuthoredLight *light)
 
 static void mmbLightingOverrideDefaults(sdword mission)
 {
+    static const sdword defaults[14] = {100,100,110,100,120,65,65,100,100,25,25,200,100,100};
     memset(&mmbLightingOverride, 0, sizeof(mmbLightingOverride));
     mmbLightingOverride.mission = mission;
     mmbLightingOverride.loaded = TRUE;
+    memcpy(mmbLightingOverride.tuning, defaults, sizeof(defaults));
     mmbLightingOverride.sourceValid = mmbGodRaySourceValid;
     mmbLightingOverride.direction[0] = mmbGodRaySourceDirection[0];
     mmbLightingOverride.direction[1] = mmbGodRaySourceDirection[1];
     mmbLightingOverride.direction[2] = mmbGodRaySourceDirection[2];
     mmbNormalizeDirection(mmbLightingOverride.direction);
     mmbLightingOverride.sunIntensity = 1.0f;
+    mmbLightingOverride.godRayStrength = 1.0f;
+    mmbLightingOverride.godRayColor[0] = mmbLightingOverride.godRayColor[1] =
+        mmbLightingOverride.godRayColor[2] = 1.0f;
     mmbLightingOverride.sourceColorScale[0] = 1.0f;
     mmbLightingOverride.sourceColorScale[1] = 1.0f;
     mmbLightingOverride.sourceColorScale[2] = 1.0f;
@@ -197,7 +208,7 @@ static void mmbPushAuthoringLights(void)
 
 static void mmbLightingOverrideLoad(sdword mission)
 {
-    char path[96];
+    char path[1024];
     char line[512];
     filehandle handle;
     int enabled = 0;
@@ -218,8 +229,19 @@ static void mmbLightingOverrideLoad(sdword mission)
                       FF_UserSettingsPath | FF_ReturnNULLOnFail);
     if (handle == 0)
     {
+        char *basePath = SDL_GetBasePath();
+        if (basePath != NULL)
+        {
+            snprintf(path, sizeof(path), "%sData/Missions/Mission%02d.rtxlight", basePath, mission);
+            SDL_free(basePath);
+            handle = fileOpen(path, FF_TextMode | FF_IgnoreBIG |
+                              FF_IgnorePrepend | FF_ReturnNULLOnFail);
+        }
+    }
+    if (handle == 0)
+    {
         mmbPushAuthoringLights();
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
                 "[ModernBackdrop] Mission %02d has no saved RTX lighting override; using HDR sky metadata.\n",
                 mission);
         return;
@@ -263,6 +285,26 @@ static void mmbLightingOverrideLoad(sdword mission)
             colorScale[0] = (real32)a;
             colorScale[1] = (real32)b;
             colorScale[2] = (real32)c;
+        }
+        else if (strncmp(line, "missionTuning ", 14) == 0)
+        {
+            int row, value;
+            if (sscanf(line, "missionTuning %d %d", &row, &value) == 2 && row >= 0 && row < 14 && (row < 9 || row > 11))
+            {
+                static const sdword lows[14] = {0,0,0,0,0,0,0,0,0,0,0,0,50,0};
+                static const sdword highs[14] = {200,200,200,200,200,400,400,400,400,200,100,400,200,200};
+                mmbLightingOverride.tuning[row] = (sdword)mmbClamp((real32)value,(real32)lows[row],(real32)highs[row]);
+            }
+        }
+        else if (sscanf(line, "godRayStrength %f", &a) == 1)
+            mmbLightingOverride.godRayStrength = mmbClamp((real32)a,0.0f,4.0f);
+        else if (sscanf(line, "godRayColorOverride %d", &parsedInt) == 1)
+            mmbLightingOverride.godRayColorOverride = parsedInt ? TRUE : FALSE;
+        else if (sscanf(line, "godRayColor %f %f %f", &a,&b,&c) == 3)
+        {
+            mmbLightingOverride.godRayColor[0] = mmbClamp((real32)a,0.0f,1.0f);
+            mmbLightingOverride.godRayColor[1] = mmbClamp((real32)b,0.0f,1.0f);
+            mmbLightingOverride.godRayColor[2] = mmbClamp((real32)c,0.0f,1.0f);
         }
         else if (sscanf(line, "ambientEnabled %d", &parsedInt) == 1)
         {
@@ -338,7 +380,7 @@ static void mmbLightingOverrideLoad(sdword mission)
     mmbLightingOverride.authoredLightCount = authoredLightCount;
     mmbLightingOverride.loadedFromDisk = TRUE;
     mmbPushAuthoringLights();
-    fprintf(stderr,
+    HW_DIAG_FPRINTF(stderr,
             "[ModernBackdrop] Mission %02d RTX lighting override loaded: enabled=%d dir=(%.4f, %.4f, %.4f) sun=%.2f keyColor=(%.2f, %.2f, %.2f) ambient=%.2f ambientTint=%s(%.2f, %.2f, %.2f) customLights=%d.\n",
             mission, mmbLightingOverride.enabled,
             mmbLightingOverride.direction[0],
@@ -362,7 +404,42 @@ static void mmbLightingOverrideEnsure(sdword mission)
     if (!mmbLightingOverride.loaded || mmbLightingOverride.mission != mission)
     {
         mmbLightingOverrideLoad(mission);
+        modernMissionBackdropLightingTuningApply();
     }
+}
+
+static sdword *mmbTuningBindings[14] = {
+    &mainPrimarySunLightingPercent, &mainSkyAmbientLightingPercent,
+    &mainEnvironmentLightingPercent, &mainAuthoredLightingPercent,
+    &mainFxLightingStrengthPercent, &mainWeaponOriginLightIntensityPercent,
+    &mainWeaponOriginLightRangePercent, &mainWeaponImpactLightIntensityPercent,
+    &mainWeaponImpactLightRangePercent, &mainSurfaceReflectivityPercent,
+    &mainSurfaceRoughnessPercent, &mainGeneratedNormalStrengthPercent,
+    &mainLightingExposurePercent, &mainOutputDitherPercent
+};
+
+void modernMissionBackdropLightingTuningCapture(void)
+{
+    sdword i;
+    if (!mmbLightingOverride.loaded || mmbLightingOverride.mission == 0) return;
+    for (i=0; i<14; ++i) if (i<9 || i>11) mmbLightingOverride.tuning[i] = *mmbTuningBindings[i];
+}
+
+void modernMissionBackdropLightingTuningApply(void)
+{
+    sdword i;
+    if (!mmbLightingOverride.loaded || mmbLightingOverride.mission == 0) return;
+    /* Material interpretation is global, never restored from a mission. */
+    for (i=0; i<14; ++i) if (i<9 || i>11) *mmbTuningBindings[i] = mmbLightingOverride.tuning[i];
+    hwModernGraphicsSetRasterGlowBrightness(mainRasterGlowBrightnessPercent / 100.0f);
+    hwModernGraphicsSetSkyLightingStrengths(mainPrimarySunLightingPercent/100.0f,mainSkyAmbientLightingPercent/100.0f);
+    hwModernGraphicsSetLightingEditorSettings(mainEnvironmentLightingPercent/100.0f,mainAuthoredLightingPercent/100.0f,
+        mainSurfaceReflectivityPercent/100.0f,mainSurfaceRoughnessPercent/100.0f,mainLightingExposurePercent/100.0f);
+    hwModernGraphicsSetFxLightingStrength(mainFxLightingStrengthPercent/100.0f);
+    hwModernGraphicsSetPathTracingSettings(mainPathTracingSamples,mainPathTracingBounces,mainGeneratedNormalStrengthPercent/100.0f);
+    hwModernGraphicsSetOutputDitherStrength(mainOutputDitherPercent/100.0f);
+    HW_DIAG_FPRINTF(stderr, "[MissionTuning] Mission %02d applied independent tuning: primary sun/shadow=%d%%.\n",
+        mmbLightingOverride.mission, mainPrimarySunLightingPercent);
 }
 
 static bool32 mmbEffectiveLighting(sdword mission, real32 outDirection[3],
@@ -511,11 +588,21 @@ static void *mmbLoadAsset(const char *relativePath, size_t *fileSize)
     void *data = NULL;
 
     *fileSize = 0;
+    if (strncmp(relativePath, "RemasteredBackgrounds/", 22) == 0)
+    {
+        const char *cache = getenv("HW_IMPORTED_ASSETS");
+        if (cache && !strstr(relativePath, ".."))
+        {
+            snprintf(path, sizeof(path), "%s/%s", cache, relativePath);
+            data = SDL_LoadFile(path, fileSize);
+            if (data != NULL) { SDL_free(basePath); return data; }
+        }
+    }
     if (basePath != NULL)
     {
-        snprintf(path, sizeof(path), "%s%s", basePath, relativePath);
+        snprintf(path, sizeof(path), "%sData/%s", basePath, relativePath);
         data = SDL_LoadFile(path, fileSize);
-        if (data == NULL)
+        if (data == NULL && !getenv("HW_PORTABLE_ROOT"))
         {
             snprintf(path, sizeof(path), "%s../../../../assets/%s",
                      basePath, relativePath);
@@ -525,6 +612,7 @@ static void *mmbLoadAsset(const char *relativePath, size_t *fileSize)
     }
     if (data == NULL)
     {
+        if (getenv("HW_PORTABLE_ROOT")) return NULL;
         snprintf(path, sizeof(path), "assets/%s", relativePath);
         data = SDL_LoadFile(path, fileSize);
     }
@@ -622,7 +710,7 @@ static bool32 mmbUploadBptcDds(const ubyte *data, size_t size,
     if (hwGlCompressedTexImage2D == NULL ||
         !glCheckExtension("GL_ARB_texture_compression_bptc"))
     {
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
                 "[ModernBackdrop] BPTC texture support is unavailable.\n");
         return FALSE;
     }
@@ -645,6 +733,45 @@ static bool32 mmbUploadBptcDds(const ubyte *data, size_t size,
         offset += mipBytes;
     }
     return offset == size;
+}
+
+bool32 modernMissionBackdropLoadSkyTexture(const char *path, udword *texture)
+{
+    size_t size = 0;
+    void *bytes = mmbLoadAsset(path, &size);
+    sdword width, height, mips;
+    udword format;
+    GLuint name = 0;
+    GLint limit = 0;
+    *texture = 0;
+    if (bytes == NULL) return FALSE;
+    if (!mmbValidateDds((const ubyte *)bytes, size, &width, &height, &mips, &format))
+    {
+        SDL_free(bytes);
+        return FALSE;
+    }
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &limit);
+    if (limit > 0 && (width > limit || height > limit))
+    {
+        SDL_free(bytes);
+        return FALSE;
+    }
+    glGenTextures(1, &name);
+    trClearCurrent();
+    glBindTexture(GL_TEXTURE_2D, name);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    if (!mmbUploadBptcDds(bytes, size, width, height, mips, format))
+    {
+        glDeleteTextures(1, &name);
+        name = 0;
+    }
+    SDL_free(bytes);
+    trClearCurrent();
+    *texture = (udword)name;
+    return name != 0;
 }
 
 static real32 mmbGodRayLuminance(const ubyte *rgba)
@@ -727,7 +854,7 @@ static void mmbAnalyzeGodRaySource(sdword mission, sdword width,
     glGetTexImage(GL_TEXTURE_2D, level, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     if (glGetError() != GL_NO_ERROR)
     {
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
                 "[ModernBackdrop] Mission %02d god-ray sky analysis readback failed.\n",
                 mission);
         free(pixels);
@@ -883,7 +1010,7 @@ static void mmbAnalyzeGodRaySource(sdword mission, sdword width,
         mmbGodRaySourceColor[1] = (real32)(bestGreen / bestWeight);
         mmbGodRaySourceColor[2] = (real32)(bestBlue / bestWeight);
         mmbGodRaySourceValid = TRUE;
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
                 "[ModernBackdrop] Mission %02d sky key: selected coherent bright object "
                 "area=%d/%u threshold=%.3f peak=%.3f uv=(%.4f, %.4f) dir=(%.4f, %.4f, %.4f) "
                 "keyRGB=(%.3f, %.3f, %.3f) ambientRGB=(%.3f, %.3f, %.3f).\n",
@@ -896,7 +1023,7 @@ static void mmbAnalyzeGodRaySource(sdword mission, sdword width,
     }
     else
     {
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
                 "[ModernBackdrop] Mission %02d has no coherent bright sky object large enough for god rays.\n",
                 mission);
     }
@@ -952,7 +1079,7 @@ static bool32 mmbLoadHdrMetadata(sdword logicalMission, sdword assetMission)
     mmbAmbientColor[0] = ambientR;
     mmbAmbientColor[1] = ambientG;
     mmbAmbientColor[2] = ambientB;
-    fprintf(stderr,
+    HW_DIAG_FPRINTF(stderr,
             "[ModernBackdrop] Mission %02d HDR sky key: valid=%d area=%d/%d "
             "thresholdLinear=%.4f peakLinear=%.4f dir=(%.4f, %.4f, %.4f) "
             "keyLinear=(%.4f, %.4f, %.4f) ambientLinear=(%.4f, %.4f, %.4f).\n",
@@ -983,7 +1110,7 @@ static bool32 mmbEnsureTexture(sdword mission)
     fileData = mmbLoadAsset(relativePath, &fileSize);
     if (fileData == NULL)
     {
-        fprintf(stderr, "[ModernBackdrop] %s was not found; using legacy BTG fallback.\n",
+        HW_DIAG_FPRINTF(stderr, "[ModernBackdrop] %s was not found; using legacy BTG fallback.\n",
                 relativePath);
         return FALSE;
     }
@@ -991,7 +1118,7 @@ static bool32 mmbEnsureTexture(sdword mission)
                         &width, &height, &mipCount, &format))
     {
         SDL_free(fileData);
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
                 "[ModernBackdrop] %s is not a valid 2:1 dual-paraboloid BC6H_UF16 DDS; using legacy BTG fallback.\n",
                 relativePath);
         return FALSE;
@@ -1002,7 +1129,7 @@ static bool32 mmbEnsureTexture(sdword mission)
         (width > maximumTextureSize || height > maximumTextureSize))
     {
         SDL_free(fileData);
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
                 "[ModernBackdrop] %s needs %dx%d texture support (GPU limit %d); using legacy BTG fallback.\n",
                 relativePath, width, height, maximumTextureSize);
         return FALSE;
@@ -1023,7 +1150,7 @@ static bool32 mmbEnsureTexture(sdword mission)
         glDeleteTextures(1, &mmbTexture);
         mmbTexture = 0;
         trClearCurrent();
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
                 "[ModernBackdrop] %s could not be uploaded; using legacy BTG fallback.\n",
                 relativePath);
         return FALSE;
@@ -1035,7 +1162,7 @@ static bool32 mmbEnsureTexture(sdword mission)
         {
             mmbGodRaySourceValid = FALSE;
             mmbGodRaySourceMission = mission;
-            fprintf(stderr,
+            HW_DIAG_FPRINTF(stderr,
                     "[ModernBackdrop] Mission %02d BC6H HDR metadata is missing; "
                     "sky rendering remains active but sky-key lighting is disabled.\n",
                     mission);
@@ -1048,7 +1175,7 @@ static bool32 mmbEnsureTexture(sdword mission)
     SDL_free(fileData);
     mmbTextureMission = mission;
     mmbTextureAttemptMission = 0;
-    fprintf(stderr,
+    HW_DIAG_FPRINTF(stderr,
             format == MMB_DXGI_FORMAT_BC6H_UF16 ?
             "[ModernBackdrop] Mission %02d dual-paraboloid linear-HDR BC6H_UF16 sky loaded (%dx%d, %d mips; asset mission %02d).\n" :
             "[ModernBackdrop] Mission %02d source-faithful BC7 fallback sky loaded (%dx%d, %d mips; asset mission %02d).\n",
@@ -1067,8 +1194,13 @@ bool32 modernMissionBackdropSkyLighting(real32 outDirection[3],
                               outAmbientColor, outSourceValid))
     {
         if (outSourceValid != NULL) *outSourceValid = FALSE;
+        hwModernGraphicsSetMissionGodRayStyle(1.0f,NULL,FALSE);
         return FALSE;
     }
+    hwModernGraphicsSetMissionGodRayStyle(
+        mmbLightingOverride.enabled ? mmbLightingOverride.godRayStrength : 1.0f,
+        mmbLightingOverride.godRayColor,
+        mmbLightingOverride.enabled && mmbLightingOverride.godRayColorOverride);
     return TRUE;
 }
 
@@ -1097,6 +1229,9 @@ bool32 modernMissionBackdropLightingAuthoringGet(
 
     mmbLightingOverrideEnsure(mission);
     outState->available = TRUE;
+    outState->godRayStrength = mmbLightingOverride.enabled ? mmbLightingOverride.godRayStrength : 1.0f;
+    outState->godRayColorOverride = mmbLightingOverride.enabled && mmbLightingOverride.godRayColorOverride;
+    memcpy(outState->godRayColor,mmbLightingOverride.godRayColor,sizeof(outState->godRayColor));
     outState->sourceValid = mmbLightingOverride.enabled ?
         mmbLightingOverride.sourceValid : mmbGodRaySourceValid;
     outState->overrideActive = mmbLightingOverride.enabled;
@@ -1170,6 +1305,10 @@ bool32 modernMissionBackdropLightingAuthoringSet(
     mmbLightingOverride.direction[2] = state->direction[2];
     mmbNormalizeDirection(mmbLightingOverride.direction);
     mmbLightingOverride.sunIntensity = mmbClamp(state->sunIntensity, 0.0f, 4.0f);
+    mmbLightingOverride.godRayStrength = mmbClamp(state->godRayStrength,0.0f,4.0f);
+    mmbLightingOverride.godRayColorOverride = state->godRayColorOverride;
+    for (index=0;index<3;++index)
+        mmbLightingOverride.godRayColor[index] = mmbClamp(state->godRayColor[index],0.0f,1.0f);
     mmbLightingOverride.sourceColorScale[0] = mmbClamp(state->sourceColorScale[0], 0.0f, 4.0f);
     mmbLightingOverride.sourceColorScale[1] = mmbClamp(state->sourceColorScale[1], 0.0f, 4.0f);
     mmbLightingOverride.sourceColorScale[2] = mmbClamp(state->sourceColorScale[2], 0.0f, 4.0f);
@@ -1201,8 +1340,9 @@ void modernMissionBackdropLightingAuthoringReset(void)
     const sdword mission = mmbCurrentCampaignMission();
     if (mission == 0 || mmbTextureMission != mission) return;
     mmbLightingOverrideDefaults(mission);
+    modernMissionBackdropLightingTuningApply();
     mmbPushAuthoringLights();
-    fprintf(stderr,
+    HW_DIAG_FPRINTF(stderr,
             "[ModernBackdrop] Mission %02d live lighting reset to HDR sky metadata and custom lights cleared (not saved yet).\n",
             mission);
 }
@@ -1216,7 +1356,10 @@ static void mmbWriteLightingAuthoringStream(FILE *stream)
     if (lightCount < 0) lightCount = 0;
     if (lightCount > MODERN_MISSION_AUTHORED_LIGHT_MAX)
         lightCount = MODERN_MISSION_AUTHORED_LIGHT_MAX;
-    fprintf(stream, "RTXMISSIONLIGHTING 3\n");
+    modernMissionBackdropLightingTuningCapture();
+    fprintf(stream, "RTXMISSIONLIGHTING 5\n");
+    for (index=0; index<14; ++index)
+        if (index<9 || index>11) fprintf(stream,"missionTuning %d %d\n",index,mmbLightingOverride.tuning[index]);
     fprintf(stream, "enabled %d\n", mmbLightingOverride.enabled ? 1 : 0);
     fprintf(stream, "sourceValid %d\n", mmbLightingOverride.sourceValid ? 1 : 0);
     fprintf(stream, "direction %.9g %.9g %.9g\n",
@@ -1224,6 +1367,10 @@ static void mmbWriteLightingAuthoringStream(FILE *stream)
             mmbLightingOverride.direction[1],
             mmbLightingOverride.direction[2]);
     fprintf(stream, "sunIntensity %.9g\n", mmbLightingOverride.sunIntensity);
+    fprintf(stream,"godRayStrength %.9g\n",mmbLightingOverride.godRayStrength);
+    fprintf(stream,"godRayColorOverride %d\n",mmbLightingOverride.godRayColorOverride ? 1:0);
+    fprintf(stream,"godRayColor %.9g %.9g %.9g\n",mmbLightingOverride.godRayColor[0],
+        mmbLightingOverride.godRayColor[1],mmbLightingOverride.godRayColor[2]);
     fprintf(stream, "sourceColorScale %.9g %.9g %.9g\n",
             mmbLightingOverride.sourceColorScale[0],
             mmbLightingOverride.sourceColorScale[1],
@@ -1275,7 +1422,7 @@ bool32 modernMissionBackdropLightingAuthoringSave(void)
     mmbWriteLightingAuthoringStream(stream);
     fileClose(handle);
     mmbLightingOverride.loadedFromDisk = TRUE;
-    fprintf(stderr,
+    HW_DIAG_FPRINTF(stderr,
             "[ModernBackdrop] Mission %02d RTX lighting saved to %s (%d editable lights).\n",
             mission, path, mmbLightingOverride.authoredLightCount);
     return TRUE;
@@ -1297,30 +1444,30 @@ bool32 modernMissionBackdropLightingAuthoringExport(void)
     basePath = SDL_GetBasePath();
     if (basePath == NULL)
     {
-        fprintf(stderr, "[ModernBackdrop] Mission lighting export failed: SDL_GetBasePath returned NULL.\n");
+        HW_DIAG_FPRINTF(stderr, "[ModernBackdrop] Mission lighting export failed: SDL_GetBasePath returned NULL.\n");
         return FALSE;
     }
 #ifdef _WIN32
-    rootLength = snprintf(exportRoot, sizeof(exportRoot), "%sRTXExports", basePath);
+    rootLength = snprintf(exportRoot, sizeof(exportRoot), "%s%s", basePath,getenv("HW_LOOSE_DATA")?"Dev/RTXExports":"RTXExports");
     directoryLength = snprintf(exportDirectory, sizeof(exportDirectory),
-                               "%sRTXExports\\Missions", basePath);
+                               "%s%s\\Missions", basePath,getenv("HW_LOOSE_DATA")?"Dev/RTXExports":"RTXExports");
     pathLength = snprintf(path, sizeof(path),
-                          "%sRTXExports\\Missions\\Mission%02d.rtxlight",
-                          basePath, mission);
+                          "%s%s\\Missions\\Mission%02d.rtxlight",
+                          basePath,getenv("HW_LOOSE_DATA")?"Dev/RTXExports":"RTXExports", mission);
 #else
-    rootLength = snprintf(exportRoot, sizeof(exportRoot), "%sRTXExports", basePath);
+    rootLength = snprintf(exportRoot, sizeof(exportRoot), "%s%s", basePath,getenv("HW_LOOSE_DATA")?"Dev/RTXExports":"RTXExports");
     directoryLength = snprintf(exportDirectory, sizeof(exportDirectory),
-                               "%sRTXExports/Missions", basePath);
+                               "%s%s/Missions", basePath,getenv("HW_LOOSE_DATA")?"Dev/RTXExports":"RTXExports");
     pathLength = snprintf(path, sizeof(path),
-                          "%sRTXExports/Missions/Mission%02d.rtxlight",
-                          basePath, mission);
+                          "%s%s/Missions/Mission%02d.rtxlight",
+                          basePath,getenv("HW_LOOSE_DATA")?"Dev/RTXExports":"RTXExports", mission);
 #endif
     SDL_free(basePath);
     if (rootLength < 0 || (size_t)rootLength >= sizeof(exportRoot) ||
         directoryLength < 0 || (size_t)directoryLength >= sizeof(exportDirectory) ||
         pathLength < 0 || (size_t)pathLength >= sizeof(path))
     {
-        fprintf(stderr, "[ModernBackdrop] Mission %02d export failed: game-directory path is too long.\n",
+        HW_DIAG_FPRINTF(stderr, "[ModernBackdrop] Mission %02d export failed: game-directory path is too long.\n",
                 mission);
         return FALSE;
     }
@@ -1330,20 +1477,20 @@ bool32 modernMissionBackdropLightingAuthoringExport(void)
        Missions second, then use native stdio for the actual portable export. */
     if (!fileMakeDirectory(exportRoot))
     {
-        fprintf(stderr, "[ModernBackdrop] Mission %02d export failed: cannot create export root %s.\n",
+        HW_DIAG_FPRINTF(stderr, "[ModernBackdrop] Mission %02d export failed: cannot create export root %s.\n",
                 mission, exportRoot);
         return FALSE;
     }
     if (!fileMakeDirectory(exportDirectory))
     {
-        fprintf(stderr, "[ModernBackdrop] Mission %02d export failed: cannot create export directory %s.\n",
+        HW_DIAG_FPRINTF(stderr, "[ModernBackdrop] Mission %02d export failed: cannot create export directory %s.\n",
                 mission, exportDirectory);
         return FALSE;
     }
     stream = fopen(path, "wt");
     if (stream == NULL)
     {
-        fprintf(stderr, "[ModernBackdrop] Mission %02d export failed: cannot open %s.\n",
+        HW_DIAG_FPRINTF(stderr, "[ModernBackdrop] Mission %02d export failed: cannot open %s.\n",
                 mission, path);
         return FALSE;
     }
@@ -1352,18 +1499,18 @@ bool32 modernMissionBackdropLightingAuthoringExport(void)
     mmbWriteLightingAuthoringStream(stream);
     if (fflush(stream) != 0 || ferror(stream))
     {
-        fprintf(stderr, "[ModernBackdrop] Mission %02d export failed while writing %s.\n",
+        HW_DIAG_FPRINTF(stderr, "[ModernBackdrop] Mission %02d export failed while writing %s.\n",
                 mission, path);
         fclose(stream);
         return FALSE;
     }
     if (fclose(stream) != 0)
     {
-        fprintf(stderr, "[ModernBackdrop] Mission %02d export failed while closing %s.\n",
+        HW_DIAG_FPRINTF(stderr, "[ModernBackdrop] Mission %02d export failed while closing %s.\n",
                 mission, path);
         return FALSE;
     }
-    fprintf(stderr, "[ModernBackdrop] Mission %02d lighting exported to %s.\n",
+    HW_DIAG_FPRINTF(stderr, "[ModernBackdrop] Mission %02d lighting exported to %s.\n",
             mission, path);
     return TRUE;
 }
@@ -1389,7 +1536,7 @@ bool32 modernMissionBackdropLightingAuthoringAdoptMapLights(void)
     if (mmbLightingOverride.authoredLightCount + eligible >
         MODERN_MISSION_AUTHORED_LIGHT_MAX)
     {
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[ModernBackdrop] Cannot adopt %d HSF local lights for mission %02d: authoring limit %d would be exceeded.\n",
             eligible, mission, MODERN_MISSION_AUTHORED_LIGHT_MAX);
         return FALSE;
@@ -1427,7 +1574,7 @@ bool32 modernMissionBackdropLightingAuthoringAdoptMapLights(void)
         mmbLightingOverride.enabled = TRUE;
         mmbLightingOverride.replaceMapLights = TRUE;
         mmbPushAuthoringLights();
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[ModernBackdrop] Mission %02d adopted %d HSF local lights into the editable Custom Lights list.\n",
             mission, imported);
     }
@@ -1440,6 +1587,7 @@ bool32 modernMissionBackdropLightingAuthoringReload(void)
     if (mission == 0 || mmbTextureMission != mission) return FALSE;
     memset(&mmbLightingOverride, 0, sizeof(mmbLightingOverride));
     mmbLightingOverrideLoad(mission);
+    modernMissionBackdropLightingTuningApply();
     return mmbLightingOverride.loadedFromDisk;
 }
 
@@ -1449,6 +1597,12 @@ bool32 modernMissionBackdropActive(void)
        unrelated procedural star layer.  It must remain independent from the
        decision to draw the packed sky image. */
     return mmbCurrentCampaignMission() != 0;
+}
+
+void modernMissionBackdropPrepare(void)
+{
+    sdword mission = mmbCurrentCampaignMission();
+    if (mission != 0) mmbEnsureTexture(mission);
 }
 
 bool32 modernMissionBackdropRender(real32 fade)

@@ -25,3 +25,6 @@
 *.tga binary
 *.wav binary
 *.pdf binary
+
+# Preserve exact snapshot/content-inventory checksums across platforms.
+* -text

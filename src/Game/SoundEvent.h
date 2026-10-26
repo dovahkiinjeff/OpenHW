@@ -58,7 +58,9 @@ extern sdword lastgrouptospeak;
 void soundEventInit(void);				/* Initializes audio mixer, stream and DirectSound/Waveout */
 void soundEventClose(void);				/* Shuts down the mixer and frees resources, any soundevent calls will fail */
 void soundEventReset(void);				/* Shuts down the mixer but does not free resources, soundevent calls will continue to work */
-void soundEventUpdate(void);			/* Update function that does panning, volume, etc for objects in the universe */
+void soundEventUpdate(void);
+void soundEventUpdateBegin(void);
+void soundEventUpdateEnd(void);			/* Update function that does panning, volume, etc for objects in the universe */
 void soundEventInitStruct(SOUNDEVENT *pseStruct);	/* initializes a SOUNDEVENT structure for use, all ships have a SOUNDEVENT structure */
 void soundEventPause(bool32 bPause);		/* Shuts down or restore the mixer */
 void soundEventReloadVolumes(void);

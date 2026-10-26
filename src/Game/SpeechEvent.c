@@ -24,6 +24,8 @@
 #include "SoundEventDefs.h"
 #include "SoundEventPrivate.h"
 #include "SoundMusic.h"
+#include "RemasteredMusicPaths.h"
+#include "RemasteredPcmStream.h"
 #include "Switches.h"
 #include "Types.h"
 #include "UnivUpdate.h"
@@ -552,6 +554,8 @@ sdword speechEventInit(void)
     pmusicbuffer1 = memAlloc(buffersize, "MusicBuffer", NonVolatile);
         musicinfo[AMBIENTSTREAM].handle = soundstreamcreatebuffer(pmusicbuffer1, buffersize, (uword)FQ_BR88);
 
+    soundStreamBus(musicinfo[NISSTREAM].handle, HW_AUDIO_MUSIC);
+    soundStreamBus(musicinfo[AMBIENTSTREAM].handle, HW_AUDIO_MUSIC);
     for (i = NISSTREAM; i <= AMBIENTSTREAM; i++)
     {
         musicinfo[i].status = SOUND_FREE;
@@ -2522,6 +2526,8 @@ sdword musictranslatetracknum(sdword tracknum)
 
 void MEstarttrack(MUSICINFO *pinfo, MUSICSTREAM *pstream)
 {
+    const char *rmPath = rmMusicPath(pinfo->tracknum);
+    char resource[256];
     if (pinfo->tracknum == RollCredits)
     {
         pinfo->targetvol = (sword)(pstream->volume * volNIS);
@@ -2531,6 +2537,16 @@ void MEstarttrack(MUSICINFO *pinfo, MUSICSTREAM *pstream)
         pinfo->targetvol = (sword)(pstream->volume * volMusic);
     }
 
+    if (rmPath) {
+        snprintf(resource, sizeof(resource), "RemasteredAudio/music/%s", rmPath);
+        if (rmPcmStreamPlay(pinfo->handle, resource,
+            (float)pinfo->targetvol / SOUND_VOL_MAX, HW_AUDIO_MUSIC)) {
+            pinfo->status = SOUND_STARTING;
+            return;
+        }
+    }
+    /* Migration compatibility only: older installations lack the new payload. */
+    rmPcmStreamRelease(pinfo->handle);
     soundstreamqueue(pinfo->handle, musicfilehandle,
                     pstream->offset,
                     pstream->flags | SOUND_FLAGS_QUEUESTREAM,

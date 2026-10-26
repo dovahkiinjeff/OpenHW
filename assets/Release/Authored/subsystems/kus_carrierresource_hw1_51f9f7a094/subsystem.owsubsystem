@@ -1,0 +1,9 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_kus_carrierresource_hw1_51f9f7a094
+scale 1
+hull @/Subsystems/kus_carrierresource/model.hod
+mad -
+
+presentation Hull component_events.owevents
+[Weapons]
+[End]

@@ -1,0 +1,9 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_tai_heavycruiserengine_hw1_0c39ebf429
+scale 1
+hull @/Subsystems/tai_heavycruiserengine/model.hod
+mad -
+
+presentation Hull component_events.owevents
+[Weapons]
+[End]

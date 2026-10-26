@@ -97,7 +97,7 @@ void MakeNewDustCloudStaticInfo(DustCloud *dustcloud);
 void univDeleteEffect(Effect *effect);
 void univRemoveShipFromOutside(Ship *ship);
 void univDeleteWipeInsideShipOutOfExistence(Ship *ship);
-void univDeleteDeadShip(Ship *ship, sdword deathBy);// deletes ship, but lets part of it hang around for explosion
+bool32 univDeleteDeadShip(Ship *ship, sdword deathBy);// TRUE when RM death visuals are detached and the original may be wiped
 void univWipeShipOutOfExistence(Ship *ship);                // totally deletes ship, frees memory
 void univWipeDerelictOutOfExistance(Derelict *derelict);    //totally deletes the derelict, frees memory and spawns no new effects
 void univReallyDeleteThisShipRightNow(Ship *ship);      //totally deletes it immediately

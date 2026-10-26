@@ -278,6 +278,38 @@ bool32 areAllHealthy(Ship *ship,SelectAnyCommand *targets)
     }
     return (TRUE);
 }
+
+/* A Z-bandbox is a repair queue, not a guard list.  The original routine
+   blindly serviced TargetPtr[0], so a healthy first ship made support craft
+   orbit it while damaged ships elsewhere in the band were ignored.  Keep the
+   most damaged ship (by health percentage, so large hulls do not always win)
+   at the head of the shared target list on every update. */
+static void prioritizeMostDamagedRepairTarget(SelectAnyCommand *targets)
+{
+    sdword i;
+    sdword best = 0;
+    real32 bestFraction = 2.0f;
+
+    for (i = 0; i < targets->numTargets; ++i)
+    {
+        Ship *candidate = (Ship *)targets->TargetPtr[i];
+        real32 maximum = candidate->staticinfo->maxhealth;
+        real32 fraction = maximum > 0.0f ? candidate->health / maximum : 1.0f;
+        if (fraction < bestFraction)
+        {
+            bestFraction = fraction;
+            best = i;
+        }
+    }
+
+    if (best != 0)
+    {
+        SpaceObjRotImpTarg *swap = targets->TargetPtr[0];
+        targets->TargetPtr[0] = targets->TargetPtr[best];
+        targets->TargetPtr[best] = swap;
+    }
+}
+
 bool32 refuelRepairShips(Ship *ship, SelectAnyCommand *targets,real32 rangetoRefuel)
 {
     //remove unwantedships from this selection
@@ -345,8 +377,7 @@ bool32 refuelRepairShips(Ship *ship, SelectAnyCommand *targets,real32 rangetoRef
         return TRUE;
     }
 
-
-
+    prioritizeMostDamagedRepairTarget(targets);
     target = targets->TargetPtr[0];
 
 //need to add
@@ -546,4 +577,3 @@ CustShipHeader RepairCorvetteHeader =
     NULL,
     RepairCorvette_Fix
 };
-

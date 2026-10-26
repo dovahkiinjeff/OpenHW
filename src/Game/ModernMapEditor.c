@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 #include "ModernMapEditor.h"
 
 #include <SDL2/SDL.h>
@@ -5,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 #include "BigFile.h"
 #include "Camera.h"
 #include "CameraCommand.h"
@@ -17,6 +19,10 @@
 #include "ManagerDock.h"
 #include "ModernUI.h"
 #include "ModernGraphics.h"
+#include "CloudRenderSettings.h"
+#include "ModernHarvestableDust.h"
+#include "ModernParticleFields.h"
+#include "RemasteredWeaponFX.h"
 #include "ObjTypes.h"
 #include "Select.h"
 #include "SinglePlayer.h"
@@ -48,7 +54,7 @@
 #define MME_PANEL_MIN_WIDTH 245
 #define MME_PANEL_MAX_WIDTH 360
 #define MME_TOOLBAR_HEIGHT 42
-#define MME_INSPECTOR_ROWS 29
+#define MME_INSPECTOR_ROWS 27
 #define MME_MAX_CLOUD_PRESETS 64
 #define MME_PRESET_NAME_BYTES 64
 #define MME_PRESET_FILE_BYTES 64
@@ -57,7 +63,11 @@
 #define MME_TAB_ASSETS 0
 #define MME_TAB_SCENE 1
 #define MME_TAB_VOLUMES 2
-#define MME_TAB_COUNT 3
+#define MME_TAB_ROPES 3
+#define MME_TAB_DUST 4
+#define MME_TAB_FIELDS 5
+#define MME_TAB_CLOUDS 6
+#define MME_TAB_COUNT 7
 
 #define MME_TRANSFORM_MOVE 0
 #define MME_TRANSFORM_ROTATE 1
@@ -162,6 +172,7 @@ typedef struct MMEState
     sdword assetScroll;
     sdword sceneScroll;
     sdword volumeScroll;
+    sdword dustScroll;
     sdword selectedAsset;
     sdword selectedTracked;
     sdword selectedVolume;
@@ -209,6 +220,11 @@ static ModernMapDustVolumeSnapshot mmeVolumeClipboard;
 static bool32 mmeVolumeClipboardValid = FALSE;
 static real32 mmeDustFadeDistance = 65000.0f;
 static real32 mmeDustFadeStrength = 1.0f;
+static sdword mmeSelectedField = -1;
+static sdword mmeFieldScroll = 0;
+static HWModernHarvestableNebulaStyle mmeRopeStyle = {
+    1u, 1.18f, 0.34f, 0.72f, 0.82f, 0.16f,
+    {0.66f, 0.42f, 0.22f}, 0.00042f, 0.72f, 0.58f};
 
 static void mmeBindRegions(void);
 static void mmeRotateTrack(MMETrackedObject *track, sdword axis, real32 degrees);
@@ -269,6 +285,8 @@ static void mmeSyncDustVolumesToRenderer(void)
         mmeDustFadeDistance, mmeDustFadeStrength);
     hwModernGraphicsSetVolumetricDustVolumes(
         count > 0 ? mmeRenderVolumes : NULL, count);
+    hwModernGraphicsSetHarvestableNebulaStyle(&mmeRopeStyle);
+    modernParticleFieldsUpdate();
 }
 
 static const color mmeInk = colRGBA(7, 12, 17, 242);
@@ -407,18 +425,21 @@ static void mmeLayoutTabs(const rectangle *panel, rectangle tabs[MME_TAB_COUNT],
     sdword tabH = uiScaleSize(28);
     sdword footerH = uiScaleSize(54);
     sdword innerW = panel->x1 - panel->x0 - pad * 2;
-    sdword tabW = (innerW - gap * (MME_TAB_COUNT - 1)) / MME_TAB_COUNT;
+    sdword tabW = (innerW - gap * 2) / 3;
     sdword i;
     for (i = 0; i < MME_TAB_COUNT; ++i)
     {
-        tabs[i].x0 = panel->x0 + pad + i * (tabW + gap);
+        tabs[i].x0 = panel->x0 + pad + (i % 3) * (tabW + gap);
         tabs[i].x1 = tabs[i].x0 + tabW;
-        tabs[i].y0 = panel->y0 + pad + uiScaleSize(30);
+        tabs[i].y0 = panel->y0 + pad + uiScaleSize(30) + (i / 3) * (tabH + gap);
         tabs[i].y1 = tabs[i].y0 + tabH;
     }
+    /* Renderer controls apply to all cloud placements, so give their shared
+       tab the full row beneath the three placement/style tabs. */
+    tabs[MME_TAB_CLOUDS].x1 = panel->x1 - pad;
     list->x0 = panel->x0 + pad;
     list->x1 = panel->x1 - pad;
-    list->y0 = tabs[0].y1 + uiScaleSize(8);
+    list->y0 = tabs[MME_TAB_COUNT-1].y1 + uiScaleSize(8);
     list->y1 = panel->y1 - pad - footerH;
     footer->x0 = list->x0;
     footer->x1 = list->x1;
@@ -426,20 +447,20 @@ static void mmeLayoutTabs(const rectangle *panel, rectangle tabs[MME_TAB_COUNT],
     footer->y1 = panel->y1 - pad;
 }
 
-static void mmeLayoutToolbar(const rectangle *bar, rectangle buttons[10])
+static void mmeLayoutToolbar(const rectangle *bar, rectangle buttons[11])
 {
-    static const real32 weights[10] = {1.05f, 0.72f, 1.15f, 0.95f, 0.95f,
-                                        0.95f, 0.95f, 0.95f, 0.95f, 0.72f};
+    static const real32 weights[11] = {1.05f, 0.72f, 1.15f, 0.95f, 0.95f,
+                                        0.95f, 0.95f, 0.95f, 0.95f, 0.95f, 0.72f};
     real32 total = 0.0f;
     real32 unit;
     sdword gap = uiScaleSize(4);
     sdword pad = uiScaleSize(6);
     sdword i;
     sdword x;
-    for (i = 0; i < 10; ++i) total += weights[i];
-    unit = (real32)(bar->x1 - bar->x0 - pad * 2 - gap * 9) / total;
+    for (i = 0; i < 11; ++i) total += weights[i];
+    unit = (real32)(bar->x1 - bar->x0 - pad * 2 - gap * 10) / total;
     x = bar->x0 + pad;
-    for (i = 0; i < 10; ++i)
+    for (i = 0; i < 11; ++i)
     {
         sdword w = (sdword)(unit * weights[i]);
         buttons[i].x0 = x;
@@ -1532,17 +1553,193 @@ static bool32 mmePasteVolumeClipboard(void)
     return TRUE;
 }
 
+/* The first dust row is the shared default; remaining rows are real resources. */
+static bool32 mmeDustTrackAlive(const MMETrackedObject *track)
+{
+    Node *node;
+    if(!track || track->objtype!=OBJ_DustType || track->deleted || !track->object) return FALSE;
+    for(node=universe.ResourceList.head;node;node=node->next)
+    {
+        DustCloud *dust=(DustCloud *)listGetStructOfNode(node);
+        if((SpaceObj *)dust==track->object && dust->objtype==OBJ_DustType &&
+           dust->resourceID.resourceNumber==(udword)track->runtimeId && dust->resourcevalue>0) return TRUE;
+    }
+    return FALSE;
+}
+
+static sdword mmeDustTrackAt(sdword row)
+{
+    sdword i;
+    if(row<=0) return -1;
+    for(i=0;i<mmeTrackedCount;i++)
+        if(mmeDustTrackAlive(&mmeTracked[i]))
+            if(--row==0) return i;
+    return -1;
+}
+
+static sdword mmeDustListCount(void)
+{
+    return 1; /* One game-wide RM emitter style, not retired per-resource presets. */
+}
+
+static MMETrackedObject *mmeSelectedDustTrack(void)
+{
+    MMETrackedObject *track=mmeSelectedTrack();
+    if(mmeDustTrackAlive(track)) return track;
+    if(mme.tab==MME_TAB_DUST) mme.selectedTracked=-1;
+    return NULL;
+}
+
+static HWModernVolumetricDustVolume *mmeDustMaterial(bool32 edit)
+{
+    MMETrackedObject *track=mmeSelectedDustTrack();
+    return track?modernHarvestableDustStyleFor((udword)track->runtimeId,edit):modernHarvestableDustStyle();
+}
+
+static struct { sdword mission, volume, dustTrack, field; bool32 rope, dust, particle, originalParticle, originalRope; } mmeColorTarget;
+
+static bool32 mmeColorRow(void)
+{
+    return mme.tab==MME_TAB_DUST || mme.tab==MME_TAB_CLOUDS ? FALSE :
+           mme.tab==MME_TAB_FIELDS && mme.inspectorRow==12 ? TRUE :
+           mme.tab==MME_TAB_ROPES && mme.inspectorRow==10 ? TRUE :
+           (mme.tab==MME_TAB_ROPES || mme.tab==MME_TAB_FIELDS) ? mme.inspectorRow==6 :
+           mmeSelectedVolume()!=NULL && mme.inspectorRow==16;
+}
+
+static void mmeApplyColor(const real32 rgb[3],void *context)
+{
+    sdword axis;
+    HWModernVolumetricDustVolume *dustStyle=NULL;
+    (void)context;
+    if(!mme.active || mmeColorTarget.mission!=spGetCurrentMission()) return;
+    if(mmeColorTarget.originalRope){modernOriginalRopeSetColor(rgb);mmeStatus("ORIGINAL ROPE COLOR / LIVE / UNSAVED");return;}
+    if(mmeColorTarget.originalParticle){modernParticleFieldsSetOriginalColor(rgb);mmeStatus("ORIGINAL DUST COLOR / LIVE / UNSAVED");return;}
+    if(mmeColorTarget.dust)
+    {
+        sdword index=mmeColorTarget.dustTrack;
+        if(index>=0 && (index>=mmeTrackedCount || !mmeDustTrackAlive(&mmeTracked[index]))) return;
+        dustStyle=index>=0?modernHarvestableDustStyleFor((udword)mmeTracked[index].runtimeId,TRUE):modernHarvestableDustStyle();
+        if(!dustStyle) { mmeStatus("DUST OVERRIDE LIMIT REACHED"); return; }
+    }
+    if(!mmeColorTarget.particle && !mmeColorTarget.rope && !mmeColorTarget.dust && (mmeColorTarget.volume<0 || mmeColorTarget.volume>=mmeVolumeCount ||
+                              !mmeVolumes[mmeColorTarget.volume].inUse)) return;
+    for(axis=0;axis<3;++axis)
+        if(mmeColorTarget.particle) modernParticleFieldsStyle(mmeColorTarget.field,1)->color[axis]=rgb[axis];
+        else if(mmeColorTarget.dust) dustStyle->color[axis]=rgb[axis];
+        else if(mmeColorTarget.rope) mmeRopeStyle.color[axis]=rgb[axis];
+        else mmeVolumes[mmeColorTarget.volume].data.color[axis]=rgb[axis];
+    if(mmeColorTarget.particle)modernParticleFieldsDirty();
+    mmeSyncDustVolumesToRenderer();
+    mmeStatus("CLOUD COLOR UPDATED / LIVE / UNSAVED");
+}
+
+static void mmeOpenColor(void)
+{
+    mmeColorTarget.mission=spGetCurrentMission();
+    mmeColorTarget.originalRope=mme.tab==MME_TAB_ROPES&&mme.inspectorRow==10;
+    mmeColorTarget.originalParticle=mme.tab==MME_TAB_FIELDS&&mme.inspectorRow==12;
+    if(mmeColorTarget.originalRope){float rgb[3];modernOriginalRopeColor(rgb);modernUIOpenEditorColorPicker("ORIGINAL ROPE MODEL COLOR",rgb,1.0f,mmeApplyColor,NULL);return;}
+    if(mmeColorTarget.originalParticle){float rgb[3];modernParticleFieldsOriginalColor(rgb);modernUIOpenEditorColorPicker("ORIGINAL DUST PARTICLE COLOR",rgb,1.0f,mmeApplyColor,NULL);return;}
+    mmeColorTarget.particle=mme.tab==MME_TAB_FIELDS;
+    mmeColorTarget.field=mmeSelectedField;
+    mmeColorTarget.rope=mme.tab==MME_TAB_ROPES;
+    mmeColorTarget.dust=mme.tab==MME_TAB_DUST;
+    mmeColorTarget.dustTrack=mmeSelectedDustTrack()?mme.selectedTracked:-1;
+    mmeColorTarget.volume=mme.selectedVolume;
+    if(mmeColorTarget.particle){modernUIOpenEditorColorPicker("PARTICLE FIELD CLOUD COLOR",modernParticleFieldsStyle(mmeSelectedField,0)->color,8.0f,mmeApplyColor,NULL);return;}
+    modernUIOpenEditorColorPicker(mmeColorTarget.dust?(mmeColorTarget.dustTrack>=0?"THIS DUST CLOUD COLOR":"GLOBAL HARVESTABLE DUST COLOR"):
+        (mmeColorTarget.rope?"HARVESTABLE ROPE COLOR":"DUST VOLUME COLOR"),
+        mmeColorTarget.dust?mmeDustMaterial(FALSE)->color:
+        (mmeColorTarget.rope?mmeRopeStyle.color:mmeSelectedVolume()->data.color),8.0f,mmeApplyColor,NULL);
+}
+
 static bool32 mmeAdjustSelection(sdword direction)
 {
     MMETrackedObject *track = mmeSelectedTrack();
     MMEVolume *volume = mmeSelectedVolume();
     real32 fine = (keyIsHit(LCONTROLKEY) || keyIsHit(RCONTROLKEY)) ? 0.1f : 1.0f;
     real32 coarse = (keyIsHit(LSHIFTKEY) || keyIsHit(RSHIFTKEY)) ? 10.0f : 1.0f;
+    if (mme.tab == MME_TAB_CLOUDS)
+    {
+        HWModernCloudRenderSettings settings;
+        real32 delta = (real32)direction * fine * coarse;
+        hwModernGraphicsGetCloudRenderSettings(&settings);
+        switch (mme.inspectorRow)
+        {
+            case 0: settings.samplingQuality = mmeClampF(settings.samplingQuality + delta * 0.1f, -5.0f, 10.0f); break;
+            case 1: settings.detail = (unsigned int)mmeClamp((sdword)settings.detail + direction, 0, 3); break;
+            case 2: if (direction) settings.motionEnabled = !settings.motionEnabled; break;
+            case 3:
+                if (!settings.motionEnabled) { mmeStatus("ENABLE CLOUD MOTION TO ADJUST SPEED"); return TRUE; }
+                settings.motionSpeed = mmeClampF(settings.motionSpeed + delta * 0.05f, 0.0f, 5.0f); break;
+            case 4: settings.billowStrength = mmeClampF(settings.billowStrength + delta * 0.05f, 0.0f, 2.0f); break;
+            case 5: settings.fieldCoverage = mmeClampF(settings.fieldCoverage + delta * 0.01f, 0.0f, 1.0f); break;
+            case 6: hwModernGraphicsResetCloudRenderSettings(); mmeStatus("CLOUD RENDERER DEFAULTS / MOTION OFF / UNSAVED"); return TRUE;
+            default: return FALSE;
+        }
+        hwModernGraphicsSetCloudRenderSettings(&settings);
+        mmeStatus("CLOUD RENDERER LIVE / CURRENT MAP / UNSAVED");
+        return TRUE;
+    }
+    if(mmeColorRow()) { mmeOpenColor(); return TRUE; }
+    if (mme.tab == MME_TAB_DUST)
+    {
+        RmResourceDustStyle *s=rmFxResourceDustStyle();
+        real32 d=(real32)direction*fine*coarse;
+        switch(mme.inspectorRow)
+        {
+            case 0: s->opacity=mmeClampF(s->opacity+d*.05f,0,8); break;
+            case 1: s->brightness=mmeClampF(s->brightness+d*.05f,0,8); break;
+            case 2: s->size=mmeClampF(s->size+d*.05f,.25f,4); break;
+            case 3: s->phase=mmeClampF(s->phase+d*.025f,.05f,.95f); break;
+            case 4: case 5: case 6: s->tint[mme.inspectorRow-4]=mmeClampF(s->tint[mme.inspectorRow-4]+d*.05f,0,4); break;
+            case 7: if(direction) rmFxResourceDustReset(); break;
+        }
+        mmeStatus("RM HARVESTABLE CLOUDS UPDATED / GAME-WIDE / UNSAVED");
+        return TRUE;
+    }
+    if (mme.tab == MME_TAB_ROPES || mme.tab == MME_TAB_FIELDS)
+    {
+        if(mme.tab==MME_TAB_ROPES&&mme.inspectorRow==12){modernOriginalRopeResetColor();mmeStatus("ORIGINAL ROPE COLOR RESTORED / UNSAVED");return TRUE;}
+        if(mme.tab==MME_TAB_ROPES&&mme.inspectorRow==11){modernOriginalRopeSetOpacity(mmeClampF(modernOriginalRopeOpacity()+(real32)direction*.05f*fine,0,1));mmeStatus("ORIGINAL ROPE OPACITY / LIVE / UNSAVED");return TRUE;}
+        if(mme.tab==MME_TAB_FIELDS&&mme.inspectorRow==13){modernParticleFieldsResetOriginalColor();mmeStatus("ORIGINAL DUST COLOR RESTORED / UNSAVED");return TRUE;}
+        if(mme.tab==MME_TAB_FIELDS&&mme.inspectorRow==14){
+            modernParticleFieldsSetOriginalOpacity(mmeClampF(modernParticleFieldsOriginalOpacity()+(real32)direction*.05f*fine,0,1));
+            mmeStatus("ORIGINAL DUST OPACITY / LIVE / UNSAVED");return TRUE;
+        }
+        if(mme.tab==MME_TAB_FIELDS&&mme.inspectorRow==11){
+            if(direction!=0)modernParticleFieldsSetOriginalVisible(!modernParticleFieldsOriginalVisible());
+            mmeStatus("ORIGINAL DUST VISIBILITY / CURRENT MAP / UNSAVED");return TRUE;
+        }
+        HWModernHarvestableNebulaStyle *fieldStyle = mme.tab == MME_TAB_FIELDS ? modernParticleFieldsStyle(mmeSelectedField, 1) : &mmeRopeStyle;
+        if (mme.tab == MME_TAB_FIELDS && mme.inspectorRow == 10) { modernParticleFieldsResetOverride(mmeSelectedField); modernParticleFieldsUpdate(); mmeStatus("PARTICLE FIELD STYLE RESET / UNSAVED"); return TRUE; }
+        real32 d = (real32)direction;
+        switch (mme.inspectorRow>6 ? mme.inspectorRow+2 : mme.inspectorRow)
+        {
+            case 0: if (direction != 0) fieldStyle->enabled = !fieldStyle->enabled; break;
+            case 1: fieldStyle->radiusScale = mmeClampF(fieldStyle->radiusScale+d*(mme.tab==MME_TAB_FIELDS?0.005f:0.05f)*fine,mme.tab==MME_TAB_FIELDS?0.0f:0.25f,4.0f); break;
+            case 2: fieldStyle->density = mmeClampF(fieldStyle->density+d*0.02f*fine,0.0f,4.0f); break;
+            case 3: fieldStyle->edgeFeather = mmeClampF(fieldStyle->edgeFeather+d*0.03f*fine,0.0f,2.0f); break;
+            case 4: fieldStyle->scattering = mmeClampF(fieldStyle->scattering+d*0.05f*fine,0.0f,8.0f); break;
+            case 5: fieldStyle->absorption = mmeClampF(fieldStyle->absorption+d*0.02f*fine,0.0f,8.0f); break;
+            case 6: fieldStyle->color[0] = mmeClampF(fieldStyle->color[0]+d*0.02f*fine,0.0f,8.0f); break;
+            case 7: fieldStyle->color[1] = mmeClampF(fieldStyle->color[1]+d*0.02f*fine,0.0f,8.0f); break;
+            case 8: fieldStyle->color[2] = mmeClampF(fieldStyle->color[2]+d*0.02f*fine,0.0f,8.0f); break;
+            case 9: fieldStyle->noiseScale = mmeClampF(fieldStyle->noiseScale+d*0.00005f*fine,0.00001f,0.02f); break;
+            case 10: fieldStyle->noiseDetail = mmeClampF(fieldStyle->noiseDetail+d*0.03f*fine,0.0f,2.0f); break;
+            case 11: fieldStyle->shapeVariation = mmeClampF(fieldStyle->shapeVariation+d*0.03f*fine,0.0f,2.0f); break;
+        }
+        if (mme.tab == MME_TAB_FIELDS) { modernParticleFieldsDirty(); modernParticleFieldsUpdate(); }
+        else hwModernGraphicsSetHarvestableNebulaStyle(&mmeRopeStyle);
+        mmeStatus(mme.tab == MME_TAB_FIELDS ? "PARTICLE FIELD CLOUD LIVE / UNSAVED" : "HARVESTABLE ROPE ENVELOPE LIVE / UNSAVED");
+        return TRUE;
+    }
     if (volume != NULL)
     {
         ModernMapDustVolumeSnapshot *v = &volume->data;
         real32 d = (real32)direction;
-        switch (mme.inspectorRow)
+        switch (mme.inspectorRow>16 ? mme.inspectorRow+2 : mme.inspectorRow)
         {
             case 0:
                 if (direction != 0) v->enabled = !v->enabled;
@@ -1637,6 +1834,161 @@ static bool32 mmeAdjustSelection(sdword direction)
     }
     mmeStatus("OBJECT TRANSFORM LIVE / UNSAVED");
     return TRUE;
+}
+
+static bool32 mmeControlHeld(void);
+static bool32 mmeShiftHeld(void);
+static struct {
+    bool32 active,selectAll;char text[64];int cursor;
+    sdword mission,tab,row,volume,tracked,field;
+} mmeNumeric;
+
+/* Resolve displayed inspector rows to their actual numeric property. Toggles,
+   actions, color pickers and read-only identity rows are never text editable. */
+static bool32 mmeNumericValue(double *number,bool32 apply)
+{
+    real32 *target=NULL;double minimum=0,maximum=8;int row=mme.inspectorRow;
+    MMEVolume *volume=mmeSelectedVolume();MMETrackedObject *track=mmeSelectedTrack();
+    if(mme.tab==MME_TAB_CLOUDS){
+        HWModernCloudRenderSettings settings;
+        hwModernGraphicsGetCloudRenderSettings(&settings);
+        switch(row){
+            case 0:target=&settings.samplingQuality;minimum=-5;maximum=10;break;
+            case 1:
+                if(!apply){*number=settings.detail;return TRUE;}
+                if(!isfinite(*number)||*number<0||*number>3||floor(*number)!=*number)return FALSE;
+                settings.detail=(unsigned int)*number;hwModernGraphicsSetCloudRenderSettings(&settings);return TRUE;
+            case 3:if(!settings.motionEnabled)return FALSE;target=&settings.motionSpeed;maximum=5;break;
+            case 4:target=&settings.billowStrength;maximum=2;break;
+            case 5:target=&settings.fieldCoverage;maximum=1;break;
+            default:return FALSE;
+        }
+        if(!apply){*number=*target;return TRUE;}
+        if(!isfinite(*number)||*number<minimum||*number>maximum)return FALSE;
+        *target=(real32)*number;hwModernGraphicsSetCloudRenderSettings(&settings);return TRUE;
+    }else if(mme.tab==MME_TAB_FIELDS||mme.tab==MME_TAB_ROPES){
+        HWModernHarvestableNebulaStyle *s=mme.tab==MME_TAB_FIELDS?modernParticleFieldsStyle(mmeSelectedField,0):&mmeRopeStyle;
+        switch(row){
+            case 1:target=&s->radiusScale;minimum=mme.tab==MME_TAB_FIELDS?0:.25f;maximum=4;break;
+            case 2:target=&s->density;maximum=4;break;
+            case 3:target=&s->edgeFeather;maximum=2;break;
+            case 4:target=&s->scattering;break;
+            case 5:target=&s->absorption;break;
+            case 7:target=&s->noiseScale;minimum=.00001f;maximum=.02f;break;
+            case 8:target=&s->noiseDetail;maximum=2;break;
+            case 9:target=&s->shapeVariation;maximum=2;break;
+            case 11:if(mme.tab==MME_TAB_ROPES){if(!apply){*number=100*modernOriginalRopeOpacity();return TRUE;}if(!isfinite(*number)||*number<0||*number>100)return FALSE;modernOriginalRopeSetOpacity((real32)(*number/100));return TRUE;}break;
+            case 14:if(mme.tab==MME_TAB_FIELDS){if(!apply){*number=100*modernParticleFieldsOriginalOpacity();return TRUE;}if(!isfinite(*number)||*number<0||*number>100)return FALSE;modernParticleFieldsSetOriginalOpacity((real32)(*number/100));return TRUE;}break;
+        }
+        if(target&&apply&&mme.tab==MME_TAB_FIELDS){
+            if(!isfinite(*number)||*number<minimum||*number>maximum)return FALSE;
+            ptrdiff_t offset=(char *)target-(char *)s;
+            target=(real32 *)((char *)modernParticleFieldsStyle(mmeSelectedField,1)+offset);
+        }
+    }else if(mme.tab==MME_TAB_DUST){
+        RmResourceDustStyle *s=rmFxResourceDustStyle();
+        switch(row){case 0:target=&s->opacity;break;case 1:target=&s->brightness;break;
+            case 2:target=&s->size;minimum=.25f;maximum=4;break;
+            case 3:target=&s->phase;minimum=.05f;maximum=.95f;break;
+            case 4:case 5:case 6:target=&s->tint[row-4];maximum=4;break;}
+    }else if(volume){
+        ModernMapDustVolumeSnapshot *v=&volume->data;
+        int property=row>16?row+2:row;
+        switch(property){
+            case 2:case 3:case 4:target=&v->position[property-2];minimum=-100000000;maximum=100000000;break;
+            case 5:case 6:case 7:target=&v->rotationDegrees[property-5];minimum=-360000;maximum=360000;break;
+            case 8:case 9:case 10:target=&v->size[property-8];minimum=1;maximum=100000000;break;
+            case 11:target=&v->density;maximum=10;break;
+            case 12:target=&v->scattering;maximum=10;break;
+            case 13:target=&v->absorption;maximum=10;break;
+            case 14:target=&v->anisotropy;minimum=-.95;maximum=.95;break;
+            case 15:target=&v->coverage;maximum=2;break;
+            case 19:target=&v->noiseScale;minimum=.00001f;maximum=.1f;break;
+            case 20:target=&v->noiseDetail;maximum=2;break;
+            case 21:target=&v->wakeStrength;maximum=2;break;
+            case 25:if(!apply){*number=v->shapeSeed;return TRUE;}if(!isfinite(*number)||*number<1||*number>4294967295.0||floor(*number)!=*number)return FALSE;v->shapeSeed=(udword)*number;mmeSyncDustVolumesToRenderer();return TRUE;
+            case 26:target=&v->shapeVariation;maximum=2;break;
+            case 27:target=&mmeDustFadeDistance;minimum=5000;maximum=250000;break;
+            case 28:target=&mmeDustFadeStrength;maximum=4;break;
+        }
+    }
+    if(target){
+        if(!apply){*number=*target;return TRUE;}
+        if(!isfinite(*number)||*number<minimum||*number>maximum)return FALSE;
+        *target=(real32)*number;
+        if(mme.tab==MME_TAB_FIELDS)modernParticleFieldsDirty();
+        mmeSyncDustVolumesToRenderer();return TRUE;
+    }
+    if(mme.tab!=MME_TAB_FIELDS&&mme.tab!=MME_TAB_ROPES&&mme.tab!=MME_TAB_DUST&&!volume&&track&&track->object&&row>=0&&row<=6){
+        if(row<3){vector *p=mmeObjectPosition(track->object);if(!p)return FALSE;target=row==0?&p->x:row==1?&p->y:&p->z;minimum=-100000000;maximum=100000000;}
+        else if(row<6){if(!apply){*number=track->rotationDegrees[row-3];return TRUE;}if(!isfinite(*number)||fabs(*number)>360000)return FALSE;mmeRotateTrack(track,row-3,(real32)*number-track->rotationDegrees[row-3]);return TRUE;}
+        else {if(track->objtype!=OBJ_AsteroidType&&track->objtype!=OBJ_DustType&&track->objtype!=OBJ_GasType&&track->objtype!=OBJ_NebulaType)return FALSE;if(!apply){*number=mmeObjectScale(track->object);return TRUE;}if(!isfinite(*number)||*number<.05||*number>50)return FALSE;mmeSetObjectScale(track->object,(real32)*number);track->scale=(real32)*number;track->dirty=TRUE;return TRUE;}
+        if(!apply){*number=*target;return TRUE;}if(!isfinite(*number)||*number<minimum||*number>maximum)return FALSE;
+        *target=(real32)*number;mmeStopObjectMotion(track->object);univUpdateObjRotInfo((SpaceObjRot *)track->object);track->dirty=TRUE;return TRUE;
+    }
+    return FALSE;
+}
+
+static void mmeNumericBegin(void)
+{
+    double value;if(!mmeNumericValue(&value,FALSE))return;
+    mmeNumeric.active=TRUE;mmeNumeric.selectAll=TRUE;snprintf(mmeNumeric.text,sizeof(mmeNumeric.text),"%.10g",value);mmeNumeric.cursor=(int)strlen(mmeNumeric.text);
+    mmeNumeric.mission=spGetCurrentMission();mmeNumeric.tab=mme.tab;mmeNumeric.row=mme.inspectorRow;
+    mmeNumeric.volume=mme.selectedVolume;mmeNumeric.tracked=mme.selectedTracked;mmeNumeric.field=mmeSelectedField;
+    mmeStatus("TYPE EXACT VALUE / ENTER APPLY / ESC CANCEL");
+}
+
+static bool32 mmeNumericKey(sdword key)
+{
+    int length=(int)strlen(mmeNumeric.text);char ch=0;
+    if(!mmeNumeric.active)return FALSE;
+    if(key==ESCKEY){mmeNumeric.active=FALSE;mmeStatus("VALUE ENTRY CANCELLED");return TRUE;}
+    if(mmeNumeric.mission!=spGetCurrentMission()||mmeNumeric.tab!=mme.tab||mmeNumeric.row!=mme.inspectorRow||mmeNumeric.volume!=mme.selectedVolume||mmeNumeric.tracked!=mme.selectedTracked||mmeNumeric.field!=mmeSelectedField){mmeNumeric.active=FALSE;return TRUE;}
+    if(key==RETURNKEY||key==SDL_SCANCODE_KP_ENTER){
+        char *end;double value=strtod(mmeNumeric.text,&end);
+        if(end==mmeNumeric.text||*end||!isfinite(value)||!mmeNumericValue(&value,TRUE)){mmeStatus("INVALID VALUE OR OUT OF RANGE / ESC CANCEL");return TRUE;}
+        mmeNumeric.active=FALSE;mmeStatus("EXACT VALUE APPLIED / UNSAVED");return TRUE;
+    }
+    if(key==AKEY&&mmeControlHeld()){mmeNumeric.selectAll=TRUE;return TRUE;}
+    if(key==VKEY&&mmeControlHeld()){
+        char *paste=SDL_GetClipboardText();int i,n=paste?(int)strlen(paste):0;
+        for(i=0;i<n;i++)if(!((paste[i]>='0'&&paste[i]<='9')||strchr(".+-eE",paste[i])))break;
+        if(n>0&&i==n&&n+(mmeNumeric.selectAll?0:length)<(int)sizeof(mmeNumeric.text)){
+            if(mmeNumeric.selectAll){length=0;mmeNumeric.cursor=0;mmeNumeric.text[0]=0;mmeNumeric.selectAll=FALSE;}
+            memmove(mmeNumeric.text+mmeNumeric.cursor+n,mmeNumeric.text+mmeNumeric.cursor,length-mmeNumeric.cursor+1);
+            memcpy(mmeNumeric.text+mmeNumeric.cursor,paste,n);mmeNumeric.cursor+=n;
+        }
+        if(paste)SDL_free(paste);return TRUE;
+    }
+    if(key==HOMEKEY){mmeNumeric.cursor=0;mmeNumeric.selectAll=FALSE;return TRUE;}
+    if(key==ENDKEY){mmeNumeric.cursor=length;mmeNumeric.selectAll=FALSE;return TRUE;}
+    if(key==ARRLEFT){if(mmeNumeric.cursor>0)mmeNumeric.cursor--;mmeNumeric.selectAll=FALSE;return TRUE;}
+    if(key==ARRRIGHT){if(mmeNumeric.cursor<length)mmeNumeric.cursor++;mmeNumeric.selectAll=FALSE;return TRUE;}
+    if(key==BACKSPACEKEY||key==DELETEKEY){
+        if(mmeNumeric.selectAll){mmeNumeric.text[0]=0;mmeNumeric.cursor=0;}
+        else if(key==BACKSPACEKEY&&mmeNumeric.cursor>0){memmove(mmeNumeric.text+mmeNumeric.cursor-1,mmeNumeric.text+mmeNumeric.cursor,length-mmeNumeric.cursor+1);mmeNumeric.cursor--;}
+        else if(key==DELETEKEY&&mmeNumeric.cursor<length)memmove(mmeNumeric.text+mmeNumeric.cursor,mmeNumeric.text+mmeNumeric.cursor+1,length-mmeNumeric.cursor);
+        mmeNumeric.selectAll=FALSE;return TRUE;
+    }
+    if(key>=SDL_SCANCODE_1&&key<=SDL_SCANCODE_9)ch=(char)('1'+key-SDL_SCANCODE_1);
+    else if(key==ZEROKEY||key==SDL_SCANCODE_KP_0)ch='0';
+    else if(key>=SDL_SCANCODE_KP_1&&key<=SDL_SCANCODE_KP_9)ch=(char)('1'+key-SDL_SCANCODE_KP_1);
+    else if(key==GREATERTHAN||key==NUMDOTKEY)ch='.';
+    else if(key==MINUSKEY||key==NUMMINUSKEY)ch='-';
+    else if(key==SDL_SCANCODE_KP_PLUS||(key==SDL_SCANCODE_EQUALS&&mmeShiftHeld()))ch='+';
+    else if(key==EKEY)ch='e';
+    if(ch){
+        if(mmeNumeric.selectAll){mmeNumeric.text[0]=0;mmeNumeric.cursor=0;length=0;mmeNumeric.selectAll=FALSE;}
+        if(length<(int)sizeof(mmeNumeric.text)-1){memmove(mmeNumeric.text+mmeNumeric.cursor+1,mmeNumeric.text+mmeNumeric.cursor,length-mmeNumeric.cursor+1);mmeNumeric.text[mmeNumeric.cursor++]=ch;}
+    }
+    return TRUE;
+}
+
+static udword mmeNumericKeyProcess(regionhandle region,smemsize ID,udword event,udword data)
+{
+    (void)region;(void)data;
+    if(event==RPE_KeyDown&&mmeNumeric.active){mmeNumericKey((sdword)ID);return RPR_Redraw;}
+    return 0;
 }
 
 static void mmeCameraClampAngles(Camera *camera)
@@ -1849,6 +2201,7 @@ static const char *mmeAxisName(void)
 
 static bool32 mmeExportPath(char *out, sdword outBytes, sdword mission)
 {
+    const char *exportPrefix = getenv("HW_LOOSE_DATA") ? "Dev/RTXExports" : "RTXExports";
     char *base = SDL_GetBasePath();
     char root[1024];
     char maps[1024];
@@ -1861,20 +2214,20 @@ static bool32 mmeExportPath(char *out, sdword outBytes, sdword mission)
         return FALSE;
     }
 #ifdef _WIN32
-    rootLength = snprintf(root, sizeof(root), "%sRTXExports", base);
-    mapsLength = snprintf(maps, sizeof(maps), "%sRTXExports\\Maps", base);
-    pathLength = snprintf(out, (size_t)outBytes, "%sRTXExports\\Maps\\Mission%02d.rtxmap", base, mission);
+    rootLength = snprintf(root, sizeof(root), "%s%s", base, exportPrefix);
+    mapsLength = snprintf(maps, sizeof(maps), "%s%s\\Maps", base, exportPrefix);
+    pathLength = snprintf(out, (size_t)outBytes, "%s%s\\Maps\\Mission%02d.rtxmap", base, exportPrefix, mission);
 #else
-    rootLength = snprintf(root, sizeof(root), "%sRTXExports", base);
-    mapsLength = snprintf(maps, sizeof(maps), "%sRTXExports/Maps", base);
-    pathLength = snprintf(out, (size_t)outBytes, "%sRTXExports/Maps/Mission%02d.rtxmap", base, mission);
+    rootLength = snprintf(root, sizeof(root), "%s%s", base, exportPrefix);
+    mapsLength = snprintf(maps, sizeof(maps), "%s%s/Maps", base, exportPrefix);
+    pathLength = snprintf(out, (size_t)outBytes, "%s%s/Maps/Mission%02d.rtxmap", base, exportPrefix, mission);
 #endif
     SDL_free(base);
     if (rootLength < 0 || (size_t)rootLength >= sizeof(root) ||
         mapsLength < 0 || (size_t)mapsLength >= sizeof(maps) ||
         pathLength < 0 || pathLength >= outBytes)
     {
-        fprintf(stderr, "[MapEditor] Export path is too long.\n");
+        HW_DIAG_FPRINTF(stderr, "[MapEditor] Export path is too long.\n");
         return FALSE;
     }
 
@@ -1882,7 +2235,7 @@ static bool32 mmeExportPath(char *out, sdword outBytes, sdword mission)
        Windows path level separately instead of using the legacy recursive helper. */
     if (!fileMakeDirectory(root) || !fileMakeDirectory(maps))
     {
-        fprintf(stderr, "[MapEditor] Could not create RTXExports/Maps beside the running executable.\n");
+        HW_DIAG_FPRINTF(stderr, "[MapEditor] Could not create RTXExports/Maps beside the running executable.\n");
         return FALSE;
     }
     return TRUE;
@@ -1899,15 +2252,15 @@ static bool32 mmePackagedMapPath(char *out, sdword outBytes, sdword mission)
     }
 #ifdef _WIN32
     pathLength = snprintf(out, (size_t)outBytes,
-                          "%sMissions\\Mission%02d.rtxmap", base, mission);
+                          "%sData\\Missions\\Mission%02d.rtxmap", base, mission);
 #else
     pathLength = snprintf(out, (size_t)outBytes,
-                          "%sMissions/Mission%02d.rtxmap", base, mission);
+                          "%sData/Missions/Mission%02d.rtxmap", base, mission);
 #endif
     SDL_free(base);
     if (pathLength < 0 || pathLength >= outBytes)
     {
-        fprintf(stderr, "[MapEditor] Packaged mission RTXMAP path is too long.\n");
+        HW_DIAG_FPRINTF(stderr, "[MapEditor] Packaged mission RTXMAP path is too long.\n");
         return FALSE;
     }
     return TRUE;
@@ -1917,6 +2270,7 @@ static bool32 mmePackagedMapPath(char *out, sdword outBytes, sdword mission)
 static bool32 mmeCloudPresetPaths(char *directory, sdword directoryBytes,
                                   char *indexPath, sdword indexBytes)
 {
+    const char *exportPrefix = getenv("HW_LOOSE_DATA") ? "Dev\\RTXExports" : "..\\..\\RTXExports";
     char *base = SDL_GetBasePath();
     char root[1024];
     int rootLength;
@@ -1931,11 +2285,11 @@ static bool32 mmeCloudPresetPaths(char *directory, sdword directoryBytes,
 #ifdef _WIN32
     /* The deployed Release directory is atomically replaced by RTX-Build-Deploy.ps1.
        Keep reusable presets at the RTX project root so rebuilds cannot delete them. */
-    rootLength = snprintf(root, sizeof(root), "%s..\\..\\RTXExports", base);
+    rootLength = snprintf(root, sizeof(root), "%s%s", base, exportPrefix);
     directoryLength = snprintf(directory, (size_t)directoryBytes,
-                               "%s..\\..\\RTXExports\\CloudPresets", base);
+                               "%s%s\\CloudPresets", base, exportPrefix);
     indexLength = snprintf(indexPath, (size_t)indexBytes,
-                           "%s..\\..\\RTXExports\\CloudPresets\\presets.idx", base);
+                           "%s%s\\CloudPresets\\presets.idx", base, exportPrefix);
 #else
     rootLength = snprintf(root, sizeof(root), "%s../../RTXExports", base);
     directoryLength = snprintf(directory, (size_t)directoryBytes,
@@ -1948,12 +2302,12 @@ static bool32 mmeCloudPresetPaths(char *directory, sdword directoryBytes,
         directoryLength < 0 || directoryLength >= directoryBytes ||
         indexLength < 0 || indexLength >= indexBytes)
     {
-        fprintf(stderr, "[MapEditor] Cloud preset path is too long.\n");
+        HW_DIAG_FPRINTF(stderr, "[MapEditor] Cloud preset path is too long.\n");
         return FALSE;
     }
     if (!fileMakeDirectory(root) || !fileMakeDirectory(directory))
     {
-        fprintf(stderr, "[MapEditor] Could not create RTXExports/CloudPresets.\n");
+        HW_DIAG_FPRINTF(stderr, "[MapEditor] Could not create RTXExports/CloudPresets.\n");
         return FALSE;
     }
     return TRUE;
@@ -1997,7 +2351,7 @@ static bool32 mmeCloudPresetWriteIndex(void)
     fp = fopen(indexPath, "wb");
     if (fp == NULL)
     {
-        fprintf(stderr, "[MapEditor] Could not write cloud preset index: %s\n", indexPath);
+        HW_DIAG_FPRINTF(stderr, "[MapEditor] Could not write cloud preset index: %s\n", indexPath);
         return FALSE;
     }
     fprintf(fp, "# RTX Cloud Preset Index v1\n");
@@ -2009,7 +2363,7 @@ static bool32 mmeCloudPresetWriteIndex(void)
         if (fclose(fp) != 0) failed = TRUE;
         if (failed)
         {
-            fprintf(stderr, "[MapEditor] Cloud preset index write failed: %s\n", indexPath);
+            HW_DIAG_FPRINTF(stderr, "[MapEditor] Cloud preset index write failed: %s\n", indexPath);
             return FALSE;
         }
     }
@@ -2077,7 +2431,7 @@ static bool32 mmeCloudPresetWriteFile(const MMECloudPreset *preset,
     fp = fopen(path, "wb");
     if (fp == NULL)
     {
-        fprintf(stderr, "[MapEditor] Could not write cloud preset: %s\n", path);
+        HW_DIAG_FPRINTF(stderr, "[MapEditor] Could not write cloud preset: %s\n", path);
         return FALSE;
     }
     fprintf(fp, "# RTX DUST PRESET 1\n");
@@ -2101,7 +2455,7 @@ static bool32 mmeCloudPresetWriteFile(const MMECloudPreset *preset,
         if (fclose(fp) != 0) failed = TRUE;
         if (failed)
         {
-            fprintf(stderr, "[MapEditor] Cloud preset write failed: %s\n", path);
+            HW_DIAG_FPRINTF(stderr, "[MapEditor] Cloud preset write failed: %s\n", path);
             return FALSE;
         }
     }
@@ -2291,6 +2645,12 @@ static const char *mmeObjTypeToken(ObjType type)
 
 static bool32 mmeSaveMap(void)
 {
+    if(mme.tab==MME_TAB_DUST)
+    {
+        bool32 saved=rmFxResourceDustSave();
+        mmeStatus(saved?"RM HARVESTABLE DUST SAVED / CURRENT MAP":"RM DUST SAVE FAILED");
+        return saved;
+    }
     char path[768];
     FILE *fp;
     sdword i;
@@ -2303,14 +2663,27 @@ static bool32 mmeSaveMap(void)
     fp = fopen(path, "wb");
     if (fp == NULL)
     {
-        fprintf(stderr, "[MapEditor] fopen failed for %s\n", path);
+        HW_DIAG_FPRINTF(stderr, "[MapEditor] fopen failed for %s\n", path);
         mmeStatus("MAP EXPORT FAILED - CHECK LOG/PATH");
         return FALSE;
     }
     fprintf(fp, "RTXMAP 9\n");
+    modernParticleFieldsWrite(fp);
     fprintf(fp, "MISSION %d\n", mission);
+    {
+        HWModernCloudRenderSettings settings;
+        hwModernGraphicsGetCloudRenderSettings(&settings);
+        hwModernCloudRenderSettingsWrite(fp, &settings);
+    }
     fprintf(fp, "DUST_FADE %.6f %.6f\n",
             mmeDustFadeDistance, mmeDustFadeStrength);
+    fprintf(fp, "HARVESTABLE_ROPE %u %.6f %.6f %.6f %.6f %.6f %.6f %.6f %.6f %.8f %.6f %.6f\n",
+            mmeRopeStyle.enabled, mmeRopeStyle.radiusScale,
+            mmeRopeStyle.density, mmeRopeStyle.edgeFeather,
+            mmeRopeStyle.scattering, mmeRopeStyle.absorption,
+            mmeRopeStyle.color[0], mmeRopeStyle.color[1], mmeRopeStyle.color[2],
+            mmeRopeStyle.noiseScale, mmeRopeStyle.noiseDetail,
+            mmeRopeStyle.shapeVariation);
     fprintf(fp, "# Non-destructive overlay. Original mission data/BIG archives remain untouched.\n");
     fprintf(fp, "# Volume fields drive the live D3D12 raymarched volumetric-dust renderer.\n");
     fprintf(fp, "# Manual RTX volumetric-dust authoring.\n");
@@ -2383,7 +2756,7 @@ static bool32 mmeSaveMap(void)
             return FALSE;
         }
     }
-    fprintf(stderr, "[MapEditor] Exported %s\n", path);
+    HW_DIAG_FPRINTF(stderr, "[MapEditor] Exported %s\n", path);
     mmeStatus("MAP SAVED + EXPORTED TO RTXExports/Maps");
     return TRUE;
 }
@@ -2424,6 +2797,9 @@ static bool32 mmeLoadMapOverlay(void)
     FILE *fp;
     bool32 loadedPackaged = FALSE;
     sdword mission = spGetCurrentMission();
+    hwModernGraphicsResetCloudRenderSettings();
+    modernParticleFieldsResetStyles();
+    modernOriginalRopeReset();
     if (!mmeExportPath(path, sizeof(path), mission)) return FALSE;
     fp = fopen(path, "rb");
     if (fp == NULL && mmePackagedMapPath(packagedPath, sizeof(packagedPath), mission))
@@ -2432,7 +2808,7 @@ static bool32 mmeLoadMapOverlay(void)
         if (fp != NULL)
         {
             loadedPackaged = TRUE;
-            fprintf(stderr,
+            HW_DIAG_FPRINTF(stderr,
                     "[MapEditor] No writable RTXMAP override; loading packaged mission map: %s\n",
                     packagedPath);
         }
@@ -2447,7 +2823,14 @@ static bool32 mmeLoadMapOverlay(void)
         char token[32];
         if (line[0] == '#' || line[0] == '\r' || line[0] == '\n') continue;
         if (sscanf(line, "%31s", token) != 1) continue;
-        if (strcasecmp(token, "DUST_FADE") == 0)
+        if (modernParticleFieldsRead(line)) continue;
+        if (strcasecmp(token, "CLOUD_RENDERER") == 0)
+        {
+            HWModernCloudRenderSettings settings;
+            if (hwModernCloudRenderSettingsRead(line, &settings))
+                hwModernGraphicsSetCloudRenderSettings(&settings);
+        }
+        else if (strcasecmp(token, "DUST_FADE") == 0)
         {
             real32 distance, strength;
             if (sscanf(line, "DUST_FADE %f %f", &distance, &strength) == 2)
@@ -2455,6 +2838,19 @@ static bool32 mmeLoadMapOverlay(void)
                 mmeDustFadeDistance = mmeClampF(distance, 5000.0f, 250000.0f);
                 mmeDustFadeStrength = mmeClampF(strength, 0.0f, 4.0f);
             }
+        }
+        else if (strcasecmp(token, "HARVESTABLE_ROPE") == 0)
+        {
+            unsigned int enabled;
+            if (sscanf(line,
+                "HARVESTABLE_ROPE %u %f %f %f %f %f %f %f %f %f %f %f",
+                &enabled, &mmeRopeStyle.radiusScale, &mmeRopeStyle.density,
+                &mmeRopeStyle.edgeFeather, &mmeRopeStyle.scattering,
+                &mmeRopeStyle.absorption, &mmeRopeStyle.color[0],
+                &mmeRopeStyle.color[1], &mmeRopeStyle.color[2],
+                &mmeRopeStyle.noiseScale, &mmeRopeStyle.noiseDetail,
+                &mmeRopeStyle.shapeVariation) == 12)
+                mmeRopeStyle.enabled = enabled ? 1u : 0u;
         }
         else if (strcasecmp(token, "DELETE") == 0)
         {
@@ -2715,6 +3111,7 @@ static void mmeOpenInternal(bool32 fromBoot)
     mme.selectedMission = spGetCurrentMission();
     if (mmeVolumeMission != mme.selectedMission)
     {
+        hwModernGraphicsResetCloudRenderSettings();
         memset(mmeVolumes, 0, sizeof(mmeVolumes));
         mmeVolumeCount = 0;
         mmeVolumeMission = mme.selectedMission;
@@ -2745,17 +3142,23 @@ static void mmeOpenInternal(bool32 fromBoot)
         RPE_PressLeft | RPE_ReleaseLeft | RPE_WheelUp | RPE_WheelDown | RPE_DrawEveryFrame);
     mme.rightRegion = regChildAlloc(ghMainRegion, (smemsize)&mme,
         right.x0, right.y0, right.x1-right.x0, right.y1-right.y0, 0,
-        RPE_PressLeft | RPE_HoldLeft | RPE_ReleaseLeft | RPE_WheelUp | RPE_WheelDown | RPE_DrawEveryFrame);
+        RPE_PressLeft | RPE_HoldLeft | RPE_ReleaseLeft | RPE_DoubleLeft | RPE_WheelUp | RPE_WheelDown | RPE_DrawEveryFrame);
     mme.toolbarRegion = regChildAlloc(ghMainRegion, (smemsize)&mme,
         toolbar.x0, toolbar.y0, toolbar.x1-toolbar.x0, toolbar.y1-toolbar.y0, 0,
         RPE_PressLeft | RPE_ReleaseLeft | RPE_DrawEveryFrame);
     mmeBindRegions();
+    if(mme.rightRegion){
+        regKeyChildAlloc(mme.rightRegion,RETURNKEY,RPE_KeyDown,(regionfunction)mmeNumericKeyProcess,1,RETURNKEY);
+        regKeyChildAlloc(mme.rightRegion,BACKSPACEKEY,RPE_KeyDown,(regionfunction)mmeNumericKeyProcess,1,BACKSPACEKEY);
+        regKeyChildAlloc(mme.rightRegion,HOMEKEY,RPE_KeyDown,(regionfunction)mmeNumericKeyProcess,1,HOMEKEY);
+        regKeyChildAlloc(mme.rightRegion,ENDKEY,RPE_KeyDown,(regionfunction)mmeNumericKeyProcess,1,ENDKEY);
+    }
     if (mme.overlayRegion != NULL) regSiblingMoveToFront(mme.overlayRegion);
     if (mme.leftRegion != NULL) regSiblingMoveToFront(mme.leftRegion);
     if (mme.rightRegion != NULL) regSiblingMoveToFront(mme.rightRegion);
     if (mme.toolbarRegion != NULL) regSiblingMoveToFront(mme.toolbarRegion);
     mmeStatus("EDITOR FPS CAMERA / RMB-MOUSE LOOK / WHEEL FORWARD-BACK / NO CTRL");
-    fprintf(stderr, "[MapEditor] Opened mission %02d: %d BIG-backed placeable assets, %d scene objects.\n",
+    HW_DIAG_FPRINTF(stderr, "[MapEditor] Opened mission %02d: %d BIG-backed placeable assets, %d scene objects.\n",
             mme.selectedMission, mmeAssetCount, mmeTrackedCount);
 }
 
@@ -2793,6 +3196,10 @@ static void mmeDrawLeft(regionhandle region)
     mmeDrawButton(&tabs[0], "ASSETS", mme.tab == MME_TAB_ASSETS, mmePointIn(&tabs[0], mouseX, mouseY));
     mmeDrawButton(&tabs[1], "SCENE", mme.tab == MME_TAB_SCENE, mmePointIn(&tabs[1], mouseX, mouseY));
     mmeDrawButton(&tabs[2], "VOLUMES", mme.tab == MME_TAB_VOLUMES, mmePointIn(&tabs[2], mouseX, mouseY));
+    mmeDrawButton(&tabs[3], "ROPES", mme.tab == MME_TAB_ROPES, mmePointIn(&tabs[3], mouseX, mouseY));
+    mmeDrawButton(&tabs[4], "RM DUST", mme.tab == MME_TAB_DUST, mmePointIn(&tabs[4], mouseX, mouseY));
+    mmeDrawButton(&tabs[5], "FIELDS", mme.tab == MME_TAB_FIELDS, mmePointIn(&tabs[5], mouseX, mouseY));
+    mmeDrawButton(&tabs[6], "CLOUDS", mme.tab == MME_TAB_CLOUDS, mmePointIn(&tabs[6], mouseX, mouseY));
     maxRows = (list.y1 - list.y0) / rowH;
     if (maxRows > MME_VISIBLE_ROWS) maxRows = MME_VISIBLE_ROWS;
     for (i = 0; i < maxRows; ++i)
@@ -2826,7 +3233,7 @@ static void mmeDrawLeft(regionhandle region)
                                index == mme.selectedTracked, mmePointIn(&row, mouseX, mouseY));
             }
         }
-        else
+        else if (mme.tab == MME_TAB_VOLUMES)
         {
             index = mme.volumeScroll + i;
             if (index >= mmeVolumeCount) break;
@@ -2839,13 +3246,53 @@ static void mmeDrawLeft(regionhandle region)
                                index == mme.selectedVolume, mmePointIn(&row, mouseX, mouseY));
             }
         }
+        else if (mme.tab == MME_TAB_DUST)
+        {
+            sdword dustRow=mme.dustScroll+i;
+            if(dustRow>=mmeDustListCount()) break;
+            index=mmeDustTrackAt(dustRow);
+            if(dustRow==0)
+                mmeDrawListRow(&row,"RM HARVESTABLE CLOUDS","CURRENT MAP / RM SPRITE EFFECT",TRUE,mmePointIn(&row,mouseX,mouseY));
+            else if(index>=0)
+            {
+                char sub[80];
+                snprintf(sub,sizeof(sub),"CLOUD ID %d / %s",mmeTracked[index].runtimeId,
+                    modernHarvestableDustHasOverride((udword)mmeTracked[index].runtimeId)?"CUSTOM":"ASSIGNED APPEARANCE");
+                mmeDrawListRow(&row,mmeTracked[index].label,sub,index==mme.selectedTracked,mmePointIn(&row,mouseX,mouseY));
+            }
+        }
+        else if (mme.tab == MME_TAB_FIELDS)
+        {
+            char label[80],sub[80];
+            sdword field=mmeFieldScroll+i-1;
+            if(field>=modernParticleFieldsCount())break;
+            if(field<0)snprintf(label,sizeof(label),"ALL PARTICLE FIELDS");
+            else snprintf(label,sizeof(label),"PARTICLE FIELD %03d",field+1);
+            snprintf(sub,sizeof(sub),field<0?"MISSION DEFAULT / %d CLUMPS":"PARTICLE CLUMP / INDIVIDUAL STYLE",modernParticleFieldsCount());
+            mmeDrawListRow(&row,label,sub,field==mmeSelectedField,mmePointIn(&row,mouseX,mouseY));
+        }
+        else if (mme.tab == MME_TAB_CLOUDS)
+        {
+            if (i == 0)
+                mmeDrawListRow(&row, "OPENMW CLOUD RENDERER",
+                    "VOLUMES / FIELDS / ROPES", TRUE, mmePointIn(&row, mouseX, mouseY));
+            else break;
+        }
+        else if (i == 0)
+            mmeDrawListRow(&row, "HARVESTABLE ROPE ENVELOPE",
+                           "PROCEDURAL / FOLLOWS RESOURCE PATH", TRUE,
+                           mmePointIn(&row, mouseX, mouseY));
     }
     primRectSolid2(&footer, mmeSurface);
     primRectOutline2(&footer, 1, mmeLine);
     mmeDrawTiny(footer.x0 + uiScaleSize(6), footer.y0 + uiScaleSize(5), mmePaper,
+                mme.tab == MME_TAB_CLOUDS ? "CLOUD RENDERER / SETTINGS SAVED PER MAP" :
                 mme.tab == MME_TAB_ASSETS ? "P = PLACE SELECTED BIG/RTX ASSET" :
                 (mme.tab == MME_TAB_SCENE ? "CLICK WORLD OR LIST / P = MOVE TO CURSOR" :
-                                            "RTX VOLUMES / PRESETS + COPY/PASTE ON RIGHT"));
+                (mme.tab == MME_TAB_VOLUMES ? "RTX VOLUMES / PRESETS + COPY/PASTE ON RIGHT" :
+                (mme.tab == MME_TAB_DUST ? "RM DUST / APPEARANCE SAVED PER MAP" :
+                (mme.tab == MME_TAB_FIELDS ? "AUTOMATIC PARTICLE FIELDS / PER-MAP STYLE" :
+                                             "ONE LIVE STYLE DRIVES ALL HARVESTABLE ROPES")))));
     if (mme.tab == MME_TAB_VOLUMES)
     {
         for (i = 0; i < mmeVolumeCount && renderableVolumes < MME_RENDERER_DUST_VOLUME_LIMIT; ++i)
@@ -2856,6 +3303,9 @@ static void mmeDrawLeft(regionhandle region)
                  renderableVolumes, MME_RENDERER_DUST_VOLUME_LIMIT);
         mmeDrawTiny(footer.x0 + uiScaleSize(6), footer.y0 + uiScaleSize(20), mmeMuted, footerInfo);
     }
+    else if (mme.tab == MME_TAB_CLOUDS)
+        mmeDrawTiny(footer.x0 + uiScaleSize(6), footer.y0 + uiScaleSize(20), mmeMuted,
+                    "MOTION OFF BY DEFAULT / PER MAP");
     else
         mmeDrawTiny(footer.x0 + uiScaleSize(6), footer.y0 + uiScaleSize(20), mmeMuted,
                     "DRAG X/Y/Z ARROW ENDS = MOVE  |  DRAG BLUE HANDLES = ROTATE");
@@ -2865,7 +3315,11 @@ static void mmeDrawLeft(regionhandle region)
 
 static sdword mmeInspectorCount(void)
 {
-    if (mmeSelectedVolume() != NULL) return MME_INSPECTOR_ROWS;
+    if (mme.tab == MME_TAB_CLOUDS) return 7;
+    if (mme.tab == MME_TAB_FIELDS) return 15;
+    if (mme.tab == MME_TAB_DUST) return 8;
+    if (mme.tab == MME_TAB_ROPES) return 13;
+    if (mmeSelectedVolume() != NULL) return MME_INSPECTOR_ROWS-2;
     if (mmeSelectedTrack() != NULL) return 14;
     if (mme.tab == MME_TAB_ASSETS && mme.selectedAsset >= 0 && mme.selectedAsset < mmeAssetCount) return 7;
     return 1;
@@ -2878,6 +3332,76 @@ static void mmeInspectorValues(char labels[MME_INSPECTOR_ROWS][32],
     MMEVolume *volume = mmeSelectedVolume();
     sdword i;
     for (i=0;i<MME_INSPECTOR_ROWS;i++) { labels[i][0]=0; values[i][0]=0; }
+    if(mme.tab==MME_TAB_CLOUDS)
+    {
+        HWModernCloudRenderSettings settings;
+        hwModernGraphicsGetCloudRenderSettings(&settings);
+        snprintf(labels[0],32,"SAMPLING QUALITY");snprintf(values[0],64,"%.3g",settings.samplingQuality);
+        snprintf(labels[1],32,"NOISE DETAIL");snprintf(values[1],64,"%u / 3",settings.detail);
+        snprintf(labels[2],32,"CLOUD MOTION");snprintf(values[2],64,"%s",settings.motionEnabled?"ON":"OFF");
+        snprintf(labels[3],32,"MOTION SPEED");
+        if(settings.motionEnabled)snprintf(values[3],64,"%.3gx",settings.motionSpeed);
+        else snprintf(values[3],64,"DISABLED / MOTION OFF");
+        snprintf(labels[4],32,"BILLOW STRENGTH");snprintf(values[4],64,"%.3g",settings.billowStrength);
+        snprintf(labels[5],32,"FIELD CLOUD COVERAGE");snprintf(values[5],64,"%.3g",settings.fieldCoverage);
+        snprintf(labels[6],32,"RESET RENDERER");snprintf(values[6],64,"DEFAULTS / MOTION OFF");
+        return;
+    }
+    if(mme.tab==MME_TAB_DUST)
+    {
+        RmResourceDustStyle *s=rmFxResourceDustStyle();
+        static const char *names[8]={"OPACITY","BRIGHTNESS","EMITTER SIZE","EFFECT AGE",
+            "TINT RED","TINT GREEN","TINT BLUE","RESET RM DEFAULTS"};
+        real32 numbers[7]={s->opacity,s->brightness,s->size,s->phase,s->tint[0],s->tint[1],s->tint[2]};
+        for(i=0;i<8;i++) snprintf(labels[i],32,"%s",names[i]);
+        for(i=0;i<7;i++) snprintf(values[i],64,"%.3f",numbers[i]);
+        snprintf(values[7],64,"RESET");
+        return;
+    }
+    if (mme.tab == MME_TAB_ROPES || mme.tab == MME_TAB_FIELDS)
+    {
+        HWModernHarvestableNebulaStyle *fieldStyle = mme.tab == MME_TAB_FIELDS ? modernParticleFieldsStyle(mmeSelectedField, 0) : &mmeRopeStyle;
+        static const char *names[12] = {
+            "ENABLED","ENVELOPE WIDTH","DENSITY","EDGE FEATHER",
+            "SCATTERING","ABSORPTION","COLOR R","COLOR G","COLOR B",
+            "NOISE SCALE","NOISE DETAIL","SHAPE BREAKUP"};
+        for (i=0;i<12;i++) snprintf(labels[i],32,"%s",names[i]);
+        snprintf(values[0],64,"%s",fieldStyle->enabled ? "ON" : "OFF");
+        snprintf(values[1],64,"%.2fx",fieldStyle->radiusScale);
+        snprintf(values[2],64,"%.3f",fieldStyle->density);
+        snprintf(values[3],64,"%.3f",fieldStyle->edgeFeather);
+        snprintf(values[4],64,"%.3f",fieldStyle->scattering);
+        snprintf(values[5],64,"%.3f",fieldStyle->absorption);
+        snprintf(values[6],64,"%.3f",fieldStyle->color[0]);
+        snprintf(values[7],64,"%.3f",fieldStyle->color[1]);
+        snprintf(values[8],64,"%.3f",fieldStyle->color[2]);
+        snprintf(values[9],64,"%.6f",fieldStyle->noiseScale);
+        snprintf(values[10],64,"%.3f",fieldStyle->noiseDetail);
+        snprintf(values[11],64,"%.3f",fieldStyle->shapeVariation);
+        snprintf(labels[6],32,"COLOR");
+        snprintf(values[6],64,"PICK COLOR");
+        for (i=7;i<10;++i) { memcpy(labels[i],labels[i+2],32); memcpy(values[i],values[i+2],64); }
+        for (i=10;i<MME_INSPECTOR_ROWS;++i) { labels[i][0]=0; values[i][0]=0; }
+        if (mme.tab == MME_TAB_ROPES) {
+            snprintf(labels[10],32,"ORIGINAL ROPE COLOR");snprintf(values[10],64,"PICK COLOR");
+            snprintf(labels[11],32,"ORIGINAL ROPE OPACITY");snprintf(values[11],64,"%.1f%%",100.0f*modernOriginalRopeOpacity());
+            snprintf(labels[12],32,"RESET ROPE COLOR");snprintf(values[12],64,"RESTORE ORIGINAL");
+        }
+        if (mme.tab == MME_TAB_FIELDS) {
+            snprintf(labels[1],32,"PARTICLE SPREAD");
+            snprintf(labels[2],32,"DENSITY STRENGTH");
+            snprintf(labels[3],32,"KERNEL SOFTNESS");
+            snprintf(labels[8],32,"BILLOW AMOUNT");
+            snprintf(labels[9],32,"CLOUD CONTRAST");
+            snprintf(labels[10],32,"RESET STYLE"); snprintf(values[10],64,"USE MISSION DEFAULT");
+            snprintf(labels[11],32,"ORIGINAL DUST PARTICLES");
+            snprintf(values[11],64,"%s",modernParticleFieldsOriginalVisible()?"VISIBLE":"HIDDEN");
+            snprintf(labels[12],32,"ORIGINAL DUST COLOR");snprintf(values[12],64,"PICK COLOR");
+            snprintf(labels[13],32,"RESET DUST COLOR");snprintf(values[13],64,"RESTORE ORIGINAL");
+            snprintf(labels[14],32,"ORIGINAL DUST OPACITY");snprintf(values[14],64,"%.1f%%",100.0f*modernParticleFieldsOriginalOpacity());
+        }
+        return;
+    }
     if (volume != NULL)
     {
         static const char *names[MME_INSPECTOR_ROWS] = {
@@ -2886,8 +3410,7 @@ static void mmeInspectorValues(char labels[MME_INSPECTOR_ROWS][32],
             "DENSITY","SCATTERING","ABSORPTION","ANISOTROPY","COVERAGE",
             "COLOR R","COLOR G","COLOR B","NOISE SCALE","NOISE DETAIL",
             "WAKE STRENGTH","MISSION KEY LIGHT","LOCAL LIGHTS","VOLUME SHADOW",
-            "SHAPE SEED (G RANDOM)","SHAPE VARIATION",
-            "DISTANCE FADE START","DISTANCE FADE STRENGTH"
+            "SHAPE SEED (G RANDOM)","SHAPE VARIATION"
         };
         static const char *shapeNames[3] = {"SPHERE","BOX","ELLIPSOID"};
         for (i=0;i<MME_INSPECTOR_ROWS;i++) snprintf(labels[i],32,"%s",names[i]);
@@ -2918,8 +3441,10 @@ static void mmeInspectorValues(char labels[MME_INSPECTOR_ROWS][32],
         snprintf(values[24],64,"%s",volume->data.castVolumetricShadow ? "ON" : "OFF");
         snprintf(values[25],64,"%u",(unsigned int)volume->data.shapeSeed);
         snprintf(values[26],64,"%.3f",volume->data.shapeVariation);
-        snprintf(values[27],64,"%.0f UNITS",mmeDustFadeDistance);
-        snprintf(values[28],64,"%.2fx",mmeDustFadeStrength);
+        snprintf(labels[16],32,"COLOR");
+        snprintf(values[16],64,"PICK COLOR");
+        for (i=17;i<MME_INSPECTOR_ROWS-2;++i) { memcpy(labels[i],labels[i+2],32); memcpy(values[i],values[i+2],64); }
+        for (i=MME_INSPECTOR_ROWS-2;i<MME_INSPECTOR_ROWS;++i) { labels[i][0]=0; values[i][0]=0; }
         return;
     }
     if (track != NULL && track->object != NULL)
@@ -3096,11 +3621,23 @@ static void mmeDrawRight(regionhandle region)
     (void)region;
     primRectSolid2(&panel, mmeInk);
     primRectOutline2(&panel, 1, mmeLine);
-    mmeDrawText(panel.x0 + uiScaleSize(10), panel.y0 + uiScaleSize(8), mmePaper, "INSPECTOR");
+    mmeDrawText(panel.x0 + uiScaleSize(10), panel.y0 + uiScaleSize(8), mmePaper,
+                mme.tab==MME_TAB_CLOUDS?"CLOUD RENDERER / CURRENT MAP":
+                mme.tab==MME_TAB_FIELDS?"PARTICLE FIELD CLOUDS / CURRENT MAP":
+                mme.tab==MME_TAB_DUST?"RM HARVESTABLE DUST / CURRENT MAP":"INSPECTOR");
     mmeRightInspectorRect(&panel, &inner);
-    rowH = (inner.y1 - inner.y0) / MME_INSPECTOR_ROWS;
+    rowH = (inner.y1 - inner.y0) / mmeInspectorCount();
     mmeInspectorValues(labels, values);
-    for (i = 0; i < MME_INSPECTOR_ROWS; ++i)
+    {
+        sdword selected=mme.inspectorRow;
+        for(i=0;i<mmeInspectorCount();i++){
+            double value;mme.inspectorRow=i;
+            if(mmeNumericValue(&value,FALSE))snprintf(values[i],64,"%.7g%s",value,mme.tab==MME_TAB_FIELDS&&i==14?"%":"");
+        }
+        mme.inspectorRow=selected;
+        if(mmeNumeric.active&&mmeNumeric.tab==mme.tab&&mmeNumeric.row==selected)snprintf(values[selected],64,"[ %.52s | ]",mmeNumeric.text);
+    }
+    for (i = 0; i < mmeInspectorCount(); ++i)
     {
         rectangle row;
         row.x0=inner.x0; row.x1=inner.x1;
@@ -3111,14 +3648,15 @@ static void mmeDrawRight(regionhandle region)
         if (values[i][0])
         {
             sdword w = fontWidth(values[i]);
-            mmeDrawTiny(row.x1-uiScaleSize(5)-w,row.y0+uiScaleSize(3),mmePaper,values[i]);
+            mmeDrawTiny(row.x1-uiScaleSize(5)-w,row.y0+uiScaleSize(3),
+                mme.tab==MME_TAB_CLOUDS && i==3 && !strcmp(values[i],"DISABLED / MOTION OFF") ? mmeMuted : mmePaper,values[i]);
         }
-        if (mmeSelectedVolume()!=NULL && (i==21 || i==27 || i==28))
+        if (mmeSelectedVolume()!=NULL && (i==19 || i==25 || i==26))
         {
             rectangle slider;
-            real32 t = i==21
+            real32 t = i==19
                 ? mmeClampF(mmeSelectedVolume()->data.wakeStrength * 0.5f, 0.0f, 1.0f)
-                : (i==27
+                : (i==25
                     ? mmeClampF((mmeDustFadeDistance-5000.0f)/245000.0f,0.0f,1.0f)
                     : mmeClampF(mmeDustFadeStrength*0.25f,0.0f,1.0f));
             sdword knobX;
@@ -3140,6 +3678,19 @@ static void mmeDrawRight(regionhandle region)
         if (mmeCloudPresetUIVisible())
         {
             /* The volume footer is owned by the preset/copy-paste controls below. */
+        }
+        else if (mme.tab==MME_TAB_CLOUDS)
+        {
+            mmeDrawTiny(info.x0+uiScaleSize(5),info.y0+uiScaleSize(4),mmePaper,"STATIC BY DEFAULT / SHARED ACROSS ALL CLOUDS");
+            mmeDrawTiny(info.x0+uiScaleSize(5),info.y0+uiScaleSize(20),mmeMuted,"Double-click a number for exact entry. Ctrl = fine / Shift = coarse.");
+            mmeDrawTiny(info.x0+uiScaleSize(5),info.y0+uiScaleSize(36),mmeMuted,"Motion follows simulation time and pauses with the mission.");
+        }
+        else if (mme.tab==MME_TAB_DUST)
+        {
+            mmeDrawTiny(info.x0+uiScaleSize(5),info.y0+uiScaleSize(4),mmePaper,
+                "RM SPRITE EFFECT / ALL MISSIONS");
+            mmeDrawTiny(info.x0+uiScaleSize(5),info.y0+uiScaleSize(20),mmeMuted,"Ctrl+S saves; L reloads. Effect age samples the authored RM curves.");
+            mmeDrawTiny(info.x0+uiScaleSize(5),info.y0+uiScaleSize(36),mmeMuted,"Ctrl = fine / Shift = coarse. Regular clouds and ropes are unchanged.");
         }
         else if (mmeSelectedTrack()!=NULL)
         {
@@ -3166,7 +3717,7 @@ static void mmeDrawRight(regionhandle region)
 static void mmeDrawToolbar(regionhandle region)
 {
     rectangle bar = mmeToolbarRect();
-    rectangle b[10];
+    rectangle b[11];
     char missionText[32];
     char viewText[48];
     char cameraText[48];
@@ -3188,7 +3739,8 @@ static void mmeDrawToolbar(regionhandle region)
     mmeDrawButton(&b[6],"SAVE MAP",TRUE,mmePointIn(&b[6],x,y));
     mmeDrawButton(&b[7],"LOAD MAP",FALSE,mmePointIn(&b[7],x,y));
     mmeDrawButton(&b[8],"LIGHTING",FALSE,mmePointIn(&b[8],x,y));
-    mmeDrawButton(&b[9],"DONE",FALSE,mmePointIn(&b[9],x,y));
+    mmeDrawButton(&b[9],"TEXTURES",FALSE,mmePointIn(&b[9],x,y));
+    mmeDrawButton(&b[10],"DONE",FALSE,mmePointIn(&b[10],x,y));
     if (mme.status[0])
     {
         sdword statusY=bar.y1+uiScaleSize(2);
@@ -3435,7 +3987,14 @@ static udword mmeLeftProcess(regionhandle region, smemsize ID, udword event, udw
         for(index=0;index<MME_TAB_COUNT;index++)
             if(mmePointIn(&tabs[index],x,y))
             {
-                mme.tab=index; regRecursiveSetDirty(region); return RPR_Redraw;
+                mme.tab=index;
+                if (index == MME_TAB_ROPES || index == MME_TAB_DUST || index == MME_TAB_FIELDS || index == MME_TAB_CLOUDS)
+                {
+                    if(index==MME_TAB_ROPES || index==MME_TAB_FIELDS || index==MME_TAB_CLOUDS || !mmeSelectedDustTrack()) mme.selectedTracked = -1;
+                    mme.selectedVolume = -1;
+                    mme.inspectorRow = 0;
+                }
+                regRecursiveSetDirty(region); return RPR_Redraw;
             }
         if(mmePointIn(&list,x,y))
         {
@@ -3449,10 +4008,22 @@ static udword mmeLeftProcess(regionhandle region, smemsize ID, udword event, udw
                 index=mmeListIndexAt(&list,mme.sceneScroll,y);
                 if(index>=0&&index<mmeTrackedCount&&!mmeTracked[index].deleted)mmeSelectTrack(index);
             }
-            else
+            else if (mme.tab==MME_TAB_VOLUMES)
             {
                 index=mmeListIndexAt(&list,mme.volumeScroll,y);
                 if(index>=0&&index<mmeVolumeCount&&mmeVolumes[index].inUse)mmeSelectVolume(index);
+            }
+            else if(mme.tab==MME_TAB_FIELDS)
+            {
+                index=mmeListIndexAt(&list,mmeFieldScroll,y)-1;
+                if(index>=-1 && index<modernParticleFieldsCount()){mmeSelectedField=index;mme.inspectorRow=0;}
+            }
+            else if(mme.tab==MME_TAB_DUST)
+            {
+                sdword dustRow=mmeListIndexAt(&list,mme.dustScroll,y);
+                index=mmeDustTrackAt(dustRow);
+                if(index>=0) mmeSelectTrack(index);
+                else if(dustRow==0) { mme.selectedTracked=-1; mme.selectedVolume=-1; mme.inspectorRow=0; }
             }
             regRecursiveSetDirty(region); return RPR_Redraw;
         }
@@ -3462,7 +4033,9 @@ static udword mmeLeftProcess(regionhandle region, smemsize ID, udword event, udw
         sdword delta=event==RPE_WheelUp?-1:1;
         if(mme.tab==MME_TAB_ASSETS)mme.assetScroll=mmeClamp(mme.assetScroll+delta,0,mmeAssetCount>1?mmeAssetCount-1:0);
         else if(mme.tab==MME_TAB_SCENE)mme.sceneScroll=mmeClamp(mme.sceneScroll+delta,0,mmeTrackedCount>1?mmeTrackedCount-1:0);
-        else mme.volumeScroll=mmeClamp(mme.volumeScroll+delta,0,mmeVolumeCount>1?mmeVolumeCount-1:0);
+        else if(mme.tab==MME_TAB_VOLUMES)mme.volumeScroll=mmeClamp(mme.volumeScroll+delta,0,mmeVolumeCount>1?mmeVolumeCount-1:0);
+        else if(mme.tab==MME_TAB_DUST)mme.dustScroll=mmeClamp(mme.dustScroll+delta,0,mmeDustListCount()-1);
+        else if(mme.tab==MME_TAB_FIELDS)mmeFieldScroll=mmeClamp(mmeFieldScroll+delta,0,modernParticleFieldsCount());
         regRecursiveSetDirty(region);return RPR_Redraw;
     }
     return 0;
@@ -3476,13 +4049,13 @@ static bool32 mmeSetWakeSliderFromMouse(const rectangle *inner, sdword rowH)
     if (volume == NULL || inner == NULL || rowH <= 0) return FALSE;
     slider.x0 = inner->x0 + uiScaleSize(112);
     slider.x1 = inner->x1 - uiScaleSize(48);
-    slider.y0 = inner->y0 + 21*rowH;
+    slider.y0 = inner->y0 + 19*rowH;
     slider.y1 = slider.y0 + rowH;
     if (!mmePointIn(&slider, mouseCursorX(), mouseCursorY()) && !mme.wakeSliderDrag)
         return FALSE;
     t = (real32)(mouseCursorX() - slider.x0) / (real32)max(1, slider.x1-slider.x0);
     volume->data.wakeStrength = mmeClampF(t, 0.0f, 1.0f) * 2.0f;
-    mme.inspectorRow = 21;
+    mme.inspectorRow = 19;
     mmeSyncDustVolumesToRenderer();
     mmeStatus("WAKE STRENGTH LIVE / 0 = OFF / 1 = BASELINE / 2 = MAX");
     return TRUE;
@@ -3521,10 +4094,15 @@ static udword mmeRightProcess(regionhandle region, smemsize ID, udword event, ud
     rectangle panel=mmeRightRect(); rectangle inner;
     sdword rowH; sdword row;
     (void)ID;(void)data;
-    if(event!=RPE_PressLeft&&event!=RPE_HoldLeft&&event!=RPE_ReleaseLeft&&
+    if(event!=RPE_PressLeft&&event!=RPE_HoldLeft&&event!=RPE_ReleaseLeft&&event!=RPE_DoubleLeft&&
        event!=RPE_WheelUp&&event!=RPE_WheelDown)return 0;
     mmeRightInspectorRect(&panel,&inner);
-    rowH=(inner.y1-inner.y0)/MME_INSPECTOR_ROWS;
+    rowH=(inner.y1-inner.y0)/mmeInspectorCount();
+    if(event==RPE_DoubleLeft&&mmePointIn(&inner,mouseCursorX(),mouseCursorY())){
+        mme.inspectorRow=mmeClamp((mouseCursorY()-inner.y0)/rowH,0,mmeInspectorCount()-1);
+        mmeNumericBegin();regRecursiveSetDirty(region);return RPR_Redraw;
+    }
+    if(mmeNumeric.active){if(event==RPE_PressLeft)mmeNumeric.active=FALSE;else return RPR_Redraw;}
     if (mmeCloudPresetUIVisible())
     {
         rectangle dropBox; rectangle buttons[5]; rectangle dropList;
@@ -3616,7 +4194,7 @@ static udword mmeRightProcess(regionhandle region, smemsize ID, udword event, ud
     }
     if(event==RPE_HoldLeft && mme.wakeSliderDrag)
     {
-        if (mme.inspectorRow==21) mmeSetWakeSliderFromMouse(&inner,rowH);
+        if (mme.inspectorRow==19) mmeSetWakeSliderFromMouse(&inner,rowH);
         else mmeSetDustFadeSliderFromMouse(&inner,rowH);
         regRecursiveSetDirty(region); return RPR_Redraw;
     }
@@ -3624,7 +4202,7 @@ static udword mmeRightProcess(regionhandle region, smemsize ID, udword event, ud
     {
         if (mme.wakeSliderDrag)
         {
-            if (mme.inspectorRow==21) mmeSetWakeSliderFromMouse(&inner,rowH);
+            if (mme.inspectorRow==19) mmeSetWakeSliderFromMouse(&inner,rowH);
             else mmeSetDustFadeSliderFromMouse(&inner,rowH);
             mme.wakeSliderDrag=FALSE; regRecursiveSetDirty(region); return RPR_Redraw;
         }
@@ -3632,6 +4210,9 @@ static udword mmeRightProcess(regionhandle region, smemsize ID, udword event, ud
         {
             row=(mouseCursorY()-inner.y0)/rowH;
             mme.inspectorRow=mmeClamp(row,0,mmeInspectorCount()-1);
+            if(mmeColorRow()) mmeOpenColor();
+            else if(mme.tab==MME_TAB_CLOUDS && (mme.inspectorRow==2 || mme.inspectorRow==6))
+                mmeAdjustSelection(1);
             regRecursiveSetDirty(region);return RPR_Redraw;
         }
     }
@@ -3645,12 +4226,12 @@ static udword mmeRightProcess(regionhandle region, smemsize ID, udword event, ud
 
 static udword mmeToolbarProcess(regionhandle region, smemsize ID, udword event, udword data)
 {
-    rectangle bar=mmeToolbarRect(); rectangle b[10]; sdword i; sdword x=mouseCursorX(),y=mouseCursorY();
+    rectangle bar=mmeToolbarRect(); rectangle b[11]; sdword i; sdword x=mouseCursorX(),y=mouseCursorY();
     (void)ID;(void)data;
     if(event!=RPE_ReleaseLeft)return 0;
     mmeLayoutToolbar(&bar,b);
-    for(i=0;i<10;i++)if(mmePointIn(&b[i],x,y))break;
-    if(i>=10)return 0;
+    for(i=0;i<11;i++)if(mmePointIn(&b[i],x,y))break;
+    if(i>=11)return 0;
     switch(i)
     {
         case 0:
@@ -3670,9 +4251,13 @@ static udword mmeToolbarProcess(regionhandle region, smemsize ID, udword event, 
         case 4: mme.viewportMode=(mme.viewportMode+1)%MME_VIEW_COUNT; break;
         case 5: mme.cameraMode=(mme.cameraMode+1)%MME_CAMERA_COUNT; mmeApplyCameraPreset(); break;
         case 6: mmeSaveMap(); break;
-        case 7: mmeRequestMissionLoad(spGetCurrentMission(),TRUE); break;
+        case 7:
+            if(mme.tab==MME_TAB_DUST) { rmFxResourceDustReload(); mmeStatus("RM DUST RELOADED / CURRENT MAP"); }
+            else mmeRequestMissionLoad(spGetCurrentMission(),TRUE);
+            break;
         case 8: modernMapEditorCloseForToolSwitch(); modernUIToggleLightingEditor(); return RPR_Redraw;
-        case 9: modernMapEditorClose(); return RPR_Redraw;
+        case 9: modernMapEditorCloseForToolSwitch(); modernUIOpenTexturePanel(); return RPR_Redraw;
+        case 10: modernMapEditorClose(); return RPR_Redraw;
     }
     regRecursiveSetDirty(region);return RPR_Redraw;
 }
@@ -3717,6 +4302,7 @@ bool32 modernMapEditorHandleWorldEvent(udword event, udword data)
     for(i=mmeVolumeCount-1;i>=0;i--)
     {
         sdword x,y; real32 *p;
+        if(mme.tab==MME_TAB_DUST) break;
         if(!mmeVolumes[i].inUse)continue;
         p=mmeVolumes[i].data.position;
         if(mmeProjectPoint(p,&x,&y)&&ABS(x-mouseCursorX())<=uiScaleSize(12)&&ABS(y-mouseCursorY())<=uiScaleSize(12))
@@ -3730,7 +4316,8 @@ bool32 modernMapEditorHandleWorldEvent(udword event, udword data)
     {
         sdword index=mmeFindTracked(clicked);
         if(index<0)index=mmeTrackObject(clicked,TRUE);
-        mme.tab=MME_TAB_SCENE; mmeSelectTrack(index); mmeStatus("WORLD OBJECT SELECTED / DRAG GIZMO TO TRANSFORM");
+        mme.tab=MME_TAB_SCENE;
+        mmeSelectTrack(index); mmeStatus("WORLD OBJECT SELECTED / DRAG GIZMO TO TRANSFORM");
     }
     else
     {
@@ -3742,6 +4329,8 @@ bool32 modernMapEditorHandleWorldEvent(udword event, udword data)
 bool32 modernMapEditorHandleKey(sdword key)
 {
     if(!mme.active)return FALSE;
+    if(mmeNumericKey(key))return TRUE;
+    if(key==RETURNKEY){mmeNumericBegin();return TRUE;}
     if(key==F11KEY&&(keyIsHit(LSHIFTKEY)||keyIsHit(RSHIFTKEY)))
     {
         modernMapEditorClose(); return TRUE;
@@ -3780,7 +4369,11 @@ bool32 modernMapEditorHandleKey(sdword key)
     if(key==ARRRIGHT){mmeAdjustSelection(1);return TRUE;}
     if(key==DELETEKEY){mmeDeleteSelection();return TRUE;}
     if(key==FKEY){mmeFocusSelection();return TRUE;}
-    if(key==LKEY){mmeRequestMissionLoad(spGetCurrentMission(),TRUE);return TRUE;}
+    if(key==LKEY){
+        if(mme.tab==MME_TAB_DUST) { rmFxResourceDustReload(); mmeStatus("RM DUST RELOADED / CURRENT MAP"); }
+        else mmeRequestMissionLoad(spGetCurrentMission(),TRUE);
+        return TRUE;
+    }
     return FALSE;
 }
 
@@ -3799,13 +4392,15 @@ void modernMapEditorClose(void)
     bool32 restoreUniverse;
     bool32 restoreKas;
     if(!mme.active)return;
+    mmeNumeric.active=FALSE;
+    modernUICloseEditorColorPicker();
     restoreUniverse=mme.previousUniversePause;
     restoreKas=mme.previousKasPause;
     mme.active=FALSE;
     mmeCloseRegions();
     universePause=restoreUniverse;
     kasEditorPauseSet(restoreKas);
-    fprintf(stderr,"[MapEditor] Closed. Simulation=%s KAS=%s.\n",universePause?"paused":"running",kasEditorPauseGet()?"paused":"running");
+    HW_DIAG_FPRINTF(stderr,"[MapEditor] Closed. Simulation=%s KAS=%s.\n",universePause?"paused":"running",kasEditorPauseGet()?"paused":"running");
 }
 
 void modernMapEditorCloseForToolSwitch(void)
@@ -3832,6 +4427,9 @@ void modernMapEditorToggle(void)
 
 void modernMapEditorCameraUpdate(void)
 {
+    /* Simulation time is independent of editor visibility and density rebuilds.
+       It stays fixed while paused; the renderer ignores it when motion is off. */
+    hwModernGraphicsSetCloudSimulationTime(gameIsRunning ? universe.totaltimeelapsed : 0.0f);
     /* Keep authored clouds alive after the editor UI is closed, never inherit
        the previous mission's volumes, and apply the current mission RTXMAP on
        ordinary campaign startup. Previously mmeLoadMapOverlay() was reached
@@ -3840,19 +4438,21 @@ void modernMapEditorCameraUpdate(void)
     if (gameIsRunning && mmeVolumeMission != spGetCurrentMission())
     {
         sdword mission = spGetCurrentMission();
+        hwModernGraphicsResetCloudRenderSettings();
         memset(mmeVolumes, 0, sizeof(mmeVolumes));
         mmeVolumeCount = 0;
         mmeVolumeMission = mission;
+        mmeSelectedField=-1;mmeFieldScroll=0;
         mmeDustFadeDistance = 65000.0f;
         mmeDustFadeStrength = 1.0f;
         if (mission > 0)
         {
             if (mmeLoadMapOverlay())
-                fprintf(stderr,
+                HW_DIAG_FPRINTF(stderr,
                     "[MapEditor] Mission %02d RTXMAP automatically applied "
                     "during normal gameplay startup.\n", mission);
             else
-                fprintf(stderr,
+                HW_DIAG_FPRINTF(stderr,
                     "[MapEditor] Mission %02d has no automatic RTXMAP overlay.\n",
                     mission);
         }
@@ -3888,7 +4488,7 @@ bool32 modernMapEditorPump(void)
     spMapEditorBootConfigure(FALSE,MISSION_ENUM_NOT_INITIALISED);
     if(hrAbortLoadingGame)
     {
-        fprintf(stderr,"[MapEditor] Mission %02d load aborted.\n",mission);
+        HW_DIAG_FPRINTF(stderr,"[MapEditor] Mission %02d load aborted.\n",mission);
         hrAbortLoadingGame=FALSE;
         return TRUE;
     }

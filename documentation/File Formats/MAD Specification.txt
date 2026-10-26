@@ -1,3 +1,6 @@
+HISTORICAL ORIGINAL HOMEWORLD REFERENCE â€” NOT UPDATED FOR OPENHW 1.0
+This original format note is preserved for reference. It does not describe the complete current OpenHW importer/runtime. Start with documentation/README.md and docs/MODDING.md before using it for modding.
+
 ----------------------------------------------------------------------------- 
 Originally hosted at: 
 http://www.relic.com/tools/level1/homeworld/doc/html/rdn_doc_mad.php
@@ -8,7 +11,7 @@ Homeworld File Format Documentation
 .MAD File Format
 By B1FF (lmoloney@relic.com)
 
-© 2000 Relic Entertainment, Inc.
+ï¿½ 2000 Relic Entertainment, Inc.
 
 Preamble
 .MAD files are mesh animations in Homeworld. They are used for scripted animations such as moving guns, folding fins, suckling fuel 'nipples' and whatnot. They exist in the same directories as .SHP files. These files can be added for any ship and they need not be there for every ship. Also, there are some directives that can be added to the .SHP file to tell the game how to play these animations. These animations are not the same as gun animations, which track the heading of targets. 

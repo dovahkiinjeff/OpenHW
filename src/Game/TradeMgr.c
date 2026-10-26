@@ -6,6 +6,7 @@
     Copyright Relic Entertainment, Inc.  All rights reserved.
 =============================================================================*/
 
+#include "ResourceUnits.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -414,14 +415,14 @@ void tmAcceptOffer(char *string, featom *atom)
 #endif
 
     //if the player can't afford the technology selected, bugger out.
-    if (price > universe.curPlayerPtr->resourceUnits)
+    if (!resourceUnitsCanAfford(universe.curPlayerPtr, price))
     {
         tmDialogPhrase = DialogCantAffordThat;
         tmDirtyTechInfo();
         return;
     }
 
-    universe.curPlayerPtr->resourceUnits -= price;
+    resourceUnitsSpend(universe.curPlayerPtr, price);
 
     tmTechForSale[tmTechSelected] = TM_TECH_IS_ALREADY_OWNED;
 
@@ -496,7 +497,7 @@ void tmCostListDraw(featom *atom, regionhandle region)
 
         if (tmTechForSale[index] == TM_TECH_IS_FOR_SALE)
         {
-            if (universe.curPlayerPtr->resourceUnits < price)
+            if (!resourceUnitsCanAfford(universe.curPlayerPtr, price))
             {                                                   //if this tech already selected
                 c = TM_CantAffordTextColor;
             }
@@ -612,7 +613,7 @@ sdword tmSelectAvailable(regionhandle region, sdword ID, udword event, udword da
 
     if ( (event == RPE_PressLeft) && (index!=-1) )
     {                                                       //left press (select/add job)
-        if (universe.curPlayerPtr->resourceUnits >= price)
+        if (resourceUnitsCanAfford(universe.curPlayerPtr, price))
         {
             tmTechSelected = index;
             tmtechinfo = index;
@@ -658,7 +659,7 @@ void tmTechListDraw(featom *atom, regionhandle region)
             if (tmTechForSale[i] == TM_TECH_IS_FOR_SALE)
             {
                 price = (tmTechPrice[i] * tmPriceScale) / 100;
-                if (universe.curPlayerPtr->resourceUnits >= price)
+                if (resourceUnitsCanAfford(universe.curPlayerPtr, price))
                 {
                     tmTechSelected = i;
                     tmtechinfo = i;
@@ -712,7 +713,7 @@ void tmTechListDraw(featom *atom, regionhandle region)
 
         if (tmTechForSale[index] == TM_TECH_IS_FOR_SALE)
         {
-            if (universe.curPlayerPtr->resourceUnits < price)
+            if (!resourceUnitsCanAfford(universe.curPlayerPtr, price))
             {                                                   //if this tech already selected
                 c = TM_CantAffordTextColor;
             }
@@ -764,7 +765,8 @@ void tmNumberRUsDraw(featom *atom, regionhandle region)
     tmNumberRUsRegion = region;
 
     oldfont = fontMakeCurrent(tmTechListFont);
-    width = fontWidthf("%d", universe.curPlayerPtr->resourceUnits);//width of number
+    char ruText[32];
+    width = fontWidthf("%s", resourceUnitsFormat(universe.curPlayerPtr, ruText, sizeof(ruText)));
 
     primModeSet2();
     primRectSolid2(&rect, colRGB(0, 0, 0));
@@ -777,7 +779,7 @@ void tmNumberRUsDraw(featom *atom, regionhandle region)
     feStaticRectangleDraw(region);                          //draw regular rectangle as backdrop
     fontPrintf(region->rect.x1 - width - TM_RUMarginRight,
                (region->rect.y1 - region->rect.y0 - fontHeight(NULL)) / 2 + region->rect.y0,
-               atom->borderColor, "%d", universe.curPlayerPtr->resourceUnits);
+               atom->borderColor, "%s", ruText);
 
     fontMakeCurrent(oldfont);
 }

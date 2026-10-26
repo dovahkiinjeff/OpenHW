@@ -160,8 +160,16 @@
 #define MS_NameStringLength     64
 
 //definitions for growing the memory heaps
-#define MGH_NumberGrowthHeaps   16              //maximum number of extra heaps we can grow to
-#define MGH_MinGrowthSize       (8 * 1024 * 1024 - sizeof(memcookie) * 2)//grow in 8MB increments.  That's 64MB extra heap size.  Should be sufficient.
+#ifdef _X86_64
+/* Native RM meshes and texture staging exceed the original 16 x 8 MiB limit.
+   Pools remain individually bounded (their offsets are signed 32-bit), and
+   backing memory is acquired only on demand, not for every metadata slot. */
+#define MGH_NumberGrowthHeaps   256
+#define MGH_MinGrowthSize       (64 * 1024 * 1024 - sizeof(memcookie) * 2)
+#else
+#define MGH_NumberGrowthHeaps   16
+#define MGH_MinGrowthSize       (8 * 1024 * 1024 - sizeof(memcookie) * 2)
+#endif
 
 /*=============================================================================
     Type definitions:

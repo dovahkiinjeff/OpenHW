@@ -1,3 +1,6 @@
+HISTORICAL ORIGINAL HOMEWORLD REFERENCE â€” NOT UPDATED FOR OPENHW 1.0
+This original format note is preserved for reference. It does not describe the complete current OpenHW importer/runtime. Start with documentation/README.md and docs/MODDING.md before using it for modding.
+
 ----------------------------------------------------------------------------- 
 Originally hosted at: 
 http://www.relic.com/tools/level1/homeworld/doc/html/rdn_doc_mex.php
@@ -8,7 +11,7 @@ Homeworld File Format Documentation
 .MEX File Format
 By B1FF (lmoloney@relic.com)
 
-© 2000 Relic Entertainment, Inc.
+ï¿½ 2000 Relic Entertainment, Inc.
 
 Preamble.
 .MEX files are used in Homeworld to store information that accompanies meshes. The extension is short for Mesh Extension, not the line of stylish clothing stores. It is one of the simpler Homeworld formats out there, and has been mostly reverse-engineered already. However, here is the full breakdown. 

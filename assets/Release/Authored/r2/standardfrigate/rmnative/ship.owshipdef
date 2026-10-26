@@ -1,0 +1,202 @@
+OPENHW_SHIP_2
+
+type Taiidan_StandardFrigate
+scale 2.8909392
+hull hull.hod
+mad -
+marker engine_0 Hull EngineMainDrive
+surface 0 0 c0_m0
+surface 0 1 c0_m1
+surface 0 2 c0_m2
+gun 0 Hull - - - Weapon_Gun0_Muzzle
+gun 5 Hull - - - Weapon_Gun5_Muzzle
+StartShipHardPointConfig(NewShipType, "Weapon_Gun1", "Hardpoint_Gun1", "Weapon", "Innate", "Ship", "tai_assaultcannon_hw1_6e0105017b");
+weaponSlot Weapon_Gun1 0 1
+StartShipHardPointConfig(NewShipType, "Weapon_Gun2", "Hardpoint_Gun2", "Weapon", "Innate", "Ship", "tai_frigatecannon_hw1_0678bf2d07");
+weaponSlot Weapon_Gun2 0 2
+StartShipHardPointConfig(NewShipType, "Weapon_Gun3", "Hardpoint_Gun3", "Weapon", "Innate", "Ship", "tai_assaultcannon_hw1_774cabf2d8");
+weaponSlot Weapon_Gun3 0 3
+StartShipHardPointConfig(NewShipType, "Weapon_Gun4", "Hardpoint_Gun4", "Weapon", "Innate", "Ship", "tai_frigatecannon_hw1_9dc00af69f");
+weaponSlot Weapon_Gun4 0 4
+
+presentation Hull hull_events.owevents
+[Ship]
+[StandardFrigate]
+
+;Source Files
+;=----------=
+LODFile                             StandardFrigate.lod
+pMexData                            StandardFrigate\Rl0\LOD0\StandardFrigate.mex
+
+;Ship Physics
+;=----------=
+mass                                400.0                          ; ship mass [fighter = 1]
+momentOfInertiaX                    400.0                          ; resistance to rotation
+momentOfInertiaY                    400.0                          ; [fighter = 1]
+momentOfInertiaZ                    400.0
+maxvelocity                         325.0                        ; [fighter = 1000]
+maxrot                              2.0                          ; maximum rotation speed [don't make faster than ~10]
+
+;Basic Ship Stats
+;=--------------=
+shipclass                           CLASS_Frigate
+isCapitalShip                       TRUE
+buildCost                           575                          ; resource units to build
+buildTime                           60                           ; time in seconds to build
+maxhealth                           16000                        ; hit points
+groupSize                           2                            ; size of group ships of this type tend to form
+repairTime                          10                            ; every this many seconds
+repairDamage                        150                           ; this much damage is repaired
+repairCombatTime                    10                            ; every this many seconds
+repairCombatDamage                  15                           ; this much damage is repaired
+
+blastRadiusShockWave                1.75
+blastRadiusDamage                   275
+
+
+;Moving Around
+;=-----------=
+thruststrength[TRANS_UP]            75.0                         ; acceleration (m/s^2) [1-1000 approx. range]
+thruststrength[TRANS_DOWN]          75.0
+thruststrength[TRANS_RIGHT]         75.0
+thruststrength[TRANS_LEFT]          75.0
+thruststrength[TRANS_FORWARD]       75.0
+thruststrength[TRANS_BACK]          75.0
+rotstrength[ROT_YAWLEFT]            0.25                          ; rotational acceleration (deg/s^2) [0.01 - 10]
+rotstrength[ROT_YAWRIGHT]           0.25
+rotstrength[ROT_PITCHUP]            0.05
+rotstrength[ROT_PITCHDOWN]          0.05
+rotstrength[ROT_ROLLRIGHT]          0.05
+rotstrength[ROT_ROLLLEFT]           0.05
+turnspeed[TURN_YAW]                 0.5                          ; speed at which ship tries to turn (1=standard)
+turnspeed[TURN_PITCH]               0.5
+turnspeed[TURN_ROLL]                0.5
+
+
+;Weapons
+;=-----=
+
+canTargetMultipleTargets            TRUE
+rotateToRetaliate                   TRUE
+passiveRetaliateZone                7000.0
+
+
+
+
+
+;Right side, top
+
+
+;Left side, top
+
+
+;Left side, bottom
+
+
+;Right side, bottom
+
+
+
+
+
+
+NUMBER_OF_SALVAGE_POINTS        2
+NUM_NEEDED_FOR_SALVAGE          2               ;number of ships needed to capture a craft
+NEED_BIGR1                      FALSE
+NEED_BIGR2                      TRUE
+WILL_FIT_CARRIER                TRUE
+
+;       format:                    name,type
+SalvagePoint                       Point1,AttachPoint
+SalvagePoint                       Point2,AttachPoint
+
+
+NUMBER_OF_NAV_LIGHTS           4
+
+; format is NavLight            name, type, blinkrate (in seconds), size (in meters), min LOD, texture name
+NavLight                        antenna,    NAVLIGHT_Default, 2, 1, 0,  7, 2, etg\textures\glow32
+NavLight                        antenna1,       NAVLIGHT_Default, 2, 1, 0,  7, 2, etg\textures\glow32
+NavLight                        antenna2,   NAVLIGHT_Default, 2, 1, 0,  7, 2, etg\textures\glow32
+NavLight                        antenna3,       NAVLIGHT_Default, 2, 1, 0,  7, 2, etg\textures\glow32
+
+;Explosions
+;=--------=
+explosionType                       ET_FrigateExplosion
+
+
+;Scaling effects
+;=--------=
+N-LIPS                              0.0001                   ; Max value for Interceptors 0.0005
+scaleFactor                         1.0                      ; Used for debugging
+
+; Right side bottom
+BindGun                             StandardFrigateturret(2) Gun2,Azimuth,Frequency 1
+BindGun                             StandardFrigatebarrel(2) Gun2,Declination,Recoil,Frequency 1
+; Left side bottom
+BindGun                             StandardFrigateturret(1) Gun1,Azimuth,Frequency 1
+BindGun                             StandardFrigatebarrel(1) Gun1,Declination,Recoil,Frequency 1
+
+;Right side top
+BindGun                             StandardFrigateturret(3) Gun3,Azimuth,Frequency 1
+BindGun                             StandardFrigatebarrel(3) Gun3,Declination,Recoil,Frequency 1
+
+;Left side top
+BindGun                             StandardFrigateturret(4) Gun4,Azimuth,Frequency 1
+BindGun                             StandardFrigatebarrel(4) Gun4,Declination,Recoil,Frequency 1
+
+
+;Engine Glow
+;=---------=
+trailWidth          75.0
+trailHeight        105.0
+trailLength        100.0
+trailScaleCap        0.000196
+
+minimumZoomDistance                 240
+
+Overlay_Selection_Scalar            1.25         ; scale the tactical overlay by this amount
+
+GUN 0
+//Desired Range = 6000
+//ADD this amount:   0 to compensate for centrepoint
+//ADD this amount: 784 to compensate for stopping distance
+{
+WeaponFire @/RemasteredFX/WeaponFire/dread_bomb.wf
+
+Type                                GUN_Gimble                    ; type of gun - either GUN_Fixed or GUN_Gimble
+SoundType                           GS_MediumPlasmaBomb
+BulletType                          BULLET_PlasmaBomb
+DamageLo                            55                           ; damage variance per shot - low
+DamageHi                            65                          ; damage variance per shot - high
+MinAngle                            0
+MaxAngle                            10
+BulletLength                        4.0                          ; visual only.  Length of bullet on screen
+BulletRange                         6784.0                       ; distance bullets travel before disappearing
+BulletSpeed                         3500.0                        ; measured in m/s.
+BulletMass                          2.5                          ; mass of bullet
+FireTime                            5.0                          ; fire repeat rate (reciprocal = shots/second)
+}
+
+GUN 5
+//Desired Range = 6000
+//ADD this amount:   0 to compensate for centrepoint
+//ADD this amount: 784 to compensate for stopping distance
+
+{
+WeaponFire @/RemasteredFX/WeaponFire/dread_bomb.wf
+
+Type                                GUN_Gimble                    ; type of gun - either GUN_Fixed or GUN_Gimble
+SoundType                           GS_MediumPlasmaBomb
+BulletType                          BULLET_PlasmaBomb
+DamageLo                            55                           ; damage variance per shot - low
+DamageHi                            65                          ; damage variance per shot - high
+MinAngle                            0
+MaxAngle                            10
+BulletLength                        4.0                          ; visual only.  Length of bullet on screen
+BulletRange                         6784.0                       ; distance bullets travel before disappearing
+BulletSpeed                         3500.0                        ; measured in m/s.
+BulletMass                          2.5                          ; mass of bullet
+FireTime                            5.0                          ; fire repeat rate (reciprocal = shots/second)
+}
+
+[End]

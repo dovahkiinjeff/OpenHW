@@ -1,151 +1,28 @@
-# Known Limitations and Beta Expectations
+# OpenHW 1.0 — limitations and reports
 
-Homeworld RTX 0.91.3 Beta is a working public test build, not a finished remaster.
-The following boundaries are intentional and should be understood before use.
+## Recommended rendering path
 
-## Platform
+AMD FSR upscaling and AMD FSR frame generation are fully working and recommended for 1.0. DLSS has known visual issues and is not recommended. Intel upscaling is not recommended. NVIDIA and Intel frame generation are not implemented for this release. Vendor libraries and older source experiments do not change this supported-feature statement. Completing NVIDIA and Intel support is planned.
 
-- Windows 10/11 x64 only.
-- The active renderer depends on Direct3D 12, DXGI, DXR, and Windows tooling.
-- There are no supported Linux, macOS, Steam Deck, or ARM64 binaries.
-- DXR lighting requires capable hardware. Reconstruction is no longer
-  NVIDIA-only: the package contains NVIDIA Streamline, AMD FidelityFX, and
-  Intel XeSS-SR runtimes, with capability-based Auto modes.
+## Platform, performance and setup
 
-## Required retail data
+Windows x64 is the supported release platform. Path tracing requires compatible DXR hardware. Performance varies with the mission, fleet size, graphics settings and hardware; no universal FPS or VRAM claim is made. Frame generation does not increase simulation rate.
 
-- The release contains no retail BIG archives, speech, music, or movies.
-- A legal Homeworld Classic installation is required.
-- **New-extract blocker:** `HW_Music.wxd` and `HW_Comp.vce` must currently be
-  copied manually from that legal installation into the same directory as
-  `HomeworldModern.exe`; first-run verification otherwise fails.
-- Alternate language and patched data layouts are validated structurally, but
-  the full matrix of editions has not been campaign-tested.
-- Do not combine Remastered Collection Classic data with a separate original
-  `Update.big`.
+**Disk space:** allow approximately **120 GB free during conversion** as a conservative planning estimate; the exact peak of this compact installer has not been measured. The download is about 473 MB and the main generated game archive is about 34 GB, plus loose resources and user data. Setup reads the original Collection archives directly, stages selected HW1 resources and removes intermediate conversion caches. The original Collection and source-build dependencies occupy separate space.
 
-## Renderer
+## Editing and compatibility
 
-- DLAA/DLSS, FidelityFX Native AA/FSR, and XeSS AA/XeSS-SR share the same
-  corrected full-scene color, depth, pixel-motion, jitter, reset, and native-UI
-  contract.
-- NVIDIA DLSS-G and AMD FidelityFX frame generation are integrated behind a
-  separate expandable selector. FidelityFX is the packaged cross-vendor frame
-  generation path for supported AMD and Intel adapters. The native Intel
-  XeSS-FG entry remains explicitly runtime-gated because that provider is not
-  bundled in this release.
-- Reactive/transparency input is accepted by the shared interface but remains
-  conservative until the legacy effect renderer exposes a reliable opaque-only
-  scene boundary. Highly translucent trails, beams, and explosions are the most
-  important AMD/Intel test cases.
-- FidelityFX machine-learning acceleration is hardware-dependent. Unsupported
-  adapters use the runtime's compatible provider; selecting FSR does not imply
-  that an RX 9000-only path is active.
+- Restart after changing mod activation/order. Static simulation assets do not hot-reload.
+- Existing saves do not migrate modified weapon arrays; test weapon-count changes in fresh missions.
+- Ship editing does not implement arbitrary HOD geometry writing, a full animation suite, automatic new ship identities, or an OBJ-to-HOD compiler.
+- Event data viewing is read-only; presentation-event coverage is not a claim of complete Remastered simulation parity.
+- Multi-file project/mod publication is not one crash-atomic operation. Preserve backups and resolve incomplete saves before enabling a mod.
+- Historical reports of opening Sensors during a cutscene locking interaction and returning from parade preview into a mission causing trouble should be reported if reproduced; do not assume an earlier deferred fix was released. Avoid switching into Sensors during scripted camera sequences, and restart after editor use if a transition behaves incorrectly.
+- Cataclysm and multiplayer support are planned, not supported 1.0 modes. Multiplayer-named parade presets are storage only.
+- Legacy source comments, format notes and development documents are included as historical references. They may describe different renderers, paths and features. Start with [the current documentation index](../documentation/README.md).
 
-- Native D3D12 fixed-function compatibility rasterization is experimental and
-  is not parity-complete for every rare legacy state.
-- HDR10 and scRGB output are not implemented; output is SDR.
-- DLSS Ray Reconstruction is available on compatible NVIDIA hardware and falls
-  back to DLSS Super Resolution when its feature/runtime contract is rejected.
-- Frame generation remains beta functionality: validate it per GPU/driver and
-  disable it when capturing deterministic frame comparisons or diagnosing
-  presentation problems.
-- Complete NVIDIA Reflex latency integration is not implemented.
-- Full specular reflection transport and authored metalness/roughness materials
-  are not implemented. Classic materials use deterministic approximations.
-- Animated/morphed BLAS updates and uncommon transparency/reactive cases may
-  still need work.
-- Multiple importance sampling and a production neural denoiser are not present.
-- Very high path sample, bounce, shadow-ray, light-count, and volumetric settings
-  can be expensive even on recent GPUs.
-- The shader cache is persisted, but driver-specific D3D12 pipeline-library
-  blobs are deliberately not reused because cross-run driver behavior was unsafe.
+## Reporting
 
-## Visual behavior
+Player reports are important to ongoing fixes. Include the mission/save context, precise reproduction steps, GPU/driver, resolution, PT on/off, upscaler and framegen settings, and a screenshot/video if useful. Run `OpenHW-Daignostics.exe` for diagnostics and share relevant output under `Development`, not your entire game folder. Review files for personal information. Do not upload retail archives, extracted models/textures, music, speech or movies.
 
-- The renderer forces LOD0 and removes N-LIPS distance enlargement. Dense fleets
-  may therefore cost more GPU time than the original game.
-- Path-traced lighting converges progressively. Fine noise can be visible after
-  cuts, fast movement, visibility changes, or at low sample counts.
-- Fast motion intentionally reduces temporal history to avoid ghosting.
-- Shipped literal normals are deterministic tangent-space maps generated from
-  the final 4x color assets, so they preserve the restored source structure but
-  cannot add geometry detail absent from the art. Transparent FX, masks, UI,
-  and other technical images intentionally receive no normal map. Textures
-  without a suitable sibling normal DDS retain the bounded runtime fallback.
-
-## Remaining work before 1.0
-
-- One final small performance/loading optimization pass.
-- Capture and production support for ships from the opposite selected starting
-  race.
-- Authored dust-cloud placement and tuning for the remaining campaign missions.
-- One final campaign-wide lighting pass.
-
-This is the known release-candidate list, not a guarantee that beta testing
-cannot uncover another blocking defect.
-- Post effects are artistic additions and default conservatively; they may not
-  match every mission palette.
-- Campaign backgrounds currently use the original BTG visual renderer. The
-  generated dual-paraboloid assets still provide editable lighting metadata,
-  but their visual path is bypassed because extreme translucent contrast can
-  expose radial conversion artifacts.
-- Volumetric dust is FP16 and world-locked. Extreme density, scattering,
-  absorption, anisotropy, coverage, and light intensity can intentionally push
-  it beyond realistic ranges and reveal numerical sampling. Low Shape
-  Variation values deliberately retain more of the selected primitive.
-- UI plate crops and ultrawide safe-canvas composition still require broad
-  localization and DPI review.
-
-## Gameplay and multiplayer
-
-- The project aims to preserve the fixed simulation contract, but this beta has
-  not been exhaustively checksum-tested across every campaign and multiplayer
-  scenario.
-- Unlimited fuel, resource multiplier, Super Salvagers, and Capture / Build All
-  are single-player convenience features and are excluded or constrained for
-  multiplayer safety.
-- Legacy online service code is not a supported matchmaking service. Treat LAN
-  functionality as experimental and use identical builds/settings where required.
-- Save compatibility follows the HomeworldSDL baseline; retain backups before
-  relying on a beta for a long campaign.
-
-## Editors
-
-- Shift+F11 and Shift+F12 are development tools and assume familiarity with
-  mission scale, object types, and lighting tradeoffs.
-- Map overlays depend on runtime object IDs. Changes to the underlying mission
-  can invalidate transformations/deletions.
-- Only 64 enabled non-zero-density volumetric dust volumes are uploaded to the
-  live raymarcher, though up to 128 can be authored.
-- Extremely large/overlapping volumes, high density, high shadow counts, and
-  many local lights can severely reduce performance.
-- Distance Fade Start and Strength are map-wide RTXMAP 9 settings. Older maps
-  load with defaults and acquire the fields when saved again.
-- The editors do not provide undo history. Save versions of exported text files.
-- Mission and KAS pause states are independent; changing a live mission without
-  pausing scripts can produce moving targets or script-side changes.
-- Export directories must be writable.
-
-## Content and support
-
-- This is a free, non-commercial community project.
-- It is not affiliated with or supported by Gearbox, Relic, Sierra, NVIDIA,
-  Steam, or the original developers/publishers.
-- Do not report project bugs to the commercial game-support teams.
-- Do not upload copyrighted retail data in bug reports.
-- No warranty is provided. The Relic source-code agreement in `LICENSE.txt`
-  governs the original source baseline and includes restrictive terms.
-
-## Useful report checklist
-
-Before opening an issue, record:
-
-1. Windows edition/build.
-2. GPU model and driver version.
-3. Homeworld data edition and language.
-4. Mission/mode and save provenance.
-5. Display mode, resolution, refresh, VSync, and frame cap.
-6. Path-tracing, sample, bounce, AA/DLSS, shadow, and post-effect settings.
-7. Exact steps and whether the issue reproduces after renderer reset/restart.
-8. Diagnostic logs or dump, without retail assets.
+The immediate focus is fixing reported bugs and glitches, continuing performance improvements, and completing NVIDIA/Intel support. Planned Cataclysm and multiplayer work follows as the foundation improves; no date is promised.

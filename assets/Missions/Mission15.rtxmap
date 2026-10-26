@@ -1,4 +1,14 @@
-RTXMAP 8
+RTXMAP 9
+ORIGINAL_ROPE_STYLE 0 0.660000026 0.419999987 0.219999999 1
+PARTICLE_ORIGINAL_VISIBLE 1
+PARTICLE_ORIGINAL_OPACITY 0.30882347
+PARTICLE_ORIGINAL_COLOR 0 0.660000 0.480000 0.280000
+# Particle-driven cloud formations; smooth support and compressed density peaks.
+PARTICLE_DENSITY_STYLE -1 1 1.08999991 0.0199999996 0.570000172 0.819999993 0.119999997 0.660000026 0.268500537 0.128679276 0.000959999801 0.720000029 0.579999983
 MISSION 15
-# Manual RTX volumetric-dust authoring baseline.
-# No packaged RTX dust volumes. Original mission dust/resources remain untouched.
+CLOUD_RENDERER 2 0 3 0 1 1 0.800000012
+DUST_FADE 65000.000000 1.000000
+HARVESTABLE_ROPE 1 1.180000 0.340000 0.720000 0.820000 0.160000 0.660000 0.420000 0.220000 0.00042000 0.720000 0.580000
+# Non-destructive overlay. Original mission data/BIG archives remain untouched.
+# Volume fields drive the live D3D12 raymarched volumetric-dust renderer.
+# Manual RTX volumetric-dust authoring.

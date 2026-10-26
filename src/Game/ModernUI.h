@@ -15,6 +15,8 @@ struct Ship;
 
 bool32 modernUIOwnsScreen(const char *screenName);
 void modernUIApplyPalette(void);
+/* Final, non-interactive overlay; reads the presenter's completed-frame FPS. */
+void modernUIDrawFPS(void);
 /* Recompose legacy FEMan controls into the responsive modern shell while
  * retaining their original callbacks, list models and game-side state. */
 void modernUIPrepareScreen(fescreen *screen);
@@ -42,8 +44,15 @@ void modernUICloseShipDossier(void);
 
 /* Live, non-pausing path-light/material tuning overlay. */
 void modernUIToggleLightingEditor(void);
+void modernUIOpenTexturePanel(void);
 void modernUICloseLightingEditor(void);
 bool32 modernUILightingEditorActive(void);
+/* Shared HSV selector; edits a copy and calls apply only after confirmation. */
+typedef void (*ModernUIEditorColorApply)(const real32 rgb[3], void *context);
+void modernUIOpenEditorColorPicker(const char *title, const real32 rgb[3], real32 maximum,
+    ModernUIEditorColorApply apply, void *context);
+void modernUICloseEditorColorPicker(void);
+bool32 modernUIEditorColorPickerActive(void);
 
 /* Persistent tactical command surface flanking the original center task bar. */
 void modernUICommandBarStartup(void);

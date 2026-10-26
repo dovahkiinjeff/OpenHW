@@ -1,0 +1,9 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_kus_heavycruiserengine_hw1_6fdf3e71c6
+scale 1
+hull @/Subsystems/kus_heavycruiserengine/model.hod
+mad -
+
+presentation Hull component_events.owevents
+[Weapons]
+[End]

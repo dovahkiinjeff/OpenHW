@@ -164,6 +164,9 @@ void singlePlayerSetMissionAttributes(char *directory,char *filename);
 void singlePlayerGameCleanup(void);
 
 void singlePlayerGameUpdate(void);
+bool32 singlePlayerHyperspaceOwnsSteering(Ship *ship);
+bool32 singlePlayerHyperspaceSuppressesAutoCombat(Ship *ship);
+bool32 singlePlayerMissionEventsUpdate(struct AITeam *team);
 void singlePlayerLoadNewLevel(void);
 void singlePlayerStartGame(void);
 void singlePlayerNextLevel(void);
@@ -186,6 +189,9 @@ MissionEnum spGetNextMission    (void);
 void GetMissionsDirAndFile(MissionEnum mission);
 
 void spMainScreen(void);
+/* Mission 6 shortcut: skip the asteroid field, not its Bentusi/ending script. */
+bool32 spMission6SkipAvailable(void);
+bool32 spSkipMission6Asteroids(void);
 
 bool32 GetStartPointPlayer(hvector *startpoint);
 bool32 GetPointOfName(hvector *point,char *name);

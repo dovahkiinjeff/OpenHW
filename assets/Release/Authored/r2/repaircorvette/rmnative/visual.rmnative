@@ -1,0 +1,11 @@
+HW_RM_R2_VISUAL_1
+type Taiidan_RepairCorvette
+scale 1.71486017
+hull hull.hod
+mad animation.mad
+marker engine_0 Hull EngineNozzle1
+surface 0 0 c0_m0
+surface 0 1 c0_m1
+surface 0 2 c0_m2
+surface 0 3 c0_m3
+surface 0 4 c0_m4

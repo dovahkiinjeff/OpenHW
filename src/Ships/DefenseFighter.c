@@ -230,7 +230,7 @@ void defensefightertargetbullet(Ship *ship, Bullet *bullettotarget)
     etgLOD = etgGunEventTable[shipstatic->shiprace][gunstatic->gunsoundtype][EGT_GunFire];//get pointer to bullet effect
     if (etgLOD != NULL)
     {
-        LOD = ship->currentLOD;
+        LOD = 0; /* Defense-fighter muzzle FX follow the same no-LOD policy. */
         if (LOD >= etgLOD->nLevels)
         {
             stat = NULL;

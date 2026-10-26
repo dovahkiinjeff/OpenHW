@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 // =============================================================================
 //  BigFile.c
 // =============================================================================
@@ -29,6 +30,7 @@
 
 #ifdef BF_HOMEWORLD
     #include "Memory.h"
+    #include "OpenHWArchive.h"
     #include "Debug.h"
     #include "File.h"
 #endif
@@ -966,14 +968,14 @@ int bigPatch(char *oldfilename, char *newfilename, char *patchfilename, int cons
         if (!oldFP)
         {
             if (consoleOutput)
-                printf("ERROR: Can't open %s\n", oldfilename);
+                HW_DIAG_PRINTF("ERROR: Can't open %s\n", oldfilename);
             return 0;
         }
         // ensure correct file type & version
         if (!bigHeaderVerify(oldFP))
         {
             if (consoleOutput)
-                printf("ERROR: Incompatible file %s\n", oldfilename);
+                HW_DIAG_PRINTF("ERROR: Incompatible file %s\n", oldfilename);
             fclose(oldFP);
             return 0;
         }
@@ -981,7 +983,7 @@ int bigPatch(char *oldfilename, char *newfilename, char *patchfilename, int cons
     else
     {
         if (consoleOutput)
-            printf("ERROR: Can't find %s\n", oldfilename);
+            HW_DIAG_PRINTF("ERROR: Can't find %s\n", oldfilename);
         return 0;
     }
     bigTOCRead(oldFP, &oldTOC);
@@ -993,14 +995,14 @@ int bigPatch(char *oldfilename, char *newfilename, char *patchfilename, int cons
         if (!newFP)
         {
             if (consoleOutput)
-                printf("ERROR: Can't open %s\n", newfilename);
+                HW_DIAG_PRINTF("ERROR: Can't open %s\n", newfilename);
             return 0;
         }
         // ensure correct file type & version
         if (!bigHeaderVerify(newFP))
         {
             if (consoleOutput)
-                printf("ERROR: Incompatible file %s\n", newfilename);
+                HW_DIAG_PRINTF("ERROR: Incompatible file %s\n", newfilename);
             fclose(newFP);
             return 0;
         }
@@ -1008,7 +1010,7 @@ int bigPatch(char *oldfilename, char *newfilename, char *patchfilename, int cons
     else
     {
         if (consoleOutput)
-            printf("ERROR: Can't find %s\n", newfilename);
+            HW_DIAG_PRINTF("ERROR: Can't find %s\n", newfilename);
         return 0;
     }
     bigTOCRead(newFP, &newTOC);
@@ -1020,22 +1022,22 @@ int bigPatch(char *oldfilename, char *newfilename, char *patchfilename, int cons
         if (bigFileExists(patchfilename))
         {
             if (consoleOutput)
-                printf("ERROR: Can't overwrite %s\n", patchfilename);
+                HW_DIAG_PRINTF("ERROR: Can't overwrite %s\n", patchfilename);
             return 0;
         }
         if (consoleOutput)
-            printf("Overwriting");
+            HW_DIAG_PRINTF("Overwriting");
     }
     else if (consoleOutput)
-        printf("Creating");
+        HW_DIAG_PRINTF("Creating");
     if (consoleOutput)
-        printf(" %s (update from %s to %s)\n", patchfilename, oldfilename, newfilename);
+        HW_DIAG_PRINTF(" %s (update from %s to %s)\n", patchfilename, oldfilename, newfilename);
 
     patchFP = fopen(patchfilename, "wb");
     if (!patchFP)
     {
         if (consoleOutput)
-            printf("ERROR: Can't create %s\n", patchfilename);
+            HW_DIAG_PRINTF("ERROR: Can't create %s\n", patchfilename);
         return 0;
     }
     bigHeaderWrite(patchFP);
@@ -1047,7 +1049,7 @@ int bigPatch(char *oldfilename, char *newfilename, char *patchfilename, int cons
                         + sizeof(patchTOC.flags);
 
     if (consoleOutput)
-        printf("Comparing files\n");
+        HW_DIAG_PRINTF("Comparing files\n");
 
     // compare each file in the new bigfile
     for (i = 0; i < newTOC.numFiles; ++i)
@@ -1114,12 +1116,12 @@ int bigPatch(char *oldfilename, char *newfilename, char *patchfilename, int cons
 
     if (consoleOutput)
     {
-        printf("%d new file%s\n", filesNewer, filesNewer == 1 ? "" : "s");
-        printf("%d updated file%s\n", filesChanged, filesChanged == 1 ? "" : "s");
+        HW_DIAG_PRINTF("%d new file%s\n", filesNewer, filesNewer == 1 ? "" : "s");
+        HW_DIAG_PRINTF("%d updated file%s\n", filesChanged, filesChanged == 1 ? "" : "s");
     }
 
     if (consoleOutput)
-        printf("Writing data\n");
+        HW_DIAG_PRINTF("Writing data\n");
 
     fseek(patchFP, strlen(BF_FILE_HEADER BF_VERSION), SEEK_SET);
 
@@ -1142,11 +1144,11 @@ int bigPatch(char *oldfilename, char *newfilename, char *patchfilename, int cons
     fclose(patchFP);
 
     if (consoleOutput)
-        printf("Sorting table of contents\n");
+        HW_DIAG_PRINTF("Sorting table of contents\n");
     if (!bigSort(patchfilename))
     {
         if (consoleOutput)
-            printf("WARNING: Can't sort bigfile %s\n", patchfilename);
+            HW_DIAG_PRINTF("WARNING: Can't sort bigfile %s\n", patchfilename);
         return 0;
     }
 
@@ -1199,7 +1201,7 @@ int bigAdd(char *bigfilename, int numFiles, char *filenames[], int optCompressio
     {
         if (consoleOutput)
         {
-            printf("ERROR: Can't create temporary filename\n");
+            HW_DIAG_PRINTF("ERROR: Can't create temporary filename\n");
         }
         return 0;
     }
@@ -1212,7 +1214,7 @@ int bigAdd(char *bigfilename, int numFiles, char *filenames[], int optCompressio
         {
             if (consoleOutput)
             {
-                printf("ERROR: Can't open '%s'\n", bigfilename);
+                HW_DIAG_PRINTF("ERROR: Can't open '%s'\n", bigfilename);
             }
             return 0;
         }
@@ -1221,7 +1223,7 @@ int bigAdd(char *bigfilename, int numFiles, char *filenames[], int optCompressio
         {
             if (consoleOutput)
             {
-                printf("ERROR: Incompatible file %s\n", bigfilename);
+                HW_DIAG_PRINTF("ERROR: Incompatible file %s\n", bigfilename);
             }
             fclose(fp);
             return 0;
@@ -1229,14 +1231,14 @@ int bigAdd(char *bigfilename, int numFiles, char *filenames[], int optCompressio
         fclose(fp);
         if (consoleOutput)
         {
-            printf("Updating %s\n", bigfilename);
+            HW_DIAG_PRINTF("Updating %s\n", bigfilename);
         }
     }
     else
     {
         if (consoleOutput)
         {
-            printf("Creating %s\n", bigfilename);
+            HW_DIAG_PRINTF("Creating %s\n", bigfilename);
         }
         bigCreateNew(bigfilename);
     }
@@ -1246,7 +1248,7 @@ int bigAdd(char *bigfilename, int numFiles, char *filenames[], int optCompressio
     {
         if (consoleOutput)
         {
-            printf("ERROR: Can't create %s\n", tempfilename);
+            HW_DIAG_PRINTF("ERROR: Can't create %s\n", tempfilename);
         }
         return 0;
     }
@@ -1268,14 +1270,14 @@ int bigAdd(char *bigfilename, int numFiles, char *filenames[], int optCompressio
             if (!filelistFP)
             {
                 if (consoleOutput)
-                    printf("ERROR: Can't open filelist: %s\n", filelistName);
+                    HW_DIAG_PRINTF("ERROR: Can't open filelist: %s\n", filelistName);
                 unlink(tempfilename);
                 free(moveFiles);
                 return 0;
             }
             if (optMove && consoleOutput)
             {
-                printf("WARNING: Can't (re)move files from filelist: %s\n", filelistName);
+                HW_DIAG_PRINTF("WARNING: Can't (re)move files from filelist: %s\n", filelistName);
             }
         }
 
@@ -1310,13 +1312,13 @@ int bigAdd(char *bigfilename, int numFiles, char *filenames[], int optCompressio
                 strcpy(tempshortfilename, filename);
 
             if (consoleOutput)
-                printf("  %s ", filename);
+                HW_DIAG_PRINTF("  %s ", filename);
 
             res = bigAddFile(tempfilename, filename, tempshortfilename, optCompression, optNewer, consoleOutput);
             if (!res)
             {
                 //if (consoleOutput)
-                //  printf("\nERROR: Can't add %s\n", filename);
+                //  HW_DIAG_PRINTF("\nERROR: Can't add %s\n", filename);
                 unlink(tempfilename);
                 free(moveFiles);
                 return 0;
@@ -1327,21 +1329,21 @@ int bigAdd(char *bigfilename, int numFiles, char *filenames[], int optCompressio
                 {
                     ++filesAdded;
                     if (consoleOutput)
-                        printf("added");
+                        HW_DIAG_PRINTF("added");
                     moveFiles[f] = optMove && !filelist;
                 }
                 else if (res & BF_ADD_RES_UPDATED)
                 {
                     ++filesUpdated;
                     if (consoleOutput)
-                        printf("updated");
+                        HW_DIAG_PRINTF("updated");
                     moveFiles[f] = optMove && !filelist;
                 }
                 else if (res & BF_ADD_RES_OLD)
                 {
                     ++filesUnchanged;
                     if (consoleOutput)
-                        printf("unchanged");
+                        HW_DIAG_PRINTF("unchanged");
                     moveFiles[f] = 0;
                 }
                 else
@@ -1349,11 +1351,11 @@ int bigAdd(char *bigfilename, int numFiles, char *filenames[], int optCompressio
 
                 if (strcasecmp(tempshortfilename, filename) && consoleOutput)
                 {
-                    printf(" (%s)", tempshortfilename);
+                    HW_DIAG_PRINTF(" (%s)", tempshortfilename);
                 }
 
                 if (consoleOutput)
-                    printf("\n");
+                    HW_DIAG_PRINTF("\n");
             }
         } while (filelist && !feof(filelistFP));
 
@@ -1367,18 +1369,18 @@ int bigAdd(char *bigfilename, int numFiles, char *filenames[], int optCompressio
         {
             if (unlink(filenames[f]) == -1)
                 if (consoleOutput)
-                    printf("ERROR: Can't (re)move %s\n", filenames[f]);
+                    HW_DIAG_PRINTF("ERROR: Can't (re)move %s\n", filenames[f]);
         }
 
     // sort
     if (filesAdded)
     {
         if (consoleOutput)
-            printf("Sorting table of contents\n");
+            HW_DIAG_PRINTF("Sorting table of contents\n");
         if (!bigSort(tempfilename))
         {
             if (consoleOutput)
-                printf("WARNING: Can't sort bigfile %s\n", tempfilename);
+                HW_DIAG_PRINTF("WARNING: Can't sort bigfile %s\n", tempfilename);
             return 0;
         }
     }
@@ -1387,14 +1389,14 @@ int bigAdd(char *bigfilename, int numFiles, char *filenames[], int optCompressio
     if (consoleOutput)
     {
         if (!(filesAdded + filesUpdated))
-            printf("Nothing to do.\n");
+            HW_DIAG_PRINTF("Nothing to do.\n");
         else
         {
             if (filesAdded)
-                printf("%d file%s added%s\n", filesAdded, ((filesAdded == 1) ? "" : "s"),
+                HW_DIAG_PRINTF("%d file%s added%s\n", filesAdded, ((filesAdded == 1) ? "" : "s"),
                     optMove ? " (moved)":"");
             if (filesUpdated)
-                printf("%d file%s updated%s\n", filesUpdated, ((filesUpdated == 1) ? "" : "s"),
+                HW_DIAG_PRINTF("%d file%s updated%s\n", filesUpdated, ((filesUpdated == 1) ? "" : "s"),
                     optMove ? " (moved)":"");
         }
     }
@@ -1403,14 +1405,14 @@ int bigAdd(char *bigfilename, int numFiles, char *filenames[], int optCompressio
     if (!bigCopyFile(tempfilename, bigfilename, 0))
     {
         if (consoleOutput)
-            printf("ERROR: Can't overwrite %s with new file (%s)\n", bigfilename, tempfilename);
+            HW_DIAG_PRINTF("ERROR: Can't overwrite %s with new file (%s)\n", bigfilename, tempfilename);
         free(moveFiles);
         return 0;
     }
     if(unlink(tempfilename) == -1)
     {
         if (consoleOutput)
-            printf("ERROR: Can't remove temporary file %s\n", tempfilename);
+            HW_DIAG_PRINTF("ERROR: Can't remove temporary file %s\n", tempfilename);
         free(moveFiles);
         return 0;
     }
@@ -1466,7 +1468,7 @@ int bigFastCreate(char *bigfilename, int numFiles, char *filenames[], int optCom
         {
             if (consoleOutput)
             {
-                printf("ERROR: Can't overwrite %s\n", bigfilename);
+                HW_DIAG_PRINTF("ERROR: Can't overwrite %s\n", bigfilename);
             }
             
             return 0;
@@ -1474,12 +1476,12 @@ int bigFastCreate(char *bigfilename, int numFiles, char *filenames[], int optCom
         
         if (consoleOutput)
         {
-            printf("Fast-creating %s (overwriting old file)\n", bigfilename);
+            HW_DIAG_PRINTF("Fast-creating %s (overwriting old file)\n", bigfilename);
         }
     }
     else if (consoleOutput)
     {
-        printf("Fast-creating %s\n", bigfilename);
+        HW_DIAG_PRINTF("Fast-creating %s\n", bigfilename);
     }
 
     bigFP = fopen(bigfilename, "wb");
@@ -1487,7 +1489,7 @@ int bigFastCreate(char *bigfilename, int numFiles, char *filenames[], int optCom
     {
         if (consoleOutput)
         {
-            printf("ERROR: Can't create %s\n", bigfilename);
+            HW_DIAG_PRINTF("ERROR: Can't create %s\n", bigfilename);
         }
         
         return 0;
@@ -1518,7 +1520,7 @@ int bigFastCreate(char *bigfilename, int numFiles, char *filenames[], int optCom
                 {
                     if (consoleOutput)
                     {
-                        printf("ERROR: Can't open filelist: %s\n", filelistName);
+                        HW_DIAG_PRINTF("ERROR: Can't open filelist: %s\n", filelistName);
                     }
                     
                     free(moveFiles);
@@ -1526,7 +1528,7 @@ int bigFastCreate(char *bigfilename, int numFiles, char *filenames[], int optCom
                 }
                 if (pass == -1 && optMove && consoleOutput)
                 {
-                    printf("WARNING: Can't (re)move files from filelist: %s\n", filelistName);
+                    HW_DIAG_PRINTF("WARNING: Can't (re)move files from filelist: %s\n", filelistName);
                 }
             }
 
@@ -1579,7 +1581,7 @@ int bigFastCreate(char *bigfilename, int numFiles, char *filenames[], int optCom
 
                 if (pass > 1 && consoleOutput)
                 {
-                    printf("  %s ", filename);
+                    HW_DIAG_PRINTF("  %s ", filename);
                 }
 
                 // watch for dupes
@@ -1640,7 +1642,7 @@ int bigFastCreate(char *bigfilename, int numFiles, char *filenames[], int optCom
                             ++dupesSkipped;
                             if (consoleOutput)
                             {
-                                printf("skipped (duplicate)\n");
+                                HW_DIAG_PRINTF("skipped (duplicate)\n");
                             }
                             continue;
                         }
@@ -1649,7 +1651,7 @@ int bigFastCreate(char *bigfilename, int numFiles, char *filenames[], int optCom
                         {
                             if (consoleOutput)
                             {
-                                printf("\nERROR: Can't find %s\n", filename);
+                                HW_DIAG_PRINTF("\nERROR: Can't find %s\n", filename);
                             }
                             
                             fclose(bigFP);
@@ -1670,7 +1672,7 @@ int bigFastCreate(char *bigfilename, int numFiles, char *filenames[], int optCom
                         {
                             if (consoleOutput)
                             {
-                                printf("ERROR: Can't read %s\n", filename);
+                                HW_DIAG_PRINTF("ERROR: Can't read %s\n", filename);
                             }
                             fclose(bigFP);
                             unlink(bigfilename);
@@ -1738,12 +1740,12 @@ int bigFastCreate(char *bigfilename, int numFiles, char *filenames[], int optCom
 
                 if (pass == 2 && consoleOutput)
                 {
-                    //printf("[pass %d of 2]", pass);  // don't mention the first passes
+                    //HW_DIAG_PRINTF("[pass %d of 2]", pass);  // don't mention the first passes
                     if (strcasecmp(tempshortfilename, filename))
                     {
-                        printf("(%s) ", tempshortfilename);
+                        HW_DIAG_PRINTF("(%s) ", tempshortfilename);
                     }
-                    printf("added\n");
+                    HW_DIAG_PRINTF("added\n");
                 }
 
             } while (filelist && !feof(filelistFP));
@@ -1800,12 +1802,12 @@ int bigFastCreate(char *bigfilename, int numFiles, char *filenames[], int optCom
 
     if (consoleOutput)
     {
-        printf("Sorting table of contents");
+        HW_DIAG_PRINTF("Sorting table of contents");
     }
     
     if (!bigSort(bigfilename))
     {
-        printf("\nERROR: Can't sort bigfile %s\n", bigfilename);
+        HW_DIAG_PRINTF("\nERROR: Can't sort bigfile %s\n", bigfilename);
         unlink(bigfilename);
         free(moveFiles);
         return 0;
@@ -1813,7 +1815,7 @@ int bigFastCreate(char *bigfilename, int numFiles, char *filenames[], int optCom
     
     if (consoleOutput)
     {
-        printf("\n");
+        HW_DIAG_PRINTF("\n");
     }
     
     // "move" (delete) files if necessary
@@ -1825,7 +1827,7 @@ int bigFastCreate(char *bigfilename, int numFiles, char *filenames[], int optCom
             {
                 if (consoleOutput)
                 {
-                    printf("ERROR: Can't (re)move %s\n", filenames[f]);
+                    HW_DIAG_PRINTF("ERROR: Can't (re)move %s\n", filenames[f]);
                 }
             }
         }
@@ -1836,17 +1838,17 @@ int bigFastCreate(char *bigfilename, int numFiles, char *filenames[], int optCom
     {
         if (!filesAdded && !dupesSkipped)
         {
-            printf("Nothing to do\n");
+            HW_DIAG_PRINTF("Nothing to do\n");
         }
         else
         {
             if (filesAdded)
             {
-                printf("%d file%s added to new bigfile\n", filesAdded, ((filesAdded == 1) ? "" : "s"));
+                HW_DIAG_PRINTF("%d file%s added to new bigfile\n", filesAdded, ((filesAdded == 1) ? "" : "s"));
             }
             if (dupesSkipped)
             {
-                printf("%d duplicate%s skipped\n", dupesSkipped, ((dupesSkipped == 1) ? "" : "s"));
+                HW_DIAG_PRINTF("%d duplicate%s skipped\n", dupesSkipped, ((dupesSkipped == 1) ? "" : "s"));
             }
         }
     }
@@ -1908,7 +1910,7 @@ int bigAddFile(char *bigFilename, char *filename, char *storedFilename, int optC
 #endif
     {
         if (consoleOutput)
-            printf("\nERROR: Can't create temporary filename\n");
+            HW_DIAG_PRINTF("\nERROR: Can't create temporary filename\n");
         return 0;
     }
 
@@ -1917,14 +1919,14 @@ int bigAddFile(char *bigFilename, char *filename, char *storedFilename, int optC
     if (!oldfp)
     {
         if (consoleOutput)
-            printf("\nERROR: Can't open bigfile %s\n", bigFilename);
+            HW_DIAG_PRINTF("\nERROR: Can't open bigfile %s\n", bigFilename);
         return 0;
     }
     // ensure correct file type & version
     if (!bigHeaderVerify(oldfp))
     {
         if (consoleOutput)
-            printf("\nERROR: Incompatible file %s\n", bigFilename);
+            HW_DIAG_PRINTF("\nERROR: Incompatible file %s\n", bigFilename);
         fclose(oldfp);
         return 0;
     }
@@ -1934,7 +1936,7 @@ int bigAddFile(char *bigFilename, char *filename, char *storedFilename, int optC
     if (!newfp || !bigHeaderWrite(newfp))
     {
         if (consoleOutput)
-            printf("\nERROR: Can't create temporary file %s\n", tempFilename);
+            HW_DIAG_PRINTF("\nERROR: Can't create temporary file %s\n", tempFilename);
         goto abort;
     }
 
@@ -1949,7 +1951,7 @@ int bigAddFile(char *bigFilename, char *filename, char *storedFilename, int optC
     if (stat(filename, &findData) == -1)
     {
         if (consoleOutput)
-            printf("\nERROR: Can't find %s\n", filename);
+            HW_DIAG_PRINTF("\nERROR: Can't find %s\n", filename);
         goto abort;
     }
 
@@ -1960,14 +1962,14 @@ int bigAddFile(char *bigFilename, char *filename, char *storedFilename, int optC
         if (!bf)
         {
             if (consoleOutput)
-                printf("\nERROR: Can't create temporary file %s\n", compressedTempFilename);
+                HW_DIAG_PRINTF("\nERROR: Can't create temporary file %s\n", compressedTempFilename);
             goto abort;
         }
         datafp = fopen(filename, "rb");
         if (!datafp)
         {
             if (consoleOutput)
-                printf("\nERROR: Can't open %s\n", filename);
+                HW_DIAG_PRINTF("\nERROR: Can't open %s\n", filename);
             goto abort;
         }
         lzssCompressFile(datafp, bf);
@@ -1976,7 +1978,7 @@ int bigAddFile(char *bigFilename, char *filename, char *storedFilename, int optC
         if (stat(compressedTempFilename, &findDataCompressed) == -1)
         {
             if (consoleOutput)
-                printf("\nERROR: Can't find %s\n", filename);
+                HW_DIAG_PRINTF("\nERROR: Can't find %s\n", filename);
             goto abort;
         }
     }
@@ -2016,7 +2018,7 @@ int bigAddFile(char *bigFilename, char *filename, char *storedFilename, int optC
         {
             if (consoleOutput)
             {
-                printf("\nERROR: Can't add %s (same CRC as %s)\n",
+                HW_DIAG_PRINTF("\nERROR: Can't add %s (same CRC as %s)\n",
                     storedFilename, compareFilename);
             }
             
@@ -2058,7 +2060,7 @@ int bigAddFile(char *bigFilename, char *filename, char *storedFilename, int optC
         if (!datafp)
         {
             if (consoleOutput)
-                printf("\nERROR: Can't open %s\n", optCompression ? compressedTempFilename : filename);
+                HW_DIAG_PRINTF("\nERROR: Can't open %s\n", optCompression ? compressedTempFilename : filename);
             goto abort;
         }
         bigFilenameEncrypt(storedFilename);
@@ -2137,7 +2139,7 @@ int bigAddFile(char *bigFilename, char *filename, char *storedFilename, int optC
         {
             if (consoleOutput)
             {
-                printf("\nERROR: Can't open %s\n", optCompression ? compressedTempFilename : filename);
+                HW_DIAG_PRINTF("\nERROR: Can't open %s\n", optCompression ? compressedTempFilename : filename);
             }
             
             goto abort;
@@ -2165,7 +2167,7 @@ int bigAddFile(char *bigFilename, char *filename, char *storedFilename, int optC
     {
         if (consoleOutput)
         {
-            printf("\nERROR: Can't overwrite %s with new file (%s)\n", bigFilename, tempFilename);
+            HW_DIAG_PRINTF("\nERROR: Can't overwrite %s with new file (%s)\n", bigFilename, tempFilename);
         }
         
         return 0;
@@ -2176,7 +2178,7 @@ int bigAddFile(char *bigFilename, char *filename, char *storedFilename, int optC
     {
         if (consoleOutput)
         {
-            printf("\nERROR: Can't remove temporary file %s\n", tempFilename);
+            HW_DIAG_PRINTF("\nERROR: Can't remove temporary file %s\n", tempFilename);
         }
         
         return 0;
@@ -2188,7 +2190,7 @@ int bigAddFile(char *bigFilename, char *filename, char *storedFilename, int optC
         {
             if (consoleOutput)
             {
-                printf("\nERROR: Can't remove temporary file %s\n", compressedTempFilename);
+                HW_DIAG_PRINTF("\nERROR: Can't remove temporary file %s\n", compressedTempFilename);
             }
             
             return 0;
@@ -2224,7 +2226,7 @@ abort:
 int bigDelete(char *bigfilename, int numFiles, char *filenames[], int consoleOutput)
 {
     if (consoleOutput)
-        printf("ERROR: Delete operation not supported yet.\n");
+        HW_DIAG_PRINTF("ERROR: Delete operation not supported yet.\n");
     return 1;
 }
 
@@ -2252,14 +2254,14 @@ int bigView(char *bigFilename, int consoleOutput)
     if (!fp)
     {
         if (consoleOutput)
-            printf("ERROR: Can't open %s\n", bigFilename);
+            HW_DIAG_PRINTF("ERROR: Can't open %s\n", bigFilename);
         return 0;
     }
     // ensure correct file type & version
     if (!bigHeaderVerify(fp))
     {
         if (consoleOutput)
-            printf("ERROR: Incompatible file %s\n", bigFilename);
+            HW_DIAG_PRINTF("ERROR: Incompatible file %s\n", bigFilename);
         goto abort;
     }
 
@@ -2267,17 +2269,17 @@ int bigView(char *bigFilename, int consoleOutput)
     bigTOCRead(fp, &toc);
 
     if (!toc.numFiles)
-        printf("No files in %s\n", bigFilename);
+        HW_DIAG_PRINTF("No files in %s\n", bigFilename);
     else if (consoleOutput)
     {
         stat(bigFilename, &findData);
 
-        printf("\nContents of %s ", bigFilename);
-        printf(  "(%s bytes, ", PrettyFilesize(findData.st_size, pStoredSize));
-        printf(  "%s):\n", (toc.flags & BF_FLAG_TOC_SORTED)?"CRC-sorted TOC":"unsorted TOC");
+        HW_DIAG_PRINTF("\nContents of %s ", bigFilename);
+        HW_DIAG_PRINTF(  "(%s bytes, ", PrettyFilesize(findData.st_size, pStoredSize));
+        HW_DIAG_PRINTF(  "%s):\n", (toc.flags & BF_FLAG_TOC_SORTED)?"CRC-sorted TOC":"unsorted TOC");
 
-        printf("\n             CRC   Stored Size     Real Size  Ratio        Date     Time  Filename\n");
-        printf("----------------  ------------  ------------  -----  ---------- --------  ------------\n");
+        HW_DIAG_PRINTF("\n             CRC   Stored Size     Real Size  Ratio        Date     Time  Filename\n");
+        HW_DIAG_PRINTF("----------------  ------------  ------------  -----  ---------- --------  ------------\n");
         for (f = 0; f < toc.numFiles; ++f)
         {
             bigFilenameRetrieve(&toc, f, fp, filename);
@@ -2288,7 +2290,7 @@ int bigView(char *bigFilename, int consoleOutput)
                      : 0.0));
             else
                 strcpy(pRatio, "  na ");
-            printf("%08x%08x %13s %13s  %s  %s  %s\n",
+            HW_DIAG_PRINTF("%08x%08x %13s %13s  %s  %s  %s\n",
                 (toc.fileEntries + f)->nameCRC1,
                 (toc.fileEntries + f)->nameCRC2,
                 PrettyFilesize((toc.fileEntries + f)->storedLength, pStoredSize),
@@ -2304,7 +2306,7 @@ int bigView(char *bigFilename, int consoleOutput)
         // totals
         if (toc.numFiles)
         {
-            printf("                  ------------  ------------  -----\n");
+            HW_DIAG_PRINTF("                  ------------  ------------  -----\n");
             if (totalCompressed == totalExpanded)
             {
                 PrettyFilesize(totalExpanded, pRealSize);
@@ -2318,7 +2320,7 @@ int bigView(char *bigFilename, int consoleOutput)
                 sprintf(pRatio, "%05.3f",
                     (totalExpanded ? (float)totalCompressed/(float)totalExpanded : 0.0));
             }
-            printf("                 %13s %13s  %s\n",
+            HW_DIAG_PRINTF("                 %13s %13s  %s\n",
                 pStoredSize, pRealSize, pRatio);
         }
     }
@@ -2352,7 +2354,7 @@ int bigExtract(char *bigFilename, int numFiles, char *filenames[], int optFreshe
 {
 #ifdef _WIN32
     if (consoleOutput) {
-        printf("ERROR: Extract operation not supported yet.\n");
+        HW_DIAG_PRINTF("ERROR: Extract operation not supported yet.\n");
     }
 #else
 
@@ -2364,14 +2366,14 @@ int bigExtract(char *bigFilename, int numFiles, char *filenames[], int optFreshe
     if (!fp)
     {
         if (consoleOutput)
-            printf("ERROR: Can't open %s\n", bigFilename);
+            HW_DIAG_PRINTF("ERROR: Can't open %s\n", bigFilename);
         return 0;
     }
     // ensure correct file type & version
     if (!bigHeaderVerify(fp))
     {
         if (consoleOutput)
-            printf("ERROR: Incompatible file %s\n", bigFilename);
+            HW_DIAG_PRINTF("ERROR: Incompatible file %s\n", bigFilename);
         goto abort;
     }
 
@@ -2379,7 +2381,7 @@ int bigExtract(char *bigFilename, int numFiles, char *filenames[], int optFreshe
     bigTOCRead(fp, &toc);
 
     if (!toc.numFiles)
-        printf("No files in %s\n", bigFilename);
+        HW_DIAG_PRINTF("No files in %s\n", bigFilename);
     else
     {
         int i;
@@ -2400,7 +2402,7 @@ int bigExtract(char *bigFilename, int numFiles, char *filenames[], int optFreshe
         strcpy(outdir, bigFilename);
         strcat(outdir, ".contents");
         
-        printf("\nExtracting %d files from:\n    %s\nto:\n    %s\n\n",
+        HW_DIAG_PRINTF("\nExtracting %d files from:\n    %s\nto:\n    %s\n\n",
                toc.numFiles, bigFilename, outdir);
         
         // go through the table of contents
@@ -2434,7 +2436,7 @@ int bigExtract(char *bigFilename, int numFiles, char *filenames[], int optFreshe
                     /* POSIX defines this mechanism for indicating errors
                        but leaves open what kind of errors might occur
                        and how to distinguish between them. */
-                    printf("Error matching pattern %s to filename %s\n",
+                    HW_DIAG_PRINTF("Error matching pattern %s to filename %s\n",
                            filenames[j], filename);
                     // fall through
                 case FNM_NOMATCH:
@@ -2449,7 +2451,7 @@ int bigExtract(char *bigFilename, int numFiles, char *filenames[], int optFreshe
                 continue;
 
             // the rest is the (possibly compressed) file
-            printf("Extracting: %s", filename);
+            HW_DIAG_PRINTF("Extracting: %s", filename);
             
             // uncompress file if necessary
             if (fileEntry->compressionType == '\1')
@@ -2463,7 +2465,7 @@ int bigExtract(char *bigFilename, int numFiles, char *filenames[], int optFreshe
                     if (lzssExpandBuffer(compressedFile, fileEntry->storedLength,
                                          uncompressedFile, fileEntry->realLength) == -1)
                     {
-                        printf(" - DECOMPRESSION FAILED!\n");
+                        HW_DIAG_PRINTF(" - DECOMPRESSION FAILED!\n");
                         
                         free(compressedFile);
                         compressedFile = NULL;
@@ -2476,7 +2478,7 @@ int bigExtract(char *bigFilename, int numFiles, char *filenames[], int optFreshe
                 }
                 else
                 {
-                    printf(" - MEMORY ALLOCATION FAILED!\n");
+                    HW_DIAG_PRINTF(" - MEMORY ALLOCATION FAILED!\n");
                     
                     // either or both allocations may have failed so check both
                     if (compressedFile != NULL)
@@ -2503,7 +2505,7 @@ int bigExtract(char *bigFilename, int numFiles, char *filenames[], int optFreshe
                 }
                 else
                 {
-                    printf(" - MEMORY ALLOCATION FAILED!\n");
+                    HW_DIAG_PRINTF(" - MEMORY ALLOCATION FAILED!\n");
                     continue;
                 }
 
@@ -2550,7 +2552,7 @@ int bigExtract(char *bigFilename, int numFiles, char *filenames[], int optFreshe
             // open the new file
             if ((output = fopen(outfilename, "wb")) == NULL)
             {
-                printf(" - UNABLE TO OPEN OUTPUT FILE %s!\n", outfilename);
+                HW_DIAG_PRINTF(" - UNABLE TO OPEN OUTPUT FILE %s!\n", outfilename);
                 
                 if (compressedFile != NULL)
                 {
@@ -2583,7 +2585,7 @@ int bigExtract(char *bigFilename, int numFiles, char *filenames[], int optFreshe
                 }
             }
             
-            printf("\n");
+            HW_DIAG_PRINTF("\n");
         }
     }
 
@@ -2602,6 +2604,8 @@ abort:
 
 bool32 bigOpenAllBigFiles(void)
 {
+    if(openhwArchiveMounted())return TRUE;
+    if(getenv("HW_LOOSE_DATA"))return TRUE;
     udword bigfile_i = 0;
     char bigFilePath[PATH_MAX] = "";
 

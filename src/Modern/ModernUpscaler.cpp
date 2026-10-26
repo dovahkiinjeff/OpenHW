@@ -1,3 +1,4 @@
+#include "DiagnosticPolicy.h"
 #include "ModernUpscaler.h"
 #include "ModernDlaa.h"
 #include "ModernGraphics.h"
@@ -125,7 +126,7 @@ bool upscalerSetDevice(ID3D12Device *device, IDXGIAdapter1 *adapter)
                        LoadLibraryW(L"amd_fidelityfx_loader_dx12.dll") != nullptr;
     state.xessRuntime = GetModuleHandleW(L"libxess.dll") != nullptr || LoadLibraryW(L"libxess.dll") != nullptr;
     upscalerSetRequestedMode(state.requested);
-    std::fprintf(stderr, "[ModernGraphics] Reconstruction capabilities: DLSS=%s, FSR=%s, XeSS=%s; Auto resolves to %s.\n",
+    HW_DIAG_FPRINTF(stderr, "[ModernGraphics] Reconstruction capabilities: DLSS=%s, FSR=%s, XeSS=%s; Auto resolves to %s.\n",
         dlaaAvailable() ? "yes" : "no", state.fsrRuntime ? "yes" : "no",
         state.xessRuntime ? "yes" : "no", upscalerResolvedName());
     return device != nullptr;
@@ -218,7 +219,8 @@ bool upscalerEvaluate(ID3D12GraphicsCommandList *cmd, ID3D12Resource *color, uns
         d.output = ffxApiGetResourceDX12(state.output.Get(), FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);
         d.jitterOffset = {-jx, -jy}; d.motionVectorScale = {1.0f, 1.0f};
         d.renderSize = {iw, ih}; d.upscaleSize = {state.width, state.height}; d.frameTimeDelta = std::max(0.1f, dt);
-        d.preExposure = 1.0f; d.reset = reset; d.cameraNear = 1.0f; d.cameraFar = 1000000.0f;
+        // Match the normal, non-reversed depth projection written by DXR.
+        d.preExposure = 1.0f; d.reset = reset; d.cameraNear = 0.05f; d.cameraFar = 500000.0f;
         d.cameraFovAngleVertical = fov * 0.01745329252f; d.flags = FFX_UPSCALE_FLAG_NON_LINEAR_COLOR_SRGB;
         state.active = ffx::Dispatch(state.fsr, d) == ffx::ReturnCode::Ok;
     } else if (state.backend == UpscalerBackend::IntelXess && state.xess) {

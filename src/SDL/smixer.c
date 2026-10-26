@@ -19,6 +19,30 @@
 #include "FastMath.h"
 #include "main.h"
 #include "Globals.h"
+#include "AudioBus.h"
+#include "RemasteredPcmStream.h"
+#include "PcmStreamState.h"
+static HwLegacyPcmResampler legacyPcmResampler;
+
+static SDL_atomic_t audioBusGain[HW_AUDIO_BUS_COUNT] = {{10000}, {10000}, {10000}};
+static SDL_atomic_t audioStreamBus[SOUND_MAX_STREAM_BUFFERS];
+float soundBusGain(int bus)
+{
+    return bus >= 0 && bus < HW_AUDIO_BUS_COUNT ?
+        hwAudioGainDecode(SDL_AtomicGet(&audioBusGain[bus])) : 0;
+}
+void soundBusVolume(int bus, float gain)
+{
+    if (bus >= 0 && bus < HW_AUDIO_BUS_COUNT)
+        SDL_AtomicSet(&audioBusGain[bus], hwAudioGainEncode(gain));
+}
+void soundStreamBus(int handle, int bus)
+{
+    int index = SNDchannel(handle);
+    if (handle >= 0 && index >= 0 && index < SOUND_MAX_STREAM_BUFFERS &&
+        bus >= 0 && bus < HW_AUDIO_BUS_COUNT)
+        SDL_AtomicSet(&audioStreamBus[index], bus);
+}
 
 #define MIX_BLOCK_SIZE			FQ_SIZE * sizeof(short) * 2 // 256 samples, 16-bit, stereo = 1024 bytes
 
@@ -181,6 +205,7 @@ void soundPanicReset(void)
 ----------------------------------------------------------------------------*/	
 sdword isoundmixerinit(SDL_AudioSpec *aspec)
 {
+    memset(&legacyPcmResampler,0,sizeof(legacyPcmResampler));
 #ifndef _MACOSX_FIX_SOUND
 
 	// Initialize codec
@@ -510,6 +535,10 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 					}
 				}
 	
+				/* Apply the live user bus after scripted/voice gain. Muting does
+                   not stop a looping voice or modify its playback clock. */
+                scaleLevel *= hwAudioGainDecode(SDL_AtomicGet(
+                    &audioBusGain[SDL_AtomicGet(&audioStreamBus[i])]));
 				/* add it to mix buffer */
 				fqMix(mixbuffer1L,pchan->mixbuffer1,pchan->volfactorL * scaleLevel);
 				fqMix(mixbuffer2L,pchan->mixbuffer2,pchan->volfactorL * scaleLevel);
@@ -749,10 +778,11 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 
 			if (!pchan->mute)
 			{
-				fqMix(mixbuffer1L,pchan->mixbuffer1,pchan->volfactorL);
-				fqMix(mixbuffer2L,pchan->mixbuffer2,pchan->volfactorL);
-				fqMix(mixbuffer1R,pchan->mixbuffer1,pchan->volfactorR);
-				fqMix(mixbuffer2R,pchan->mixbuffer2,pchan->volfactorR);
+                real32 busGain = hwAudioGainDecode(SDL_AtomicGet(&audioBusGain[HW_AUDIO_SFX]));
+				fqMix(mixbuffer1L,pchan->mixbuffer1,pchan->volfactorL * busGain);
+				fqMix(mixbuffer2L,pchan->mixbuffer2,pchan->volfactorL * busGain);
+				fqMix(mixbuffer1R,pchan->mixbuffer1,pchan->volfactorR * busGain);
+				fqMix(mixbuffer2R,pchan->mixbuffer2,pchan->volfactorR * busGain);
 			}
 		}
 		
@@ -882,7 +912,16 @@ void soundfeedercb(void *userdata, Uint8 *stream, int len)
 {
 	memset(stream, 0, len);
 	if (mixer.status >= SOUND_PLAYING) {
-		isoundmixerqueueSDL(stream, len);
+        int written=0;
+        int16_t legacy[FQ_SIZE*2];
+        while(len-written>=8) {
+            int frames=(len-written)/8;
+            if(frames>FQ_SIZE)frames=FQ_SIZE;
+            isoundmixerqueueSDL((Uint8 *)legacy,frames*4);
+            hwLegacyPcmUpsample(&legacyPcmResampler,legacy,(int16_t *)(stream+written),(size_t)frames);
+            written+=frames*8;
+        }
+		rmPcmStreamMix(stream, len);
 	}
 	else {
 		memset(stream, 0, len);

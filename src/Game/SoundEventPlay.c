@@ -15,6 +15,7 @@
 #include "mainswitches.h"
 #include "Matrix.h"
 #include "SoundEvent.h"
+#include "RemasteredPresentation.h"
 #include "SoundEventDefs.h"
 #include "SoundEventPrivate.h"
 #include "soundlow.h"
@@ -85,6 +86,8 @@ sdword soundEventPlay(void *object, sdword event, Gun *gun)
     {
         return (SOUND_OK);
     }
+    if(object&&gun&&gun->gunstatic&&(event==Gun_WeaponShot||event==Gun_WeaponFireLooped)&&
+        rmPresentationOwnsGunSound(object,gun->gunstatic->gunindex))return handle;
 
     if (object != NULL)
     {

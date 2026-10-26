@@ -1,5 +1,7 @@
 # Original Homeworld source baseline
 
+> Historical provenance reference, not current OpenHW build or modding instructions. Original source notes are included unchanged in substance and may not describe the current engine. Start with [the documentation index](README.md).
+
 The untouched `homeworld-master.zip` archive supplied for the Windows
 modernization was validated on 2026-08-09 with this SHA-256 digest:
 

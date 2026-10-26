@@ -1,0 +1,10 @@
+HW_RM_R2_VISUAL_1
+type Taiidan_MissileDestroyer
+scale 2.8546873
+hull hull.hod
+mad -
+marker engine_0 Hull EngineMainDrive
+attach Engine Hardpoint_Engine_Position 2 component1.hod
+surface 0 0 c0_m0
+surface 0 1 c0_m1
+surface 0 2 c0_m2

@@ -144,6 +144,7 @@ bool32 cmCaptureBuildAllFactoryEnabled(const struct Ship *ship);
 ShipRace cmFactoryBuildRace(const struct Ship *ship);
 
 void cmCloseIfOpen(void);
+bool32 cmShowSelectedFactory(Ship *ship);
 
 bool32 cmCanBuildShipType(Ship *factoryship,ShipType shiptype,bool32 checkResearch);
 

@@ -6,6 +6,7 @@
     Copyright Relic Entertainment, Inc.  All rights reserved.
 =============================================================================*/
 
+#include "ResourceUnits.h"
 #include "TaskBar.h"
 
 #include <ctype.h>
@@ -1955,7 +1956,7 @@ void tbRUs(featom *atom, regionhandle region)
 {
     char value[32];
     color textColor = atom != NULL ? atom->borderColor : TB_SelectedColor;
-    snprintf(value, sizeof(value), "%d", universe.curPlayerPtr->resourceUnits);
+    resourceUnitsFormat(universe.curPlayerPtr, value, sizeof(value));
     feStaticRectangleDraw(region);
     tbDrawLabelValue(region, textColor, "RESOURCES", value);
 }

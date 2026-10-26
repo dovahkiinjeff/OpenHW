@@ -1,371 +1,92 @@
-# Homeworld RTX 0.92.0 Beta 1 - Installation and User Guide
+# OpenHW 1.0 â€” installation and user guide
 
-## What this build is
+## Installation and disk space
 
-Homeworld RTX is a modern Windows x64 port of the original Homeworld engine.
-It reads the classic game data you already own and supplies a replacement
-executable, modern renderer, interface assets, and authoring overlays. It does
-not modify your retail BIG archives.
+Download `OpenHW-Setup.exe` into the **writable final game folder** and run it there. Select your own installed Homeworld Remastered Collection (Collection root, HomeworldRM, or its Data folder). Setup also needs the Collection's Homeworld 1 Classic data and required English archives. It installs beside the installer and does not change the original Collection. No separate Classic executable selection or manual music/voice copying is required.
 
-The beta is intentionally Windows-only. Direct3D 12, DXGI, DXR, the Windows
-SDK, and NVIDIA Streamline are central to the current renderer. Portability can
-be revisited after the native renderer reaches campaign-wide parity.
+**Disk space:** allow approximately **120 GB free during conversion** as a conservative planning estimate; the exact peak of this compact installer has not been measured. The download is about 473 MB and the main generated game archive is about 34 GB, plus loose resources and user data. Setup reads the original Collection archives directly, stages selected HW1 resources and removes intermediate conversion caches. The original Collection and source-build dependencies occupy separate space.
 
-## Installation
+Allow setup to finish extraction, asset conversion and validation. Its logs live in `Development/Logs`. After success, setup removes `Development/SetupSources` and `Development/SetupWork`; if cleanup fails it reports retained files. Failed imports retain working data for recovery. Do not delete working data during installation. Setup does not launch the game.
 
-### Recommended clean install
+Start `OpenHW.exe` for normal play. `OpenHW-Daignostics.exe` is the full-logging variant (filename spelling intentional). Application-owned diagnostic output is below `Development`. Save games, settings, mods and exports also stay in the game folder; no application-owned AppData install is required. Windows and driver caches are external system behavior.
 
-1. Download the Windows x64 ZIP from GitHub Releases.
-2. Create a writable folder such as `C:\Games\Homeworld RTX`.
-3. Extract every file and folder into it.
-4. From your legally owned Homeworld Classic data folder, manually copy
-   `HW_Music.wxd` and `HW_Comp.vce` into this new folder, directly beside
-   `HomeworldModern.exe`.
-5. Launch `HomeworldModern.exe`.
-6. Choose the `Homeworld.exe` belonging to Homeworld 1 Classic.
+First boot detects resolution and refresh rate rather than imposing the author's monitor mode. Other options use the authored release defaults. Change video/gameplay options to suit your system. Keep backups of `SavedGames`, `Homeworld.cfg`, `RTXExports`, `RTXLighting`, `Modding`, `mods` and parade presets before installing updates. Never overwrite the only copy of your authoring work.
 
-> **Required beta workaround:** the current first-run verification does not reliably locate `HW_Music.wxd` and `HW_Comp.vce` through the selected retail installation. A new extract will fail verification unless both legally owned archives are manually present beside `HomeworldModern.exe`. Steam users will normally find the originals under `Homeworld1Classic\Data`.
+## Recommended graphics settings
 
-The program checks the executable and nearby data folder. The remembered
-location is stored in:
-
-```text
-Documents\My Games\Homeworld Modern\installation.ini
-```
-
-You can keep Homeworld RTX outside Steam. This protects the mod from Steam
-verification and keeps exports easy to find.
-
-### Accepted game data
-
-For Homeworld Remastered Collection, select:
-
-```text
-...\Homeworld\Homeworld1Classic\Homeworld.exe
-```
-
-Its data set normally includes:
-
-```text
-Data\Homeworld.big
-Data\HW_Comp.vce
-Data\HW_Music.wxd
-```
-
-Copy `Data\HW_Comp.vce` and `Data\HW_Music.wxd` into the Homeworld RTX folder.
-Leave the originals in place and never redistribute either archive.
-
-For an original 1999 installation, use its `Homeworld.exe` and data directory.
-`Update.big` is recommended for original data, but should not be added to the
-Remastered Collection Classic set because its updates are already folded into
-`Homeworld.big`.
-
-The optional `Movies` directory enables the original pre-mission Bink videos.
-Retail data is never included in this project's downloads.
-
-### Updating later
-
-Keep personal exports and diagnostics before replacing a beta:
-
-```text
-RTXExports\
-Documents\My Games\Homeworld Modern\RTXLighting\
-Documents\My Games\Homeworld Modern\Homeworld.cfg
-```
-
-Extract a newer release over a copy or into a fresh directory. A fresh folder
-is easiest to diagnose because obsolete DLLs cannot remain beside the game.
-
-## First run
-
-With no saved profile and no command-line resolution, the game adopts the
-primary display's active mode and starts borderless. Interface scale is derived
-from resolution and constrained to the window. Examples:
-
-| Output | Automatic interface scale |
-| --- | ---: |
-| 1280x720 | 1.0x |
-| 1920x1080 | 1.5x |
-| 2560x1440 | 2.0x |
-| 3440x1440 | 2.0x centered safe canvas |
-| 3840x2160 | 3.0x |
-
-The UI, mouse hit regions, fonts, cursor, modal dialogs, and manager docks share
-one scaling policy. The interface remains native resolution when DLSS is used.
-
-## Video settings
-
-### Volumetric dust and restored environments
-
-Campaign dust is a world-space FP16 participating medium, not a stack of
-camera-facing sprites. It receives mission and local lighting, ship wakes, and
-real scene depth while retaining its position as the camera rotates. A
-half-resolution integration pass controls cost without reducing material
-precision, and Shift+F11 provides map-wide fade distance/strength controls.
-
-Visible campaign skies use Homeworld's original BTG artwork and stars. Modern
-mission key and ambient metadata remain active for DXR, dust, god rays, and
-Shift+F12 editing. Original planet geometry and UV layouts are likewise kept
-beneath upgraded DDS color and generated-normal assets.
-
-Dense asteroid fields use LODs derived from the four authored replacement
-meshes. Distant rocks preserve those silhouettes and textures rather than
-switching to unrelated round procedural substitutes.
-
-### Display
-
-- **Display Mode:** borderless desktop, exclusive fullscreen, or resizable window.
-- **Output Resolution:** applied on the next launch where required.
-- **Refresh Rate:** automatic or a supported exclusive-mode refresh.
-- **Frame Limit:** presentation cap; zero is uncapped.
-- **Interface Scale:** automatic resolution-derived scale with a 50-200% modifier.
-- **VSync:** on, adaptive where supported, or off.
-
-Presentation rate does not change simulation rate. AI, physics, scripts,
-weapons, demos, multiplayer checksums, and save behavior remain tied to the
-fixed gameplay clock.
-
-### Path tracing
-
-- **Path Tracing:** turns DXR lighting on or off.
-- **Light Bounces:** one to three diffuse radiance bounces.
-- **Samples:** one to four new stochastic paths per pixel per frame.
-- **Normal Map Strength:** 0-400% tangent-space surface relief. Dedicated ship
-  normal maps are used when installed; legacy textures retain an automatic
-  luminance-derived fallback.
-- **FX Emission:** 0-200% light cast by weapons, engines, beams, explosions,
-  glow maps, and navigation lights. Zero removes their general-purpose light,
-  not the visible FX. Dedicated weapon origin/impact lights are independently
-  controlled by the four settings below.
-- **Weapon Origin Intensity / Range:** 0-400% controls for light created at
-  every weapon muzzle or launch point, including sustained ion-beam origins.
-- **Weapon Impact Intensity / Range:** 0-400% controls for light created at
-  every resolved bullet, beam, and missile impact point. Impact lighting is
-  collision-driven and remains available when optional hit sprites are culled.
-
-Start at one sample and two or three bounces. Increase samples before bounces
-when you want a steadier image; increase bounces for richer indirect fill.
-Normal-map strength at 100% is the tuned baseline.
-
-The temporal accumulator rejects mismatched depth, invalid previous transforms,
-camera cuts, newly revealed geometry, and LOD/visibility discontinuities. Fast
-camera movement deliberately retains less history than a still view.
-
-### Image quality
-
-- **Off:** no post anti-aliasing.
-- **Auto / Native AA (recommended):** selects DLAA on supported NVIDIA GPUs,
-  XeSS AA on Intel GPUs, or FidelityFX Native AA on AMD and other adapters.
-- **Auto / Quality:** selects DLSS Quality, XeSS Quality, or FSR Quality from
-  the active adapter and installed signed runtimes.
-- **FXAA:** universal, inexpensive spatial fallback with no temporal history.
-- **Universal Temporal AA:** vendor-neutral native-resolution temporal
-  reconstruction, resolved through the packaged FidelityFX runtime.
-- **DLAA / DLSS:** NVIDIA native AA plus Quality, Balanced, Performance, and
-  Ultra Performance full-scene modes.
-- **FSR Native AA / FSR:** FidelityFX native AA plus Quality, Balanced,
-  Performance, and Ultra Performance modes. The Direct3D 12 runtime is
-  cross-vendor and is also the dependable temporal fallback.
-- **XeSS AA / XeSS-SR:** Intel native AA plus Quality, Balanced, Performance,
-  and Ultra Performance modes. Intel hardware uses the optimized path; XeSS
-  also provides its documented shader-model fallback on supported non-Intel
-  hardware.
-- **Brightness:** final output transfer.
-- **Effect Density and Effect Budget:** control background/trail/impact complexity.
-- **Frame Generation:** the expandable selector exposes Off, Auto, NVIDIA
-  DLSS-G 2X, AMD FidelityFX 2X, and the native Intel XeSS-FG runtime gate.
-  DLSS-G is used on compatible NVIDIA hardware. FidelityFX frame generation is
-  packaged as the cross-vendor path and is the working choice for supported AMD
-  and Intel adapters. Native XeSS-FG is not bundled yet and therefore remains
-  unavailable rather than silently masquerading as another backend.
-
-Frame generation is optional and separate from reconstruction: DLSS, FSR, or
-XeSS-SR can be selected independently. Auto chooses a compatible installed
-provider. The game keeps the interface outside reconstructed scene resolution,
-and camera jitter is applied once at the scene boundary to prevent whole-screen
-shake in DLSS modes.
-
-Temporal reconstruction does not reduce UI resolution: the HUD-less world is
-reconstructed first and the interface is composited afterward at display
-resolution. Explicit unsupported modes fall back safely; Auto avoids selecting
-an unavailable backend. The Windows package includes the signed runtime DLLs;
-the selected backend still requires a compatible current driver.
-
-### Post effects
-
-- **Chromatic Aberration:** radial RGB separation; default off.
-- **Motion Blur:** uses DXR motion vectors; default off.
-- **Luminance Film Grain:** response-controlled grain that protects deep blacks
-  and highlights; default off.
-- **God Rays:** searches the mission background for the authored bright source;
-  ships and planet discs cannot become false suns, and world geometry occludes
-  the radial march.
-- **Bloom:** soft scene glow, 0-400%, with 100% as the visual baseline.
-- **Color Banding Filter:** stable scene-only output dithering; UI is excluded.
-
-## Lighting model
-
-The ray pass consumes the scene rather than replacing it. It uses:
-
-- Exact visible GEO triangles and object transforms.
-- Per-triangle material identity and UVs.
-- LIF color, alpha, team masks, and emissive/glow texels.
-- Alpha-tested visibility for cutout materials.
-- Mission HDR sky radiance and detected bright-source metadata.
-- Retail HSF directional, point, spot, and ambient lights.
-- Active MEX navigation lights in their transformed ship positions.
-- Dynamic engines, layered trails, muzzles, projectiles, harvesting beams,
-  hyperspace effects, and explosions.
-
-Static geometry is cached in BLAS records. Visible instances are submitted to
-a triple-buffered TLAS, which is refitted when topology remains stable. Upload
-buffers and shader tables are reused across frames.
-
-Classic assets do not carry modern metalness/roughness channels. The current
-model derives conservative material behavior and exposes global reflectivity,
-roughness, and generated-normal controls. Specular ray transport is not yet a
-full physically based reflection system.
-
-## Modern interface
-
-The main menu, campaign, tutorial, multiplayer, options, in-game menus, and
-dialogs use responsive code-native layout templates. Build, Research, and
-Launch are right-docked managers with separate queue, quantity, cost, total,
-scroll, and action regions.
-
-With ships selected, open the tactical right-click menu and choose **Ship
-Dossier**. The dossier shares the right dock and shows loaded ship statistics
-plus a concise Fleet Archive assessment.
-
-## Fleet identity editor
-
-Fleet Identity is a unified livery and emissive editor for the local player's
-ships. Select one of six channels on the left, choose hue and saturation in the
-large color field, set value with the vertical slider, and check the live
-RGB/HSV/hex material key before selecting **Apply**. The picker exposes the
-entire HSV range with no minimum-brightness gate, so true black and near-black
-hulls are valid choices.
-
-The six independently selectable channels are:
-
-- **Hull Base:** primary player-ship pigment across the fleet.
-- **Stripe / Marking:** secondary livery and team markings.
-- **Engine Emission:** engine ribbons, nozzle glow, and linked DXR light.
-- **Nav Lights:** navigation-light sprites and point emitters.
-- **Harvest Beam:** harvesting beam, nozzle glow, and line-light emission.
-- **Hyperspace:** gate, slice, field effect, and matching DXR emission.
-
-For the four effect channels, a single switch chooses between the authored
-color and a custom player color. The visible raster effect and its ray-traced
-light use the same selection automatically; there is no separate lighting menu
-to synchronize. Overrides apply only to the local player's ships. Enemy and
-allied fleets retain their authored identities.
-
-## Capture / Build All
-
-This single-player Fleet Control option turns exceptional captured production
-ships into usable factories. Enable **Capture / Build All**, salvage an enemy
-carrier or mothership, and the captured hull appears with your owned factories
-while retaining its native build roster. In other words, you can quite
-literally steal a carrier or mothership and build from it.
-
-The roster belongs to the captured factory rather than being replaced by the
-player's ordinary ship list. Turanic and Kadeshi production hulls therefore
-build their own native ships. If the option is turned off later, captured hulls
-remain yours and already queued jobs may finish, but foreign factories are
-hidden from new build selection and cannot accept new construction orders until
-the option is re-enabled. Multiplayer retains its original owner-race rules.
-
-## Gameplay options
-
-These additions are opt-in and saved with the user configuration:
-
-- **Unlimited Strike-Craft Fuel:** single-player only; normal orders and docking
-  behavior remain available.
-- **Issue Orders While Paused:** accept tactical commands while simulation time
-  is stopped.
-- **Ship Weapon Recoil:** enable physical firing impulse.
-- **Cursor Scale:** 25-100% live preview.
-- **Resource Multiplier:** 1x-4x deposited RU yield and collector harvest/fill
-  rate; authored resource values are unchanged; single-player only.
-- **Super Salvagers:** 2x mobility/agility/speed/braking and 3x effective health.
-- **Capture / Build All:** captured enemy carriers and exceptional production
-  motherships become usable factories with their native build rosters; see the
-  dedicated section above for exact enable/disable behavior.
-
-Simulation-changing convenience options are kept out of multiplayer behavior.
-
-## Command-line examples
-
-```powershell
-# 1440p resizable window, uncapped, no VSync
-./HomeworldModern.exe /window /width 2560 /height 1440 /noVsync /fps 0
-
-# 4K exclusive mode at 120 Hz
-./HomeworldModern.exe /exclusive /width 3840 /height 2160 /refresh 120 /fps 120 /vsync
-
-# Cross-vendor presentation without DXR lighting
-./HomeworldModern.exe /noRaytracing /fxaa
-
-# Heavier path tracing
-./HomeworldModern.exe /raytracing /pathSamples 4 /pathBounces 3 /dlssQuality
-```
-
-Frequently useful switches:
-
-| Switch | Meaning |
+| Feature | OpenHW 1.0 status |
 | --- | --- |
-| `/window` | Resizable window |
-| `/borderless` or `/fullscreen` | Borderless desktop mode |
-| `/exclusive` | Exclusive fullscreen |
-| `/width N`, `/height N` | Requested dimensions |
-| `/refresh N` | Exclusive refresh; zero selects automatically |
-| `/fps N` | Presentation cap; zero is uncapped |
-| `/uiScale N` | 50-200% modifier over automatic scale |
-| `/raytracing`, `/noRaytracing` | Enable/disable DXR lighting |
-| `/pathSamples N` | 1-4 samples per pixel per frame |
-| `/pathBounces N` | 1-3 diffuse bounces |
-| `/fxLightStrength N` | 0-200% FX/emissive light contribution |
-| `/dlaa`, `/fxaa`, `/aaOff` | AA selection |
-| `/dlssQuality`, `/dlssBalanced` | DLSS quality modes |
-| `/dlssPerformance`, `/dlssUltraPerformance` | DLSS performance modes |
-| `/vsync`, `/adaptiveVsync`, `/noVsync` | Presentation synchronization |
-| `/vanilla` | Restore the original universe update rate |
+| AMD FSR upscaling | Fully working; recommended |
+| AMD FSR frame generation | Fully working; recommended |
+| NVIDIA DLSS upscaling | Known visual issues; not recommended |
+| Intel upscaling | Not recommended |
+| NVIDIA frame generation | Not implemented for this release |
+| Intel frame generation | Not implemented for this release |
 
-The Video and Shift+F12 interfaces are preferred for normal use because they
-show allowed ranges and save the configuration.
+**Stick to AMD technology for 1.0**, including on supported non-AMD GPUs. Select FSR explicitly rather than assuming an automatic vendor selection is the recommended path. Upscaling and frame generation are separate options. Generated frames improve presentation smoothness; they do not increase simulation update speed or replace a healthy underlying frame rate.
 
-## Files created by the game
+Path tracing is optional and requires compatible hardware. Non-path-traced mode uses the mission's authored lighting and shadows. The global **Non-PT Glow Brightness** control defaults to **29%** and affects hangar/engine mesh emission only in that mode. Find lighting through Shift+F12 or the Shift+F11 editor's Lighting button. Adjusting this value does not change the path-traced glow setting.
 
-| Location | Purpose |
+Brightness/gamma and post-processing controls are available alongside display and image-quality settings. Internal high-dynamic-range lighting is not the same thing as enabling HDR on a Windows display. UI scale is adjustable. Use Gameplay > Show FPS for the yellow, black-outlined counter at the upper right.
+
+## Fleet and formation controls
+
+Double-click a ship to select visible ships of that type. Shift-double-click another type to add its visible peers. Press B with a build-capable carrier/mothership selected to open that ship's Build menu. Launch Manager lists eligible holds; drone frigates are not treated as carriers. Captured ships keep their identity and appropriate build/docking behavior. Player-controlled strike craft and corvettes can explicitly dock with the Karos Graveyard mission relay.
+
+Select ships of **one type in a formation** to display Formation Spread. It changes spacing immediately, without requiring another move order. Center is the default layout, the tight end brings ships close, and the wide end doubles the default spread. Mixed-type selections do not show the slider. Main-view move orders no longer use the former short-range clamp, although the game still has a finite playable world.
+
+Gameplay options include camera sensitivity, cursor scale, unlimited strike-craft fuel, orders while paused, ship weapon recoil, resource multiplier, ranks, mission-start launch behavior, FPS display, Disable SP Resource Scaling and Unlimited RUs. Resource/fuel cheats are single-player options. Disable SP Resource Scaling keeps the authored maximum resource population instead of reducing it according to adaptive campaign scaling; it is separate from resource yield and unlimited currency.
+
+Fleet Identity offers hull base/stripe color, engine-emission override and player navigation-light controls. Fleet Control also contains Capture / Build All, Super Salvagers and Disable Unit Caps. Use these optional gameplay changes deliberately when playing the campaign.
+
+## Ship control
+
+This is primarily a fun feature and a foundation for future unusual game modes. Select one eligible player ship and click **COMMAND** or **PILOT**. Eligibility and available cockpit controls depend on ship class. Normal fleet command resumes on Esc.
+
+### EVE Online-style command controls
+
+COMMAND supplies target-based flight and weapon control:
+
+| Input | Action |
 | --- | --- |
-| `Documents\My Games\Homeworld Modern\Homeworld.cfg` | Saved options |
-| `Documents\My Games\Homeworld Modern\installation.ini` | Validated data location |
-| `Documents\My Games\Homeworld Modern\RTXLighting\MissionNN.rtxlight` | Per-user mission lighting overrides |
-| `RTXExports\Global\RTX-Visual-Settings.txt` | Portable global visual/shadow export |
-| `RTXExports\Missions\MissionNN.rtxlight` | Portable mission-light export |
-| `RTXExports\Maps\MissionNN.rtxmap` | Non-destructive map overlay export |
-| `RTXExports\CloudPresets\` | Reusable volumetric dust presets |
-| `%LOCALAPPDATA%\HomeworldModern\ShaderCache` | Versioned presenter shader cache |
+| Ctrl+click | Lock a target |
+| Q / W / E | Approach / orbit / keep range |
+| Ctrl+Space | Stop |
+| Double-click space | Fly in that direction |
+| Right drag / wheel | Orbit camera / zoom |
+| Ctrl+wheel; range buttons | Change requested range |
+| Speed bar; + / - | Set speed limit |
+| F1â€“F12 | Toggle weapons in the selected bank |
+| Page Up / Page Down | Change weapon bank |
+| Unlock / Cease Fire | Clear target / disable firing |
+| Esc | Exit ship control |
 
-## Diagnostics
+### Direct piloting
 
-Source-tree users can launch through:
+PILOT supplies direct throttle and flight controls. The on-screen key legend changes with the camera mode and is the authority for the active mode.
 
-```powershell
-./Windows/run-with-log.ps1 -Configuration Release -DataPath "D:\Games\HomeworldClassic\Data"
-```
+| Input | External pilot action |
+| --- | --- |
+| W / S | Increase / decrease power |
+| A / D | Turn left / right |
+| Q / E | Strafe left / right |
+| R / F | Ascend / descend |
+| Space / left mouse | Fire |
+| Right mouse | Recenter |
+| Wheel; 1 / 2 | Zoom |
+| C, when offered | Toggle fighter cockpit |
+| Esc | Exit |
 
-The script records startup stages, stdout/stderr, arguments, OS, GPU, display,
-exit code, and crash dump information beneath `out\logs`, then prepares a ZIP.
-Use `-Windowed` when testing whether a failure is specific to fullscreen.
+In cockpit mode the mouse steers, A/D roll, W accelerates, S brakes/reverses, right mouse provides free look and the wheel changes power. Health, speed and weapon readiness are shown in the pilot HUD.
 
-For a binary-release report, provide your GPU, driver version, Windows version,
-mission, exact settings, and reproduction steps. Never attach retail data.
+### Wingleader control
 
-## Next reading
+**X and Claw formations support wing control through their wingleader.** Click/select the leader, then enter ship control. The WINGLEADER HUD indicates the wing and speed limit. This leads the formation; it is separate from adjusting its formation-spread slider.
 
-- [Editing Guide](EDITING_GUIDE.md)
-- [Known Limitations](LIMITATIONS.md)
-- [Build Guide](../Windows/BUILD_MODERN.md)
-- [Graphics Feature Status](../documentation/GRAPHICS_FEATURE_STATUS.md)
+## Editors and mods
+
+Shift+F11 opens map/cloud authoring; Shift+F12 opens lighting. The main-menu Modding section contains ship editing, Mod Manager and military parade authoring. See [Editing Guide](EDITING_GUIDE.md) and [Modding Guide](MODDING.md). Ship-layout changes may require a fresh mission, not an existing save. Restart after changing active mods or priority.
+
+## Reporting and upcoming work
+
+Completing NVIDIA DLSS and Intel support and addressing player-reported bugs/glitches are immediate priorities. Until then use AMD FSR for 1.0. Include the mission, reproducible steps, GPU/driver, all reconstruction/frame-generation settings, screenshots/video and relevant diagnostic output. Do not share retail game assets. [Known limitations](LIMITATIONS.md) distinguishes supported behavior from unfinished integrations.

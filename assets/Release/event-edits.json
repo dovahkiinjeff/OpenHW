@@ -1,0 +1,1038 @@
+{
+  "schema": 1,
+  "verified_guides": 129,
+  "edits": [
+    {
+      "target": "derelicts/dddfrigate/rmnative/hull_events.owevents",
+      "source": "ship/der_dddfrigate/der_dddfrigate.events",
+      "source_sha256": "b967269b245e9175a248c326a345805b633ed18b23656da349bb19c9561d4f7b",
+      "output_sha256": "f0a91424d182870c41022b232fd97cab3011974445c00a4b55627dd525aeb261",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "derelicts/prisonshipnew/rmnative/hull_events.owevents",
+      "source": "ship/der_prisonshipnew/der_prisonshipnew.events",
+      "source_sha256": "459bf28c6e22b589a2a9d5a6b6e60b67b9f84ebd22c254b4e690258dc0ffc66f",
+      "output_sha256": "8a7cc6f0285bbcc0ee69d7f891f44d844aeaa795d443d287e2f746c3e12cf282",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "p1/p1fighter/rmnative/hull_events.owevents",
+      "source": "ship/tur_fighter/tur_fighter.events",
+      "source_sha256": "7062428bad72131af5d61c83170fa2d6c7be6321e9149126506a1b8649b35e5d",
+      "output_sha256": "b7f44aa6f9c9a7123463a6b34b210fccb7936431ce45bf56c842d185d6a8dad4",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "p1/p1ionarrayfrigate/rmnative/hull_events.owevents",
+      "source": "ship/tur_ionarrayfrigate/tur_ionarrayfrigate.events",
+      "source_sha256": "2dfd807aa37d1f858606354b9580b733b9c74676bcf2258071a45023c7933db6",
+      "output_sha256": "ada03101c105d0a39604300ba68cba9bd7056ed5fb092d85bfa90d2a1863ef99",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "p1/p1missilecorvette/rmnative/hull_events.owevents",
+      "source": "ship/tur_missilecorvette/tur_missilecorvette.events",
+      "source_sha256": "0568ef3c92ebb6098a5c7907ca726affd90b8f04917a7a647853423341a0fa69",
+      "output_sha256": "89037b61ebf923be0ce656f16569c5673c6b4a169100b45c877af4ad3fe51ba1",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "p1/p1mothership/rmnative/hull_events.owevents",
+      "source": "ship/tur_p1mothership/tur_p1mothership.events",
+      "source_sha256": "6eccedf80d32bbd581ba49d42152eef7542e7f0fa122f82ac6279039cb57544f",
+      "output_sha256": "7dc68696f80c012451b3ce81555713d8ec8f57ea4d5dcb83f6627f14095581cd",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "p1/p1standardcorvette/rmnative/hull_events.owevents",
+      "source": "ship/tur_standardcorvette/tur_standardcorvette.events",
+      "source_sha256": "ad053a817a991643f851adec6f4750f6dc5545c95e2051150ccb432d6248a72e",
+      "output_sha256": "cbea9005001c2741e4880af9a8c8bbfeadcf83cdf67aa401147341eec118928b",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "p2/p2advanceswarmer/rmnative/hull_events.owevents",
+      "source": "ship/kad_advancedswarmer/kad_advancedswarmer.events",
+      "source_sha256": "2179a2ef5b14a458bbde10e8f8a4a592c79d0c26993084d35011ef9ec54b8422",
+      "output_sha256": "9597fa789044b2efff0d5143acdb4a6c674cdb2dd6abdc2c90cda69057154935",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "p2/p2fuelpod/rmnative/hull_events.owevents",
+      "source": "ship/kad_fuelpod/kad_fuelpod.events",
+      "source_sha256": "40916f3c684fbc59d55ac74f6bd8ecddb2848b47961381f12019170c56357eab",
+      "output_sha256": "cf87a13302155739f69d01834041804c9a3990165b6a92b03d7560189ec4bbb0",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "p2/p2mothership/rmnative/hull_events.owevents",
+      "source": "ship/kad_p2mothership/kad_p2mothership.events",
+      "source_sha256": "a55b3dc6aaf0141e1191e39312f5571d290d976e85b88e9a9e23883b42ab8483",
+      "output_sha256": "386acaf0ce571d0a767cc1a2531da86e9a27c1a1816d7a7893069f47637de05a",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "p2/p2multibeamfrigate/rmnative/hull_events.owevents",
+      "source": "ship/kad_multibeamfrigate/kad_multibeamfrigate.events",
+      "source_sha256": "4c583805798d50f976d28ab9ddcde3cc7ad3387687cc49c02e5eeddc3dcb67a4",
+      "output_sha256": "37deec09a36fc2a98616db7c8242d68c2d3918796d5e5014bf8f83be8af8a0fa",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "p2/p2swarmer/rmnative/hull_events.owevents",
+      "source": "ship/kad_swarmer/kad_swarmer.events",
+      "source_sha256": "4d71c7465615725ce211f097c19b99cfa1897d2132c6b98c17265bde2142044d",
+      "output_sha256": "0a1fcdffc1da64ca60e68541be28ac8761f7f102b5bd16e1d192b3b6d2b655fb",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/advancesupportfrigate/rmnative/hull_events.owevents",
+      "source": "ship/kus_supportfrigate/kus_supportfrigate.events",
+      "source_sha256": "8e5e47c2361c41ac6df5f6ff62a25f5f987fdbcab56eb4343d28747875fae887",
+      "output_sha256": "1b8b67a0507dff6ff36f39c4cad600a9c422879669c601b4ece07515503e7e4a",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/attackbomber/rmnative/hull_events.owevents",
+      "source": "ship/kus_attackbomber/kus_attackbomber.events",
+      "source_sha256": "dcd267dd90cba97c8f7b63938b4ce2aea03f1c1fb409d6e277f1c3bbb9de0797",
+      "output_sha256": "ad24da03832b3fa3e662bd4f1dc606e359ffa35e7dab8778eb2396c96727d9d3",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/carrier/rmnative/hull_events.owevents",
+      "source": "ship/kus_carrier/kus_carrier.events",
+      "source_sha256": "1935be9fb70c3feb3acaae8cef3f26aa89f3a8eb2c926cb700832c355a9e5e8a",
+      "output_sha256": "0fb84aaae21f5dd6d5204a63e9f50b744449fa59d0a41a1d0270615e6b91f05d",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/cloakedfighter/rmnative/hull_events.owevents",
+      "source": "ship/kus_cloakedfighter/kus_cloakedfighter.events",
+      "source_sha256": "565afd223459fe293db2df16dff70b95082e3ff514fecc586193df4bec1bd6ce",
+      "output_sha256": "a66a2bb4dc1c75daf53df7663a9f51b86949e88d28384ee7e315d95798def0bf",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/cloakgenerator/rmnative/hull_events.owevents",
+      "source": "ship/kus_cloakgenerator/kus_cloakgenerator.events",
+      "source_sha256": "bfa3d6e49f23e3b2e078f1913808de62e9af26093a4dca3bf2caba4f56f3f594",
+      "output_sha256": "2f07d19484a8d6803bcedbefc9598b437d3a836b2a741c0efeacef731a112c12",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/cryotray/rmnative/hull_events.owevents",
+      "source": "ship/kus_cryotray/kus_cryotray.events",
+      "source_sha256": "3c2ef372e06f210a7abf3135ba6980ad6d6c8b5a0e2c6fd77c57f7eeed1b375b",
+      "output_sha256": "2b45b6356b7cb4561748a72dc19394c6040a0eb27f0c3c94554f1d30fdfec266",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/dddfrigate/rmnative/hull_events.owevents",
+      "source": "ship/kus_dronefrigate/kus_dronefrigate.events",
+      "source_sha256": "56b056a9c61511026be067660d8c2d528a154d17af1388e20513e72d9e4c9363",
+      "output_sha256": "128e0df22b9dc67b6edf7bb947bbd66802737ef7f00c0f8245c00a529a35cb4a",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/drone/rmnative/hull_events.owevents",
+      "source": "ship/kus_drone0/kus_drone0.events",
+      "source_sha256": "8fc7eac77e12df3a9ceb356534fd233346dff54fb7d8fc7d59087ccef3f1f256",
+      "output_sha256": "954b2f4ad7005233b3ec3399f020eacf717949598f6c11ee659e75fb2610c7ab",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/gravwellgenerator/rmnative/hull_events.owevents",
+      "source": "ship/kus_gravwellgenerator/kus_gravwellgenerator.events",
+      "source_sha256": "9900ba6be0fcc6f5ca9a4ca254858d29660b5a2d0d834d1d664fdf33e54ac91a",
+      "output_sha256": "742db8bcf7a011aa02c7bc067f768d0db8540a141d16cff101f994b415e944b1",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/heavycorvette/rmnative/hull_events.owevents",
+      "source": "ship/kus_heavycorvette/kus_heavycorvette.events",
+      "source_sha256": "70c0a4c11c63966b44d2c3b8d94a0bf6ee59f7ef7eac34069615b621423ec8d6",
+      "output_sha256": "5020bce643731888141852047e6139c81f5937414c5125d54f7259565b7c1091",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/heavycruiser/rmnative/hull_events.owevents",
+      "source": "ship/kus_heavycruiser/kus_heavycruiser.events",
+      "source_sha256": "a922180e10842cbbdb06cfe670018fae1378214dc6ecd42acff7f4d67c8dd579",
+      "output_sha256": "9f6593cb7608bf8b54f730ca2e24b7d6b6ecefaf16d1e8a47ef439d9eaf41e58",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/heavydefender/rmnative/hull_events.owevents",
+      "source": "ship/kus_defender/kus_defender.events",
+      "source_sha256": "34e98b57823c93b6758bdc65532a6fb8d951950044f223c0a7d587a86be1ac9c",
+      "output_sha256": "99ce477f080ababff890fe908bf2b427138b0ac83d906b9601a4975465b74f88",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/heavyinterceptor/rmnative/hull_events.owevents",
+      "source": "ship/kus_interceptor/kus_interceptor.events",
+      "source_sha256": "565afd223459fe293db2df16dff70b95082e3ff514fecc586193df4bec1bd6ce",
+      "output_sha256": "a66a2bb4dc1c75daf53df7663a9f51b86949e88d28384ee7e315d95798def0bf",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/ioncannonfrigate/rmnative/hull_events.owevents",
+      "source": "ship/kus_ioncannonfrigate/kus_ioncannonfrigate.events",
+      "source_sha256": "bb9f564e199b013fd9b10548d6eddadeca7045c0540a6254b748419848f54830",
+      "output_sha256": "e06da90f5a32e123daa50a9c1d9a0983a953b4d6a9cd728d3c0756ea2a1bc6db",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/lightcorvette/rmnative/hull_events.owevents",
+      "source": "ship/kus_lightcorvette/kus_lightcorvette.events",
+      "source_sha256": "784bb42ccef42d1b8cb2cbb16eee9c5585658bf4309c67e0e573b88202760bd5",
+      "output_sha256": "5020bce643731888141852047e6139c81f5937414c5125d54f7259565b7c1091",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/lightinterceptor/rmnative/hull_events.owevents",
+      "source": "ship/kus_scout/kus_scout.events",
+      "source_sha256": "a91c9c88084fe22a92a25ad61899e9cdb2e1b3bb568b37eaaac2c0464ffee8cf",
+      "output_sha256": "8f26eecedee105c84f464deefb4cb5346a23c5d1bce241faa59bea9c548fa4ec",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/minelayercorvette/rmnative/hull_events.owevents",
+      "source": "ship/kus_minelayercorvette/kus_minelayercorvette.events",
+      "source_sha256": "ba3309486d4ed48af38279b13d4eb481bacab2a53e9008779eb93ca7ad54fb06",
+      "output_sha256": "ea1f9028394582a5d2b6441066f25550c34b2c69f8eed742e16a6f8e44f33be0",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/missiledestroyer/rmnative/hull_events.owevents",
+      "source": "ship/kus_missiledestroyer/kus_missiledestroyer.events",
+      "source_sha256": "c4948eb1b2e8c93fc1b5a7dfe6a5ee136aeec7c795cf2c4d9554de7be73695a0",
+      "output_sha256": "3568320c485a8aff92ab6f60f1b072d44683bed9200c3421045ee42ea597c4a6",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/mothership/rmnative/hull_events.owevents",
+      "source": "ship/kus_mothership/kus_mothership.events",
+      "source_sha256": "a142bb5656108e0c979d2880df695e9848b5d6c486efd7b88033020351e1bea0",
+      "output_sha256": "6ba8665eea0ae01db0dcb1c10d3af9d8a458e06092ed478e843887f839a2054a",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/multiguncorvette/rmnative/hull_events.owevents",
+      "source": "ship/kus_multiguncorvette/kus_multiguncorvette.events",
+      "source_sha256": "f348bfb21684226e27e73237fc3c3f6927a9a1284b2b12e1492984cfc4240b84",
+      "output_sha256": "bf0f82d3fd6968f5d8feff35c69c774e18bc2c950d1d5092ec2a3319f40bb382",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/probe/rmnative/hull_events.owevents",
+      "source": "ship/kus_probe/kus_probe.events",
+      "source_sha256": "b3b92cd34e325fe585f885c34c9928932d43c23c2a048af6e8e6ed8de42640ed",
+      "output_sha256": "099208563ff62f24c0c2ec14c17c87cc0c793d199da9d61ff966b7fdb254a9d7",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/proximitysensor/rmnative/hull_events.owevents",
+      "source": "ship/kus_proximitysensor/kus_proximitysensor.events",
+      "source_sha256": "6d7c4af0609b370da109d44f5f937824369468fa8dc42b7ff61bdd3424d50abc",
+      "output_sha256": "c1a0212434d19bd8b01f99c8970dd69906d1f35b983a714e45629dda210fce9b",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/repaircorvette/rmnative/hull_events.owevents",
+      "source": "ship/kus_repaircorvette/kus_repaircorvette.events",
+      "source_sha256": "111619f8f04b5d7f7a780b354b13df243e6e99005636a441e2d72f554bdbeee3",
+      "output_sha256": "cede3a1af608d108f9d0a494c839b4e586baa555dcbf37b952cbfe8f49df9bfd",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/researchship/rmnative/hull_events.owevents",
+      "source": "ship/kus_researchship/kus_researchship.events",
+      "source_sha256": "5b6bb0b16fca439f3baa3cd0842fe09e36409ddc52b842fa6d96b8cfb0b5437a",
+      "output_sha256": "ee87b04cda9558013ee71af035407ee94b6052c8f01694014699bf95f8661bac",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/resourcecollector/rmnative/hull_events.owevents",
+      "source": "ship/kus_resourcecollector/kus_resourcecollector.events",
+      "source_sha256": "ef84649dd971e079992424492250abcecbe9b0061668e3291ba19a47cf13175f",
+      "output_sha256": "5a92bac523b999273805b05380d9747d52b92c2d03bcfb4928f72fd9c70e026b",
+      "classic_harvest": true,
+      "edits": []
+    },
+    {
+      "target": "r1/resourcecontroller/rmnative/hull_events.owevents",
+      "source": "ship/kus_resourcecontroller/kus_resourcecontroller.events",
+      "source_sha256": "d822e6052165c25db31d521d959ad3eef6c91195f678b002a84c1254a9aeee1d",
+      "output_sha256": "2bcfd0a3932b4059cb59e6d7a5f219059e39548f39de333c50c4aea31e18d078",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/salcapcorvette/rmnative/hull_events.owevents",
+      "source": "ship/kus_salvagecorvette/kus_salvagecorvette.events",
+      "source_sha256": "b93edae8301d0a4571ff4a41de8f94be3ca460f18372de3b1d9b090a194329fc",
+      "output_sha256": "5020bce643731888141852047e6139c81f5937414c5125d54f7259565b7c1091",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/sensorarray/rmnative/hull_events.owevents",
+      "source": "ship/kus_sensorarray/kus_sensorarray.events",
+      "source_sha256": "6e9f00c6a115d9962424f607242a0e40a535cb951b72a76fa9b88cdd89d89e9d",
+      "output_sha256": "246b6a4ba897f8aa0b51ce85c0db4d4f9b67191d6599902b631e75d85cee3620",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/standarddestroyer/rmnative/hull_events.owevents",
+      "source": "ship/kus_destroyer/kus_destroyer.events",
+      "source_sha256": "c1459a5c11f167f67e0a06a6cb4970d0b27c891adc4ee75ce007b06a4c6972a8",
+      "output_sha256": "68525762aed354852fc856b0a83f1d82b8d01cd13189d815c5c745a984f326e9",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/standardfrigate/rmnative/hull_events.owevents",
+      "source": "ship/kus_assaultfrigate/kus_assaultfrigate.events",
+      "source_sha256": "141eba4b108e210f8058715cfd672af875d51c6092638d53a7e453fbc4e94066",
+      "output_sha256": "ba744af39e265c539fc55637cce64a2dd61836b43ec30e221161b0ed468b7dce",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r1/targetdrone/rmnative/hull_events.owevents",
+      "source": "ship/kus_targetdrone/kus_targetdrone.events",
+      "source_sha256": "9c264e15721bed2e21ff274b190fdd9a14c1e08fb17f06f44adb705e6c73332e",
+      "output_sha256": "ce876fcc5e48deb7c59d3a868e4f9ef44c0f95f7ca18ba5c47da8908ffe40f15",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/advancesupportfrigate/rmnative/hull_events.owevents",
+      "source": "ship/tai_supportfrigate/tai_supportfrigate.events",
+      "source_sha256": "fa193f720ef6639838ef23a7baaa00c20865320fce0e892ea3f3d78e42f90b74",
+      "output_sha256": "f6f10b6d83ec8a7822e58f1bc892e91bca9df06172b65bc12063dd97734f4f22",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/attackbomber/rmnative/hull_events.owevents",
+      "source": "ship/tai_attackbomber/tai_attackbomber.events",
+      "source_sha256": "7fe2fe2824937e5f061698b5317ab10a2f7eed583c884a40b2350ff287910a41",
+      "output_sha256": "5e64ab1c86463fa57afd192c246fccf54d15b1546809eb93d83b3bb036b65c63",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/carrier/rmnative/hull_events.owevents",
+      "source": "ship/tai_carrier/tai_carrier.events",
+      "source_sha256": "24e7e6dcfea3f9013056919b2f3e51549cc2878bd0c85863cba59c26b93afed3",
+      "output_sha256": "51de0f8bf70971d39f683853c4bfddf23b6ae80a37e30c7cbe5a6c941e16095d",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/cloakgenerator/rmnative/hull_events.owevents",
+      "source": "ship/tai_cloakgenerator/tai_cloakgenerator.events",
+      "source_sha256": "b8275e6434aa94ace84df3620c5356d70551610fc9f9031e66417f61fa772cdc",
+      "output_sha256": "6a72b7a042594c755d0fbb4ef0573bd1afab93bd501dd291d6b7a1b72940c8fa",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/defensefighter/rmnative/hull_events.owevents",
+      "source": "ship/tai_defensefighter/tai_defensefighter.events",
+      "source_sha256": "028c0ad25c294ec3c70432733707cd37a3b2dcae5250aebfbb497664fcf51084",
+      "output_sha256": "289f0234c984d074c67095c6acf462c3c911320ca7aa6d7a4e738e318bf8e349",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/dfgfrigate/rmnative/hull_events.owevents",
+      "source": "ship/tai_fieldfrigate/tai_fieldfrigate.events",
+      "source_sha256": "3a7aeb80fb601589a3df711951deee51a8470ab758668f4dd44f35ff3ba22c49",
+      "output_sha256": "823a00aef085f2b287aff311aeb43b064ab2b5e4139864f0a5234c0ef122af06",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/gravwellgenerator/rmnative/hull_events.owevents",
+      "source": "ship/tai_gravwellgenerator/tai_gravwellgenerator.events",
+      "source_sha256": "f47f443d9f86fdcd2babfd7fc69cba3c5ee466cdf7284e5645f9e1da73c26209",
+      "output_sha256": "a6eb6df61c5a991325f0b73c33bf755dbfdf44a69daed9f247f85153348f7595",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/heavycorvette/rmnative/hull_events.owevents",
+      "source": "ship/tai_heavycorvette/tai_heavycorvette.events",
+      "source_sha256": "8c9fa3e8508a7903a7a3464f920943c86401098a4c87cff7250077c03bbb8d12",
+      "output_sha256": "5020bce643731888141852047e6139c81f5937414c5125d54f7259565b7c1091",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/heavycruiser/rmnative/hull_events.owevents",
+      "source": "ship/tai_heavycruiser/tai_heavycruiser.events",
+      "source_sha256": "ec8b5abdaa60f485756aa2f2970eecc3f6a8bcc2d8394e9156f37381a335368a",
+      "output_sha256": "3ef5b406bd08c0b6f6f3a24617b00eb31efd1a2f1c8c6b186a5cb1c1ef081309",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/heavydefender/rmnative/hull_events.owevents",
+      "source": "ship/tai_defender/tai_defender.events",
+      "source_sha256": "c9450d18f60bb48f9c389659e872d45d0a0618d785462552600a5bbc5ecc590c",
+      "output_sha256": "99ce477f080ababff890fe908bf2b427138b0ac83d906b9601a4975465b74f88",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/heavyinterceptor/rmnative/hull_events.owevents",
+      "source": "ship/tai_interceptor/tai_interceptor.events",
+      "source_sha256": "669a5087c8185864d62a3307cd4bb22ad103d2354c8d4ea64c76670a1215a779",
+      "output_sha256": "4a887adb2c88fccbccc18a80175392c569880293e95bd3a7c9a496109833dcf3",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/ioncannonfrigate/rmnative/hull_events.owevents",
+      "source": "ship/tai_ioncannonfrigate/tai_ioncannonfrigate.events",
+      "source_sha256": "4b77369e913fd42d5cb4267c6114834ccef33954b82c5b4d15eef7fa1c8b164d",
+      "output_sha256": "51414933b7041b6782a2f151c18d9dba5862a26d399f432096635e421e26a933",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/lightcorvette/rmnative/hull_events.owevents",
+      "source": "ship/tai_lightcorvette/tai_lightcorvette.events",
+      "source_sha256": "c17687547184275e545d2d4daa2ab994d1940517c24041cf8bae65bf6524f71d",
+      "output_sha256": "ce515fc076f45cfef29f8cd6de9bcef2200766df48ee8c1ba1158b24e445d4ff",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/lightinterceptor/rmnative/hull_events.owevents",
+      "source": "ship/tai_scout/tai_scout.events",
+      "source_sha256": "b246cba598dd3adf2e68e1b30d4d963182fd20eb4c299869286cc1d8bda2eab6",
+      "output_sha256": "daece5b6578a9430908cd85f67f1d5b290406404a1e76cec8855934bdcf91a16",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/minelayercorvette/rmnative/hull_events.owevents",
+      "source": "ship/tai_minelayercorvette/tai_minelayercorvette.events",
+      "source_sha256": "476f2672351f5730825f3ffc5472036a4e6f9758aada5693b62fa784d226fadb",
+      "output_sha256": "87ae2cfe5290b2138d23349e1f776139468e02fdd966ae7165f890de2caef50e",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/missiledestroyer/rmnative/hull_events.owevents",
+      "source": "ship/tai_missiledestroyer/tai_missiledestroyer.events",
+      "source_sha256": "0d0882bd451bb5afb714bfe5dc6e596252dfb59220aca26e0d5009daff12cc04",
+      "output_sha256": "885e84d2679da301b6b4d1d12a2c698cc0d2031e57e30fbc37eca0cba894a518",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/mothership/rmnative/hull_events.owevents",
+      "source": "ship/tai_mothership/tai_mothership.events",
+      "source_sha256": "c9df1c144760fd998ffda16004192cf6e0109fb677945401ce88a7e662a65f86",
+      "output_sha256": "11fb73564b6a5dd0c3dd889d70abbb15ef1759440f05d4037ad037aef8ee3aac",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/multiguncorvette/rmnative/hull_events.owevents",
+      "source": "ship/tai_multiguncorvette/tai_multiguncorvette.events",
+      "source_sha256": "53596a3b3091dd3742e6350dc0901816dd46f3701c134cb4231b3342fa4b305c",
+      "output_sha256": "11b0f04ca97effa8b1979615ef485c9e6af1ec43ee42a56736ff6668c4bfb023",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/probe/rmnative/hull_events.owevents",
+      "source": "ship/tai_probe/tai_probe.events",
+      "source_sha256": "abbcd3a06018b69f6d295633790fa2215a87bb1c4bd16ab7c40b0a839df914a5",
+      "output_sha256": "fe1c5ae42619fda01a58f0d7fdf1bef50ccd3c70a9892ff2f2e8f6645e93a1a6",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/proximitysensor/rmnative/hull_events.owevents",
+      "source": "ship/tai_proximitysensor/tai_proximitysensor.events",
+      "source_sha256": "1c21fa9c10489bb05adddb41b575e145d3fbb6f91c53329ce33e922fff4b4f0b",
+      "output_sha256": "0e138ba94d68680f8eeb55fb106d85d0652f67d8146d49219d3906ee05736b23",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/repaircorvette/rmnative/hull_events.owevents",
+      "source": "ship/tai_repaircorvette/tai_repaircorvette.events",
+      "source_sha256": "5195d162e75d1f832222d11a57138ecee48cf3671ea82d3e412fd59ba8982c43",
+      "output_sha256": "8c3c2719a951fa851c7b5395e27023f6e34d2beca860aa0f00f2b31194d6435c",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/researchship/rmnative/hull_events.owevents",
+      "source": "ship/tai_researchship/tai_researchship.events",
+      "source_sha256": "5b6bb0b16fca439f3baa3cd0842fe09e36409ddc52b842fa6d96b8cfb0b5437a",
+      "output_sha256": "ee87b04cda9558013ee71af035407ee94b6052c8f01694014699bf95f8661bac",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/resourcecollector/rmnative/hull_events.owevents",
+      "source": "ship/tai_resourcecollector/tai_resourcecollector.events",
+      "source_sha256": "7947d18124d1739416dcbc36eaf2a6de2e53ad149dcd04d2d91040e750c31da1",
+      "output_sha256": "0b7462968e2641ebc1d76695b2d4439abf0dea83288591ff84135df3bfa8b170",
+      "classic_harvest": true,
+      "edits": []
+    },
+    {
+      "target": "r2/resourcecontroller/rmnative/hull_events.owevents",
+      "source": "ship/tai_resourcecontroller/tai_resourcecontroller.events",
+      "source_sha256": "48c35b9f90e65e2cd527e9a366e48aa8c1fdb054b289bf33998cef3a3e74c425",
+      "output_sha256": "753a8a5ea3f917207114801e1cbab405ea2aefa08fd550f1b2383c0e838cf141",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/salcapcorvette/rmnative/hull_events.owevents",
+      "source": "ship/tai_salvagecorvette/tai_salvagecorvette.events",
+      "source_sha256": "74c0814f96909eeec02a9a64b9011654101868c2f763cfa2f8d9a3ca7bc165b2",
+      "output_sha256": "2a96e00ab4b0d13d7a6b8ace1349ed60b9064397cd8df81f9b13fbc208bfa913",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/sensorarray/rmnative/hull_events.owevents",
+      "source": "ship/tai_sensorarray/tai_sensorarray.events",
+      "source_sha256": "26f0c248b0c5e832110d0d56cc98c67966e4dae5b237c65bc41039b1827e42ce",
+      "output_sha256": "9015577571e995430e17efba641c14d6e7e60a5974987e579f1abd31a377241e",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/standarddestroyer/rmnative/hull_events.owevents",
+      "source": "ship/tai_destroyer/tai_destroyer.events",
+      "source_sha256": "00d6d4969a8f969b97e5c43f80df1acadb0c15f50a68fdf006a1624835783252",
+      "output_sha256": "e854372d23ba714f8de16306e165365ccfb394f3bab023951523d5083415d490",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/standardfrigate/rmnative/hull_events.owevents",
+      "source": "ship/tai_assaultfrigate/tai_assaultfrigate.events",
+      "source_sha256": "4a38340e2db8aad257003c551839670083dfd1ffac58fc1e02933d5198d4b7ce",
+      "output_sha256": "3ee3b47b40c44da46b8288379e03706dd558dfe6074cfdefa7986b89535a224c",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "r2/targetdrone/rmnative/hull_events.owevents",
+      "source": "ship/tai_targetdrone/tai_targetdrone.events",
+      "source_sha256": "515b682eed02dc40f683e849e2ac60b0c2491e6e5f798e773eb26bdfdb73e6a6",
+      "output_sha256": "0e67b0021ac0554f42978f1d7377bd60a7439704f69bdce22e70e8063a0dac70",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_assaultgun_hw1_4fe150a31d/component_events.owevents",
+      "source": "subsystem/kus_supportgun/kus_supportgun.events",
+      "source_sha256": "0c6716e178c92c805252a470e87070d4e8d4d33158b89a2c64c93c10af0fd643",
+      "output_sha256": "5b6cdc77bca0f376177b11923f3504f2c46f1a38da7f6736328557361686795b",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_assaultgun_hw1_a263282b10/component_events.owevents",
+      "source": "subsystem/kus_assaultgun/kus_assaultgun.events",
+      "source_sha256": "0c6716e178c92c805252a470e87070d4e8d4d33158b89a2c64c93c10af0fd643",
+      "output_sha256": "5b6cdc77bca0f376177b11923f3504f2c46f1a38da7f6736328557361686795b",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_assaultgun_hw1_ae85dfad25/component_events.owevents",
+      "source": "subsystem/kus_assaultgun/kus_assaultgun.events",
+      "source_sha256": "0c6716e178c92c805252a470e87070d4e8d4d33158b89a2c64c93c10af0fd643",
+      "output_sha256": "5b6cdc77bca0f376177b11923f3504f2c46f1a38da7f6736328557361686795b",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_assaultgun_hw1_e5132ac247/component_events.owevents",
+      "source": "subsystem/kus_assaultgun/kus_assaultgun.events",
+      "source_sha256": "0c6716e178c92c805252a470e87070d4e8d4d33158b89a2c64c93c10af0fd643",
+      "output_sha256": "5b6cdc77bca0f376177b11923f3504f2c46f1a38da7f6736328557361686795b",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_carrierengine_hw1_e3b28eee53/component_events.owevents",
+      "source": "subsystem/kus_carrierengine/kus_carrierengine.events",
+      "source_sha256": "7bafd329542f7cff8dc5b05e02a4c6a63e4338d63e6d449bfa401ff0c25940d4",
+      "output_sha256": "0769017621cd3b47d9815a17c9601b362998bec8470728aea88613a2fe0238cf",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_carrierresource_hw1_51f9f7a094/component_events.owevents",
+      "source": "subsystem/kus_carrierresource/kus_carrierresource.events",
+      "source_sha256": "f263368451b6a086141fba03043e3781890fd8457c4ff21bb1e1111b6fe8cf67",
+      "output_sha256": "9cf91df881c5aff9b05b9315b0647318fc29ee29decd1aae357d165771c6985a",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_cruisergun1_hw1_2c6d17e84f/component_events.owevents",
+      "source": "subsystem/kus_cruisergun1/kus_cruisergun1.events",
+      "source_sha256": "ae6392b9c5617c13f5c3f68721278658de8cf08a4dde97cbfc84a294501b55c6",
+      "output_sha256": "23369bf2b10781ca01550989b4bda9a2ae3e0d386afc58ee58162e90df5567d9",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_cruisergun1_hw1_b5f6f10a80/component_events.owevents",
+      "source": "subsystem/kus_cruisergun1/kus_cruisergun1.events",
+      "source_sha256": "ae6392b9c5617c13f5c3f68721278658de8cf08a4dde97cbfc84a294501b55c6",
+      "output_sha256": "23369bf2b10781ca01550989b4bda9a2ae3e0d386afc58ee58162e90df5567d9",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_cruisergun1_hw1_cc7bca4996/component_events.owevents",
+      "source": "subsystem/kus_cruisergun1/kus_cruisergun1.events",
+      "source_sha256": "ae6392b9c5617c13f5c3f68721278658de8cf08a4dde97cbfc84a294501b55c6",
+      "output_sha256": "23369bf2b10781ca01550989b4bda9a2ae3e0d386afc58ee58162e90df5567d9",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_cruisergun1_hw1_e215101788/component_events.owevents",
+      "source": "subsystem/kus_cruisergun1/kus_cruisergun1.events",
+      "source_sha256": "ae6392b9c5617c13f5c3f68721278658de8cf08a4dde97cbfc84a294501b55c6",
+      "output_sha256": "23369bf2b10781ca01550989b4bda9a2ae3e0d386afc58ee58162e90df5567d9",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_cruisergun1_hw1_e9a24fade6/component_events.owevents",
+      "source": "subsystem/kus_cruisergun1/kus_cruisergun1.events",
+      "source_sha256": "ae6392b9c5617c13f5c3f68721278658de8cf08a4dde97cbfc84a294501b55c6",
+      "output_sha256": "23369bf2b10781ca01550989b4bda9a2ae3e0d386afc58ee58162e90df5567d9",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_cruiserion_hw1_b191bcb35f/component_events.owevents",
+      "source": "subsystem/kus_cruiserion/kus_cruiserion.events",
+      "source_sha256": "de6e2b34ed843b366aedbfb0d3166578e99c36cb22191740cdd367de974b2356",
+      "output_sha256": "d4d4aaccc07ff745f2986dd265d0e54a5dbf758e7e17b5e507e0de6545ffc9ba",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_cruiserion_hw1_e4fa454c18/component_events.owevents",
+      "source": "subsystem/kus_cruiserion/kus_cruiserion.events",
+      "source_sha256": "de6e2b34ed843b366aedbfb0d3166578e99c36cb22191740cdd367de974b2356",
+      "output_sha256": "d4d4aaccc07ff745f2986dd265d0e54a5dbf758e7e17b5e507e0de6545ffc9ba",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_destroyerengine_hw1_462cdfeb99/component_events.owevents",
+      "source": "subsystem/kus_destroyerengine/kus_destroyerengine.events",
+      "source_sha256": "05c06e2a3a98e6c5be267f8965c0694049cc59f1e367361ac3e56d728e8e5f61",
+      "output_sha256": "152f518e82e74662f71eac9ac5ff503786b5fa09556b3d331098fe4d02584d6d",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_destroyergun_hw1_6904c452ab/component_events.owevents",
+      "source": "subsystem/kus_destroyergun/kus_destroyergun.events",
+      "source_sha256": "a38e379f33a4d7003dc0cb20d3e63866ebab76447bb373c3226234c0f0c103b3",
+      "output_sha256": "1cba6868e400f4c4f7f91ec165a34ad3361e48ec98b483e2fc9aa33461904231",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_destroyergun_hw1_bde26553a2/component_events.owevents",
+      "source": "subsystem/kus_destroyergun/kus_destroyergun.events",
+      "source_sha256": "a38e379f33a4d7003dc0cb20d3e63866ebab76447bb373c3226234c0f0c103b3",
+      "output_sha256": "1cba6868e400f4c4f7f91ec165a34ad3361e48ec98b483e2fc9aa33461904231",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_destroyerion1_hw1_07d83e4571/component_events.owevents",
+      "source": "subsystem/kus_destroyerion1/kus_destroyerion1.events",
+      "source_sha256": "2c83eb32cc598801095b911e2b8a7901d3c2c176cc74ed8297cee88792afe3e7",
+      "output_sha256": "a1fc472d109701e48563ef7cbc772664a352520a6e171b4bde4be11045665577",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_destroyerion1_hw1_aa0785958c/component_events.owevents",
+      "source": "subsystem/kus_destroyerion1/kus_destroyerion1.events",
+      "source_sha256": "2c83eb32cc598801095b911e2b8a7901d3c2c176cc74ed8297cee88792afe3e7",
+      "output_sha256": "a1fc472d109701e48563ef7cbc772664a352520a6e171b4bde4be11045665577",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_heavycruiserengine_hw1_6fdf3e71c6/component_events.owevents",
+      "source": "subsystem/kus_heavycruiserengine/kus_heavycruiserengine.events",
+      "source_sha256": "7bafd329542f7cff8dc5b05e02a4c6a63e4338d63e6d449bfa401ff0c25940d4",
+      "output_sha256": "0769017621cd3b47d9815a17c9601b362998bec8470728aea88613a2fe0238cf",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_hvcorvette1_hw1_019039add8/component_events.owevents",
+      "source": "subsystem/kus_ltcorvette/kus_ltcorvette.events",
+      "source_sha256": "0c2437c95da19a9cb1d61d1622dd24ab4141f650e3d471288b620edef9f464cf",
+      "output_sha256": "22889d93fdf850d6c0fc910884d9bdf8d70f22171f3b5e8e9f90d82202c440fa",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_hvcorvette1_hw1_0a7b9bc155/component_events.owevents",
+      "source": "subsystem/kus_multigun1/kus_multigun1.events",
+      "source_sha256": "0c2437c95da19a9cb1d61d1622dd24ab4141f650e3d471288b620edef9f464cf",
+      "output_sha256": "22889d93fdf850d6c0fc910884d9bdf8d70f22171f3b5e8e9f90d82202c440fa",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_hvcorvette1_hw1_0b80fc6fa6/component_events.owevents",
+      "source": "subsystem/kus_multigun1/kus_multigun1.events",
+      "source_sha256": "0c2437c95da19a9cb1d61d1622dd24ab4141f650e3d471288b620edef9f464cf",
+      "output_sha256": "22889d93fdf850d6c0fc910884d9bdf8d70f22171f3b5e8e9f90d82202c440fa",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_hvcorvette1_hw1_1e59009416/component_events.owevents",
+      "source": "subsystem/kus_multigun1/kus_multigun1.events",
+      "source_sha256": "0c2437c95da19a9cb1d61d1622dd24ab4141f650e3d471288b620edef9f464cf",
+      "output_sha256": "22889d93fdf850d6c0fc910884d9bdf8d70f22171f3b5e8e9f90d82202c440fa",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_hvcorvette1_hw1_32ba07a1f3/component_events.owevents",
+      "source": "subsystem/kus_multigun1/kus_multigun1.events",
+      "source_sha256": "0c2437c95da19a9cb1d61d1622dd24ab4141f650e3d471288b620edef9f464cf",
+      "output_sha256": "22889d93fdf850d6c0fc910884d9bdf8d70f22171f3b5e8e9f90d82202c440fa",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_hvcorvette1_hw1_b1d1536040/component_events.owevents",
+      "source": "subsystem/kus_multigun1/kus_multigun1.events",
+      "source_sha256": "0c2437c95da19a9cb1d61d1622dd24ab4141f650e3d471288b620edef9f464cf",
+      "output_sha256": "22889d93fdf850d6c0fc910884d9bdf8d70f22171f3b5e8e9f90d82202c440fa",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_hvcorvette1_hw1_c664525ecb/component_events.owevents",
+      "source": "subsystem/kus_hvcorvette1/kus_hvcorvette1.events",
+      "source_sha256": "18f5dfae10569a0ed0520c22e8ae321f7ef05cbfea70d620689b877cfea33373",
+      "output_sha256": "b67315607cb221f9a855f9d9eac4779a6868220f27584052a95a6ef9f28fdadf",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_hvcorvette1_hw1_e8e26b86dd/component_events.owevents",
+      "source": "subsystem/kus_multigun1/kus_multigun1.events",
+      "source_sha256": "0c2437c95da19a9cb1d61d1622dd24ab4141f650e3d471288b620edef9f464cf",
+      "output_sha256": "22889d93fdf850d6c0fc910884d9bdf8d70f22171f3b5e8e9f90d82202c440fa",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_hvcorvette1_hw1_f254eff08e/component_events.owevents",
+      "source": "subsystem/kus_hvcorvette1/kus_hvcorvette1.events",
+      "source_sha256": "18f5dfae10569a0ed0520c22e8ae321f7ef05cbfea70d620689b877cfea33373",
+      "output_sha256": "b67315607cb221f9a855f9d9eac4779a6868220f27584052a95a6ef9f28fdadf",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_missiledestroyerengine_hw1_730aa13cd7/component_events.owevents",
+      "source": "subsystem/kus_missiledestroyerengine/kus_missiledestroyerengine.events",
+      "source_sha256": "05c06e2a3a98e6c5be267f8965c0694049cc59f1e367361ac3e56d728e8e5f61",
+      "output_sha256": "152f518e82e74662f71eac9ac5ff503786b5fa09556b3d331098fe4d02584d6d",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_mothershipengine_hw1_5e2212850f/component_events.owevents",
+      "source": "subsystem/kus_mothershipengine/kus_mothershipengine.events",
+      "source_sha256": "e548a739b013e61ba29f55d8a168568cd35f5ad204bc6da8a3cd6bd1c7da83fa",
+      "output_sha256": "d09a0d246ecd6b5d22a3d00188341c92a5bcf758fd192f709ddcdb0c12672b01",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/kus_mothershipresource_hw1_b6c5b102ea/component_events.owevents",
+      "source": "subsystem/kus_mothershipresource/kus_mothershipresource.events",
+      "source_sha256": "f263368451b6a086141fba03043e3781890fd8457c4ff21bb1e1111b6fe8cf67",
+      "output_sha256": "9cf91df881c5aff9b05b9315b0647318fc29ee29decd1aae357d165771c6985a",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_assaultcannon_hw1_6e0105017b/component_events.owevents",
+      "source": "subsystem/tai_assaultcannon/tai_assaultcannon.events",
+      "source_sha256": "35be54a46088b03fec147340e50f8b62e5db1bb08348e6717591ad9d44987789",
+      "output_sha256": "acf71530e87797dabf985d2a505bded0ed7ef015449d383310e7d2ba8df109f1",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_assaultcannon_hw1_774cabf2d8/component_events.owevents",
+      "source": "subsystem/tai_assaultcannon/tai_assaultcannon.events",
+      "source_sha256": "35be54a46088b03fec147340e50f8b62e5db1bb08348e6717591ad9d44987789",
+      "output_sha256": "acf71530e87797dabf985d2a505bded0ed7ef015449d383310e7d2ba8df109f1",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_carrierengine_hw1_256e8652bc/component_events.owevents",
+      "source": "subsystem/tai_carrierengine/tai_carrierengine.events",
+      "source_sha256": "7bafd329542f7cff8dc5b05e02a4c6a63e4338d63e6d449bfa401ff0c25940d4",
+      "output_sha256": "0769017621cd3b47d9815a17c9601b362998bec8470728aea88613a2fe0238cf",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_carrierresource_hw1_8134f8149c/component_events.owevents",
+      "source": "subsystem/tai_carrierresource/tai_carrierresource.events",
+      "source_sha256": "f263368451b6a086141fba03043e3781890fd8457c4ff21bb1e1111b6fe8cf67",
+      "output_sha256": "9cf91df881c5aff9b05b9315b0647318fc29ee29decd1aae357d165771c6985a",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_corvettegun_hw1_536bfc3f8b/component_events.owevents",
+      "source": "subsystem/tai_corvettegun/tai_corvettegun.events",
+      "source_sha256": "2ffe55bf5fa00392c465c86c3ceed266acf2ab5755204d1430aafbbeab60d691",
+      "output_sha256": "e335f3c08d41053a90e942c806b5594e52cb78de6f3b5637855443a9872fe4c1",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_corvettegun_hw1_b860ab5d42/component_events.owevents",
+      "source": "subsystem/tai_corvettegun/tai_corvettegun.events",
+      "source_sha256": "2ffe55bf5fa00392c465c86c3ceed266acf2ab5755204d1430aafbbeab60d691",
+      "output_sha256": "e335f3c08d41053a90e942c806b5594e52cb78de6f3b5637855443a9872fe4c1",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_cruisergun1_hw1_229be91a2b/component_events.owevents",
+      "source": "subsystem/tai_cruisergun1/tai_cruisergun1.events",
+      "source_sha256": "ae6392b9c5617c13f5c3f68721278658de8cf08a4dde97cbfc84a294501b55c6",
+      "output_sha256": "23369bf2b10781ca01550989b4bda9a2ae3e0d386afc58ee58162e90df5567d9",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_cruisergun1_hw1_34062c79ff/component_events.owevents",
+      "source": "subsystem/tai_cruisergun1/tai_cruisergun1.events",
+      "source_sha256": "ae6392b9c5617c13f5c3f68721278658de8cf08a4dde97cbfc84a294501b55c6",
+      "output_sha256": "23369bf2b10781ca01550989b4bda9a2ae3e0d386afc58ee58162e90df5567d9",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_cruisergun1_hw1_46a074068a/component_events.owevents",
+      "source": "subsystem/tai_cruisergun1/tai_cruisergun1.events",
+      "source_sha256": "ae6392b9c5617c13f5c3f68721278658de8cf08a4dde97cbfc84a294501b55c6",
+      "output_sha256": "23369bf2b10781ca01550989b4bda9a2ae3e0d386afc58ee58162e90df5567d9",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_cruisergun1_hw1_af69671159/component_events.owevents",
+      "source": "subsystem/tai_cruisergun1/tai_cruisergun1.events",
+      "source_sha256": "ae6392b9c5617c13f5c3f68721278658de8cf08a4dde97cbfc84a294501b55c6",
+      "output_sha256": "23369bf2b10781ca01550989b4bda9a2ae3e0d386afc58ee58162e90df5567d9",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_cruisergun1_hw1_c724702a64/component_events.owevents",
+      "source": "subsystem/tai_cruisergun1/tai_cruisergun1.events",
+      "source_sha256": "ae6392b9c5617c13f5c3f68721278658de8cf08a4dde97cbfc84a294501b55c6",
+      "output_sha256": "23369bf2b10781ca01550989b4bda9a2ae3e0d386afc58ee58162e90df5567d9",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_cruisergun1_hw1_ce8fc8223c/component_events.owevents",
+      "source": "subsystem/tai_cruisergun1/tai_cruisergun1.events",
+      "source_sha256": "ae6392b9c5617c13f5c3f68721278658de8cf08a4dde97cbfc84a294501b55c6",
+      "output_sha256": "23369bf2b10781ca01550989b4bda9a2ae3e0d386afc58ee58162e90df5567d9",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_cruiserion_hw1_6fd11f0613/component_events.owevents",
+      "source": "subsystem/tai_cruiserion/tai_cruiserion.events",
+      "source_sha256": "0e84e0ff926901840f8a545b97a29e93ab03ebb039c4d320aa9c4a3c7597ea51",
+      "output_sha256": "d104977cfbcec31ae81d7e2a8024e30479b555d2b9295c22f36d0f1912f3d047",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_cruiserion_hw1_d4f46c1b72/component_events.owevents",
+      "source": "subsystem/tai_cruiserion/tai_cruiserion.events",
+      "source_sha256": "0e84e0ff926901840f8a545b97a29e93ab03ebb039c4d320aa9c4a3c7597ea51",
+      "output_sha256": "d104977cfbcec31ae81d7e2a8024e30479b555d2b9295c22f36d0f1912f3d047",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_destroyerengine_hw1_8056557feb/component_events.owevents",
+      "source": "subsystem/tai_destroyerengine/tai_destroyerengine.events",
+      "source_sha256": "05c06e2a3a98e6c5be267f8965c0694049cc59f1e367361ac3e56d728e8e5f61",
+      "output_sha256": "152f518e82e74662f71eac9ac5ff503786b5fa09556b3d331098fe4d02584d6d",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_destroyergun_hw1_1372d503c4/component_events.owevents",
+      "source": "subsystem/tai_destroyergun/tai_destroyergun.events",
+      "source_sha256": "a2cb6ba2204b382c15d3ff7a63c1ef1ca3f4d5395fdbfd29efbf75ead95e4a15",
+      "output_sha256": "dcd122f19c1be518c99a9cebd98acdf7f950d1f5708bfba8b53d71b864e19129",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_destroyergun_hw1_6605561078/component_events.owevents",
+      "source": "subsystem/tai_destroyergun/tai_destroyergun.events",
+      "source_sha256": "a2cb6ba2204b382c15d3ff7a63c1ef1ca3f4d5395fdbfd29efbf75ead95e4a15",
+      "output_sha256": "dcd122f19c1be518c99a9cebd98acdf7f950d1f5708bfba8b53d71b864e19129",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_frigatecannon_hw1_0678bf2d07/component_events.owevents",
+      "source": "subsystem/tai_frigatecannon/tai_frigatecannon.events",
+      "source_sha256": "35be54a46088b03fec147340e50f8b62e5db1bb08348e6717591ad9d44987789",
+      "output_sha256": "acf71530e87797dabf985d2a505bded0ed7ef015449d383310e7d2ba8df109f1",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_frigatecannon_hw1_7ea399653f/component_events.owevents",
+      "source": "subsystem/tai_frigatecannon/tai_frigatecannon.events",
+      "source_sha256": "35be54a46088b03fec147340e50f8b62e5db1bb08348e6717591ad9d44987789",
+      "output_sha256": "acf71530e87797dabf985d2a505bded0ed7ef015449d383310e7d2ba8df109f1",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_frigatecannon_hw1_9719c16d3d/component_events.owevents",
+      "source": "subsystem/tai_frigatecannon/tai_frigatecannon.events",
+      "source_sha256": "35be54a46088b03fec147340e50f8b62e5db1bb08348e6717591ad9d44987789",
+      "output_sha256": "acf71530e87797dabf985d2a505bded0ed7ef015449d383310e7d2ba8df109f1",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_frigatecannon_hw1_9dc00af69f/component_events.owevents",
+      "source": "subsystem/tai_frigatecannon/tai_frigatecannon.events",
+      "source_sha256": "35be54a46088b03fec147340e50f8b62e5db1bb08348e6717591ad9d44987789",
+      "output_sha256": "acf71530e87797dabf985d2a505bded0ed7ef015449d383310e7d2ba8df109f1",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_heavycruiserengine_hw1_0c39ebf429/component_events.owevents",
+      "source": "subsystem/tai_heavycruiserengine/tai_heavycruiserengine.events",
+      "source_sha256": "7bafd329542f7cff8dc5b05e02a4c6a63e4338d63e6d449bfa401ff0c25940d4",
+      "output_sha256": "0769017621cd3b47d9815a17c9601b362998bec8470728aea88613a2fe0238cf",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_missiledestroyerengine_hw1_bf30face17/component_events.owevents",
+      "source": "subsystem/tai_missiledestroyerengine/tai_missiledestroyerengine.events",
+      "source_sha256": "05c06e2a3a98e6c5be267f8965c0694049cc59f1e367361ac3e56d728e8e5f61",
+      "output_sha256": "152f518e82e74662f71eac9ac5ff503786b5fa09556b3d331098fe4d02584d6d",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_mothershipengine_hw1_59488640b2/component_events.owevents",
+      "source": "subsystem/tai_mothershipengine/tai_mothershipengine.events",
+      "source_sha256": "e548a739b013e61ba29f55d8a168568cd35f5ad204bc6da8a3cd6bd1c7da83fa",
+      "output_sha256": "d09a0d246ecd6b5d22a3d00188341c92a5bcf758fd192f709ddcdb0c12672b01",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tai_mothershipresource_hw1_f231dff025/component_events.owevents",
+      "source": "subsystem/tai_mothershipresource/tai_mothershipresource.events",
+      "source_sha256": "f263368451b6a086141fba03043e3781890fd8457c4ff21bb1e1111b6fe8cf67",
+      "output_sha256": "9cf91df881c5aff9b05b9315b0647318fc29ee29decd1aae357d165771c6985a",
+      "classic_harvest": false,
+      "edits": []
+    },
+    {
+      "target": "subsystems/tur_carriereng_hw1_cf4b959a75/component_events.owevents",
+      "source": "subsystem/tur_carriereng/tur_carriereng.events",
+      "source_sha256": "d1876e92c4e9d647e37a5685242ab70a638ca8f83223a33e900afdf20d82a726",
+      "output_sha256": "2f815005540654e076288f82fb33328174e11260d53e578f1561a27bdd840e45",
+      "classic_harvest": false,
+      "edits": []
+    }
+  ]
+}

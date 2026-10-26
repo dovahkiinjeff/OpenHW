@@ -1,0 +1,4 @@
+numpy==2.3.5
+Pillow==12.3.0
+pefile==2024.8.26
+pyinstaller==6.22.3

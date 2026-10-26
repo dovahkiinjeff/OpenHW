@@ -1,0 +1,9 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_tai_missiledestroyerengine_hw1_bf30face17
+scale 1
+hull @/Subsystems/tai_missiledestroyerengine/model.hod
+mad -
+
+presentation Hull component_events.owevents
+[Weapons]
+[End]

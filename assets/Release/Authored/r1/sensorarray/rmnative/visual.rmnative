@@ -1,0 +1,7 @@
+HW_RM_R1_VISUAL_1
+type SensorArray
+scale 2.85714267
+hull hull.hod
+mad animation.mad
+marker engine_0 Hull EngineMainDrive
+surface 0 0 c0_m0

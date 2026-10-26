@@ -1,0 +1,6 @@
+OPENHW_SHIP_1
+type Derelict_Junk1_partB
+scale 2.45037461
+hull hull.hod
+mad -
+surface 0 0 c0_m0

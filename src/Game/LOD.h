@@ -119,6 +119,7 @@ extern real32 lodDebugScaleFactor;
 lodinfo *lodTableReadScript(char *directory, char *fileName);
 
 lod *lodLevelGet(void *spaceObj, vector *camera, vector *ship);
+sdword lodDiscoveryLevelGet(void *spaceObj);
 lod *lodPanicLevelGet(void *spaceObj, vector *camera, vector *ship);
 void lodAllMeshesRecolorize(lodinfo *LOD);
 sdword lodHierarchySizeCompute(lodinfo *LOD);

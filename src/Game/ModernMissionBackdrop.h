@@ -3,12 +3,18 @@
 
 #include "Types.h"
 
+void modernMissionBackdropLightingTuningCapture(void);
+void modernMissionBackdropLightingTuningApply(void);
+
 /* Draws the campaign mission environment as a native fullscreen D3D12
    direction lookup from a pole-safe dual-paraboloid HDR Texture2D. TRUE means
    the modern layer rendered successfully and the caller must skip the visible
    legacy BTG; FALSE deliberately leaves the BTG as a fallback. */
 bool32 modernMissionBackdropRender(real32 fade);
 bool32 modernMissionBackdropActive(void);
+/* Shared validated upload only; does not replace mission lighting metadata. */
+bool32 modernMissionBackdropLoadSkyTexture(const char *path, udword *texture);
+void modernMissionBackdropPrepare(void);
 bool32 modernMissionBackdropSkyLighting(real32 outDirection[3],
                                         real32 outSourceColor[3],
                                         real32 outAmbientColor[3],
@@ -51,6 +57,9 @@ typedef struct ModernMissionLightingAuthoringState
     real32 direction[3];
     real32 baseSourceColor[3];
     real32 sunIntensity;
+    real32 godRayStrength;
+    bool32 godRayColorOverride;
+    real32 godRayColor[3];
     real32 sourceColorScale[3];
     real32 baseAmbientColor[3];
     bool32 ambientEnabled;

@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     Name    : mesh.c
     Purpose : Functions to load, manipulate and render polygon meshes.
@@ -15,6 +16,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 
 #if !defined _MSC_VER
 #include <strings.h>
@@ -25,6 +27,10 @@
 #include "Debug.h"
 #include "File.h"
 #include "Memory.h"
+#include "RemasteredEmission.h"
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+#include "PersistentMeshSource.h"
+#endif
 #include "Vector.h"
 #include "texreg.h"
 #include "render.h"
@@ -34,6 +40,15 @@
 #include "SpaceObj.h"
 #include "Universe.h"
 #include "Mesh.h"
+#include "RemasteredShipHod.h"
+#include "RemasteredSubsystem.h"
+#include "NativeVisualRegistry.h"
+#include "NativeVisualEvents.h"
+#include "RemasteredVisualPackage.h"
+#include "NativeVisualScope.h"
+#include "NativeGunPosePolicy.h"
+#include "Gun.h"
+#include "RemasteredWeaponFX.h"
 #include "Shader.h"
 #include "AutoLOD.h"
 #include "CRC32.h"
@@ -46,6 +61,7 @@
 
 #ifdef _MSC_VER
 #define strcasecmp _stricmp
+#define strncasecmp _strnicmp
 #endif
 
 #define GLVERTEX(x) glVertex4fv((GLfloat*)(x))
@@ -120,6 +136,222 @@ trcolorinfo meshRace2Colors = {colRGB(17, 17, 145), colRGB(209, 28, 139)};
 //funtion-pointer for changing the current material
 void (*meshCurrentMaterial)(materialentry *material, sdword iColorScheme) = meshCurrentMaterialDefault;
 
+/* Two immutable material identities let simultaneous ships use different
+   engine states in raster draws and cached DXR surface/light variants. */
+typedef struct meshEngineMaterialPair {
+    struct meshEngineMaterialPair *next;
+    meshdata *mesh;
+    materialentry *idle;
+    materialentry active;
+    trhandle *handles;
+    char name[FL_Path];
+} meshEngineMaterialPair;
+static meshEngineMaterialPair *meshEngineMaterials[256];
+#include "EngineFade.h"
+static float meshEngineBlend;
+typedef struct meshEngineFadeState {
+    const void *owner;
+    float time, value;
+} meshEngineFadeState;
+/* Ship numbers are stable across draw passes; no serialized ship layout change. */
+static meshEngineFadeState meshEngineFades[65536];
+
+#ifdef HW_ENABLE_D3D12_BACKEND
+#include "ShipMotionIdentity.h"
+static ShipMotionIdentityRegistry meshMotionIdentities;
+static uint64_t meshMotionOwner;
+#endif
+
+void meshMotionRegisterShip(const void *owner)
+{
+#ifdef HW_ENABLE_D3D12_BACKEND
+    const Ship *ship = (const Ship *)owner;
+    if (ship != NULL)
+        shipMotionIdentityRegister(&meshMotionIdentities, ship,
+                                   ship->shipID.shipNumber);
+#else
+    (void)owner;
+#endif
+}
+
+void meshMotionRetireShip(const void *owner)
+{
+#ifdef HW_ENABLE_D3D12_BACKEND
+    const Ship *ship = (const Ship *)owner;
+    if (ship != NULL)
+    {
+        ShipMotionIdentitySlot *slot =
+            shipMotionIdentityFindSlot(meshMotionIdentities.slots, ship, ship->shipID.shipNumber, 0);
+        if (slot != NULL && slot->token == meshMotionOwner)
+            meshMotionOwner = 0;
+        shipMotionIdentityRetire(&meshMotionIdentities, ship,
+                                ship->shipID.shipNumber);
+    }
+#else
+    (void)owner;
+#endif
+}
+
+void meshMotionRegisterAsteroid(const void *owner)
+{
+#ifdef HW_ENABLE_D3D12_BACKEND
+    const Asteroid *asteroid = (const Asteroid *)owner;
+    if (asteroid != NULL)
+        asteroidMotionIdentityRegister(&meshMotionIdentities, asteroid,
+                                       asteroid->resourceID.resourceNumber);
+#else
+    (void)owner;
+#endif
+}
+
+void meshMotionRetireAsteroid(const void *owner)
+{
+#ifdef HW_ENABLE_D3D12_BACKEND
+    const Asteroid *asteroid = (const Asteroid *)owner;
+    if (asteroid != NULL)
+    {
+        ShipMotionIdentitySlot *slot =
+            shipMotionIdentityFindSlot(meshMotionIdentities.asteroidSlots, asteroid, asteroid->resourceID.resourceNumber, 0);
+        if (slot != NULL && slot->token == meshMotionOwner)
+            meshMotionOwner = 0;
+        asteroidMotionIdentityRetire(&meshMotionIdentities, asteroid,
+                                     asteroid->resourceID.resourceNumber);
+    }
+#else
+    (void)owner;
+#endif
+}
+
+unsigned long long meshMotionAsteroidIdentity(const void *owner)
+{
+#ifdef HW_ENABLE_D3D12_BACKEND
+    const Asteroid *asteroid = (const Asteroid *)owner;
+    return asteroid != NULL
+        ? (unsigned long long)asteroidMotionIdentityAcquire(&meshMotionIdentities,
+            asteroid, asteroid->resourceID.resourceNumber) : 0;
+#else
+    (void)owner;
+    return 0;
+#endif
+}
+
+void meshMotionRegisterDerelict(const void *owner)
+{
+#ifdef HW_ENABLE_D3D12_BACKEND
+    const Derelict *derelict = (const Derelict *)owner;
+    if (derelict != NULL)
+        derelictMotionIdentityRegister(&meshMotionIdentities, derelict,
+                                       derelict->derelictID.derelictNumber);
+#else
+    (void)owner;
+#endif
+}
+
+void meshMotionRetireDerelict(const void *owner)
+{
+#ifdef HW_ENABLE_D3D12_BACKEND
+    const Derelict *derelict = (const Derelict *)owner;
+    if (derelict != NULL)
+    {
+        ShipMotionIdentitySlot *slot =
+            shipMotionIdentityFindSlot(meshMotionIdentities.derelictSlots, derelict, derelict->derelictID.derelictNumber, 0);
+        if (slot != NULL && slot->token == meshMotionOwner)
+            meshMotionOwner = 0;
+        derelictMotionIdentityRetire(&meshMotionIdentities, derelict,
+                                     derelict->derelictID.derelictNumber);
+    }
+#else
+    (void)owner;
+#endif
+}
+
+unsigned long long meshMotionDerelictIdentity(const void *owner)
+{
+#ifdef HW_ENABLE_D3D12_BACKEND
+    const Derelict *derelict = (const Derelict *)owner;
+    return derelict != NULL
+        ? (unsigned long long)derelictMotionIdentityAcquire(&meshMotionIdentities,
+            derelict, derelict->derelictID.derelictNumber) : 0;
+#else
+    (void)owner;
+    return 0;
+#endif
+}
+
+void meshSetEngineMaterialOwner(const void *owner)
+{
+    const Ship *ship=(const Ship *)owner;
+    meshEngineBlend=0;
+#ifdef HW_ENABLE_D3D12_BACKEND
+    meshMotionOwner = ship != NULL
+        ? shipMotionIdentityAcquire(&meshMotionIdentities, ship,
+                                    ship->shipID.shipNumber) : 0;
+    hwglCaptureEngineIdle(-1.0f);
+#endif
+    if(ship) {
+        meshEngineFadeState *state=&meshEngineFades[ship->shipID.shipNumber];
+        float now=universe.totaltimeelapsed;
+        int active=IS_MOVING_LINEARLY(ship->posinfo.isMoving) &&
+            !(ship->flags & (SOF_Dead|SOF_Disabled|SOF_Clamped|SOF_DontDrawTrails));
+        if(state->owner!=owner || now<state->time) {
+            state->owner=owner; state->time=now; state->value=0;
+        }
+        state->value=engineFadeAdvance(state->value,now-state->time,active);
+        state->time=now;
+        meshEngineBlend=state->value;
+    }
+}
+
+void meshSetAsteroidMotionOwner(const void *owner)
+{
+    /* A stock GEO fallback needs the same owner as the native rock submission,
+       while retaining ordinary non-ship material state. */
+    meshSetEngineMaterialOwner(NULL);
+#ifdef HW_ENABLE_D3D12_BACKEND
+    meshMotionOwner = (uint64_t)meshMotionAsteroidIdentity(owner);
+#else
+    (void)owner;
+#endif
+}
+
+void meshSetDerelictMotionOwner(const void *owner)
+{
+    /* A stock GEO fallback needs the same owner as the native derelict submission,
+       while retaining ordinary non-ship material state. */
+    meshSetEngineMaterialOwner(NULL);
+#ifdef HW_ENABLE_D3D12_BACKEND
+    meshMotionOwner = (uint64_t)meshMotionDerelictIdentity(owner);
+#else
+    (void)owner;
+#endif
+}
+
+static unsigned meshEngineMaterialBucket(const materialentry *material)
+{
+    return (unsigned)(((uintptr_t)material >> 4) & 255u);
+}
+
+static materialentry *meshEngineMaterial(materialentry *idle)
+{
+    meshEngineMaterialPair *pair;
+    for(pair=meshEngineMaterials[meshEngineMaterialBucket(idle)];pair;pair=pair->next)
+        if(pair->idle==idle)return &pair->active;
+    return idle;
+}
+
+static void meshApplyEngineMaterial(materialentry *idle, sdword scheme)
+{
+    materialentry *active=meshEngineMaterial(idle);
+#ifdef HW_ENABLE_D3D12_BACKEND
+    hwglCaptureEngineIdle(-1.0f);
+    if(active!=idle) {
+        meshCurrentMaterial(idle,scheme);
+        hwglCaptureEngineIdle(meshEngineBlend);
+    }
+#endif
+    meshCurrentMaterial(active,scheme);
+}
+
 #ifdef HW_ENABLE_D3D12_BACKEND
 void meshTextureNameToPath(char *out, char *mesh, char *tex);
 static bool32 meshModernSurfaceDiagEnabled(void);
@@ -166,16 +398,37 @@ static bool32 meshModernLoosePngPath(char *pngName, size_t pngNameSize,
     return fileExists(pngName, FF_IgnoreBIG);
 }
 
+// One image page can belong to both ordinary hull and self-lit materials.
+// Its derived emission layer is material policy, not filename-only content.
+static void meshModernSurfaceTextureKey(char *key, size_t capacity,
+    const char *name, const materialentry *material)
+{
+    snprintf(key, capacity, "%s|emissive=%u:%u", name,
+        bitTest(material->flags, MDF_SelfIllum) ? 1u : 0u,
+        (unsigned int)material->nFullAmbient);
+    if (strlen(name) >= 4 && strlen(name) + 10 < FL_Path &&
+        strcasecmp(name + strlen(name) - 4, ".dds") == 0)
+    {
+        char controls[FL_Path];
+        strcpy(controls, name);
+        strcpy(controls + strlen(controls) - 4, "_material.dds");
+        if (fileExists(controls, FF_IgnoreBIG) && strlen(key) + 12 < capacity)
+            strcat(key, "|rm-material");
+    }
+}
+
 static bool32 meshModernTryRegisterLoosePng(
     const materialentry *material, const char *lifName, const lifheader *lif)
 {
     char pngName[FL_Path];
+    char textureKey[FL_Path + 64];
     void *fileData = NULL;
     sdword fileSize;
     int width, height, channels;
     stbi_uc *pixels;
     bool32 ddsPixels = FALSE;
     udword *normalRgba = NULL;
+    unsigned char *materialRgba = NULL;
     udword *surfaceRgba;
     udword *emissiveRgba;
     sdword x, y;
@@ -195,14 +448,9 @@ static bool32 meshModernTryRegisterLoosePng(
     {
         unsigned int ddsWidth = 0, ddsHeight = 0;
         pixels = NULL;
-        if ((bitTest(lif->flags, TRF_TeamColor0) ||
-             bitTest(lif->flags, TRF_TeamColor1))
-                ? hwModernGraphicsDecodeDdsShared(
-                    fileData, (unsigned int)fileSize, pngName,
-                    &ddsWidth, &ddsHeight, &pixels)
-                : hwModernGraphicsDecodeDds(
-                    fileData, (unsigned int)fileSize,
-                    &ddsWidth, &ddsHeight, &pixels))
+        if (hwModernGraphicsDecodeModelDds(
+                fileData, (unsigned int)fileSize, pngName, mainTextureResolution,
+                &ddsWidth, &ddsHeight, &pixels))
         {
             width = (int)ddsWidth;
             height = (int)ddsHeight;
@@ -244,7 +492,8 @@ static bool32 meshModernTryRegisterLoosePng(
         {
             normalFileSize = fileLoadAlloc(normalName, &normalFile, FF_IgnoreBIG);
             if (normalFileSize > 0 && normalFile != NULL &&
-                hwModernGraphicsDecodeDds(normalFile, (unsigned int)normalFileSize,
+                hwModernGraphicsDecodeModelDds(normalFile, (unsigned int)normalFileSize,
+                    normalName, mainTextureResolution,
                     &normalWidth, &normalHeight, &normalPixels) &&
                 normalWidth == (unsigned int)width &&
                 normalHeight == (unsigned int)height)
@@ -302,11 +551,50 @@ static bool32 meshModernTryRegisterLoosePng(
         }
     }
 
+    /* Explicit authored emission overrides the legacy palette-derived mask.
+       RM shipglow stores colored light separately from diffuse/specular data;
+       deriving its color from hull paint makes stripes glow and loses the
+       authored light color. Existing assets without this sidecar are unchanged. */
+    if (ddsPixels && strlen(pngName) + 10 < FL_Path)
+    {
+        char emissionName[FL_Path];
+        void *emissionFile = NULL;
+        unsigned char *emissionPixels = NULL;
+        unsigned int emissionWidth = 0, emissionHeight = 0;
+        sdword emissionSize;
+        strcpy(emissionName, pngName);
+        strcpy(emissionName + strlen(emissionName) - 4, "_emissive.dds");
+        if (fileExists(emissionName, FF_IgnoreBIG))
+        {
+            emissionSize = fileLoadAlloc(emissionName, &emissionFile, FF_IgnoreBIG);
+            if (emissionSize > 0 && emissionFile != NULL &&
+                hwModernGraphicsDecodeModelDds(emissionFile, (unsigned int)emissionSize,
+                    emissionName, mainTextureResolution,
+                    &emissionWidth, &emissionHeight, &emissionPixels) &&
+                emissionWidth == (unsigned int)width &&
+                emissionHeight == (unsigned int)height)
+            {
+                sdword emissionIndex;
+                for (emissionIndex = 0; emissionIndex < width * height; ++emissionIndex)
+                {
+                    const unsigned char *p = emissionPixels + emissionIndex * 4;
+                    /* A cutout cannot emit into pixels where the hull is absent. */
+                    ubyte alpha = meshRemasteredEmissionCoverage(
+                        p, pixels[emissionIndex * 4 + 3]);
+                    emissiveRgba[emissionIndex] = meshModernPackRgba(
+                        colRGB(p[0], p[1], p[2]), alpha);
+                }
+            }
+            if (emissionPixels != NULL) hwModernGraphicsFreeDecodedDds(emissionPixels);
+            if (emissionFile != NULL) memFree(emissionFile);
+        }
+    }
+
     if (meshModernSurfaceDiagEnabled())
     {
         const double inverseTexelCount = width > 0 && height > 0
             ? 1.0 / (double)(width * height) : 0.0;
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[SurfaceDiag][Mesh] loose PNG override material=\"%s\" lif=\"%s\" png=\"%s\" size=%dx%d avgRGB=%.1f,%.1f,%.1f\n",
             material->pName != NULL ? material->pName : "",
             lifName, pngName, width, height,
@@ -315,9 +603,35 @@ static bool32 meshModernTryRegisterLoosePng(
             (double)sumBlue * inverseTexelCount);
     }
 
+    /* Native RM controls use the existing material page, with an explicit
+       registration tag distinguishing dielectric strength from ORM metalness. */
+    if (ddsPixels && strlen(pngName) + 10 < FL_Path)
+    {
+        char controlName[FL_Path];
+        void *controlFile = NULL;
+        unsigned int controlWidth = 0, controlHeight = 0;
+        sdword controlSize;
+        strcpy(controlName, pngName);
+        strcpy(controlName + strlen(controlName) - 4, "_material.dds");
+        if (fileExists(controlName, FF_IgnoreBIG))
+        {
+            controlSize = fileLoadAlloc(controlName, &controlFile, FF_IgnoreBIG);
+            if (controlSize > 0 && controlFile != NULL)
+                hwModernGraphicsDecodeModelDds(controlFile, (unsigned int)controlSize,
+                    controlName, mainTextureResolution, &controlWidth, &controlHeight, &materialRgba);
+            if (controlFile != NULL) memFree(controlFile);
+            if (materialRgba != NULL && (controlWidth != (unsigned int)width || controlHeight != (unsigned int)height))
+            {
+                hwModernGraphicsFreeDecodedDds(materialRgba);
+                materialRgba = NULL;
+            }
+        }
+    }
+    meshModernSurfaceTextureKey(textureKey, sizeof(textureKey), pngName, material);
     hwModernGraphicsRegisterSurfaceTextureNamed(
-        material, pngName, (unsigned int)width, (unsigned int)height,
-        surfaceRgba, emissiveRgba, normalRgba, NULL);
+        material, textureKey, (unsigned int)width, (unsigned int)height,
+        surfaceRgba, emissiveRgba, normalRgba, (const unsigned int *)materialRgba);
+    if (materialRgba != NULL) hwModernGraphicsFreeDecodedDds(materialRgba);
     if (normalRgba != NULL) memFree(normalRgba);
     memFree(emissiveRgba);
     memFree(surfaceRgba);
@@ -325,7 +639,7 @@ static bool32 meshModernTryRegisterLoosePng(
     else stbi_image_free(pixels);
     if (meshModernSurfaceDiagEnabled())
     {
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[ModernTexture] DXR DDS/image replaces LIF: %s -> %s (%dx%d)\n",
             lifName, pngName, width, height);
     }
@@ -339,6 +653,11 @@ typedef struct meshModernPendingSurface
 } meshModernPendingSurface;
 
 static meshModernPendingSurface *meshModernPendingSurfaces = NULL;
+/* Submission consumes this data synchronously (the old path freed it on
+   return). Reuse one buffer across mesh parts instead of walking the legacy
+   volatile heap for every visible ship, every frame. */
+static HWModernTriangleSurface *meshModernTriangleSurfaces = NULL;
+static size_t meshModernTriangleSurfaceCapacity = 0;
 static size_t meshModernPendingSurfaceCount = 0;
 static size_t meshModernPendingSurfaceCapacity = 0;
 
@@ -360,6 +679,7 @@ static bool32 meshRegisterModernSurfaceTexture(
 {
     char fullName[FL_Path];
     char modernImageName[FL_Path];
+    char textureKey[FL_Path + 64];
     const char *resolvedName;
     lifheader *lif;
     texreg *registeredTexture;
@@ -442,13 +762,13 @@ static bool32 meshRegisterModernSurfaceTexture(
         }
     }
 
-    if (meshModernLoosePngPath(modernImageName, sizeof(modernImageName),
-                               fullName) &&
-        hwModernGraphicsTryAliasSurfaceTexture(material, modernImageName))
+    if (meshModernLoosePngPath(modernImageName, sizeof(modernImageName), fullName))
     {
-        return TRUE;
+        meshModernSurfaceTextureKey(textureKey, sizeof(textureKey), modernImageName, material);
+        if (hwModernGraphicsTryAliasSurfaceTexture(material, textureKey)) return TRUE;
     }
-    if (hwModernGraphicsTryAliasSurfaceTexture(material, fullName))
+    meshModernSurfaceTextureKey(textureKey, sizeof(textureKey), fullName, material);
+    if (hwModernGraphicsTryAliasSurfaceTexture(material, textureKey))
     {
         return TRUE;
     }
@@ -512,7 +832,7 @@ static bool32 meshRegisterModernSurfaceTexture(
     {
         const double inverseTexelCount = texelCount > 0
             ? 1.0 / (double)texelCount : 0.0;
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[SurfaceDiag][Mesh] bind id=%p material=\"%s\" authored=\"%s\" preferred=\"%s\" resolved=\"%s\" size=%dx%d lifFlags=0x%08x materialFlags=0x%08x fullAmbient=%u legacyRegistered=%d avgRGB=%.1f,%.1f,%.1f\n",
             (void *)material,
             material->pName != NULL ? material->pName : "",
@@ -528,7 +848,7 @@ static bool32 meshRegisterModernSurfaceTexture(
     }
 
     hwModernGraphicsRegisterSurfaceTextureNamed(
-        material, fullName, (unsigned int)lif->width, (unsigned int)lif->height,
+        material, textureKey, (unsigned int)lif->width, (unsigned int)lif->height,
         surfaceRgba, emissiveRgba, NULL, NULL);
     memFree(emissiveRgba);
     memFree(surfaceRgba);
@@ -551,7 +871,7 @@ static void meshQueueModernSurfaceTexture(materialentry *material,
 
     if (meshModernSurfaceDiagEnabled())
     {
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[SurfaceDiag][Mesh] queue id=%p material=\"%s\" authored=\"%s\" preferred=\"%s\" legacyRegistered=%d\n",
             (void *)material,
             material != NULL && material->pName != NULL ? material->pName : "",
@@ -714,6 +1034,8 @@ static color meshModernMaterialDiffuse(const materialentry *material,
     return material->diffuse;
 }
 
+#include "MeshSurfaceCache.inc"
+
 static void meshSubmitModernRaytracingObjectEx(polygonobject *object,
                                                 materialentry *materials,
                                                 sdword iColorScheme,
@@ -725,8 +1047,11 @@ static void meshSubmitModernRaytracingObjectEx(polygonobject *object,
     float baseColor[3] = {0.55f, 0.55f, 0.55f};
     float baseAccumulator[3] = {0.0f, 0.0f, 0.0f};
     HWModernTriangleSurface *surfaces;
+    bool32 temporarySurfaces = FALSE;
     sdword baseSamples = 0;
+    unsigned int engineVariant = 0;
     sdword index;
+    MeshSurfaceCacheEntry *cached;
 
     if (object == NULL || materials == NULL || object->nVertices <= 0 ||
         object->nPolygons <= 0 || object->pVertexList == NULL ||
@@ -749,9 +1074,33 @@ static void meshSubmitModernRaytracingObjectEx(polygonobject *object,
         return;
     }
 
-    surfaces = (HWModernTriangleSurface *)memAlloc(
-        (memsize)object->nPolygons * sizeof(HWModernTriangleSurface),
-        "Modern triangle surfaces", Pyrophoric);
+    cached=meshSurfaceCacheFind(object,materials,iColorScheme);
+    if(cached) {
+        surfaces=cached->surfaces;memcpy(baseColor,cached->baseColor,sizeof(baseColor));
+        engineVariant=cached->engineVariant;goto submitModernSurfaces;
+    }
+    if ((size_t)object->nPolygons > meshModernTriangleSurfaceCapacity)
+    {
+        /* Capacity follows only the largest submitted part, never ship count.
+           A failed growth retains the previous allocation and uses the old
+           submission path for this part. */
+        size_t capacity = (size_t)object->nPolygons;
+        HWModernTriangleSurface *grown = (HWModernTriangleSurface *)realloc(
+            meshModernTriangleSurfaces, capacity * sizeof(*grown));
+        if (grown != NULL)
+        {
+            meshModernTriangleSurfaces = grown;
+            meshModernTriangleSurfaceCapacity = capacity;
+        }
+    }
+    surfaces = meshModernTriangleSurfaces;
+    if ((size_t)object->nPolygons > meshModernTriangleSurfaceCapacity)
+    {
+        surfaces = (HWModernTriangleSurface *)memAlloc(
+            (memsize)object->nPolygons * sizeof(HWModernTriangleSurface),
+            "Modern triangle surfaces", Pyrophoric);
+        temporarySurfaces = TRUE;
+    }
     memset(surfaces, 0,
            (size_t)object->nPolygons * sizeof(HWModernTriangleSurface));
 
@@ -759,10 +1108,11 @@ static void meshSubmitModernRaytracingObjectEx(polygonobject *object,
     {
         const polyentry *polygon = &object->pPolygonList[index];
         const materialentry *material =
-            &materials[polygon->iMaterial];
+            meshEngineMaterial(&materials[polygon->iMaterial]);
         color sourceColor = meshModernMaterialDiffuse(material, iColorScheme);
         color emissiveSource = sourceColor;
         HWModernTriangleSurface *surface = &surfaces[index];
+        if (material != &materials[polygon->iMaterial]) engineVariant = 0x100u;
 
         baseAccumulator[0] += colUbyteToReal(colRed(sourceColor));
         baseAccumulator[1] += colUbyteToReal(colGreen(sourceColor));
@@ -770,6 +1120,9 @@ static void meshSubmitModernRaytracingObjectEx(polygonobject *object,
         ++baseSamples;
 
         surface->materialIdentity = material;
+        surface->idleMaterialIdentity = material != &materials[polygon->iMaterial]
+            ? &materials[polygon->iMaterial] : NULL;
+        surface->engineBlend = meshEngineBlend;
         surface->baseColor[0] = colUbyteToReal(colRed(sourceColor));
         surface->baseColor[1] = colUbyteToReal(colGreen(sourceColor));
         surface->baseColor[2] = colUbyteToReal(colBlue(sourceColor));
@@ -808,8 +1161,10 @@ static void meshSubmitModernRaytracingObjectEx(polygonobject *object,
         baseColor[1] = baseAccumulator[1] / (float)baseSamples;
         baseColor[2] = baseAccumulator[2] / (float)baseSamples;
     }
+    meshSurfaceCacheStore(object,materials,iColorScheme,surfaces,baseColor,engineVariant);
+submitModernSurfaces:
     glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
-    hwModernGraphicsSubmitTriangleGeometryMasked(
+    hwModernGraphicsSubmitTriangleGeometryMaskedIdentified(
         object,
         (const float *)&object->pVertexList[0].x,
         (unsigned int)object->nVertices,
@@ -817,10 +1172,12 @@ static void meshSubmitModernRaytracingObjectEx(polygonobject *object,
         (const unsigned short *)&object->pPolygonList[0].iV0,
         (unsigned int)object->nPolygons,
         (unsigned int)sizeof(polyentry),
-        (unsigned int)iColorScheme,
+        (unsigned int)iColorScheme | engineVariant,
         surfaces, (unsigned int)sizeof(HWModernTriangleSurface),
-        modelView, baseColor, instanceMask);
-    memFree(surfaces);
+        modelView, baseColor, instanceMask,
+        (unsigned long long)meshMotionOwner,
+        meshMotionOwner != 0 ? (unsigned long long)(uintptr_t)object : 0);
+    if (temporarySurfaces) memFree(surfaces);
 }
 
 static void meshSubmitModernRaytracingObject(polygonobject *object,
@@ -879,6 +1236,12 @@ void meshStartup()
 void meshShutdown()
 {
 #ifdef HW_ENABLE_D3D12_BACKEND
+    shipMotionIdentityClear(&meshMotionIdentities);
+    meshMotionOwner = 0;
+    meshSurfaceCacheClear();
+    free(meshModernTriangleSurfaces);
+    meshModernTriangleSurfaces = NULL;
+    meshModernTriangleSurfaceCapacity = 0;
     free(meshModernPendingSurfaces);
     meshModernPendingSurfaces = NULL;
     meshModernPendingSurfaceCount = 0;
@@ -944,6 +1307,7 @@ StaticInfo *meshNameToStaticInfo(char *fileName)
     char typeString[64];
     sdword length;
     StaticInfo *info;
+
     ShipRace race;
     ShipType type;
 
@@ -1087,9 +1451,11 @@ static bool32 meshStaticColorSchemeEnabled(StaticInfo *info,
        registry parity principle used by the Khar-Selim fix: register the color
        scheme the actual object renders with, rather than repairing the image
        later in DXR.  Explicit additional mission schemes remain honored too. */
-    if (strcasecmp(rootName, "Traders") == 0 &&
+    if ((strcasecmp(rootName, "Derelicts") == 0 &&
+         colorScheme == TE_DerelictDefaultColorScheme) ||
+        (strcasecmp(rootName, "Traders") == 0 &&
         (colorScheme == 0 ||
-         colorScheme == TE_DerelictDefaultColorScheme))
+         colorScheme == TE_DerelictDefaultColorScheme)))
     {
         return TRUE;
     }
@@ -1118,12 +1484,17 @@ trhandle * meshTextureRegisterAllPlayers(char *fullName, void *meshReference)
     trhandle handleList[MAX_MULTIPLAYER_PLAYERS], *allocedList;
     sdword index, nRegistered = 0, nHandles = MAX_MULTIPLAYER_PLAYERS;
     StaticInfo *info;
+    /* Shared subsystem textures have no race/player identity of their own.
+       Derive enabled schemes from the owning mesh, just as meshRecolorize does,
+       while continuing to register the actual shared texture path. */
+    char *schemeSource = meshReference && ((meshdata *)meshReference)->fileName
+        ? ((meshdata *)meshReference)->fileName : fullName;
 
     //allocate and clear handle list
     trhandle *d = ( trhandle *) handleList;
     while (nHandles--) *d++ = TR_Invalid;
 
-    info = meshNameToStaticInfo(fullName);
+    info = meshNameToStaticInfo(schemeSource);
     if (info == NULL)
     {
         handleList[0] = trTextureRegister(fullName, NULL, meshReference);
@@ -1137,7 +1508,7 @@ trhandle * meshTextureRegisterAllPlayers(char *fullName, void *meshReference)
             handleList[index] = TR_Invalid;
 
             if (utyShipsAlwaysUseOwnerColors ||
-                meshStaticColorSchemeEnabled(info, fullName, index))
+                meshStaticColorSchemeEnabled(info, schemeSource, index))
             {                                               //if this player can build this ship
                 handleList[index] = trTextureRegister(fullName, //register in this players's colors
                         &teColorSchemes[index].textureColor, meshReference);
@@ -1146,7 +1517,7 @@ trhandle * meshTextureRegisterAllPlayers(char *fullName, void *meshReference)
                 if (meshModernSurfaceDiagEnabled() &&
                     !((ShipStaticInfo *)info)->teamColor[index])
                 {
-                    fprintf(stderr,
+                    HW_DIAG_FPRINTF(stderr,
                         "[SurfaceDiag][Mesh] legacy-neutral-race-fallback texture=\"%s\" scheme=%d\n",
                         fullName, index);
                 }
@@ -1179,6 +1550,9 @@ void meshTextureNameToPath(char *out, char *mesh, char *tex)
 {
     char *string;
     unsigned int i;
+    if(!strncmp(tex,"@/",2)) {
+        strcpy(out,tex+2);for(i=0;out[i];i++) {if(out[i]=='/')out[i]='\\';else out[i]=(char)toupper((unsigned char)out[i]);}return;
+    }
     //make path of mesh path and \\texture\\<shipNameNoExtension\\<textureFileName>
     strcpy(out, mesh);
 
@@ -1200,6 +1574,69 @@ void meshTextureNameToPath(char *out, char *mesh, char *tex)
 
     strcat(out, tex);
     for (i = 0; (out[i] = toupper(out[i])); i++) { }
+}
+
+static void meshRegisterEngineMaterials(meshdata *mesh, const char *fileName)
+{
+    sdword index, player; float scale; unsigned int lod;
+    if (!meshNativeVisualParameters(mesh, &scale, &lod)) return;
+    for (index=0; index<mesh->nLocalMaterials+mesh->nPublicMaterials; ++index)
+    {
+        materialentry *idle=&mesh->localMaterial[index];
+        meshEngineMaterialPair *pair;
+        char name[FL_Path], probe[FL_Path]; unsigned bucket;
+        if (!idle->textureNameSave) continue;
+        meshTextureNameToPath(name, (char *)fileName, idle->textureNameSave);
+        if (strlen(name)+24 >= sizeof(name)) continue;
+        strcat(name, "_engineOn");
+        snprintf(probe,sizeof(probe),"%s.lif",name);
+        if (!fileExists(probe,0)) continue;
+        pair=memAlloc(sizeof(*pair),"Engine material",NonVolatile);
+        memset(pair,0,sizeof(*pair));
+        pair->mesh=mesh; pair->idle=idle; pair->active=*idle;
+        strcpy(pair->name,name);
+        // Engine-on pages contain hull paint as well as the engine window.
+        // Register the same exact enabled palettes as the idle hull: a neutral
+        // texture shared by every scheme erases mission and captured colours.
+        pair->handles=meshTextureRegisterAllPlayers(pair->name,mesh);
+        if (!pair->handles) { memFree(pair); continue; }
+        pair->active.texture=pair->handles;
+        pair->active.textureNameSave=pair->name;
+        pair->active.bTexturesRegistered=TRUE;
+#ifdef HW_ENABLE_D3D12_BACKEND
+        if (!meshRegisterModernSurfaceTexture(&pair->active,pair->name))
+        {
+            for(player=0;player<MAX_MULTIPLAYER_PLAYERS;++player)
+                if(pair->handles[player]!=TR_Invalid)trTextureUnregister(pair->handles[player]);
+            memFree(pair->handles);memFree(pair);continue;
+        }
+#endif
+        bucket=meshEngineMaterialBucket(idle);
+        pair->next=meshEngineMaterials[bucket]; meshEngineMaterials[bucket]=pair;
+    }
+}
+
+static void meshFreeEngineMaterials(meshdata *mesh)
+{
+    unsigned bucket;
+    sdword player;
+    for(bucket=0;bucket<256;++bucket)
+    {
+        meshEngineMaterialPair **link=&meshEngineMaterials[bucket];
+        while(*link)
+        {
+            meshEngineMaterialPair *pair=*link;
+            if(pair->mesh!=mesh) { link=&pair->next; continue; }
+            *link=pair->next;
+#ifdef HW_ENABLE_D3D12_BACKEND
+            hwModernGraphicsUnregisterSurfaceTexture(&pair->active);
+#endif
+            for(player=0;player<MAX_MULTIPLAYER_PLAYERS;++player)
+                if(pair->handles[player]!=TR_Invalid)trTextureUnregister(pair->handles[player]);
+            memFree(pair->handles);
+            memFree(pair);
+        }
+    }
 }
 
 bool32 meshStringContainsPeriod(char* s)
@@ -1272,6 +1709,12 @@ bool32 meshPagedVersionExists(char* fileName)
 ----------------------------------------------------------------------------*/
 void meshObjectFixupPacoUV(polygonobject* object, sdword on)
 {
+#ifdef HW_ENABLE_D3D12_BACKEND
+    meshSurfaceCacheClear();
+#endif
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    hwglForgetImmutableMesh(object->pPolygonList);
+#endif
     polyentry* polygon;
     sdword iPoly;
     sdword width, height;
@@ -1462,6 +1905,7 @@ sdword meshLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
     int oldLength;
     int newLength;
     int numPolygons;
+    memsize oldPolygonObjectStride = sizeof(struct polygonobject_disk);
 
     lenDiff = sizeof(GeoFileHeader) - sizeof(GeoFileHeader_disk);
 
@@ -1508,7 +1952,7 @@ sdword meshLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
 
     for (i=0; i<numPolygons; i++){
 
-    //printf("polyobj[%d]-> %d@%x %d@%x %d@%x\n",i, oldpolobj[i].nVertices,oldpolobj[i].pVertexList,
+    //HW_DIAG_PRINTF("polyobj[%d]-> %d@%x %d@%x %d@%x\n",i, oldpolobj[i].nVertices,oldpolobj[i].pVertexList,
     //    oldpolobj[i].nFaceNormals,oldpolobj[i].pNormalList,
     //    oldpolobj[i].nPolygons,oldpolobj[i].pPolygonList);
     
@@ -1524,15 +1968,15 @@ sdword meshLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
 
         if (oldpolobj[i].pDaughter != 0) {
             newpolobj[i].pDaughter = ( oldpolobj[i].pDaughter - sizeof(GeoFileHeader_disk)) /
-                 sizeof(struct polygonobject_disk) * sizeof(struct polygonobject) + sizeof(GeoFileHeader);
+                 oldPolygonObjectStride * sizeof(struct polygonobject) + sizeof(GeoFileHeader);
         }
         if (oldpolobj[i].pMother != 0) {
             newpolobj[i].pMother = ( oldpolobj[i].pMother - sizeof(GeoFileHeader_disk)) /
-                 sizeof(struct polygonobject_disk) * sizeof(struct polygonobject) + sizeof(GeoFileHeader);
+                 oldPolygonObjectStride * sizeof(struct polygonobject) + sizeof(GeoFileHeader);
         }
         if (oldpolobj[i].pSister != 0) {
             newpolobj[i].pSister = ( oldpolobj[i].pSister - sizeof(GeoFileHeader_disk)) /
-                 sizeof(struct polygonobject_disk) * sizeof(struct polygonobject) + sizeof(GeoFileHeader);
+                 oldPolygonObjectStride * sizeof(struct polygonobject) + sizeof(GeoFileHeader);
         }
 
         newptr += sizeof(struct polygonobject);
@@ -1557,20 +2001,20 @@ sdword meshLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
 
     for (loopvar=0; loopvar < loopcount; loopvar++) {
         if (oldmaterial->pName != 0){
-            //printf("oldmaterial->pName = %x \n",oldmaterial->pName);
+            //HW_DIAG_PRINTF("oldmaterial->pName = %x \n",oldmaterial->pName);
         }
         newmaterial->ambient = oldmaterial->ambient;    
         newmaterial->diffuse = oldmaterial->diffuse;    
         newmaterial->specular = oldmaterial->specular;    
         newmaterial->kAlpha = oldmaterial->kAlpha;    
         if (oldmaterial->texture != 0){
-            //printf("oldmaterial->texture = %x \n",oldmaterial->texture);
+            //HW_DIAG_PRINTF("oldmaterial->texture = %x \n",oldmaterial->texture);
         }
         newmaterial->flags = oldmaterial->flags;    
         newmaterial->nFullAmbient = oldmaterial->nFullAmbient;    
         newmaterial->bTexturesRegistered = oldmaterial->bTexturesRegistered;    
         if (oldmaterial->textureNameSave != 0xabababab){
-            //printf("oldmaterial->textureNameSave = %x \n",oldmaterial->textureNameSave);
+            //HW_DIAG_PRINTF("oldmaterial->textureNameSave = %x \n",oldmaterial->textureNameSave);
         }
 
         newmaterial++;
@@ -1626,11 +2070,21 @@ sdword meshLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
     loopcount = oldHeader->nPublicMaterials + oldHeader->nLocalMaterials;
 
     for (loopvar=0; loopvar < loopcount; loopvar++) {
+        // A material without a texture must not inherit the previous
+        // material's string length.  Some meshes interleave
+        // textured and untextured materials; retaining loopsize walks the
+        // destination pointer past the converted buffer and can hang during
+        // mission loading.
+        loopsize = 0;
         if (oldmaterial->texture != 0){
-            //printf("oldmaterial->texture = %x - %s \n",oldmaterial->texture, oldbase + oldmaterial->texture);
+            //HW_DIAG_PRINTF("oldmaterial->texture = %x - %s \n",oldmaterial->texture, oldbase + oldmaterial->texture);
             strcpy((char *)newptr, (char *)(oldbase + oldmaterial->texture));
             loopsize = strlen((char *)(oldbase + oldmaterial->texture)) + 1;
             newmaterial->texture = offset; 
+        }
+        else
+        {
+            newmaterial->texture = 0;
         }
 
         newmaterial++;
@@ -1657,6 +2111,387 @@ sdword meshLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
     Outputs     : Allocates and loads data returned in meshdata structure.
     Return      : Pointer to allocated and fixed-up meshdata structure.
 ----------------------------------------------------------------------------*/
+
+static const char *meshNativeInterceptorMaterial(void *user, const HwRmSubsystemNode *node)
+{
+    (void)user;
+    /* Keep the proven badge-to-hull and packed emission/team-mask treatment.
+       Geometry remains a separate child; this is not an alpha hole. */
+    return strcmp(node->material->shader, "thruster") == 0 ? "HWRM_Engine" : "HWRM_Hull";
+}
+
+static bool32 meshSyncRemasteredGuns(const Ship *owner, HwRmVisualInstance *instance)
+{
+    unsigned int gunCount, ordinal;
+    HwRmGunAim controls[64];
+    char error[256];
+    gunCount=hwRmVisualInstanceGunCount(instance);
+    if (gunCount>64 || (gunCount && !owner->gunInfo)) {
+        rmWeaponFxDiagnosticBinding(owner,0,"native_gun_count_or_missing_gun_info"); return FALSE;
+    }
+    for (ordinal=0;ordinal<gunCount;++ordinal)
+    {
+        unsigned int index;
+        Gun *gun;
+        vector recoil = {0,0,1};
+        if (!hwRmVisualInstanceGunIndex(instance,ordinal,&index) ||
+            index >= (unsigned int)owner->gunInfo->numGuns) {
+            rmWeaponFxDiagnosticBinding(owner,ordinal,"native_gun_index_outside_gameplay_guns"); return FALSE;
+        }
+        gun=&owner->gunInfo->guns[index];
+        if (!gun->gunstatic) {
+            rmWeaponFxDiagnosticBinding(owner,index,"missing_gun_static"); return FALSE;
+        }
+        if (gun->gunstatic->firetime>0 && gun->lasttimefired<=universe.totaltimeelapsed)
+            gunRecoilVectorCompute(&recoil,gun->gunstatic->recoilLength,
+                gun->lasttimefired,gun->gunstatic->firetime);
+        else recoil.z=0;
+        controls[ordinal].gun=index;
+        /* NewGimble gunheading can snap to the predicted target within the
+           trigger-happy cone. Animate the actual tracking barrel, not that
+           projectile correction: otherwise mounts jump ahead of their motors. */
+        nativeGunTrackingHeading(gun,controls[ordinal].heading);
+        controls[ordinal].recoil=max(0,-recoil.z);
+    }
+    if (gunCount && !hwRmVisualInstanceAimGuns(instance,controls,gunCount,error,sizeof(error))) {
+        rmWeaponFxDiagnosticBinding(owner,0,error); return FALSE;
+    }
+    return TRUE;
+}
+
+bool32 meshRemasteredSynchronizeInstance(const void *ship,void *instance)
+{
+    return ship&&instance?meshSyncRemasteredGuns((const Ship*)ship,(HwRmVisualInstance*)instance):FALSE;
+}
+void *meshRemasteredInstance(const void *ship,float *modelScale)
+{
+    const Ship *owner=(const Ship*)ship;lodinfo *levels;sdword level;
+    if(!owner||!owner->staticinfo||!modelScale)return NULL;
+    levels=owner->staticinfo->staticheader.LOD;
+    for(level=0;levels&&level<levels->nLevels;++level){
+        float scale;unsigned lod;HwRmVisualInstance *instance;
+        if((levels->level[level].flags&LM_LODType)!=LT_Mesh||!meshNativeVisualParameters(levels->level[level].pData,&scale,&lod))continue;
+        instance=meshNativeVisualAcquire(levels->level[level].pData,ship);
+        if(instance)*modelScale=scale;return instance;
+    }
+    return NULL;
+}
+bool32 meshRemasteredGunHasSound(const void *ship,unsigned int gun){
+    float scale;HwRmVisualInstance *instance=meshRemasteredInstance(ship,&scale);
+    return instance?hwRmVisualInstanceGunHasSound(instance,gun):FALSE;
+}
+void meshRemasteredNotifyAnimation(const void *ship,const char *event,double phase)
+{
+    const Ship *owner=(const Ship*)ship;lodinfo *levels;sdword level;
+    if(!meshNativeVisualPresentationEnabled()||!owner||!owner->staticinfo)return;
+    levels=owner->staticinfo->staticheader.LOD;
+    for(level=0;levels&&level<levels->nLevels;++level){
+        float scale;unsigned lod;HwRmVisualInstance *instance;
+        if((levels->level[level].flags&LM_LODType)!=LT_Mesh||!meshNativeVisualParameters(levels->level[level].pData,&scale,&lod))continue;
+        instance=meshNativeVisualAcquire(levels->level[level].pData,ship);
+        if(instance&&meshSyncRemasteredGuns(owner,instance))
+            meshNativeVisualNotifyAnimation(levels->level[level].pData,ship,event,phase);
+        return;
+    }
+}
+void meshRemasteredNotifyWeaponFire(const void *ship,unsigned int gun,double clock)
+{
+    const Ship *owner=(const Ship *)ship;lodinfo *levels;sdword level;
+    if(!meshNativeVisualPresentationEnabled() || !owner || !owner->staticinfo)return;
+    levels=owner->staticinfo->staticheader.LOD;
+    /* The same canonical native mesh as authoritative muzzle lookup. Never
+       use camera LOD or require the firing ship to be in the render list. */
+    for(level=0;levels && level<levels->nLevels;++level){
+        float scale;unsigned nativeLOD;HwRmVisualInstance *instance;
+        if((levels->level[level].flags&LM_LODType)!=LT_Mesh ||
+           !meshNativeVisualParameters(levels->level[level].pData,&scale,&nativeLOD))continue;
+        instance=meshNativeVisualAcquire(levels->level[level].pData,ship);
+        if(instance && meshSyncRemasteredGuns(owner,instance))
+            meshNativeVisualNotifyWeaponFire(levels->level[level].pData,ship,gun,clock);
+        return;
+    }
+}
+
+bool32 meshRemasteredGunMuzzle(const void *ship, unsigned int gun, vector *position)
+{
+    const Ship *owner=(const Ship *)ship;
+    lodinfo *levels;
+    sdword level;
+    if (!owner || !owner->staticinfo || !position) return FALSE;
+    levels=owner->staticinfo->staticheader.LOD;
+    /* Always use the first native mesh, not the camera-selected LOD. Shots
+       must not move when the camera zooms or when a ship is raster-culled. */
+    for (level=0;levels && level<levels->nLevels;++level)
+    {
+        float scale, transform[16];
+        unsigned int nativeLOD;
+        HwRmVisualInstance *instance;
+        char error[256];
+        if ((levels->level[level].flags&LM_LODType)!=LT_Mesh ||
+            !meshNativeVisualParameters(levels->level[level].pData,&scale,&nativeLOD)) continue;
+        instance=meshNativeVisualAcquire(levels->level[level].pData,ship);
+        if (!instance) {
+            rmWeaponFxDiagnosticBinding(owner,gun,"native_instance_unavailable"); return FALSE;
+        }
+        if (!meshSyncRemasteredGuns(owner,instance)) return FALSE;
+        if (!hwRmVisualInstanceGunMuzzle(instance,gun,scale,transform,error,sizeof(error))) {
+            rmWeaponFxDiagnosticBinding(owner,gun,error); return FALSE;
+        }
+        position->x=transform[12];position->y=transform[13];position->z=transform[14];
+        return TRUE;
+    }
+    return FALSE;
+}
+
+bool32 meshRemasteredMarkerTransform(const void *ship, const char *semantic, hmatrix *output)
+{
+    const Ship *owner=(const Ship *)ship;
+    lodinfo *levels;
+    sdword level;
+    if (!owner || !owner->staticinfo || !semantic || !output) return FALSE;
+    levels=owner->staticinfo->staticheader.LOD;
+    for (level=0;levels && level<levels->nLevels;++level)
+    {
+        float scale, transform[16];
+        unsigned int nativeLOD;
+        HwRmVisualInstance *instance;
+        char error[256];
+        if ((levels->level[level].flags&LM_LODType)!=LT_Mesh ||
+            !meshNativeVisualParameters(levels->level[level].pData,&scale,&nativeLOD)) continue;
+        instance=meshNativeVisualAcquire(levels->level[level].pData,ship);
+        if (!instance || !hwRmVisualInstanceMarker(instance,semantic,scale,transform,error,sizeof(error))) return FALSE;
+        memcpy(output,transform,sizeof(*output));
+        return TRUE;
+    }
+    return FALSE;
+}
+
+bool32 meshRemasteredMarkerPosition(const void *ship, const char *semantic, vector *position)
+{
+    hmatrix transform;
+    if (!position || !meshRemasteredMarkerTransform(ship,semantic,&transform)) return FALSE;
+    hmatGetVectFromHMatrixCol4(*position,transform);
+    return TRUE;
+}
+
+bool32 meshPrepareRemasteredShipPose(const void *ship, shipbindings *bindings,
+    sdword currentLOD, meshdata *mesh)
+{
+    HwRmVisualInstance *instance;
+    float scale;
+    unsigned int nativeLOD;
+    if (!ship || !mesh || !bindings || currentLOD<0 ||
+        !bindings->localBinding[currentLOD] ||
+        !meshNativeVisualParameters(mesh,&scale,&nativeLOD)) return FALSE;
+    instance=meshNativeVisualAcquire(mesh,ship);
+    if (!instance || (!hwRmVisualInstanceAnimation(instance) &&
+        !hwRmVisualInstanceGunCount(instance)) ||
+        !meshSyncRemasteredGuns((const Ship *)ship,instance)) return FALSE;
+    return meshApplyRemasteredHierarchyPose(hwRmVisualInstanceSubsystem(instance),
+        nativeLOD,scale,mesh,bindings->localBinding[currentLOD],mesh->nPolygonObjects);
+}
+
+static meshdata *meshTryNativeInterceptorHod(char *fileName)
+{
+    /* Only the existing opt-in experiment is active until each fleet identity's
+       weapon, animation and hardpoint adapter is validated. */
+    const char *experiment = "R1\\HeavyInterceptor\\RMTest\\HeavyInterceptor.geo";
+    const char *hodName = "R1\\HeavyInterceptor\\RMTest\\kus_interceptor.hod";
+    void *data = NULL;
+    sdword size;
+    HwHodShip strictSource;
+    HwRmVisualAsset *asset = NULL;
+    HwRmVisualInstance *instance = NULL;
+    meshdata *mesh = NULL;
+    char error[256];
+    unsigned int vertices, triangles;
+    if (strcasecmp(fileName, experiment) != 0 || !fileExists((char *)hodName, FF_IgnoreBIG)) return NULL;
+    size = fileLoadAlloc((char *)hodName, &data, FF_IgnoreBIG);
+    if (size <= 0 || data == NULL) return NULL;
+    /* Preserve the known working experiment's geometry/material/scale guard. */
+    if (!hwHodShipRead(data, (size_t)size, &strictSource, error, sizeof(error)))
+        goto rejected;
+    vertices = strictSource.vertexCount; triangles = strictSource.triangleCount;
+    hwHodShipFree(&strictSource);
+    asset = hwRmVisualAssetCreate(data, (size_t)size, NULL, 0, error, sizeof(error));
+    if (!asset) goto rejected;
+    instance = hwRmVisualInstanceCreate(asset);
+    if (!instance) { strcpy(error, "native instance allocation failed"); goto rejected; }
+    mesh = meshCreateRemasteredHierarchy(hwRmVisualInstanceSubsystem(instance), 0, 2.885136604309082f,
+        fileName, meshNativeInterceptorMaterial, NULL, NULL);
+    if (!mesh) { strcpy(error, "native renderer hierarchy rejected"); goto rejected; }
+    if (!meshNativeVisualRegister(mesh, asset, 2.885136604309082f, 0))
+    {
+        meshFree(mesh); mesh = NULL;
+        strcpy(error, "native visual ownership registration failed"); goto rejected;
+    }
+    asset = NULL; /* Registry owns parsed data until mesh/ship lifetime ends. */
+    HW_DIAG_FPRINTF(stderr, "[NativeShipHOD] interceptor loaded directly from %s: %u indexed vertices, %u triangles, %d native hierarchy nodes; original HW1 gameplay retained.\n",
+        hodName, vertices, triangles, mesh->nPolygonObjects);
+    goto cleanup;
+rejected:
+    HW_DIAG_FPRINTF(stderr, "[NativeShipHOD] interceptor rejected: %s; using GEO fallback.\n", error);
+cleanup:
+    hwRmVisualInstanceFree(instance);
+    hwRmVisualAssetFree(asset);
+    memFree(data);
+    return mesh;
+}
+
+typedef struct meshNativePackageIO {
+    char root[FL_Path];
+    HwRmVisualPackage *package;
+} meshNativePackageIO;
+static int meshNativePackageRead(void *user,const char *relative,const void **bytes,size_t *size)
+{
+    meshNativePackageIO *io=(meshNativePackageIO *)user;
+    char path[FL_Path];void *data=NULL;sdword length;
+    *bytes=NULL;*size=0;
+    if (snprintf(path,sizeof(path),"%s%s",!strncmp(relative,"@/",2)?"":io->root,!strncmp(relative,"@/",2)?relative+2:relative)>=(int)sizeof(path) ||
+        !fileExists(path,FF_IgnoreBIG)) return 0;
+    length=fileSizeGet(path,FF_IgnoreBIG);
+    if (length<=0 || length>64*1024*1024) return 0;
+    length=fileLoadAlloc(path,&data,FF_IgnoreBIG);
+    if (length<=0 || !data) {if(data) memFree(data);return 0;}
+    *bytes=data;*size=(size_t)length;return 1;
+}
+static void meshNativePackageRelease(void *user,const void *bytes)
+{
+    (void)user;memFree((void *)bytes);
+}
+static int meshNativePackageConfigure(void *user,HwRmVisualAsset *asset,
+    const char *type,char *error,size_t size)
+{
+    (void)user;
+    if (!strcmp(type,"Scaffold") || !strncmp(type,"Derelict_",9)) return 1; /* No ship events/guns. */
+    return meshNativeVisualBindClassicEvents(asset,type,error,size) &&
+        meshNativeVisualBindClassicGuns(asset,type,error,size);
+}
+static const char *meshNativePackageMaterial(void *user,const HwRmSubsystemNode *node)
+{
+    meshNativePackageIO *io=(meshNativePackageIO *)user;
+    const char *label=hwRmVisualPackageMaterial(io->package,node->component,node->part->material);
+    char path[FL_Path];
+    if (!label || snprintf(path,sizeof(path),"%s%s.lif",!strncmp(label,"@/",2)?"":io->root,!strncmp(label,"@/",2)?label+2:label)>=(int)sizeof(path) ||
+        !fileExists(path,FF_IgnoreBIG)) return NULL;
+    if (snprintf(path,sizeof(path),"%s%s.dds",!strncmp(label,"@/",2)?"":io->root,!strncmp(label,"@/",2)?label+2:label)>=(int)sizeof(path) ||
+        !fileExists(path,FF_IgnoreBIG)) return NULL;
+    return label;
+}
+meshdata *meshLoadOpenHWSubsystem(const char *type,float scale) {
+    meshNativePackageIO io={0};char path[FL_Path],identity[80],error[512];void *data=NULL;sdword length;meshdata *mesh=NULL;
+    HwRmVisualAsset *asset=NULL;HwRmVisualInstance *instance=NULL;unsigned i,j;
+    if(!type||!type[0]||strlen(type)>63||!isfinite(scale)||scale<=0)return NULL;
+    for(i=0;type[i];i++)if(!isalnum((unsigned char)type[i])&&type[i]!='_')return NULL;
+    snprintf(io.root,sizeof(io.root),"Subsystems\\%s\\",type);snprintf(path,sizeof(path),"%ssubsystem.owsubsystem",io.root);
+    if(!fileExists(path,0)||(length=fileSizeGet(path,0))<=0||length>128*1024)return NULL;
+    fileLoadAlloc(path,&data,0);snprintf(identity,sizeof(identity),"Subsystem_%s",type);
+    io.package=hwRmVisualPackageRead(identity,data,length,meshNativePackageRead,meshNativePackageRelease,meshNativePackageConfigure,&io,error,sizeof(error));memFree(data);
+    if(!io.package){HW_DIAG_FPRINTF(stderr,"[SubsystemEditor] %s: %s\n",type,error);return NULL;}
+    asset=hwRmVisualPackageTakeAsset(io.package);instance=hwRmVisualInstanceCreate(asset);snprintf(path,sizeof(path),"%spreview.geo",io.root);
+    if(instance)mesh=meshCreateRemasteredHierarchy(hwRmVisualInstanceSubsystem(instance),0,scale,path,meshNativePackageMaterial,NULL,&io);
+    if(mesh)for(i=0;i<(unsigned)(mesh->nLocalMaterials+mesh->nPublicMaterials);i++){
+        materialentry *material=&mesh->localMaterial[i];char texture[FL_Path];trhandle* handles=memAlloc(MAX_MULTIPLAYER_PLAYERS*sizeof(trhandle),"Subsystem preview textures",NonVolatile);
+        for(j=0;j<MAX_MULTIPLAYER_PLAYERS;j++)handles[j]=TR_Invalid;
+        meshTextureNameToPath(texture,path,material->textureNameSave);handles[0]=trTextureRegister(texture,&teColorSchemes[0].textureColor,mesh);
+        material->texture=handles;material->bTexturesRegistered=TRUE;
+        if(handles[0]!=TR_Invalid)trPreparePreviewTexture(handles[0]);
+#ifdef HW_ENABLE_D3D12_BACKEND
+        meshRegisterModernSurfaceTexture(material,texture);
+#endif
+    }
+    hwRmVisualInstanceFree(instance);hwRmVisualAssetFree(asset);hwRmVisualPackageFree(io.package);return mesh;
+}
+#include "../Modern/OpenHWShipDocument.h"
+int meshCompleteOpenHWDefinition(const char *root,const void *bytes,size_t size,void **output,size_t *length,char *error,size_t capacity){
+    meshNativePackageIO io={0};if(!root||strlen(root)>=sizeof(io.root))return 0;strcpy(io.root,root);
+    return openhwShipDocumentComplete(bytes,size,meshNativePackageRead,meshNativePackageRelease,&io,output,length,error,capacity);
+}
+int meshValidateOpenHWDefinition(const char *root,const char *identity,const void *bytes,size_t size,char *error,size_t capacity){
+    meshNativePackageIO io={0};if(!root||strlen(root)>=sizeof(io.root))return 0;strcpy(io.root,root);
+      if(openhwShipDocumentLegacyVisual(bytes,size)){
+          void* compiled=NULL;size_t length=0;int ok=openhwShipDocumentCompile(bytes,size,meshNativePackageRead,meshNativePackageRelease,&io,1,&compiled,&length,error,capacity);
+          openhwShipDocumentFree(compiled);return ok;
+      }
+    io.package=hwRmVisualPackageRead(identity,bytes,size,meshNativePackageRead,meshNativePackageRelease,meshNativePackageConfigure,&io,error,capacity);
+    if(!io.package)return 0;hwRmVisualPackageFree(io.package);return 1;
+}
+static meshdata *meshTryNativeFleetPackage(char *original,char *nativeFile,size_t nativeFileSize)
+{
+    meshNativePackageIO io;char type[64],identity[80],canonical[FL_Path],manifest[FL_Path];
+    const char *end,*root="R1",*start;size_t typeLength;unsigned lod;bool32 derelict=FALSE;
+    void *data=NULL;sdword length;char error[512];float scale;
+    HwRmVisualAsset *asset=NULL;HwRmVisualInstance *instance=NULL;meshdata *mesh=NULL;
+    memset(&io,0,sizeof(io));
+    if (!strncasecmp(original,"Derelicts\\",10)) {root="Derelicts";start=original+10;derelict=TRUE;}
+    else if (!strncasecmp(original,"P1\\",3)) {root="P1";start=original+3;}
+    else if (!strncasecmp(original,"P2\\",3)) {root="P2";start=original+3;}
+    else if (!strncasecmp(original,"P3\\",3)) {root="P3";start=original+3;}
+    else if (!strncasecmp(original,"Traders\\",8)) {root="Traders";start=original+8;}
+    else if (!strncasecmp(original,"R2\\",3)) {root="R2";start=original+3;}
+    else if (!strncasecmp(original,"R1\\",3)) start=original+3;
+    else return NULL;
+    end=strchr(start,'\\');if (!end) return NULL;typeLength=(size_t)(end-start);
+    if (!typeLength || typeLength>=sizeof(type)) return NULL;
+    memcpy(type,start,typeLength);type[typeLength]=0;
+    typeLength=strlen(type);
+    /* The stock Ghost Ship LOD spells its folder/mesh "GhostShip", while
+       the fleet enum and native document identity are "Ghostship". */
+    if (!strcmp(root,"Traders") && !strcmp(type,"GhostShip")) strcpy(type,"Ghostship");
+    /* Mission 13's stock LOD spells this JunkyardHQ; the fleet identity is
+       JunkYardHQ. Resolve the existing object to its own native package. */
+    if (!strcmp(root,"Traders") && !strcasecmp(type,"JunkYardHQ")) strcpy(type,"JunkYardHQ");
+    {size_t i;for(i=0;i<typeLength;++i) if(!isalnum((unsigned char)type[i]) && type[i]!='_') return NULL;}
+    if (derelict && !hwRmNativeDerelictType(type)) return NULL;
+    if (!strcmp(root,"P1") && !hwRmNativeP1Type(type)) return NULL;
+    if (!strcmp(root,"P2") && !hwRmNativeP2Type(type)) return NULL;
+    if (!strcmp(root,"P3") && !hwRmNativeP3Type(type)) return NULL;
+    if (!strcmp(root,"Traders") && !hwRmNativeTraderType(type)) return NULL;
+    if (!strcmp(root,"R2") && !hwRmNativeR2Type(type)) return NULL;
+    snprintf(identity,sizeof(identity),"%s%s",derelict?"Derelict_":!strcmp(root,"R2")?"Taiidan_":"",type);
+    /* Match canonical existing fleet/derelict LOD paths only; no other races,
+       identities, custom model paths or arbitrary external HOD selection. */
+    for(lod=0;lod<5;++lod) {
+        snprintf(canonical,sizeof(canonical),"%s\\%s\\Rl0\\LOD%u\\%s.geo",root,type,lod,type);
+        if (!strcasecmp(original,canonical)) break;
+        snprintf(canonical,sizeof(canonical),"%s\\%s\\Rl0\\LOD%u\\%s.peo",root,type,lod,type);
+        if (!strcasecmp(original,canonical)) break;
+    }
+    if (lod==5) return NULL;
+    snprintf(io.root,sizeof(io.root),"%s\\%s\\RMNative\\",root,type);
+    snprintf(manifest,sizeof(manifest),"%sship.owshipdef",io.root);
+    if(!fileExists(manifest,FF_IgnoreBIG))snprintf(manifest,sizeof(manifest),"%svisual.rmnative",io.root);
+    if (!fileExists(manifest,FF_IgnoreBIG)) return NULL;
+    length=fileSizeGet(manifest,FF_IgnoreBIG);if(length<=0 || length>1024*1024) return NULL;
+    length=fileLoadAlloc(manifest,&data,FF_IgnoreBIG);
+    if(length<=0 || !data) {if(data) memFree(data);return NULL;}
+    if(openhwShipDocumentLegacyVisual(data,length)){memFree(data);return NULL;}
+    /* Keep the previously deployed intact-scaffold contract compatible. */
+    if (derelict && !strcmp(type,"Scaffold") && length>=23 && !memcmp(data,"HW_RM_SCAFFOLD_VISUAL_1",22)) strcpy(identity,"Scaffold");
+    io.package=hwRmVisualPackageRead(identity,data,(size_t)length,meshNativePackageRead,
+        meshNativePackageRelease,meshNativePackageConfigure,&io,error,sizeof(error));
+    memFree(data);
+    if (!io.package) goto rejectedPackage;
+    scale=hwRmVisualPackageScale(io.package);asset=hwRmVisualPackageTakeAsset(io.package);
+    instance=hwRmVisualInstanceCreate(asset);
+    if (!instance) {strcpy(error,"native package instance allocation failed");goto rejectedPackage;}
+    if (snprintf(nativeFile,nativeFileSize,"%s%s.geo",io.root,type)>=(int)nativeFileSize)
+        {strcpy(error,"native package texture path exceeds limit");goto rejectedPackage;}
+    mesh=meshCreateRemasteredHierarchy(hwRmVisualInstanceSubsystem(instance),lod,scale,
+        nativeFile,meshNativePackageMaterial,NULL,&io);
+    if (!mesh) {strcpy(error,"native package renderer/material validation failed");goto rejectedPackage;}
+    if (!meshNativeVisualRegister(mesh,asset,scale,lod)) {
+        meshFree(mesh);mesh=NULL;strcpy(error,"native package registry allocation failed");goto rejectedPackage;
+    }
+    asset=NULL;
+    HW_DIAG_FPRINTF(stderr,"[NativeShipHOD] %s/%s LOD%u loaded native hull/dependencies (%d hierarchy nodes).\n",root,type,lod,mesh->nPolygonObjects);
+    goto cleanupPackage;
+rejectedPackage:
+    HW_DIAG_FPRINTF(stderr,"[NativeShipHOD] %s/%s package rejected: %s; retaining classic GEO.\n",root,type,error);
+cleanupPackage:
+    hwRmVisualInstanceFree(instance);hwRmVisualAssetFree(asset);hwRmVisualPackageFree(io.package);return mesh;
+}
+
 meshdata *meshLoad(char *inFileName)
 {
     GeoFileHeader header;
@@ -1685,6 +2520,22 @@ meshdata *meshLoad(char *inFileName)
 
     char  pagedName[1024];
     char* fileName;
+    char nativeFile[FL_Path];
+
+    mesh = meshTryNativeInterceptorHod(inFileName);
+    if (mesh != NULL)
+    {
+        fileName = inFileName;
+        allowPacking = FALSE;
+        offset = 0;
+        goto registerMeshMaterials;
+    }
+    mesh = meshTryNativeFleetPackage(inFileName,nativeFile,sizeof(nativeFile));
+    if (mesh != NULL)
+    {
+        fileName=nativeFile;allowPacking=FALSE;offset=0;
+        goto registerMeshMaterials;
+    }
 
     allowPacking = mainAllowPacking;
 
@@ -1928,6 +2779,7 @@ meshdata *meshLoad(char *inFileName)
 	} // FIX_ENDIAN:    end of for(index < mesh->nLocalMaterials...) loop
       // everyone else: end of for(index < mesh->nPolygonObjects)    loop
 
+registerMeshMaterials:
     if (allowPacking && mainOnlyPacking && (fileName != pagedName))
     {
         for (index = 0; index < mesh->nLocalMaterials + mesh->nPublicMaterials; index++)
@@ -1964,7 +2816,7 @@ meshdata *meshLoad(char *inFileName)
             meshTextureNameToPath(fullName, fileName, (char *)mesh->localMaterial[index].texture);
             if (meshModernSurfaceDiagEnabled())
             {
-                fprintf(stderr,
+                HW_DIAG_FPRINTF(stderr,
                     "[SurfaceDiag][Mesh] load mesh=\"%s\" materialIndex=%d id=%p material=\"%s\" authored=\"%s\" preferred=\"%s\"\n",
                     fileName != NULL ? fileName : "", index,
                     (void *)&mesh->localMaterial[index],
@@ -1980,6 +2832,13 @@ meshdata *meshLoad(char *inFileName)
                 mesh->localMaterial[index].texture = handles;
                 mesh->localMaterial[index].bTexturesRegistered = TRUE;
             }
+#ifdef HW_ENABLE_D3D12_BACKEND
+            if (strstr(fullName, "SHIPWRECK") != NULL)
+                HW_DIAG_FPRINTF(stderr, "[WreckMaterial] mesh=\"%s\" material=%d texture=\"%s\" registered=%d scheme0=%llu scheme7=%llu\n",
+                    fileName, index, fullName, handles != NULL,
+                    (unsigned long long)(handles != NULL ? handles[0] : TR_Invalid),
+                    (unsigned long long)(handles != NULL ? handles[TE_DerelictDefaultColorScheme] : TR_Invalid));
+#endif
 #ifdef HW_ENABLE_D3D12_BACKEND
             /* Register from the authored mesh-relative LIF path whether or not
                legacy texreg has produced handles yet.  Keep that exact path in
@@ -2005,6 +2864,7 @@ meshdata *meshLoad(char *inFileName)
 */
     }
 
+    meshRegisterEngineMaterials(mesh, fileName);
     return(mesh);
 }
 
@@ -2018,6 +2878,12 @@ meshdata *meshLoad(char *inFileName)
 ----------------------------------------------------------------------------*/
 void meshObjectFixupUV(polygonobject* object, materialentry* materials)
 {
+#ifdef HW_ENABLE_D3D12_BACKEND
+    meshSurfaceCacheClear();
+#endif
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    hwglForgetImmutableMesh(object->pPolygonList);
+#endif
     sdword iPoly;
     polyentry* polygon;
     sdword currentMaterial;
@@ -2238,6 +3104,10 @@ doneDeletingAllOldTextures:
         }
 #endif
     }
+    /* Idle and active pages must both follow a level's palette updates and
+       the carried/captured schemes enabled by levelPreInit. */
+    meshFreeEngineMaterials(mesh);
+    meshRegisterEngineMaterials(mesh,mesh->fileName);
 }
 
 /*-----------------------------------------------------------------------------
@@ -2249,9 +3119,48 @@ doneDeletingAllOldTextures:
     Note        : does not free up any instances of thie mesh or any textures
                     bound to it.
 ----------------------------------------------------------------------------*/
+typedef struct meshDeathHull {struct meshDeathHull *next;meshdata *mesh;shipbindings bindings;
+    float scale;unsigned lod;sdword colour;mhlocalbinding *pose;} meshDeathHull;
+static meshDeathHull *meshDeathHulls;
+void *meshRemasteredDeathHullCreate(const void *owner){const Ship *ship=(const Ship*)owner;lodinfo *levels;sdword level;meshDeathHull *hull;
+    if(!ship||!ship->staticinfo)return NULL;levels=ship->staticinfo->staticheader.LOD;
+    for(level=0;levels&&level<levels->nLevels;++level){float scale;unsigned lod;meshdata *mesh;
+        if((levels->level[level].flags&LM_LODType)!=LT_Mesh)continue;mesh=levels->level[level].pData;
+        if(!meshNativeVisualParameters(mesh,&scale,&lod)||mesh->nPolygonObjects<=0||mesh->nPolygonObjects>255)continue;
+        hull=calloc(1,sizeof(*hull));if(!hull)return NULL;
+        hull->pose=calloc(mesh->nPolygonObjects,sizeof(*hull->pose));if(!hull->pose){free(hull);return NULL;}
+        hull->mesh=mesh;hull->scale=scale;hull->lod=lod;hull->colour=ship->colorScheme;
+        hull->bindings.localBinding[0]=hull->pose;hull->next=meshDeathHulls;meshDeathHulls=hull;return hull;
+    }return NULL;
+}
+void meshRemasteredDeathHullFree(void *value){meshDeathHull *hull=value,**link=&meshDeathHulls;
+    if(!hull)return;while(*link&&*link!=hull)link=&(*link)->next;if(*link)*link=hull->next;free(hull->pose);free(hull);
+}
+void meshRemasteredDeathHullDraw(void *value,void *instance,const matrix *rotation,const vector *position){meshDeathHull *hull=value;hmatrix world;
+    if(!hull||!hull->mesh||!instance||!rotation||!position)return;
+    if(!meshApplyRemasteredHierarchyPose(hwRmVisualInstanceSubsystem(instance),hull->lod,hull->scale,hull->mesh,hull->pose,hull->mesh->nPolygonObjects))return;
+    hmatMakeHMatFromMat(&world,(matrix*)rotation);hmatPutVectIntoHMatrixCol4(*position,world);
+    glPushMatrix();glMultMatrixf((float*)&world);shPushLightMatrix(&world);
+    /* Death hulls bypass the normal ship-render owner scope. Do not inherit
+       another ship's throttle or leak the final engine material into FX/UI. */
+    meshSetEngineMaterialOwner(NULL);
+    meshRenderShipHierarchy(&hull->bindings,0,hull->mesh,hull->colour);
+    meshSetEngineMaterialOwner(NULL);
+    shPopLightMatrix();glPopMatrix();
+}
 void meshFree(meshdata *mesh)
 {
+#ifdef HW_ENABLE_D3D12_BACKEND
+    meshSurfaceCacheClear(); /* No retained polygon/material pointers survive asset release. */
+#endif
+    meshDeathHull *hull;for(hull=meshDeathHulls;hull;hull=hull->next)if(hull->mesh==mesh)hull->mesh=NULL;
     sdword index, j;
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    for(index=0;index<mesh->nPolygonObjects;++index)
+        hwglForgetImmutableMesh(mesh->object[index].pPolygonList);
+#endif
+    meshFreeEngineMaterials(mesh);
+    meshNativeVisualReleaseMesh(mesh);
 
 #ifdef HW_ENABLE_D3D12_BACKEND
     meshForgetModernSurfaceTextures(mesh);
@@ -2306,6 +3215,10 @@ void meshCurrentMaterialDefault(materialentry *material, sdword iColorScheme)
 {
     GLfloat attribs[4];
     GLenum face;
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    hwglSurfaceMaterial(material);
+    hwglSurfaceEmission((bitTest(material->flags,MDF_SelfIllum) || material->nFullAmbient) ? 1.0f+(real32)material->nFullAmbient/32.0f : 0.0f);
+#endif
 #if MESH_TEAM_COLORS
     color teamAmbient, teamDiffuse;
     color teamSpecular;
@@ -2442,7 +3355,24 @@ void meshCurrentMaterialDefault(materialentry *material, sdword iColorScheme)
         }
 #endif
         rndTextureEnable(TRUE);
-        trMakeCurrent(((trhandle *)material->texture)[iColorScheme]);
+        {
+            trhandle *handles = (trhandle *)material->texture;
+            trhandle selected = iColorScheme >= 0 && iColorScheme < MAX_MULTIPLAYER_PLAYERS
+                ? handles[iColorScheme] : TR_Invalid;
+            /* NIS wrecks may request a scheme that was not resident when
+               their static mesh loaded. Never inherit a UI diffuse: keep
+               this material's canonical neutral texture until recoloring. */
+            if (selected == TR_Invalid &&
+                handles[TE_DerelictDefaultColorScheme] != TR_Invalid)
+            {
+                trhandle neutral = handles[TE_DerelictDefaultColorScheme];
+                char *source = trIndex(neutral) < TR_RegistrySize
+                    ? trStructureGet(neutral)->fileName : NULL;
+                if (source != NULL && strncmp(source, "DERELICTS\\", 10) == 0)
+                    selected = neutral;
+            }
+            trMakeCurrent(selected);
+        }
         if (bitTest(material->flags, MPM_Smooth) && enableSmoothing == TRUE)
         {
             meshPolyMode = MPM_SmoothTexture;
@@ -2492,6 +3422,10 @@ void meshCurrentMaterialDefault(materialentry *material, sdword iColorScheme)
 void meshCurrentMaterialTex(materialentry *material, sdword iColorScheme)
 {
     GLenum face;
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    hwglSurfaceMaterial(material);
+    hwglSurfaceEmission((bitTest(material->flags,MDF_SelfIllum) || material->nFullAmbient) ? 1.0f+(real32)material->nFullAmbient/32.0f : 0.0f);
+#endif
 
     if (bitTest(material->flags, MDF_2Sided))
     {                                                       //if 2-sided material
@@ -2532,6 +3466,10 @@ void meshCurrentMaterialTex(materialentry *material, sdword iColorScheme)
 ----------------------------------------------------------------------------*/
 void meshAlmostCurrentMaterial(materialentry* material, sdword iColorScheme)
 {
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    hwglSurfaceMaterial(material);
+    hwglSurfaceEmission((bitTest(material->flags,MDF_SelfIllum) || material->nFullAmbient) ? 1.0f+(real32)material->nFullAmbient/32.0f : 0.0f);
+#endif
 //    if (material->texture != TR_Invalid)
     if (material->bTexturesRegistered)
     {
@@ -2569,6 +3507,15 @@ void meshSpecColour(normalentry* normal, vertexentry* vertex, real32* m, real32*
     vector vert;
     vector norm;
     ubyte  colour[4];
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    /* The old CPU-specular path never submitted normals. The capital plume
+       pixel shader needs the actual smooth normal, not stale GL state. */
+    glNormal3f(normal->x,normal->y,normal->z);
+    if(specIndex==2 && hwglEngineGlowActive()) {
+        glColor4ub(specColour[0],specColour[1],specColour[2],specColour[3]);
+        return;
+    }
+#endif
 
     norm.x = normal->x;
     norm.y = normal->y;
@@ -2735,7 +3682,7 @@ void meshObjectRender(polygonobject *object, materialentry *materials, sdword iC
         {                                                   //if a new material
             glEnd();                                        //end current polygon run
             currentMaterial = polygon->iMaterial;           //remember current material
-            meshCurrentMaterial(&materials[currentMaterial], iColorScheme);//set new material
+            meshApplyEngineMaterial(&materials[currentMaterial], iColorScheme);
             if (enableBlend)
             {
                 glEnable(GL_BLEND);
@@ -2772,6 +3719,9 @@ void meshObjectRender(polygonobject *object, materialentry *materials, sdword iC
 
                 if (visibleDirection != 0)
                 {
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+                    hwglForgetImmutableMesh(object->pPolygonList);
+#endif
                     switch (visibleSegment)
                     {
                     case 0:
@@ -3002,6 +3952,9 @@ void meshObjectRenderLit(polygonobject *object, materialentry *materials, sdword
 
     meshEnableVertexArrays((void*)vertexList, 0, object->nVertices);
 
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    int persistentAvailable=hwglCanDrawImmutableMesh(object->pPolygonList);
+#endif
     glBegin(GL_TRIANGLES);                                  //prepare to draw triangles
 
     for (iPoly = 0; iPoly < object->nPolygons; iPoly++)
@@ -3015,7 +3968,7 @@ void meshObjectRenderLit(polygonobject *object, materialentry *materials, sdword
         {                                                   //if a new material
             glEnd();                                        //end current polygon run
             currentMaterial = polygon->iMaterial;           //remember current material
-            meshCurrentMaterial(&materials[currentMaterial], iColorScheme);//set new material
+            meshApplyEngineMaterial(&materials[currentMaterial], iColorScheme);
             if (bFade)
             {
                 glEnable(GL_BLEND);
@@ -3027,6 +3980,26 @@ void meshObjectRenderLit(polygonobject *object, materialentry *materials, sdword
 #endif //MESH_MATERIAL_STATS
         }
 
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+        if(persistentAvailable && (meshPolyMode==MPM_Texture || meshPolyMode==MPM_SmoothTexture)) {
+            HWLegacyShadeState shade;unsigned consumed=0;
+            if(shCapturePersistentShade(&shade))
+                consumed=hwglDrawImmutableMesh(object->pPolygonList,(unsigned)iPoly,
+                    (unsigned)meshPolyMode,&shade);
+            if(consumed) {
+                polyentry *last=polygon+consumed-1;
+                normalentry *lastNormal=&normalList[meshPolyMode==MPM_SmoothTexture?
+                    vertexList[last->iV2].iVertexNormal:last->iFaceNormal];
+                /* Preserve the legacy current-attribute state for the next
+                   material/UI call, without shading/emitting every vertex. */
+                meshColour(lastNormal);
+                glTexCoord2f(last->s2,last->t2);
+                iPoly+=(sdword)consumed-1;polygon+=consumed;
+                continue;
+            }
+            persistentAvailable=FALSE;
+        }
+#endif
         switch (meshPolyMode)
         {
             case MPM_Flat:
@@ -3185,7 +4158,7 @@ void meshSpecObjectRender(polygonobject *object, materialentry *materials, sdwor
         {                                                   //if a new material
             glEnd();                                        //end current polygon run
             currentMaterial = polygon->iMaterial;           //remember current material
-            meshCurrentMaterial(&materials[currentMaterial], iColorScheme);//set new material
+            meshApplyEngineMaterial(&materials[currentMaterial], iColorScheme);
             glBegin(GL_TRIANGLES);                          //start new run
 #if MESH_MATERIAL_STATS
             nMaterialChanges++;                             //record material stats
@@ -3397,7 +4370,7 @@ void meshMorphedObjectRender(
         {
             glEnd();
             currentMaterial = polygon->iMaterial;
-            meshCurrentMaterial(&materials[currentMaterial], iColorScheme);
+            meshApplyEngineMaterial(&materials[currentMaterial], iColorScheme);
             glBegin(GL_TRIANGLES);
 #if MESH_MATERIAL_STATS
             nMaterialChanges++;
@@ -3712,6 +4685,20 @@ void meshObjectRenderR(polygonobject *object, materialentry *materials, sdword i
     Return      : ??
     Note        : This function does not even call any GL wrappers.
 ----------------------------------------------------------------------------*/
+/* Isolated editor part render, retaining normal mesh UV/material preparation. */
+void meshRenderAuthoringPart(meshdata *mesh, sdword index)
+{
+    polygonobject part;
+    if (!mesh || index < 0 || index >= mesh->nPolygonObjects) return;
+    meshFixupPacoUV(mesh, texLinearFiltering);
+    part = mesh->object[index];
+    part.pDaughter = part.pSister = part.pMother = NULL;
+    part.localMatrix = IdentityHMatrix;
+    meshCurrentMaterial = meshCurrentMaterialDefault;
+    meshObjectRenderR(&part, mesh->localMaterial, 0);
+    meshCurrentMaterial = meshCurrentMaterialDefault;
+}
+
 sdword meshRender(meshdata *mesh, sdword iColorScheme)
 {
     polygonobject *object;

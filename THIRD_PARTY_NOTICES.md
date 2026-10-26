@@ -94,6 +94,26 @@ Their dual MIT/public-domain notices are embedded in the source headers.
 
 - https://github.com/nothings/stb
 
+## D3D12 Memory Allocator
+
+GPUOpen D3D12MemoryAllocator v3.2.0 provides pooled Direct3D 12 memory
+allocation. Its unmodified source is pinned to commit
+`1d86c1130f61453634b1df85782e1fecfd59a525` and is included under the MIT license.
+
+- Project: https://github.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator
+- License: `src/ThirdParty/D3D12MemoryAllocator/LICENSE.txt`
+- Pinned source URLs and hashes: `src/ThirdParty/D3D12MemoryAllocator/UPSTREAM.json`
+
+## meshoptimizer
+
+meshoptimizer v1.0 supplies exact vertex deduplication for persistent raster
+geometry. Its source is pinned to commit
+`73583c335e541c139821d0de2bf5f12960a04941` and is included under the MIT license.
+
+- Project: https://github.com/zeux/meshoptimizer
+- License: `src/ThirdParty/meshoptimizer/LICENSE.md`
+- Pinned source URLs and hashes: `src/ThirdParty/meshoptimizer/UPSTREAM.json`
+
 ## DirectX Shader Compiler and Windows SDK
 
 DXC is a build-time dependency used to compile the DXR HLSL library. Windows,
@@ -113,6 +133,15 @@ Provenance notes are located beside relevant assets:
 Some interface/cursor/mission imagery is restored, transformed, or generated
 from lawfully supplied Homeworld material. Distribution does not grant rights
 to extract or reuse that material outside this non-commercial Homeworld project.
+
+## OpenMW cloud renderer prototype
+
+The local cloud renderer adapts zesterer's `openmw-volumetric-clouds`, revision
+`c8830bcd2de0f6e7355f91880308426203eded3c`, including its original noise lookup
+images. Attribution, unmodified references and hashes are retained in
+`src/ThirdParty/OpenMWVolumetricClouds/`. No explicit upstream software license
+was found; this adaptation is a local prototype, and permission to redistribute
+the adapted code and assets remains unresolved before a public release.
 
 ## No endorsement
 

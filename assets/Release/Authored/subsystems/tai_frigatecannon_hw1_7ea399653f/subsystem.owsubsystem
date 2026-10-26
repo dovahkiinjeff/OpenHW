@@ -1,0 +1,40 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_tai_frigatecannon_hw1_7ea399653f
+scale 1
+hull @/Subsystems/tai_frigatecannon/model.hod
+mad -
+surface 0 0 @/Subsystems/tai_frigatecannon/m0
+gun 0 Hull Weapon_Gun1_Position Weapon_Gun1_Latitude Weapon_Gun1_Latitude Weapon_Gun1_Muzzle
+
+presentation Hull component_events.owevents
+[Weapons]
+GUN 0
+//Desired Range = 4800
+//ADD this amount:  74 to compensate for centrepoint
+//ADD this amount: 784 to compensate for stopping distance
+
+{
+WeaponFire @/RemasteredFX/WeaponFire/hw1kinetic_small.wf
+
+Type                                GUN_NewGimble
+SoundType                           GS_LargeEnergyCannon
+DamageLo                            8
+DamageHi                            12
+BulletLength                        18.0
+BulletRange                         2500.0
+BulletSpeed                         7000.0
+BulletMass                          0.75
+FireTime                            0.6
+TriggerHappy                        5.0
+minturnangle                      -10.0                        ; degrees
+maxturnangle                      130.0
+mindeclination                    -10.0
+maxdeclination                     29.0
+maxanglespeed                     360.0                        ; degrees/s
+maxdeclinationspeed               360.0
+angletracking                       4.0
+declinationtracking                 4.0
+BarrelLength                       47.0                        ; was 70m
+RecoilLength                        4.5
+}
+[End]

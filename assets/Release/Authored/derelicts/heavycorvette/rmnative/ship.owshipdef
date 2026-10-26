@@ -1,0 +1,7 @@
+OPENHW_SHIP_1
+type Derelict_HeavyCorvette
+scale 2.84715239
+hull hull.hod
+mad -
+surface 0 0 c0_m0
+surface 0 1 c0_m1

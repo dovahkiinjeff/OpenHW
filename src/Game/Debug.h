@@ -9,6 +9,7 @@
 #define ___DEBUG_H
 
 #include "Types.h"
+#include "../Modern/DiagnosticPolicy.h"
 
 // INTERFACE -------------------------------------------------------------------
 
@@ -65,5 +66,13 @@ void dbgFatalf   (char *file, sdword line, char *format, ... );
 
 void dbgNonFatal (char *file, sdword line, char *string      );
 void dbgNonFatalf(char *file, sdword line, char *format, ... );
+
+
+#if !HW_ENABLE_DIAGNOSTICS && !defined(HW_DIAGNOSTIC_IMPLEMENTATION)
+#define dbgMessage(...) ((void)0)
+#define dbgMessagef(...) ((void)0)
+#define dbgWarning(...) ((void)0)
+#define dbgWarningf(...) ((void)0)
+#endif
 
 #endif

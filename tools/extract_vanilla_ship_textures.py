@@ -73,6 +73,8 @@ def lzss_expand(data: bytes, expected: int) -> bytes:
                     output.append(value)
                     window[position] = value
                     position = (position + 1) & 4095
+            if len(output) > expected:
+                raise ValueError("LZSS expansion exceeds declared size")
     except StopIteration as error:
         raise ValueError("truncated LZSS stream") from error
     if len(output) != expected:
@@ -112,6 +114,8 @@ def read_archive(path: Path) -> tuple[bytes, list[Entry]]:
     if blob[:7] != b"RBF1.23":
         raise ValueError("not an RBF1.23 Homeworld archive")
     count, _flags = struct.unpack_from("<II", blob, 7)
+    if not 1 <= count <= 100000:
+        raise ValueError("invalid BIG entry count")
     classic_score = score_layout(blob, count, CLASSIC)
     remaster_score = score_layout(blob, count, REMASTER)
     parser = REMASTER if remaster_score > classic_score else CLASSIC
@@ -121,6 +125,12 @@ def read_archive(path: Path) -> tuple[bytes, list[Entry]]:
     for index in range(count):
         values = parser.unpack_from(blob, 15 + index * parser.size)
         entry = entry_from(values, parser is REMASTER)
+        if (not 1 <= entry.name_length <= 4096 or entry.compression not in (0, 1) or
+            entry.real_length > 128*1024*1024 or entry.offset < 15+count*parser.size or
+            entry.offset+entry.name_length+1+entry.stored_length > len(blob)):
+            raise ValueError("invalid BIG entry bounds")
+        if blob[entry.offset+entry.name_length] != 0:
+            raise ValueError("invalid BIG filename terminator")
         raw_name = blob[entry.offset:entry.offset + entry.name_length]
         entry.name = decrypt_name(raw_name)
         entries.append(entry)

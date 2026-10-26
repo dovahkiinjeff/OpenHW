@@ -1,9 +1,21 @@
+#include "DiagnosticPolicy.h"
 #if defined(_WIN32) && defined(HW_ENABLE_D3D12_NATIVE_RASTER)
 
 #include <windows.h>
 #include <SDL2/SDL_opengl.h>
 #include "LegacyD3D12GL.h"
 #include "LegacyD3D12Renderer.h"
+#include "LegacyD3D11Renderer.h"
+#include <d3d11.h>
+#include <cfloat>
+#include "TextureDescriptorSlots.h"
+#include "PersistentRasterGeometry.h"
+#include "GpuMemoryAllocator.h"
+#include "WindowsSplash.h"
+#include "NativeTextureSampling.h"
+#include "NativeTextureMips.h"
+#include "MaterialTextureResidency.h"
+#include "FrameWorker.h"
 
 #include <d3d12.h>
 #include <d3dcompiler.h>
@@ -23,6 +35,7 @@
 #include <memory>
 #include <unordered_map>
 #include <utility>
+#include <tuple>
 #include <vector>
 
 using Microsoft::WRL::ComPtr;
@@ -31,6 +44,7 @@ namespace
 {
 constexpr unsigned int kFrameSlots = 3;
 constexpr unsigned int kSrvCapacity = 65536;
+TextureDescriptorSlots gTextureDescriptorSlots(kSrvCapacity);
 constexpr DXGI_FORMAT kRasterTargetFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 constexpr DXGI_FORMAT kDefaultTextureFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 constexpr DXGI_FORMAT kDepthResourceFormat = DXGI_FORMAT_R32_TYPELESS;
@@ -139,6 +153,12 @@ struct LightState
 
 struct RasterDrawState
 {
+    const void *engineIdleMaterial = nullptr;
+    GLuint engineIdleTexture = 0;
+    float engineBlend = -1.0f;
+    float emissionGain=0,engineIdleEmissionGain=0;
+    const void *materialIdentity = nullptr;
+    bool worldScene = false;
     bool texture2D = false;
     bool blend = false;
     bool alphaTest = false;
@@ -161,20 +181,63 @@ struct RasterDrawState
     float fogColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 };
 
-struct RasterVertex
-{
-    float position[4];
-    float color[4];
-    float uv[2];
-    float normal[4];
-    float fogFactor;
-    float clipDistance;
+using RasterVertex = hwmodern::PersistentRasterVertex;
+constexpr size_t kPersistentGeometryBudget = 256u*1024u*1024u;
+size_t gPersistentGeometryCharge = 0;
+size_t gPersistentGeometryStagingCharge = 0;
+unsigned long long gPersistentGeometryEvictions = 0, gPersistentGeometryAdmissionDenials = 0;
+unsigned long long gPersistentSequence = 0, gPersistentUploadBytes = 0;
+size_t immutableBufferCharge(size_t bytes) {
+    return (bytes+65535u)&~size_t(65535u);
+}
+size_t immutableGeometryCharge(size_t vertexBytes,size_t indexBytes) {
+    // Admission reservation covers the CPU build, GPU buffers and staging.
+    // It is reduced to live allocations after CPU/staging ownership retires.
+    return 3u*(immutableBufferCharge(vertexBytes)+immutableBufferCharge(indexBytes));
+}
+struct ImmutableRasterGeometry {
+    hwmodern::PersistentRasterData data;
+    ComPtr<ID3D12Resource> vertices, indices;
+    size_t vertexCount=0,indexCount=0,charge=0;
+    size_t vertexAllocationBytes=0,indexAllocationBytes=0;
+    float boundsMin[3]={},boundsMax[3]={};
+    unsigned long long lastUse=0;
+    unsigned long long retainedSequence=~0ull;
+    ~ImmutableRasterGeometry(){gPersistentGeometryCharge-=charge;}
 };
-static_assert(sizeof(RasterVertex) == 64, "legacy raster vertex size");
+struct ImmutableRasterStaging {
+    ComPtr<ID3D12Resource> resource;
+    size_t charge=0;
+    ~ImmutableRasterStaging(){
+        resource.Reset();
+        gPersistentGeometryCharge-=charge;
+        gPersistentGeometryStagingCharge-=charge;
+    }
+};
+struct ImmutableMeshRecord {
+    HWPersistentMeshSource source{};
+    std::vector<std::pair<unsigned,unsigned>> runs;
+    std::unordered_map<unsigned long long,std::shared_ptr<ImmutableRasterGeometry>> geometry;
+};
+std::unordered_map<const void *,ImmutableMeshRecord> gImmutableMeshes;
+bool reserveImmutableGeometry(size_t requested) {
+    if(requested>kPersistentGeometryBudget)return false;
+    while(requested>kPersistentGeometryBudget-gPersistentGeometryCharge) {
+        ImmutableMeshRecord *owner=nullptr;unsigned long long key=0,oldest=~0ull;
+        for(auto &mesh:gImmutableMeshes)for(auto &entry:mesh.second.geometry)
+            if(entry.second.use_count()==1&&entry.second->lastUse<oldest){
+                oldest=entry.second->lastUse;owner=&mesh.second;key=entry.first;
+            }
+        if(!owner)return false;
+        owner->geometry.erase(key);
+        ++gPersistentGeometryEvictions;
+    }
+    return true;
+}
 
 struct RasterCommand
 {
-    enum Type { Clear, Draw, MissionSky } type = Draw;
+    enum Type { Clear, Draw, MissionSky, BackgroundMesh } type = Draw;
     GLbitfield clearMask = 0;
     float clearColor[4] = {};
     float clearDepth = 1.0f;
@@ -191,8 +254,22 @@ struct RasterCommand
        explicit compatibility path. */
     uint32_t gpuFixedFunctionEnabled = 0;
     size_t fixedStateIndex = 0;
+    bool effectGuidePerspective = false;
+    bool engineTrail = false;
+    std::shared_ptr<ImmutableRasterGeometry> immutableGeometry;
     float skyConstants[12] = {};
+    unsigned int backgroundProgram = 0, backgroundFlags = 0;
+    unsigned int backgroundTextures[HW_BACKGROUND_TEXTURES] = {};
+    size_t backgroundParameterIndex = 0;
 };
+
+struct BackgroundConstants
+{
+    float camera[12], object[16], projection[4];
+    float parameters[HW_BACKGROUND_PARAMETERS*4];
+};
+std::vector<HWBackgroundVertex> gBackgroundVertices;
+std::vector<BackgroundConstants> gBackgroundConstants;
 
 struct CpuBuffer
 {
@@ -219,9 +296,12 @@ struct TextureRecord
     std::vector<CompressedMip> compressedMips;
     GLint minFilter = GL_LINEAR;
     GLint magFilter = GL_LINEAR;
+    float maxAnisotropy = 1.0f;
+    bool generateMips = false;
     GLint wrapS = GL_REPEAT;
     GLint wrapT = GL_REPEAT;
     bool dirty = true;
+    bool descriptorDirty = true;
     unsigned int descriptorSlot = 0;
     ComPtr<ID3D12Resource> gpu;
     D3D12_RESOURCE_STATES gpuState = D3D12_RESOURCE_STATE_COMMON;
@@ -229,6 +309,9 @@ struct TextureRecord
 
 struct FixedState
 {
+    float engineGlowColor[4] = {};
+    float engineGlowExponent = 0;
+    bool engineTrail = false;
     GLenum matrixMode = GL_MODELVIEW;
     Mat4 modelview = identityMatrix();
     Mat4 projection = identityMatrix();
@@ -277,6 +360,9 @@ struct FixedState
    enabled bit because the historical CPU lighting path ignored light alpha. */
 struct GpuFixedFunctionState
 {
+    float engineGlowColor[4];
+    float engineGlowParameters[4]; /* exponent, enabled, reserved */
+    float engineNormalRows[12]; /* inverse transpose, padded rows */
     float modelViewRows[16];
     float mvpRows[16];
     float materialAmbient[4];
@@ -289,6 +375,7 @@ struct GpuFixedFunctionState
     float lightPosition[8][4];
     float lightAmbient[8][4];     /* .w = enabled */
     float lightDiffuse[8][4];
+    HWLegacyShadeState legacyShade;
 };
 static_assert((sizeof(GpuFixedFunctionState) & 15u) == 0u,
               "fixed-function GPU state alignment");
@@ -323,6 +410,7 @@ unsigned int gFrameSlot = 0;
 size_t gSnapshots[4] = {};
 bool gFrameRecording = false;
 bool gDetachedDirty = false;
+bool gFrameGenerationGuidesEnabled = false;
 
 Mat4 &currentMatrix()
 {
@@ -499,6 +587,16 @@ void storeMatrixRows(const Mat4 &matrix, float outRows[16])
 GpuFixedFunctionState captureGpuFixedFunctionState()
 {
     GpuFixedFunctionState state = {};
+    if (g.engineGlowExponent > 0 || g.lighting) {
+        Mat4 inverse;
+        if (inverseMatrix(g.modelview, inverse)) {
+            std::memcpy(state.engineGlowColor,g.engineGlowColor,sizeof(state.engineGlowColor));
+            state.engineGlowParameters[0]=g.engineGlowExponent;
+            state.engineGlowParameters[1]=g.engineGlowExponent > 0 ? 1.0f : 0.0f;
+            for(int row=0;row<3;++row) for(int column=0;column<3;++column)
+                state.engineNormalRows[row*4+column]=inverse.m[row*4+column];
+        }
+    }
     storeMatrixRows(g.modelview, state.modelViewRows);
     const Mat4 mvp = multiply(g.projection, g.modelview);
     storeMatrixRows(mvp, state.mvpRows);
@@ -657,14 +755,24 @@ void appendExpanded(RasterCommand &command, GLenum mode,
 }
 
 void configureDrawCommand(RasterCommand &command,
-                          bool verticesArePretransformed)
+                          bool verticesArePretransformed,
+                          const HWLegacyShadeState *legacyShade = nullptr)
 {
     command.state = g.draw;
+    command.engineTrail = g.engineTrail;
+    // Only an actual 3D perspective draw has clip.w == -viewZ. Never treat
+    // orthographic UI or pretransformed screen-space quads as world FX.
+    command.effectGuidePerspective = !verticesArePretransformed &&
+        std::fabs(g.projection.m[11] + 1.0f) < 0.00001f &&
+        std::fabs(g.projection.m[15]) < 0.00001f &&
+        std::fabs(g.projection.m[3]) < 0.00001f &&
+        std::fabs(g.projection.m[7]) < 0.00001f;
     command.gpuFixedFunctionEnabled =
         (!verticesArePretransformed && gpuFixedFunctionRuntimeEnabled()) ? 1u : 0u;
     if (command.gpuFixedFunctionEnabled != 0)
     {
         GpuFixedFunctionState fixedState = captureGpuFixedFunctionState();
+        if (legacyShade) fixedState.legacyShade = *legacyShade;
         /* Consecutive texture/material runs often share every fixed-function
            input. Reuse the previous CBV block instead of uploading another
            624-byte state record when it is bit-identical. */
@@ -844,7 +952,7 @@ TextureRecord &texture(GLuint name)
     if (found != gTextures.end()) return found->second;
     TextureRecord record;
     record.name = name;
-    record.descriptorSlot = name == 0 ? 0 : std::min<unsigned int>(name, kSrvCapacity - 1);
+    record.descriptorSlot = name == 0 ? 0 : gTextureDescriptorSlots.allocate();
     if (name == 0)
     {
         /* D3D12 always needs a valid SRV bound even for untextured legacy
@@ -1099,13 +1207,31 @@ struct PersistentVertexUpload
 struct GpuRenderer
 {
     ComPtr<ID3D12RootSignature> root;
+    ComPtr<ID3DBlob> legacyVertexShader, legacyPixelShader, missionPixelShaders[2];
+    ComPtr<ID3DBlob> effectGuidePixelShader;
+    unsigned int legacyShaderCompilations=0;
     ComPtr<ID3D12DescriptorHeap> srvHeap;
     ComPtr<ID3D12DescriptorHeap> samplerHeap;
     ComPtr<ID3D12DescriptorHeap> rtvHeap;
     ComPtr<ID3D12DescriptorHeap> dsvHeap;
+    ComPtr<ID3D12Resource> missionShadow;
+    ComPtr<ID3D12DescriptorHeap> missionShadowDsv;
+    unsigned missionShadowSlot=0;
+    D3D12_RESOURCE_STATES missionShadowState=D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    ComPtr<ID3DBlob> missionShadowVS,missionShadowPS;
+    PersistentVertexUpload missionLightingUploads[kFrameSlots];
+    PersistentVertexUpload missionIndexUploads[kFrameSlots];
+    PersistentVertexUpload missionInstanceUploads[kFrameSlots];
     ComPtr<ID3D12Resource> depth;
     D3D12_RESOURCE_STATES depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+    ComPtr<ID3D12Resource> effectDepth;
+    D3D12_RESOURCE_STATES effectDepthState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
+        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+    unsigned int effectDepthWidth = 0, effectDepthHeight = 0;
+    bool effectDepthReady = false;
+    bool effectDepthFailed = false;
     ComPtr<ID3D12PipelineState> missionSkyPipeline;
+    ComPtr<ID3D12RootSignature> backgroundRoot;
     UINT srvStride = 0;
     UINT samplerStride = 0;
     UINT rtvStride = 0;
@@ -1115,9 +1241,14 @@ struct GpuRenderer
     unsigned int activeSlot = 0;
     std::unordered_map<PipelineKey, ComPtr<ID3D12PipelineState>, PipelineKeyHash> pipelines;
     std::vector<ComPtr<ID3D12Resource>> frameResources[kFrameSlots];
+    hwmodern::GpuMemoryAllocator geometryAllocator;
+    std::vector<std::shared_ptr<ImmutableRasterGeometry>> geometryFlight[kFrameSlots];
+    std::vector<std::shared_ptr<ImmutableRasterStaging>> geometryStagingFlight[kFrameSlots];
     PersistentVertexUpload vertexUploads[kFrameSlots];
     PersistentVertexUpload indexUploads[kFrameSlots];
     PersistentVertexUpload fixedStateUploads[kFrameSlots];
+    PersistentVertexUpload backgroundVertexUploads[kFrameSlots];
+    PersistentVertexUpload backgroundParameterUploads[kFrameSlots];
     /* Per-flight persistently mapped texture staging arena. Dirty legacy
        textures suballocate from this buffer instead of creating/mapping a new
        committed upload resource for every texture update. */
@@ -1141,6 +1272,93 @@ void retainAcrossFlight(const ComPtr<ID3D12Resource> &resource)
 
 bool ensurePersistentVertexUpload(ID3D12Device *device, UINT64 requiredBytes,
                                   PersistentVertexUpload &upload);
+
+size_t immutableAllocationBytes(ID3D12Device *device, ID3D12Resource *resource) {
+    const auto managed=hwmodern::gpuMemoryResourceInfo(resource);
+    if(managed.managed)return static_cast<size_t>(managed.allocationBytes);
+    const auto description=resource->GetDesc();
+    return static_cast<size_t>(device->GetResourceAllocationInfo(0,1,&description).SizeInBytes);
+}
+bool uploadImmutableBuffer(ID3D12Device *device, ID3D12GraphicsCommandList *list,
+    const void *bytes, size_t size, D3D12_RESOURCE_STATES finalState,
+    ComPtr<ID3D12Resource> &destination, size_t &allocationBytes,
+    ImmutableRasterGeometry &entry) {
+    D3D12_HEAP_PROPERTIES heap={};heap.Type=D3D12_HEAP_TYPE_UPLOAD;
+    D3D12_RESOURCE_DESC desc={};desc.Dimension=D3D12_RESOURCE_DIMENSION_BUFFER;
+    desc.Width=size;desc.Height=1;desc.DepthOrArraySize=1;desc.MipLevels=1;
+    desc.SampleDesc.Count=1;desc.Layout=D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    ComPtr<ID3D12Resource> staging;
+    if(FAILED(device->CreateCommittedResource(&heap,D3D12_HEAP_FLAG_NONE,&desc,
+        D3D12_RESOURCE_STATE_GENERIC_READ,nullptr,IID_PPV_ARGS(&staging))))return false;
+    void *mapped=nullptr;D3D12_RANGE noRead={0,0};
+    if(FAILED(staging->Map(0,&noRead,&mapped)))return false;
+    std::memcpy(mapped,bytes,size);staging->Unmap(0,nullptr);
+    heap.Type=D3D12_HEAP_TYPE_DEFAULT;
+    ComPtr<ID3D12Resource> created;
+    const auto result=r.geometryAllocator.createResource(heap,D3D12_HEAP_FLAG_NONE,desc,
+        D3D12_RESOURCE_STATE_COPY_DEST,nullptr,created,
+        hwmodern::GpuMemoryInitialization::FullyWrittenBeforeRead);
+    const size_t stagingBytes=immutableAllocationBytes(device,staging.Get());
+    const size_t destinationBytes=FAILED(result)?stagingBytes:immutableAllocationBytes(device,created.Get());
+    // Current buffer allocations use 64 KiB alignment. Preserve the bound if
+    // a device/allocator reports a larger region than the admission estimate.
+    const size_t estimated=immutableBufferCharge(size);
+    const size_t extra=(stagingBytes>estimated?stagingBytes-estimated:0)+
+        (SUCCEEDED(result)&&destinationBytes>estimated?destinationBytes-estimated:0);
+    if(extra) {
+        if(extra>kPersistentGeometryBudget/3u||!reserveImmutableGeometry(extra*3u))return false;
+        entry.charge+=extra*3u;gPersistentGeometryCharge+=extra*3u;
+    }
+    if(FAILED(result)) {
+        // Exact persistent upload-heap fallback if local allocation is denied.
+        destination=staging;
+    } else {
+        auto ticket=std::make_shared<ImmutableRasterStaging>();ticket->resource=staging;
+        r.geometryStagingFlight[r.activeSlot].push_back(ticket);
+        // Transfer reserved bytes, rather than double-charging the same
+        // staging allocation. The ticket releases them only after its fence.
+        entry.charge-=stagingBytes;ticket->charge=stagingBytes;
+        gPersistentGeometryStagingCharge+=stagingBytes;
+        if(hwmodern::gpuMemoryResourceInfo(created.Get()).placed) {
+            D3D12_RESOURCE_BARRIER activate={};activate.Type=D3D12_RESOURCE_BARRIER_TYPE_ALIASING;
+            activate.Aliasing.pResourceAfter=created.Get();list->ResourceBarrier(1,&activate);
+        }
+        list->CopyBufferRegion(created.Get(),0,staging.Get(),0,size);
+        D3D12_RESOURCE_BARRIER barrier={};barrier.Type=D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        barrier.Transition.pResource=created.Get();barrier.Transition.Subresource=D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        barrier.Transition.StateBefore=D3D12_RESOURCE_STATE_COPY_DEST;barrier.Transition.StateAfter=finalState;
+        list->ResourceBarrier(1,&barrier);
+        // Publish only after retention and copy recording succeed. A failed
+        // vector allocation must not leave an uncopied buffer cached as ready.
+        destination=std::move(created);
+    }
+    allocationBytes=destinationBytes;
+    gPersistentUploadBytes+=size;
+    return true;
+}
+bool ensureImmutableGpu(ID3D12Device *device,ID3D12GraphicsCommandList *list,
+    const std::shared_ptr<ImmutableRasterGeometry> &entry) {
+    // Pin before the first fallible allocation/copy: a partial upload may
+    // already be referenced by recorded GPU work when its sibling fails.
+    auto &flight=r.geometryFlight[r.activeSlot];
+    if(entry->retainedSequence!=gPersistentSequence) {
+        flight.push_back(entry);entry->retainedSequence=gPersistentSequence;
+    }
+    if(!entry->vertices && !uploadImmutableBuffer(device,list,entry->data.vertices.data(),
+        entry->vertexCount*sizeof(RasterVertex),D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER,
+        entry->vertices,entry->vertexAllocationBytes,*entry))return false;
+    if(!entry->indices && !uploadImmutableBuffer(device,list,entry->data.indices.data(),
+        entry->indexCount*sizeof(unsigned),D3D12_RESOURCE_STATE_INDEX_BUFFER,
+        entry->indices,entry->indexAllocationBytes,*entry))return false;
+    // GPU/default or exact upload fallback now owns the bytes. Do not retain
+    // another 64-byte-per-vertex CPU copy of immutable ship geometry.
+    std::vector<RasterVertex>{}.swap(entry->data.vertices);
+    std::vector<unsigned>{}.swap(entry->data.indices);
+    const size_t liveBytes=entry->vertexAllocationBytes+entry->indexAllocationBytes;
+    gPersistentGeometryCharge-=entry->charge-liveBytes;
+    entry->charge=liveBytes;
+    return true;
+}
 
 bool reserveTextureUpload(ID3D12Device *device, UINT64 byteCount,
                           UINT64 &outOffset)
@@ -1183,6 +1401,7 @@ bool reserveTextureUpload(ID3D12Device *device, UINT64 byteCount,
 
 const char *legacyShader = R"(
 Texture2D<float4> LegacyTexture : register(t0);
+Texture2D<float4> EngineIdleTexture : register(t1);
 SamplerState LegacySampler : register(s0);
 cbuffer DrawConstants : register(b0)
 {
@@ -1193,13 +1412,22 @@ cbuffer DrawConstants : register(b0)
     float AlphaReference;
     uint FogEnabled;
     float BlendEnabled;
-    float Padding0;
+    float MissionLightDraw;
     float4 FogColor;
     uint GpuFixedFunctionEnabled;
-    float3 Padding1;
+    float EngineBlend;
+    float2 Padding1;
 };
+)"
+#include "RasterMissionLightingShader.inc"
+R"(
 cbuffer FixedFunctionConstants : register(b1)
 {
+    float4 EngineGlowColor;
+    float4 EngineGlowParameters;
+    float4 EngineNormalRow0;
+    float4 EngineNormalRow1;
+    float4 EngineNormalRow2;
     float4 ModelViewRow0;
     float4 ModelViewRow1;
     float4 ModelViewRow2;
@@ -1218,6 +1446,11 @@ cbuffer FixedFunctionConstants : register(b1)
     float4 LightPosition[8];
     float4 LightAmbient[8];
     float4 LightDiffuse[8];
+    float4 LegacyShadeBase;
+    float4 LegacyShadeDirection[2];
+    float4 LegacyShadeDiffuse[2];
+    float4 LegacyShadeDock;
+    float4 LegacyShadeParameters;
 };
 struct VSInput
 {
@@ -1235,10 +1468,14 @@ struct PSInput
     float2 uv : TEXCOORD0;
     float fog : TEXCOORD1;
     float clip : SV_ClipDistance0;
+    float3 glowEye : TEXCOORD3;
+    float3 glowNormal : TEXCOORD4;
 };
 PSInput LegacyVS(VSInput input)
 {
     PSInput output;
+    output.glowEye = 0;
+    output.glowNormal = 0;
     if (GpuFixedFunctionEnabled != 0)
     {
         float4 eye = float4(
@@ -1246,6 +1483,11 @@ PSInput LegacyVS(VSInput input)
             dot(ModelViewRow1, input.position),
             dot(ModelViewRow2, input.position),
             dot(ModelViewRow3, input.position));
+        if (EngineGlowParameters.y > 0.5) {
+            output.glowEye = eye.xyz;
+            output.glowNormal = float3(dot(EngineNormalRow0.xyz,input.normal.xyz),
+                dot(EngineNormalRow1.xyz,input.normal.xyz),dot(EngineNormalRow2.xyz,input.normal.xyz));
+        }
         float4 glClip = float4(
             dot(MvpRow0, input.position),
             dot(MvpRow1, input.position),
@@ -1258,7 +1500,33 @@ PSInput LegacyVS(VSInput input)
             glClip.w);
 
         float4 shaded = input.color;
-        if (FixedFlags.x != 0u)
+        if (MissionLightDraw > 0.5) {
+            output.glowEye=eye.xyz;
+            output.glowNormal=float3(dot(ModelViewRow0.xyz,input.normal.xyz),dot(ModelViewRow1.xyz,input.normal.xyz),dot(ModelViewRow2.xyz,input.normal.xyz));
+            shaded=LegacyShadeParameters.x>0.5 ? float4(1,1,1,LegacyShadeBase.a) : (FixedFlags.y!=0u ? input.color : MaterialDiffuse);
+        }
+        else if (LegacyShadeParameters.x > 0.5)
+        {
+            // Shader.c::shColourSet0, preserving its operation order, upper
+            // clamp only, alpha, and docking tint. No normalized-light rewrite.
+            precise float3 lit = LegacyShadeBase.rgb;
+            [unroll] for (uint light=0u; light<2u; ++light)
+            {
+                if (light >= (uint)LegacyShadeParameters.y) break;
+                precise float n = input.normal.x*LegacyShadeDirection[light].x;
+                n = n + input.normal.y*LegacyShadeDirection[light].y;
+                n = n + input.normal.z*LegacyShadeDirection[light].z;
+                if (n > 0.0) lit = lit + n*LegacyShadeDiffuse[light].rgb;
+            }
+            if (LegacyShadeDock.w != 0.0)
+            {
+                precise float t = min(1.1-LegacyShadeDock.w,1.0);
+                lit = lit*t;
+                lit = lit + LegacyShadeDock.w*LegacyShadeDock.rgb;
+            }
+            shaded = float4(min(lit,1.0),LegacyShadeBase.a);
+        }
+        if (MissionLightDraw < 0.5 && FixedFlags.x != 0u)
         {
             float3 normal = float3(
                 dot(ModelViewRow0.xyz, input.normal.xyz),
@@ -1343,12 +1611,27 @@ bool AlphaPass(float a)
     if (AlphaFunction == 0x0206) return a >= AlphaReference;
     return true;                                    // ALWAYS
 }
+#if HW_MISSION_LIGHTING && !HW_MISSION_ALPHA_TEST
+[earlydepthstencil]
+#endif
 float4 LegacyPS(PSInput input) : SV_Target
 {
     float4 result = input.color;
+    if (GpuFixedFunctionEnabled != 0 && EngineGlowParameters.y > 0.5) {
+        // Evaluate the legacy angular glow continuously per pixel, not from
+        // quantized vertex colors. Preserve its color/opacity/exponent policy.
+        float3 n = input.glowNormal * rsqrt(max(dot(input.glowNormal,input.glowNormal),1e-12));
+        float3 v = input.glowEye * rsqrt(max(dot(input.glowEye,input.glowEye),1e-12));
+        float glow = pow(saturate(abs(dot(n,v))),EngineGlowParameters.x);
+        result = EngineGlowColor;
+        result.g *= min(glow,0.92);
+        result.a *= glow;
+    }
     if (TextureEnabled != 0)
     {
         float4 texel = LegacyTexture.Sample(LegacySampler, input.uv);
+        if (EngineBlend >= 0)
+            texel = lerp(EngineIdleTexture.Sample(LegacySampler,input.uv),texel,saturate(EngineBlend));
         if (TextureEnvMode == 0x1E01)               // REPLACE
             result = texel;
         else if (TextureEnvMode == 0x2101)          // DECAL
@@ -1358,7 +1641,17 @@ float4 LegacyPS(PSInput input) : SV_Target
         else                                        // MODULATE/default
             result *= texel;
     }
+#if HW_MISSION_LIGHTING
+    float3 emission=(MissionEmissionFlags&1u)!=0 ? MissionEmission.Sample(LegacySampler,input.uv).rgb*MissionEmissionGain : 0;
+    if(EngineBlend>=0){float3 idleEmission=(MissionEmissionFlags&2u)!=0 ? MissionIdleEmission.Sample(LegacySampler,input.uv).rgb*MissionIdleEmissionGain : 0;
+        emission=lerp(idleEmission,emission,saturate(EngineBlend));}
+    result.rgb=MissionShade(result.rgb,input.glowEye,input.glowNormal,emission)+MaterialEmission.rgb;
+#endif
+#if !HW_MISSION_LIGHTING || HW_MISSION_ALPHA_TEST
+    // Keep derivatives valid for the comparison-filtered shadow before
+    // cutting holes; the separate opaque variant can use early depth writes.
     if (AlphaTestEnabled != 0 && !AlphaPass(result.a)) discard;
+#endif
     if (FogEnabled != 0)
         result.rgb = lerp(FogColor.rgb, result.rgb, saturate(input.fog));
     /* The RGBA16F compatibility target uses alpha as an explicit foreground
@@ -1368,6 +1661,41 @@ float4 LegacyPS(PSInput input) : SV_Target
     if (BlendEnabled < 0.5)
         result.a = 1.0;
     return result;
+}
+
+PSInput MissionShadowVS(VSInput input,uint instanceId : SV_InstanceID) {
+    MissionInstance instance=MissionInstances[TextureEnvMode+instanceId];
+    PSInput o=(PSInput)0;float4 p=float4(dot(instance.modelView[0],input.position),dot(instance.modelView[1],input.position),dot(instance.modelView[2],input.position),1);
+    o.position=float4(dot(MissionShadowRows[0],p),dot(MissionShadowRows[1],p),dot(MissionShadowRows[2],p),1);
+    o.uv=input.uv;o.color=1;o.clip=dot(instance.clipEquation,p);return o;
+}
+void MissionShadowPS(PSInput input) {
+    if(AlphaTestEnabled!=0 && TextureEnabled!=0 && !AlphaPass(LegacyTexture.Sample(LegacySampler,input.uv).a)) discard;
+}
+
+struct EffectGuideOutput
+{
+    float4 color : SV_Target0;
+    float linearDepth : SV_Target1;
+};
+EffectGuideOutput LegacyEffectPS(PSInput input)
+{
+    EffectGuideOutput output;
+    output.color = LegacyPS(input);
+    // RT0 keeps its exact legacy result. A separate MIN-blended target gets
+    // depth only where the sampled fragment meaningfully contributes light.
+    // Padding1.x marks GL_ONE source blend, where alpha does not attenuate RGB.
+    float contribution = max(max(abs(output.color.r), abs(output.color.g)),
+                             abs(output.color.b));
+    contribution *= Padding1.x > 0.5 ? 1.0 : saturate(output.color.a);
+    bool visible = contribution > (1.0 / 4096.0) && input.position.w > 0.0;
+    output.linearDepth = visible ? input.position.w : 3.402823466e+38;
+    // Signed inverse depth marks only genuinely covering engine-trail cores.
+    // MIN blending selects the nearest core, ahead of ordinary translucent
+    // positive-Z guides. Feather/tail fragments retain the old policy.
+    if (visible && Padding1.y > 0.5 && output.color.a >= 0.95)
+        output.linearDepth = -1000000.0 / input.position.w;
+    return output;
 }
 )";
 
@@ -1467,25 +1795,37 @@ float4 MissionSkyPS(MissionSkyVertexOutput input) : SV_Target
 }
 )";
 
-bool compile(const char *entry, const char *target, ComPtr<ID3DBlob> &blob)
+bool compile(const char *entry, const char *target, ComPtr<ID3DBlob> &blob, bool mission = false, bool alpha = true)
 {
+    const char *taskId = std::strcmp(entry, "LegacyVS") == 0 ? "renderer.shader.legacy-vs" :
+        (std::strcmp(entry, "LegacyPS") == 0 ? "renderer.shader.legacy-ps" : nullptr);
+    if (taskId)
+        hwWindowsSplashTaskBegin(taskId, std::strcmp(entry, "LegacyVS") == 0 ?
+            "Native vertex shader" : "Native pixel shader");
+    if (hwWindowsSplashIsActive())
+        hwWindowsSplashUpdate(taskId ? "Compiling native shader with D3DCompile; waiting for compiler" :
+            "Compiling optional transparent FX guidance shader");
     ComPtr<ID3DBlob> errors;
+    const D3D_SHADER_MACRO defines[]={{"HW_MISSION_LIGHTING",mission?"1":"0"},{"HW_MISSION_ALPHA_TEST",alpha?"1":"0"},{nullptr,nullptr}};
     HRESULT hr = D3DCompile(legacyShader, std::strlen(legacyShader),
-                            "LegacyD3D12GL", nullptr, nullptr, entry, target,
+                            "LegacyD3D12GL", defines, nullptr, entry, target,
                             D3DCOMPILE_OPTIMIZATION_LEVEL3, 0,
                             blob.GetAddressOf(), errors.GetAddressOf());
     if (FAILED(hr))
     {
-        if (errors) std::fprintf(stderr, "[NativeRaster] shader compile: %s\n",
+        if (errors) HW_DIAG_FPRINTF(stderr, "[NativeRaster] shader compile: %s\n",
                                  static_cast<const char *>(errors->GetBufferPointer()));
         return false;
     }
+    if (taskId) hwWindowsSplashTaskComplete(taskId, "Native shader compilation complete");
     return true;
 }
 
 bool compileMissionSky(const char *entry, const char *target,
                        ComPtr<ID3DBlob> &blob)
 {
+    if (hwWindowsSplashIsActive())
+        hwWindowsSplashUpdate("Compiling optional mission sky shader");
     ComPtr<ID3DBlob> errors;
     HRESULT hr = D3DCompile(missionSkyShader, std::strlen(missionSkyShader),
                             "MissionSkyDualParaboloid", nullptr, nullptr, entry,
@@ -1493,7 +1833,7 @@ bool compileMissionSky(const char *entry, const char *target,
                             blob.GetAddressOf(), errors.GetAddressOf());
     if (FAILED(hr))
     {
-        if (errors) std::fprintf(stderr,
+        if (errors) HW_DIAG_FPRINTF(stderr,
             "[NativeRaster] mission-sky shader compile: %s\n",
             static_cast<const char *>(errors->GetBufferPointer()));
         return false;
@@ -1512,6 +1852,46 @@ void resourceBarrier(ID3D12GraphicsCommandList *list, ID3D12Resource *resource,
     barrier.Transition.StateAfter = after;
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     list->ResourceBarrier(1, &barrier);
+}
+
+bool ensureEffectDepth(ID3D12Device *device, unsigned int width, unsigned int height)
+{
+    if (r.effectDepth && r.effectDepthWidth == width && r.effectDepthHeight == height)
+        return true;
+    D3D12_FEATURE_DATA_FORMAT_SUPPORT support = {DXGI_FORMAT_R32_FLOAT};
+    if (FAILED(device->CheckFeatureSupport(D3D12_FEATURE_FORMAT_SUPPORT,
+            &support, sizeof(support))) ||
+        (support.Support1 & D3D12_FORMAT_SUPPORT1_BLENDABLE) == 0) return false;
+    D3D12_HEAP_PROPERTIES heap = {}; heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+    D3D12_RESOURCE_DESC desc = {};
+    desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    desc.Width = width; desc.Height = height;
+    desc.DepthOrArraySize = desc.MipLevels = 1;
+    desc.Format = DXGI_FORMAT_R32_FLOAT; desc.SampleDesc.Count = 1;
+    desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+    D3D12_CLEAR_VALUE clear = {}; clear.Format = desc.Format;
+    std::fill_n(clear.Color, 4, FLT_MAX);
+    const auto readState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
+        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+    ComPtr<ID3D12Resource> created;
+    if (FAILED(device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE,
+            &desc, readState, &clear, IID_PPV_ARGS(&created)))) return false;
+    // The caller has fenced this replay slot, but previous slots can still
+    // reference the old texture. Keep their resource and descriptors alive.
+    retainAcrossFlight(r.effectDepth);
+    r.effectDepth = std::move(created);
+    r.effectDepth->SetName(L"Frame generation native transparent FX linear depth");
+    r.effectDepthWidth = width; r.effectDepthHeight = height;
+    r.effectDepthState = readState;
+    return true;
+}
+
+bool isEffectGuideDraw(const RasterCommand &command, size_t index, size_t worldEnd)
+{
+    return index < worldEnd && command.type == RasterCommand::Draw &&
+        command.effectGuidePerspective && command.state.blend &&
+        command.state.depthTest && !command.state.depthWrite &&
+        (command.state.blendSrc == GL_SRC_ALPHA || command.state.blendSrc == GL_ONE);
 }
 
 bool createDepth(ID3D12Device *device, unsigned int width, unsigned int height)
@@ -1563,9 +1943,14 @@ bool ensureTextureGpu(ID3D12Device *device, ID3D12GraphicsCommandList *list,
     desc.Width = std::max(1u, tex.width);
     desc.Height = std::max(1u, tex.height);
     desc.DepthOrArraySize = 1;
+    DirectX::ScratchImage generatedMips;
+    const bool buildMips = !tex.compressed && (tex.generateMips || hwmodern::textureUsesMips(tex.minFilter));
+    if (buildMips && !hwmodern::buildNativeTextureMips(tex.pixels.data(), tex.pixels.size(),
+        tex.width, tex.height, generatedMips))
+        return false;
     const unsigned int mipCount = tex.compressed
         ? std::max(1u, static_cast<unsigned int>(tex.compressedMips.size()))
-        : 1u;
+        : buildMips ? static_cast<unsigned int>(generatedMips.GetMetadata().mipLevels) : 1u;
     desc.MipLevels = static_cast<UINT16>(mipCount);
     desc.Format = format;
     desc.SampleDesc.Count = 1;
@@ -1577,13 +1962,21 @@ bool ensureTextureGpu(ID3D12Device *device, ID3D12GraphicsCommandList *list,
         tex.gpu->GetDesc().MipLevels != desc.MipLevels ||
         tex.gpu->GetDesc().Format != format)
     {
-        if (tex.gpu) retainAcrossFlight(tex.gpu);
-        tex.gpu.Reset();
+        ComPtr<ID3D12Resource> replacement;
         HRESULT hr = device->CreateCommittedResource(
             &defaultHeap, D3D12_HEAP_FLAG_NONE, &desc,
             D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
-            IID_PPV_ARGS(tex.gpu.GetAddressOf()));
+            IID_PPV_ARGS(replacement.GetAddressOf()));
         if (FAILED(hr)) return false;
+        if (tex.gpu)
+        {
+            // Recorded/in-flight draws still reference the old SRV, not just
+            // its resource. Retire both; never rewrite that live descriptor.
+            retainAcrossFlight(tex.gpu);
+            tex.descriptorSlot = gTextureDescriptorSlots.replace(tex.descriptorSlot);
+        }
+        tex.gpu = std::move(replacement);
+        tex.descriptorDirty = true;
         tex.gpuState = D3D12_RESOURCE_STATE_COPY_DEST;
     }
     else
@@ -1626,14 +2019,17 @@ bool ensureTextureGpu(ID3D12Device *device, ID3D12GraphicsCommandList *list,
     }
     else
     {
-        D3D12_PLACED_SUBRESOURCE_FOOTPRINT &footprint = footprints[0];
-        footprint.Offset += uploadOffset;
-        const size_t srcPitch = static_cast<size_t>(tex.width) * 4u;
-        for (unsigned int y = 0;
-             y < std::min<unsigned int>(rows[0], tex.height); ++y)
-            std::memcpy(mapped + footprint.Offset + static_cast<size_t>(y) * footprint.Footprint.RowPitch,
-                        tex.pixels.data() + static_cast<size_t>(y) * srcPitch,
-                        std::min<size_t>(srcPitch, footprint.Footprint.RowPitch));
+        for (unsigned int level = 0; level < mipCount; ++level)
+        {
+            auto &footprint = footprints[level];
+            footprint.Offset += uploadOffset;
+            const DirectX::Image *mip = buildMips ? generatedMips.GetImage(level, 0, 0) : nullptr;
+            const size_t srcPitch = mip ? mip->rowPitch : size_t(tex.width) * 4u;
+            const auto *pixels = mip ? mip->pixels : tex.pixels.data();
+            for (unsigned y = 0; y < rows[level]; ++y)
+                std::memcpy(mapped + footprint.Offset + size_t(y) * footprint.Footprint.RowPitch,
+                    pixels + size_t(y) * srcPitch, static_cast<size_t>(rowBytes[level]));
+        }
     }
     gFrameTextureUploadBytes += totalBytes;
     ++gFrameTextureUploadUpdates;
@@ -1661,36 +2057,62 @@ bool ensureTextureGpu(ID3D12Device *device, ID3D12GraphicsCommandList *list,
     srv.Texture2D.MipLevels = mipCount;
     D3D12_CPU_DESCRIPTOR_HANDLE handle = r.srvHeap->GetCPUDescriptorHandleForHeapStart();
     handle.ptr += static_cast<SIZE_T>(tex.descriptorSlot) * r.srvStride;
-    device->CreateShaderResourceView(tex.gpu.Get(), &srv, handle);
+    // Content-only uploads keep the same resource/view. Rewriting even an
+    // identical shader-visible descriptor while it is in flight is unsafe.
+    if (tex.descriptorDirty)
+    {
+        device->CreateShaderResourceView(tex.gpu.Get(), &srv, handle);
+        tex.descriptorDirty = false;
+    }
     tex.dirty = false;
     return true;
 }
 
-PipelineKey makePipelineKey(const RasterCommand &command)
+PipelineKey makePipelineKey(const RasterCommand &command, bool effectGuide = false, bool shadow = false, bool mission = false)
 {
     uint64_t bits = 0;
+    if(shadow){
+        // Depth-only state has no blend/depth-function/material variants.
+        return {uint64_t(command.topologyType & 7u) | (uint64_t(command.state.polygonMode==GL_LINE)<<8) |
+            (uint64_t(1)<<10) | (uint64_t(command.state.alphaTest && command.state.texture2D)<<3)};
+    }
     bits |= static_cast<uint64_t>(command.topologyType & 7u);
     bits |= static_cast<uint64_t>(command.state.blend ? 1u : 0u) << 4;
     bits |= static_cast<uint64_t>(command.state.depthTest ? 1u : 0u) << 5;
     bits |= static_cast<uint64_t>(command.state.depthWrite ? 1u : 0u) << 6;
     bits |= static_cast<uint64_t>(command.state.cullFace ? 1u : 0u) << 7;
     bits |= static_cast<uint64_t>(command.state.polygonMode == GL_LINE ? 1u : 0u) << 8;
+    bits |= static_cast<uint64_t>(effectGuide ? 1u : 0u) << 9;
     bits |= static_cast<uint64_t>(command.state.blendSrc & 0xffffu) << 12;
     bits |= static_cast<uint64_t>(command.state.blendDst & 0xffffu) << 28;
     bits |= static_cast<uint64_t>(command.state.depthFunc & 0xffu) << 44;
     bits |= static_cast<uint64_t>(command.state.cullMode & 0xffu) << 52;
+    bits |= static_cast<uint64_t>(shadow ? 1u : 0u) << 10;
+    bits |= static_cast<uint64_t>(mission ? 1u : 0u) << 11;
+    bits |= static_cast<uint64_t>(mission && command.state.alphaTest ? 1u : 0u) << 3;
     return {bits};
 }
 
-ID3D12PipelineState *pipelineFor(ID3D12Device *device, const RasterCommand &command)
+ID3D12PipelineState *pipelineFor(ID3D12Device *device, const RasterCommand &command,
+                                bool effectGuide = false, bool shadow = false, bool mission = false)
 {
-    const PipelineKey key = makePipelineKey(command);
+    const PipelineKey key = makePipelineKey(command, effectGuide, shadow, mission);
     auto found = r.pipelines.find(key);
     if (found != r.pipelines.end()) return found->second.Get();
 
-    ComPtr<ID3DBlob> vs, ps;
-    if (!compile("LegacyVS", "vs_5_0", vs) || !compile("LegacyPS", "ps_5_0", ps))
-        return nullptr;
+    if (!r.legacyVertexShader) {
+        if (!compile("LegacyVS", "vs_5_0", r.legacyVertexShader)) return nullptr;
+        ++r.legacyShaderCompilations;
+    }
+    if (!r.legacyPixelShader) {
+        if (!compile("LegacyPS", "ps_5_0", r.legacyPixelShader)) return nullptr;
+        ++r.legacyShaderCompilations;
+    }
+    if (effectGuide && !r.effectGuidePixelShader &&
+        !compile("LegacyEffectPS", "ps_5_0", r.effectGuidePixelShader)) return nullptr;
+    const unsigned missionAlpha=command.state.alphaTest?1u:0u;
+    if (mission && !r.missionPixelShaders[missionAlpha] &&
+        !compile("LegacyPS", "ps_5_0", r.missionPixelShaders[missionAlpha], true, missionAlpha!=0)) return nullptr;
     D3D12_INPUT_ELEMENT_DESC elements[] = {
         {"POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0,
          static_cast<UINT>(offsetof(RasterVertex, position)), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
@@ -1707,8 +2129,9 @@ ID3D12PipelineState *pipelineFor(ID3D12Device *device, const RasterCommand &comm
     };
     D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {};
     desc.pRootSignature = r.root.Get();
-    desc.VS = {vs->GetBufferPointer(), vs->GetBufferSize()};
-    desc.PS = {ps->GetBufferPointer(), ps->GetBufferSize()};
+    desc.VS = {r.legacyVertexShader->GetBufferPointer(), r.legacyVertexShader->GetBufferSize()};
+    ID3DBlob *pixelShader = mission ? r.missionPixelShaders[missionAlpha].Get() : (effectGuide ? r.effectGuidePixelShader.Get() : r.legacyPixelShader.Get());
+    desc.PS = {pixelShader->GetBufferPointer(), pixelShader->GetBufferSize()};
     desc.InputLayout = {elements, static_cast<UINT>(_countof(elements))};
     desc.SampleMask = UINT_MAX;
     desc.PrimitiveTopologyType = command.topologyType;
@@ -1729,6 +2152,10 @@ ID3D12PipelineState *pipelineFor(ID3D12Device *device, const RasterCommand &comm
        face becomes clockwise in D3D raster space. */
     desc.RasterizerState.FrontCounterClockwise = FALSE;
     desc.RasterizerState.DepthClipEnable = TRUE;
+
+    /* Smooth compatibility line overlays at native output resolution. */
+    desc.RasterizerState.AntialiasedLineEnable =
+        command.topologyType == D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
 
     D3D12_RENDER_TARGET_BLEND_DESC &blend = desc.BlendState.RenderTarget[0];
     blend.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
@@ -1761,13 +2188,41 @@ ID3D12PipelineState *pipelineFor(ID3D12Device *device, const RasterCommand &comm
     }
     blend.BlendOpAlpha = D3D12_BLEND_OP_ADD;
 
+    if (effectGuide)
+    {
+        desc.NumRenderTargets = 2;
+        desc.RTVFormats[1] = DXGI_FORMAT_R32_FLOAT;
+        desc.BlendState.IndependentBlendEnable = TRUE;
+        auto &guideBlend = desc.BlendState.RenderTarget[1];
+        guideBlend.BlendEnable = TRUE;
+        guideBlend.SrcBlend = guideBlend.DestBlend = D3D12_BLEND_ONE;
+        guideBlend.BlendOp = D3D12_BLEND_OP_MIN;
+        guideBlend.SrcBlendAlpha = guideBlend.DestBlendAlpha = D3D12_BLEND_ONE;
+        guideBlend.BlendOpAlpha = D3D12_BLEND_OP_MIN;
+        guideBlend.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_RED;
+    }
+
     desc.DepthStencilState.DepthEnable = command.state.depthTest ? TRUE : FALSE;
     desc.DepthStencilState.DepthWriteMask = command.state.depthWrite ?
         D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
     desc.DepthStencilState.DepthFunc = mapCompare(command.state.depthFunc);
     desc.DepthStencilState.StencilEnable = FALSE;
 
+    if(shadow) {
+        if(!r.missionShadowVS && !compile("MissionShadowVS","vs_5_0",r.missionShadowVS)) return nullptr;
+        const bool cutout=command.state.alphaTest && command.state.texture2D;
+        if(cutout && !r.missionShadowPS && !compile("MissionShadowPS","ps_5_0",r.missionShadowPS)) return nullptr;
+        desc.VS={r.missionShadowVS->GetBufferPointer(),r.missionShadowVS->GetBufferSize()};
+        desc.PS=cutout ? D3D12_SHADER_BYTECODE{r.missionShadowPS->GetBufferPointer(),r.missionShadowPS->GetBufferSize()} : D3D12_SHADER_BYTECODE{};
+        desc.NumRenderTargets=0;desc.RTVFormats[0]=DXGI_FORMAT_UNKNOWN;
+        desc.DepthStencilState.DepthEnable=TRUE;desc.DepthStencilState.DepthWriteMask=D3D12_DEPTH_WRITE_MASK_ALL;
+        desc.DepthStencilState.DepthFunc=D3D12_COMPARISON_FUNC_LESS_EQUAL;
+        desc.RasterizerState.CullMode=D3D12_CULL_MODE_NONE;
+        desc.RasterizerState.DepthBias=2;desc.RasterizerState.SlopeScaledDepthBias=1.0f;
+    }
     ComPtr<ID3D12PipelineState> pso;
+    if (hwWindowsSplashIsActive())
+        hwWindowsSplashUpdate("Creating native render-state pipeline");
     if (FAILED(device->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(pso.GetAddressOf()))))
         return nullptr;
     ID3D12PipelineState *raw = pso.Get();
@@ -1778,6 +2233,8 @@ ID3D12PipelineState *pipelineFor(ID3D12Device *device, const RasterCommand &comm
 ID3D12PipelineState *missionSkyPipelineFor(ID3D12Device *device)
 {
     if (r.missionSkyPipeline) return r.missionSkyPipeline.Get();
+    if (hwWindowsSplashIsActive())
+        hwWindowsSplashUpdate("Creating optional mission sky pipeline");
 
     ComPtr<ID3DBlob> vs, ps;
     if (!compileMissionSky("MissionSkyVS", "vs_5_0", vs) ||
@@ -1837,11 +2294,12 @@ ID3D12PipelineState *missionSkyPipelineFor(ID3D12Device *device)
     return r.missionSkyPipeline.Get();
 }
 
+#include "RemasteredSceneD3D12.inc"
+
 unsigned int samplerIndex(const TextureRecord &tex)
 {
-    const bool linear = tex.magFilter != GL_NEAREST && tex.minFilter != GL_NEAREST;
-    const bool clamp = tex.wrapS != GL_REPEAT || tex.wrapT != GL_REPEAT;
-    return (linear ? 2u : 0u) | (clamp ? 1u : 0u);
+    return hwmodern::nativeTextureSamplerIndex(tex.minFilter, tex.magFilter,
+        tex.wrapS, tex.wrapT, tex.maxAnisotropy);
 }
 
 bool ensurePersistentVertexUpload(ID3D12Device *device, UINT64 requiredBytes,
@@ -1899,7 +2357,8 @@ struct DrawConstants
     float padding[2];
     float fogColor[4];
     uint32_t gpuFixedFunctionEnabled;
-    float padding1[3];
+    float engineBlend;
+    float padding1[2];
 };
 static_assert(sizeof(DrawConstants) == 64, "legacy draw constant size");
 
@@ -1907,10 +2366,13 @@ static_assert(sizeof(DrawConstants) == 64, "legacy draw constant size");
 
 namespace hwlegacyd3d12
 {
+namespace {void clearMissionEmission();void trimMissionEmissionStaging(unsigned slot);}
 bool initialize(ID3D12Device *device, unsigned int width, unsigned int height)
 {
     if (!device) return false;
     if (r.ready) return resize(device, width, height);
+    hwWindowsSplashTaskBegin("renderer.raster.resources", "Native renderer resources");
+    if (FAILED(r.geometryAllocator.initialize(device))) return false;
 
     D3D12_DESCRIPTOR_HEAP_DESC srvDesc = {};
     srvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -1921,17 +2383,13 @@ bool initialize(ID3D12Device *device, unsigned int width, unsigned int height)
 
     D3D12_DESCRIPTOR_HEAP_DESC samplerDesc = {};
     samplerDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
-    samplerDesc.NumDescriptors = 4;
+    samplerDesc.NumDescriptors = hwmodern::nativeTextureSamplerCount;
     samplerDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     if (FAILED(device->CreateDescriptorHeap(&samplerDesc, IID_PPV_ARGS(r.samplerHeap.GetAddressOf())))) return false;
     r.samplerStride = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-    for (unsigned int index = 0; index < 4; ++index)
+    for (unsigned int index = 0; index < hwmodern::nativeTextureSamplerCount; ++index)
     {
-        D3D12_SAMPLER_DESC sampler = {};
-        sampler.Filter = (index & 2u) ? D3D12_FILTER_MIN_MAG_MIP_LINEAR : D3D12_FILTER_MIN_MAG_MIP_POINT;
-        sampler.AddressU = sampler.AddressV = sampler.AddressW =
-            (index & 1u) ? D3D12_TEXTURE_ADDRESS_MODE_CLAMP : D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-        sampler.MaxLOD = D3D12_FLOAT32_MAX;
+        const auto sampler = hwmodern::nativeTextureSamplerDescription(index);
         D3D12_CPU_DESCRIPTOR_HANDLE handle = r.samplerHeap->GetCPUDescriptorHandleForHeapStart();
         handle.ptr += static_cast<SIZE_T>(index) * r.samplerStride;
         device->CreateSampler(&sampler, handle);
@@ -1942,7 +2400,9 @@ bool initialize(ID3D12Device *device, unsigned int width, unsigned int height)
        flight slot retires.  Give every raster snapshot in each swap-chain
        slot its own descriptor instead of overwriting a single RTV descriptor
        four times before ExecuteCommandLists. */
-    one.NumDescriptors = kFrameSlots * 4u;
+    // The last three descriptors are optional FX-depth RTVs, one per fenced
+    // slot. No FX resource or second-target pipeline exists until FG needs it.
+    one.NumDescriptors = kFrameSlots * 5u;
     one.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
     if (FAILED(device->CreateDescriptorHeap(&one, IID_PPV_ARGS(r.rtvHeap.GetAddressOf())))) return false;
     r.rtvStride = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
@@ -1950,14 +2410,15 @@ bool initialize(ID3D12Device *device, unsigned int width, unsigned int height)
     one.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
     if (FAILED(device->CreateDescriptorHeap(&one, IID_PPV_ARGS(r.dsvHeap.GetAddressOf())))) return false;
 
-    D3D12_DESCRIPTOR_RANGE ranges[2] = {};
+    D3D12_DESCRIPTOR_RANGE ranges[6] = {};
     ranges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     ranges[0].NumDescriptors = 1;
     ranges[0].BaseShaderRegister = 0;
     ranges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
     ranges[1].NumDescriptors = 1;
     ranges[1].BaseShaderRegister = 0;
-    D3D12_ROOT_PARAMETER params[4] = {};
+    ranges[2]=ranges[0]; ranges[2].BaseShaderRegister=1;
+    D3D12_ROOT_PARAMETER params[13] = {};
     params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
     params[0].DescriptorTable.NumDescriptorRanges = 1;
     params[0].DescriptorTable.pDescriptorRanges = &ranges[0];
@@ -1973,10 +2434,37 @@ bool initialize(ID3D12Device *device, unsigned int width, unsigned int height)
     params[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     params[3].Descriptor.ShaderRegister = 1;
     params[3].Descriptor.RegisterSpace = 0;
-    params[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+    params[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     D3D12_ROOT_SIGNATURE_DESC rootDesc = {};
-    rootDesc.NumParameters = 4;
+    params[4].ParameterType=D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    params[4].DescriptorTable.NumDescriptorRanges=1;
+    params[4].DescriptorTable.pDescriptorRanges=&ranges[2];
+    params[4].ShaderVisibility=D3D12_SHADER_VISIBILITY_PIXEL;
+    params[5].ParameterType=D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[5].Descriptor.ShaderRegister=2;params[5].ShaderVisibility=D3D12_SHADER_VISIBILITY_ALL;
+    ranges[3]=ranges[0];ranges[3].BaseShaderRegister=2;
+    params[6].ParameterType=D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    params[6].DescriptorTable={1,&ranges[3]};params[6].ShaderVisibility=D3D12_SHADER_VISIBILITY_PIXEL;
+    params[7].ParameterType=D3D12_ROOT_PARAMETER_TYPE_SRV;
+    params[7].Descriptor.ShaderRegister=3;params[7].ShaderVisibility=D3D12_SHADER_VISIBILITY_PIXEL;
+    params[8].ParameterType=D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+    params[8].Constants={3,0,2};params[8].ShaderVisibility=D3D12_SHADER_VISIBILITY_PIXEL;
+    params[9].ParameterType=D3D12_ROOT_PARAMETER_TYPE_SRV;
+    params[9].Descriptor.ShaderRegister=4;params[9].ShaderVisibility=D3D12_SHADER_VISIBILITY_VERTEX;
+    for(unsigned i=0;i<2;++i){ranges[4+i]=ranges[0];ranges[4+i].BaseShaderRegister=5+i;
+        params[10+i].ParameterType=D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+        params[10+i].DescriptorTable={1,&ranges[4+i]};params[10+i].ShaderVisibility=D3D12_SHADER_VISIBILITY_PIXEL;}
+    params[12].ParameterType=D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+    params[12].Constants={4,0,4};params[12].ShaderVisibility=D3D12_SHADER_VISIBILITY_PIXEL;
+    rootDesc.NumParameters = 13;
     rootDesc.pParameters = params;
+    D3D12_STATIC_SAMPLER_DESC shadowSampler={};
+    shadowSampler.Filter=D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
+    shadowSampler.AddressU=shadowSampler.AddressV=shadowSampler.AddressW=D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    shadowSampler.ComparisonFunc=D3D12_COMPARISON_FUNC_LESS_EQUAL;
+    shadowSampler.MaxLOD=D3D12_FLOAT32_MAX;shadowSampler.ShaderRegister=1;
+    shadowSampler.ShaderVisibility=D3D12_SHADER_VISIBILITY_PIXEL;
+    rootDesc.NumStaticSamplers=1;rootDesc.pStaticSamplers=&shadowSampler;
     rootDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     ComPtr<ID3DBlob> signature, error;
     if (FAILED(D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1,
@@ -1995,18 +2483,22 @@ bool initialize(ID3D12Device *device, unsigned int width, unsigned int height)
     r.ready = createDepth(device, width, height);
     if (r.ready)
     {
-        std::fprintf(stderr, "[NativeRaster] D3D12 fixed-function compatibility rasterizer initialized; OpenGL is not used.\n");
-        std::fprintf(stderr,
+        hwWindowsSplashTaskComplete("renderer.raster.resources", "Native descriptors and depth target ready");
+        HW_DIAG_FPRINTF(stderr, "[NativeRaster] D3D12 fixed-function compatibility rasterizer initialized; OpenGL is not used.\n");
+        HW_DIAG_FPRINTF(stderr,
             "[NativeRaster] GPU fixed-function vertex processing %s "
             "(set HW_NATIVE_GPU_FIXED_FUNCTION=0 for CPU parity fallback).\n",
             gpuFixedFunctionRuntimeEnabled() ? "ACTIVE" : "DISABLED");
-        std::fprintf(stderr, "[NativeRaster] EXPERIMENTAL parity: framebuffer screenshot readback, FBO paths, line stipple/width, point-size fidelity, and generated texture mip chains are not complete yet.\n");
+        HW_DIAG_FPRINTF(stderr, "[NativeRaster] EXPERIMENTAL parity: framebuffer screenshot readback, FBO paths, line stipple/width, point-size fidelity, and generated texture mip chains are not complete yet.\n");
     }
     return r.ready;
 }
 
 void shutdown()
 {
+    clearMissionEmission();
+    if(r.missionShadowSlot)gTextureDescriptorSlots.retire(r.missionShadowSlot);
+    for (auto &mesh:gImmutableMeshes) mesh.second.geometry.clear();
     for (unsigned int slot = 0; slot < kFrameSlots; ++slot)
     {
         if (r.vertexUploads[slot].resource && r.vertexUploads[slot].mapped)
@@ -2018,11 +2510,23 @@ void shutdown()
         if (r.fixedStateUploads[slot].resource && r.fixedStateUploads[slot].mapped)
             r.fixedStateUploads[slot].resource->Unmap(0, nullptr);
         r.fixedStateUploads[slot].mapped = nullptr;
+        if(r.missionLightingUploads[slot].resource && r.missionLightingUploads[slot].mapped)r.missionLightingUploads[slot].resource->Unmap(0,nullptr);
+        r.missionLightingUploads[slot].mapped=nullptr;
+        if(r.missionIndexUploads[slot].resource && r.missionIndexUploads[slot].mapped)r.missionIndexUploads[slot].resource->Unmap(0,nullptr);
+        r.missionIndexUploads[slot].mapped=nullptr;
+        if(r.missionInstanceUploads[slot].resource && r.missionInstanceUploads[slot].mapped)r.missionInstanceUploads[slot].resource->Unmap(0,nullptr);
+        r.missionInstanceUploads[slot].mapped=nullptr;
+        if (r.backgroundVertexUploads[slot].resource && r.backgroundVertexUploads[slot].mapped)
+            r.backgroundVertexUploads[slot].resource->Unmap(0,nullptr);
+        if (r.backgroundParameterUploads[slot].resource && r.backgroundParameterUploads[slot].mapped)
+            r.backgroundParameterUploads[slot].resource->Unmap(0,nullptr);
+        r.backgroundVertexUploads[slot].mapped=r.backgroundParameterUploads[slot].mapped=nullptr;
         if (r.textureUploads[slot].resource && r.textureUploads[slot].mapped)
             r.textureUploads[slot].resource->Unmap(0, nullptr);
         r.textureUploads[slot].mapped = nullptr;
     }
     r = GpuRenderer{};
+    for (auto &program : backgroundPrograms) program.pipelines.clear();
     for (auto &entry : gTextures) entry.second.gpu.Reset();
 }
 
@@ -2035,10 +2539,14 @@ bool resize(ID3D12Device *device, unsigned int width, unsigned int height)
 
 void beginFrame(unsigned int frameSlot)
 {
+    r.effectDepthReady = false;
     r.activeSlot = frameSlot % kFrameSlots;
     r.rtvCursor = r.activeSlot * 4u;
     releaseFrameResources(r.activeSlot);
+    trimMissionEmissionStaging(r.activeSlot);
     r.textureUploadOffsets[r.activeSlot] = 0;
+    gPersistentUploadBytes = 0;
+    ++gPersistentSequence;
     gFrameTextureUploadBytes = 0;
     gFrameTextureUploadUpdates = 0;
     gFrameTextureUploadArenaGrowths = 0;
@@ -2047,7 +2555,17 @@ void beginFrame(unsigned int frameSlot)
 void releaseFrameResources(unsigned int frameSlot)
 {
     r.frameResources[frameSlot % kFrameSlots].clear();
+    r.geometryStagingFlight[frameSlot % kFrameSlots].clear();
+    r.geometryFlight[frameSlot % kFrameSlots].clear();
 }
+
+RasterCacheStats cacheStats()
+{
+    return {gPersistentUploadBytes,static_cast<unsigned long long>(gPersistentGeometryCharge)};
+}
+
+#include "RasterMissionEmission.inc"
+#include "RasterMissionLighting.inc"
 
 bool renderFrameSnapshots(ID3D12Device *device,
                           ID3D12GraphicsCommandList *list,
@@ -2071,8 +2589,27 @@ bool renderFrameSnapshots(ID3D12Device *device,
         r.depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
     }
 
+#if HW_ENABLE_DIAGNOSTICS
     const auto cpuStarted = std::chrono::steady_clock::now();
+#endif
     finalCommandCount = std::min(finalCommandCount, gCommands.size());
+    r.effectDepthReady = false;
+    const size_t worldEnd = std::min(gSnapshots[HW_LEGACY_RASTER_WORLD], finalCommandCount);
+    bool captureEffects = gFrameGenerationGuidesEnabled && worldEnd != 0 && !r.effectDepthFailed;
+    if (captureEffects && !ensureEffectDepth(device, width, height))
+    {
+        captureEffects = false;
+        r.effectDepthFailed = true;
+        static bool reported = false;
+        if (!reported) HW_DIAG_FPRINTF(stderr, "[NativeRaster] Optional frame-generation FX depth allocation unavailable.\n");
+        reported = true;
+    }
+    if (!gFrameGenerationGuidesEnabled && r.effectDepth)
+    {
+        retainAcrossFlight(r.effectDepth);
+        r.effectDepth.Reset();
+        r.effectDepthWidth = r.effectDepthHeight = 0;
+    }
 
     resourceBarrier(list, finalTarget, finalBeforeState,
                     D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -2091,6 +2628,27 @@ bool renderFrameSnapshots(ID3D12Device *device,
     list->ClearRenderTargetView(rtv, black, 0, nullptr);
     list->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
+    D3D12_CPU_DESCRIPTOR_HANDLE effectRtv = {};
+    bool effectTargetBound = false, effectPipelinesReady = true;
+    const float noEffect[4] = {FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX};
+    if (captureEffects)
+    {
+        resourceBarrier(list, r.effectDepth.Get(), r.effectDepthState,
+            D3D12_RESOURCE_STATE_RENDER_TARGET);
+        r.effectDepthState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+        effectRtv = r.rtvHeap->GetCPUDescriptorHandleForHeapStart();
+        effectRtv.ptr += static_cast<SIZE_T>(kFrameSlots * 4u + r.activeSlot) * r.rtvStride;
+        device->CreateRenderTargetView(r.effectDepth.Get(), nullptr, effectRtv);
+        list->ClearRenderTargetView(effectRtv, noEffect, 0, nullptr);
+    }
+    auto bindEffectTarget = [&](bool enabled)
+    {
+        if (enabled == effectTargetBound) return;
+        const D3D12_CPU_DESCRIPTOR_HANDLE targets[] = {rtv, effectRtv};
+        list->OMSetRenderTargets(enabled ? 2u : 1u, targets, FALSE, &dsv);
+        effectTargetBound = enabled;
+    };
+
     ID3D12DescriptorHeap *heaps[] = {r.srvHeap.Get(), r.samplerHeap.Get()};
     list->SetDescriptorHeaps(2, heaps);
     list->SetGraphicsRootSignature(r.root.Get());
@@ -2106,16 +2664,27 @@ bool renderFrameSnapshots(ID3D12Device *device,
        CPU arena. Copy it to the persistently mapped flight-slot upload buffer
        in one memcpy instead of walking every command and copying separate
        std::vector allocations. */
-    const UINT64 totalVertices = static_cast<UINT64>(gFrameVertices.size());
-    const UINT64 totalVertexBytes = totalVertices * sizeof(RasterVertex);
+    // Borrow the frozen command arenas only. The worker never touches the
+    // D3D command list, device uploads, textures or mutable simulation state.
+    const bool overlapMissionPreparation=gFrameVertices.size()*sizeof(RasterVertex)>=2*1024*1024;
+    hwmodern::FrameJob missionJob(missionLightingEnabled && finalCommandCount>=128 && overlapMissionPreparation && missionThreadsEnabled ?
+        missionPreparationWorker : missionSerialPreparationWorker,[count=finalCommandCount]{prepareMissionCpu(count);});
+    UINT64 totalVertices = static_cast<UINT64>(gFrameVertices.size());
+    const UINT64 totalVertexBytes = static_cast<UINT64>(gFrameVertices.size()) * sizeof(RasterVertex);
     UINT64 drawCommands = 0;
     UINT64 gpuFixedFunctionVertices = 0;
+    UINT64 persistentDraws = 0, persistentTriangles = 0;
     for (size_t index = 0; index < finalCommandCount; ++index)
     {
         if (gCommands[index].type == RasterCommand::Draw &&
             gCommands[index].vertexCount != 0)
         {
             ++drawCommands;
+            if (gCommands[index].immutableGeometry) {
+                totalVertices += gCommands[index].vertexCount;
+                ++persistentDraws;
+                persistentTriangles += gCommands[index].indexCount/3u;
+            }
             if (gCommands[index].gpuFixedFunctionEnabled != 0)
                 gpuFixedFunctionVertices += gCommands[index].vertexCount;
         }
@@ -2161,6 +2730,21 @@ bool renderFrameSnapshots(ID3D12Device *device,
     }
 
     std::vector<unsigned char> copied(copyCount, 0);
+    PersistentVertexUpload &backgroundVertices=r.backgroundVertexUploads[r.activeSlot];
+    PersistentVertexUpload &backgroundParameters=r.backgroundParameterUploads[r.activeSlot];
+    const UINT64 backgroundVertexBytes=gBackgroundVertices.size()*sizeof(HWBackgroundVertex);
+    const UINT64 backgroundParameterStride=(sizeof(BackgroundConstants)+255ull)&~255ull;
+    if (!gBackgroundVertices.empty())
+    {
+        if (!ensurePersistentVertexUpload(device,backgroundVertexBytes,backgroundVertices) ||
+            !ensurePersistentVertexUpload(device,gBackgroundConstants.size()*backgroundParameterStride,backgroundParameters)) return false;
+        std::memcpy(backgroundVertices.mapped,gBackgroundVertices.data(),(size_t)backgroundVertexBytes);
+        for (size_t i=0; i<gBackgroundConstants.size(); ++i)
+            std::memcpy(backgroundParameters.mapped+i*backgroundParameterStride,&gBackgroundConstants[i],sizeof(BackgroundConstants));
+    }
+    if(!missionJob.wait() || !ensureTextureGpu(device,list,texture(0)))return false;
+    prepareMissionEmissionResidency(device,finalCommandCount);
+    if(!prepareMissionLighting(device,list,finalCommandCount,rtv,dsv))return false;
     auto copySnapshotsAt = [&](size_t processedCommands)
     {
         bool needsCopy = false;
@@ -2201,12 +2785,15 @@ bool renderFrameSnapshots(ID3D12Device *device,
                         D3D12_RESOURCE_STATE_COPY_SOURCE,
                         D3D12_RESOURCE_STATE_RENDER_TARGET);
         list->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
+        effectTargetBound = false;
     };
 
     copySnapshotsAt(0);
     for (size_t index = 0; index < finalCommandCount; ++index)
     {
         const RasterCommand &command = gCommands[index];
+        // Custom sky/background PSOs and UI use their original single target.
+        if (command.type != RasterCommand::Draw) bindEffectTarget(false);
         if (command.type == RasterCommand::Clear)
         {
             D3D12_RECT rect = {0, 0, static_cast<LONG>(width), static_cast<LONG>(height)};
@@ -2223,6 +2810,16 @@ bool renderFrameSnapshots(ID3D12Device *device,
             if (command.clearMask & GL_DEPTH_BUFFER_BIT)
                 list->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH,
                     command.clearDepth, 0, 1, &rect);
+            if (captureEffects && index < worldEnd &&
+                (command.clearMask & (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)))
+                list->ClearRenderTargetView(effectRtv, noEffect, 1, &rect);
+        }
+        else if (command.type == RasterCommand::BackgroundMesh)
+        {
+            if (!drawBackgroundCommand(device,list,command,backgroundVertices,backgroundParameters,
+                                       backgroundParameterStride,width,height))
+                HW_DIAG_FPRINTF(stderr,"[RemasteredScene] Background material draw failed.\n");
+            bindMissionLighting(list);
         }
         else if (command.type == RasterCommand::MissionSky)
         {
@@ -2266,9 +2863,20 @@ bool renderFrameSnapshots(ID3D12Device *device,
         }
         else if (command.vertexCount != 0)
         {
-            ID3D12PipelineState *pso = pipelineFor(device, command);
+            bool effectGuide = captureEffects && !r.effectDepthFailed && isEffectGuideDraw(command, index, worldEnd);
+            const bool missionDraw = missionLightingEnabled && missionCaster(command);
+            ID3D12PipelineState *pso = pipelineFor(device, command, effectGuide, false, missionDraw);
+            if (!pso && effectGuide)
+            {
+                // Optional guidance must never prevent an ordinary color draw.
+                effectPipelinesReady = false;
+                r.effectDepthFailed = true;
+                effectGuide = false;
+                pso = pipelineFor(device, command, false, false, missionDraw);
+            }
             if (pso)
             {
+                bindEffectTarget(effectGuide);
                 list->SetPipelineState(pso);
 
                 D3D12_VIEWPORT viewport = {};
@@ -2304,6 +2912,14 @@ bool renderFrameSnapshots(ID3D12Device *device,
                     list->SetGraphicsRootDescriptorTable(0, srv);
                     list->SetGraphicsRootDescriptorTable(1, sampler);
                     DrawConstants constants = {};
+                    constants.engineBlend=-1.0f;
+                    TextureRecord &idle=texture(command.state.engineBlend>=0 ? command.state.engineIdleTexture : 0);
+                    if(ensureTextureGpu(device,list,idle)) {
+                        auto idleSrv=r.srvHeap->GetGPUDescriptorHandleForHeapStart();
+                        idleSrv.ptr+=static_cast<UINT64>(idle.descriptorSlot)*r.srvStride;
+                        list->SetGraphicsRootDescriptorTable(4,idleSrv);
+                        constants.engineBlend=command.state.engineBlend;
+                    }
                     constants.textureEnabled = command.state.texture2D ? 1u : 0u;
                     constants.textureEnvMode = static_cast<uint32_t>(command.state.texEnvMode);
                     constants.alphaTestEnabled = command.state.alphaTest ? 1u : 0u;
@@ -2311,6 +2927,11 @@ bool renderFrameSnapshots(ID3D12Device *device,
                     constants.alphaReference = command.state.alphaRef;
                     constants.fogEnabled = command.state.fog ? 1u : 0u;
                     constants.padding[0] = command.state.blend ? 1.0f : 0.0f;
+                    constants.padding[1] = missionLightingEnabled && missionCaster(command) ? 1.0f : 0.0f;
+                    bindMissionEmission(device,list,command,missionDraw);
+                    if(missionDraw)list->SetGraphicsRoot32BitConstants(8,2,missionSelections[index].data(),0);
+                    constants.padding1[0] = command.state.blendSrc == GL_ONE ? 1.0f : 0.0f;
+                    constants.padding1[1] = command.engineTrail ? 1.0f : 0.0f;
                     std::memcpy(constants.fogColor, command.state.fogColor, sizeof(constants.fogColor));
                     constants.gpuFixedFunctionEnabled =
                         command.gpuFixedFunctionEnabled;
@@ -2327,7 +2948,19 @@ bool renderFrameSnapshots(ID3D12Device *device,
                     }
 
                     const UINT64 bytes = static_cast<UINT64>(command.vertexCount) * sizeof(RasterVertex);
-                    if (vertexUpload.resource && bytes > 0)
+                    if (command.immutableGeometry)
+                    {
+                        const auto &entry=command.immutableGeometry;
+                        if(!ensureImmutableGpu(device,list,entry))return false;
+                        D3D12_VERTEX_BUFFER_VIEW view={};view.BufferLocation=entry->vertices->GetGPUVirtualAddress();
+                        view.SizeInBytes=static_cast<UINT>(bytes);view.StrideInBytes=sizeof(RasterVertex);
+                        D3D12_INDEX_BUFFER_VIEW indices={};indices.BufferLocation=entry->indices->GetGPUVirtualAddress();
+                        indices.SizeInBytes=static_cast<UINT>(entry->indexCount*sizeof(unsigned));indices.Format=DXGI_FORMAT_R32_UINT;
+                        list->IASetVertexBuffers(0,1,&view);list->IASetIndexBuffer(&indices);
+                        list->IASetPrimitiveTopology(command.topology);
+                        list->DrawIndexedInstanced(static_cast<UINT>(entry->indexCount),1,0,0,0);
+                    }
+                    else if (vertexUpload.resource && bytes > 0)
                     {
                         D3D12_VERTEX_BUFFER_VIEW view = {};
                         view.BufferLocation = vertexUpload.resource->GetGPUVirtualAddress() +
@@ -2367,9 +3000,19 @@ bool renderFrameSnapshots(ID3D12Device *device,
     /* Defensive completion for a snapshot whose count was clamped to the final
        stream length. */
     copySnapshotsAt(finalCommandCount);
+    if (captureEffects)
+    {
+        bindEffectTarget(false);
+        const auto readState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
+            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        resourceBarrier(list, r.effectDepth.Get(), r.effectDepthState, readState);
+        r.effectDepthState = readState;
+        r.effectDepthReady = effectPipelinesReady;
+    }
     resourceBarrier(list, finalTarget,
                     D3D12_RESOURCE_STATE_RENDER_TARGET, finalAfterState);
 
+#if HW_ENABLE_DIAGNOSTICS
     static unsigned int telemetryFrames = 0;
     static double telemetryCpuMs = 0.0;
     static unsigned long long telemetryDraws = 0;
@@ -2382,6 +3025,8 @@ bool renderFrameSnapshots(ID3D12Device *device,
     static unsigned long long telemetryTextureUploadBytes = 0;
     static unsigned long long telemetryTextureUpdates = 0;
     static unsigned long long telemetryTextureArenaGrowths = 0;
+    static unsigned long long telemetryPersistentDraws = 0, telemetryPersistentTriangles = 0;
+    static unsigned long long telemetryPersistentUploadBytes = 0;
     telemetryCpuMs += std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - cpuStarted).count();
     telemetryDraws += drawCommands;
@@ -2394,17 +3039,23 @@ bool renderFrameSnapshots(ID3D12Device *device,
     telemetryTextureUploadBytes += gFrameTextureUploadBytes;
     telemetryTextureUpdates += gFrameTextureUploadUpdates;
     telemetryTextureArenaGrowths += gFrameTextureUploadArenaGrowths;
+    telemetryPersistentDraws += persistentDraws;
+    telemetryPersistentTriangles += persistentTriangles;
+    telemetryPersistentUploadBytes += gPersistentUploadBytes;
     ++telemetryFrames;
     if (telemetryFrames >= 600)
     {
         const double divisor = static_cast<double>(telemetryFrames);
-        std::fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[NativeRaster] single-pass telemetry (%u frames): CPU replay %.3f ms/frame, "
             "%.1f draws/frame, %.0f vertices/frame, %.1f%% GPU fixed-function, "
             "%.2f MiB vertex upload/frame, %.2f MiB index upload/frame, "
             "%.3f MiB fixed-state/frame, %.2f MiB texture staging/frame, "
             "%.1f texture updates/frame, %.3f upload-arena growths/frame, "
-            "%.2f snapshot copies/frame.\n",
+            "%.2f snapshot copies/frame, %.1f persistent draws/frame, "
+            "%.0f persistent triangles/frame, %.3f MiB persistent upload/frame, "
+            "%.2f MiB bounded geometry charge (%.2f MiB fenced staging), "
+            "%llu cache evictions, %llu admission denials.\n",
             telemetryFrames,
             telemetryCpuMs / divisor,
             static_cast<double>(telemetryDraws) / divisor,
@@ -2421,7 +3072,13 @@ bool renderFrameSnapshots(ID3D12Device *device,
                 (1024.0 * 1024.0),
             static_cast<double>(telemetryTextureUpdates) / divisor,
             static_cast<double>(telemetryTextureArenaGrowths) / divisor,
-            static_cast<double>(telemetryCopies) / divisor);
+            static_cast<double>(telemetryCopies) / divisor,
+            static_cast<double>(telemetryPersistentDraws) / divisor,
+            static_cast<double>(telemetryPersistentTriangles) / divisor,
+            static_cast<double>(telemetryPersistentUploadBytes) / divisor / (1024.0*1024.0),
+            static_cast<double>(gPersistentGeometryCharge) / (1024.0*1024.0),
+            static_cast<double>(gPersistentGeometryStagingCharge) / (1024.0*1024.0),
+            gPersistentGeometryEvictions,gPersistentGeometryAdmissionDenials);
         telemetryFrames = 0;
         telemetryCpuMs = 0.0;
         telemetryDraws = telemetryVertices = telemetryBytes = telemetryCopies = 0;
@@ -2431,13 +3088,32 @@ bool renderFrameSnapshots(ID3D12Device *device,
         telemetryTextureUploadBytes = 0;
         telemetryTextureUpdates = 0;
         telemetryTextureArenaGrowths = 0;
+        telemetryPersistentDraws = telemetryPersistentTriangles = telemetryPersistentUploadBytes = 0;
     }
+#endif
     return true;
 }
 
 ID3D12Resource *depthResource()
 {
     return r.depth.Get();
+}
+
+void setFrameGenerationGuidesEnabled(bool enabled)
+{
+    if (enabled && !gFrameGenerationGuidesEnabled) r.effectDepthFailed = false;
+    gFrameGenerationGuidesEnabled = enabled;
+    if (!enabled) r.effectDepthReady = false;
+}
+
+ID3D12Resource *frameGenerationEffectDepthResource()
+{
+    return gFrameGenerationGuidesEnabled && r.effectDepthReady ? r.effectDepth.Get() : nullptr;
+}
+
+bool frameGenerationEffectDepthFailed()
+{
+    return r.effectDepthFailed;
 }
 
 bool prepareDepthForSampling(ID3D12GraphicsCommandList *list)
@@ -2453,11 +3129,98 @@ bool prepareDepthForSampling(ID3D12GraphicsCommandList *list)
 }
 } // namespace hwlegacyd3d12
 
+#include "LegacyD3D11Renderer.inc"
+
+extern "C" void hwglForgetImmutableMesh(const void *identity) {
+    gImmutableMeshes.erase(identity);
+}
+extern "C" void hwglRegisterImmutableMesh(const HWPersistentMeshSource *source) {
+    if(!source)return;
+    hwglForgetImmutableMesh(source->identity);
+    if(!hwmodern::validPersistentSource(*source))return;
+    try {
+        ImmutableMeshRecord record;record.source=*source;
+        for(unsigned first=0;first<source->polygonCount;) {
+            const auto material=hwmodern::persistentRead<unsigned short>(source->polygons,
+                size_t(first)*source->polygonStride+source->materialOffset);
+            unsigned end=first+1;
+            while(end<source->polygonCount&&material==hwmodern::persistentRead<unsigned short>(
+                source->polygons,size_t(end)*source->polygonStride+source->materialOffset))++end;
+            record.runs.push_back({first,end-first});first=end;
+        }
+        gImmutableMeshes.emplace(source->identity,std::move(record));
+    } catch(const std::bad_alloc &) {} // Immediate path remains authoritative.
+}
+extern "C" int hwglCanDrawImmutableMesh(const void *identity) {
+    return !hwlegacyd3d11::active() && gpuFixedFunctionRuntimeEnabled() &&
+        !g.lighting && g.engineGlowExponent<=0 && gImmutableMeshes.count(identity)!=0;
+}
+extern "C" unsigned hwglDrawImmutableMesh(const void *identity,unsigned first,
+    unsigned mode,const HWLegacyShadeState *shade) {
+    if(hwlegacyd3d11::active()||!gpuFixedFunctionRuntimeEnabled()||!shade||
+       shade->parameters[0]!=1||shade->parameters[1]<0||shade->parameters[1]>2||
+       g.lighting||g.engineGlowExponent>0||(mode!=1&&mode!=3))return 0;
+    auto found=gImmutableMeshes.find(identity);if(found==gImmutableMeshes.end())return 0;
+    auto &mesh=found->second;
+    auto run=std::lower_bound(mesh.runs.begin(),mesh.runs.end(),first,
+        [](const std::pair<unsigned,unsigned> &a,unsigned b){return a.first<b;});
+    if(run==mesh.runs.end()||run->first!=first)return 0;
+    const unsigned long long key=static_cast<unsigned long long>(first)*4u+mode;
+    std::shared_ptr<ImmutableRasterGeometry> entry;
+    auto cached=mesh.geometry.find(key);
+    try {
+        if(cached!=mesh.geometry.end())entry=cached->second;
+        else {
+            const size_t worst=immutableGeometryCharge(size_t(run->second)*3u*sizeof(RasterVertex),
+                size_t(run->second)*3u*sizeof(unsigned));
+            // Conservative 3x charge bounds decoded build, GPU storage and
+            // staging/flight retirement together, not merely cache-map size.
+            if(worst>kPersistentGeometryBudget||!reserveImmutableGeometry(worst)){
+                ++gPersistentGeometryAdmissionDenials;return 0;
+            }
+            auto data=hwmodern::buildPersistentRaster(mesh.source,first,run->second,mode==3);
+            entry=std::make_shared<ImmutableRasterGeometry>();
+            entry->data=std::move(data);entry->vertexCount=entry->data.vertices.size();entry->indexCount=entry->data.indices.size();
+            for(unsigned c=0;c<3;c++) {entry->boundsMin[c]=FLT_MAX;entry->boundsMax[c]=-FLT_MAX;}
+            for(const auto&v:entry->data.vertices)for(unsigned c=0;c<3;c++) {
+                entry->boundsMin[c]=std::min(entry->boundsMin[c],v.position[c]);entry->boundsMax[c]=std::max(entry->boundsMax[c],v.position[c]);
+            }
+            entry->charge=immutableGeometryCharge(entry->vertexCount*sizeof(RasterVertex),entry->indexCount*sizeof(unsigned));
+            gPersistentGeometryCharge+=entry->charge;
+            mesh.geometry.emplace(key,entry);
+        }
+        entry->lastUse=gPersistentSequence;
+        RasterCommand command;configureDrawCommand(command,false,shade);
+        command.vertexCount=entry->vertexCount;command.indexCount=entry->indexCount;
+        command.immutableGeometry=entry;
+        gCommands.push_back(std::move(command));
+        if(!gFrameRecording)gDetachedDirty=true;
+        return run->second;
+    } catch(const std::exception &) {return 0;}
+}
+
+extern "C" void hwglSurfaceMaterial(const void *identity)
+{
+    g.draw.materialIdentity = identity;
+    g.draw.emissionGain=0;
+}
+extern "C" void hwglSurfaceEmission(float intensity) {g.draw.emissionGain=std::max(0.0f,intensity);}
+
+extern "C" void hwglCaptureEngineIdle(float blend)
+{
+    g.draw.engineBlend=blend;
+    g.draw.engineIdleMaterial=blend>=0 ? g.draw.materialIdentity : nullptr;
+    g.draw.engineIdleEmissionGain=blend>=0 ? g.draw.emissionGain : 0;
+    g.draw.engineIdleTexture=blend>=0 ? g.draw.texture : 0;
+}
+
 extern "C" void hwglResetAll(void)
 {
     g = FixedState{};
+    gImmutableMeshes.clear();
     gCommands.clear();
     gFrameVertices.clear();
+    gBackgroundVertices.clear(); gBackgroundConstants.clear();
     gFrameIndices.clear();
     gFrameFixedStates.clear();
     gFrameFixedStates.resize(1);
@@ -2465,6 +3228,7 @@ extern "C" void hwglResetAll(void)
     gImmediateIndices.clear();
     gBuffers.clear();
     gTextures.clear();
+    gTextureDescriptorSlots = TextureDescriptorSlots(kSrvCapacity);
     gTransientTextures.clear();
     gNextTexture = 1;
     gNextBuffer = 1;
@@ -2478,6 +3242,8 @@ extern "C" void hwglBeginFrame(unsigned int width, unsigned int height, unsigned
     gFrameWidth = std::max(1u, width);
     gFrameHeight = std::max(1u, height);
     gFrameSlot = frameSlot % kFrameSlots;
+    // The owning presenter has waited for this swap-chain slot's fence.
+    gTextureDescriptorSlots.completeFrame(gFrameSlot);
     /* Standalone legacy loops issue their draw calls before rndFlush.  If that
        happened after the previous frame ended, keep those detached commands
        when the DXGI frame is opened at flush time. */
@@ -2485,6 +3251,7 @@ extern "C" void hwglBeginFrame(unsigned int width, unsigned int height, unsigned
     {
         gCommands.clear();
         gFrameVertices.clear();
+        gBackgroundVertices.clear(); gBackgroundConstants.clear();
         gFrameIndices.clear();
         gFrameFixedStates.clear();
         gFrameFixedStates.resize(1);
@@ -2495,6 +3262,7 @@ extern "C" void hwglBeginFrame(unsigned int width, unsigned int height, unsigned
     gInBegin = false;
     gSnapshots[0] = gSnapshots[1] = gSnapshots[2] = gSnapshots[3] = 0;
     gFrameRecording = true;
+    g.draw.worldScene=false;
     gDetachedDirty = false;
 
     /* RTX-0060: OpenGL normally acquires a full-window viewport as part of
@@ -2523,6 +3291,49 @@ extern "C" void hwglBeginFrame(unsigned int width, unsigned int height, unsigned
     g.draw.scissorBox[3] = static_cast<GLint>(gFrameHeight);
 
     hwlegacyd3d12::beginFrame(gFrameSlot);
+}
+
+extern "C" unsigned int hwglCreateBackgroundProgram(const void *bytes, size_t size)
+{
+    if (!bytes || size<32 || size>2*1024*1024 || std::memcmp(bytes,"DXBC",4)) return 0;
+    const auto *source=(const unsigned char*)bytes;
+    for (unsigned int i=1; i<backgroundPrograms.size(); ++i)
+        if (backgroundPrograms[i].pixelShader.size()==size &&
+            !std::memcmp(source,backgroundPrograms[i].pixelShader.data(),size)) return i;
+    if (backgroundPrograms.size()>=128) return 0;
+    BackgroundProgram program;
+    program.pixelShader.assign(source,source+size);
+    backgroundPrograms.push_back(std::move(program));
+    return (unsigned int)backgroundPrograms.size()-1;
+}
+
+extern "C" int hwglRecordBackgroundMesh(unsigned int program, const unsigned int *textures,
+    const HWBackgroundVertex *vertices, unsigned int count, const float *parameters,
+    const float *objectToWorld, unsigned int flags, float atmosphereExpansion)
+{
+    if (!gFrameRecording || !program || program>=backgroundPrograms.size() || !textures ||
+        !vertices || !parameters || !objectToWorld || !count || count>1000000 || count%3 ||
+        (flags&~15u) || (flags&12)==12 || !std::isfinite(atmosphereExpansion)) return 0;
+    BackgroundConstants constants = {};
+    for (int row=0; row<3; ++row)
+        for (int col=0; col<3; ++col) constants.camera[row*4+col]=g.modelview.m[col*4+row];
+    constants.camera[3]=g.projection.m[8]; constants.camera[7]=g.projection.m[9];
+    std::memcpy(constants.object,objectToWorld,sizeof(constants.object));
+    constants.projection[0]=g.projection.m[0]; constants.projection[1]=g.projection.m[5];
+    constants.projection[2]=atmosphereExpansion;
+    std::memcpy(constants.parameters,parameters,sizeof(constants.parameters));
+    const float *floats=(const float*)&constants;
+    for (size_t i=0; i<sizeof(constants)/sizeof(float); ++i) if (!std::isfinite(floats[i])) return 0;
+    RasterCommand command;
+    command.type=RasterCommand::BackgroundMesh; command.state=g.draw;
+    command.backgroundProgram=program; command.backgroundFlags=flags;
+    std::memcpy(command.backgroundTextures,textures,sizeof(command.backgroundTextures));
+    command.firstVertex=gBackgroundVertices.size(); command.vertexCount=count;
+    command.backgroundParameterIndex=gBackgroundConstants.size();
+    gBackgroundConstants.push_back(constants);
+    gBackgroundVertices.insert(gBackgroundVertices.end(),vertices,vertices+count);
+    gCommands.push_back(std::move(command));
+    return 1;
 }
 
 extern "C" int hwglRecordMissionSky(GLuint textureName, GLfloat fade)
@@ -2568,6 +3379,111 @@ extern "C" int hwglRecordMissionSky(GLuint textureName, GLfloat fade)
     return 1;
 }
 
+
+extern "C" int hwglRecordBackgroundStars(GLuint textureName, const float *stars,
+                                           unsigned int count, float fade)
+{
+    if (!gFrameRecording || !stars || count > 100000 || !gFrameWidth || !gFrameHeight ||
+        gTextures.find(textureName) == gTextures.end()) return 0;
+    std::vector<RasterVertex> vertices;
+    vertices.reserve(static_cast<size_t>(count) * 6);
+    fade = std::max(0.0f, std::min(fade, 1.0f));
+    const int corners[6] = {0, 1, 2, 0, 2, 3};
+    const float uv[4][2] = {{0,0},{1,0},{1,1},{0,1}};
+    for (unsigned int i = 0; i < count; ++i)
+    {
+        const float *s = stars + i * 7;
+        if (std::max(s[3], std::max(s[4], s[5])) <= 0.0f) continue;
+        // Direction only: neither camera movement nor zoom moves the catalog.
+        auto eye = transform(g.modelview, s[0], s[1], s[2], 0.0f);
+        auto clip = transform(g.projection, eye[0], eye[1], eye[2], 0.0f);
+        if (clip[3] <= 1.0e-5f) continue;
+        const float x = clip[0] / clip[3], y = -clip[1] / clip[3];
+        const float radius = std::max(1.0f, std::min(s[6], 16.0f));
+        const float dx = radius * 2.0f / static_cast<float>(gFrameWidth);
+        const float dy = radius * 2.0f / static_cast<float>(gFrameHeight);
+        if (x < -1-dx || x > 1+dx || y < -1-dy || y > 1+dy) continue;
+        for (int corner : corners)
+        {
+            RasterVertex v = {};
+            v.position[0] = x + (uv[corner][0]*2-1)*dx;
+            v.position[1] = y + (uv[corner][1]*2-1)*dy;
+            v.position[3] = 1.0f;
+            for (int channel = 0; channel < 3; ++channel)
+            {
+                const float c = std::max(0.0f, s[3+channel]);
+                v.color[channel] = (c <= 0.04045f ? c/12.92f :
+                    std::pow((c+0.055f)/1.055f, 2.4f)) * fade;
+            }
+            v.color[3] = 0.0f; // Background coverage stays zero through clouds.
+            v.uv[0] = uv[corner][0]; v.uv[1] = uv[corner][1];
+            v.fogFactor = 1.0f; v.clipDistance = 1.0f;
+            vertices.push_back(v);
+        }
+    }
+    if (vertices.empty()) return 1;
+    RasterCommand command;
+    command.type = RasterCommand::Draw;
+    command.state = g.draw;
+    command.state.texture2D = true;
+    command.state.texture = textureName;
+    command.state.texEnvMode = GL_MODULATE;
+    command.state.blend = true;
+    command.state.blendSrc = GL_ONE;
+    command.state.blendDst = GL_ONE;
+    command.state.alphaTest = false;
+    command.state.fog = false;
+    command.state.depthTest = false;
+    command.state.depthWrite = false;
+    command.state.cullFace = false;
+    command.gpuFixedFunctionEnabled = 0;
+    appendExpanded(command, GL_TRIANGLES, vertices);
+    gCommands.push_back(std::move(command));
+    return 1;
+}
+
+extern "C" int hwglRecordBackgroundFlares(unsigned int textureName, const float *records,
+    unsigned int count, float fade)
+{
+    if(!gFrameRecording || !records || count>4096 || !gFrameWidth || !gFrameHeight ||
+        gTextures.find(textureName)==gTextures.end())return 0;
+    std::vector<RasterVertex> vertices;
+    const int corners[6]={0,1,2,0,2,3};
+    const float uv[4][2]={{0,0},{1,0},{1,1},{0,1}};
+    for(unsigned i=0;i<count;++i)
+    {
+        const float *f=records+i*10;
+        auto eye=transform(g.modelview,f[0],f[1],f[2],0);
+        auto clip=transform(g.projection,eye[0],eye[1],eye[2],0);
+        if(clip[3]<=1e-5f)continue;
+        float sx=clip[0]/clip[3],sy=-clip[1]/clip[3];
+        // Smoothly attenuate at the view boundary; never pop a whole flare stack.
+        float attenuation=std::clamp(1.0f-std::max(std::fabs(sx),std::fabs(sy)),0.0f,1.0f);
+        attenuation=attenuation*attenuation*(3-2*attenuation)*std::clamp(fade,0.0f,1.0f);
+        float x=sx*f[3],y=sy*f[3],radius=std::max(0.0f,f[4])*.06f;
+        float c=std::cos(f[5]*6.2831853f),s=std::sin(f[5]*6.2831853f);
+        for(int corner:corners)
+        {
+            RasterVertex v={};float u=uv[corner][0]*2-1,t=uv[corner][1]*2-1;
+            v.position[0]=x+(u*c-t*s)*radius*gFrameHeight/gFrameWidth;
+            v.position[1]=y+(u*s+t*c)*radius;v.position[3]=1;
+            for(int channel=0;channel<3;++channel)
+            {
+                float color=std::max(0.0f,f[6+channel]);
+                v.color[channel]=(color<=.04045f?color/12.92f:std::pow((color+.055f)/1.055f,2.4f))*f[9]*attenuation;
+            }
+            v.color[3]=0;v.uv[0]=uv[corner][0];v.uv[1]=uv[corner][1];
+            v.fogFactor=1;v.clipDistance=1;vertices.push_back(v);
+        }
+    }
+    if(vertices.empty())return 1;
+    RasterCommand command;command.type=RasterCommand::Draw;command.state=g.draw;
+    command.state.texture2D=true;command.state.texture=textureName;command.state.texEnvMode=GL_MODULATE;
+    command.state.blend=true;command.state.blendSrc=GL_ONE;command.state.blendDst=GL_ONE;
+    command.state.alphaTest=command.state.fog=command.state.depthTest=command.state.depthWrite=command.state.cullFace=false;
+    command.gpuFixedFunctionEnabled=0;appendExpanded(command,GL_TRIANGLES,vertices);
+    gCommands.push_back(std::move(command));return 1;
+}
 
 extern "C" void *hwglGetMissionSkyD3D12Resource(GLuint textureName)
 {
@@ -2628,12 +3544,14 @@ extern "C" void hwglEndFrame(void)
         if (found != gTextures.end())
         {
             retainAcrossFlight(found->second.gpu);
+            gTextureDescriptorSlots.retire(found->second.descriptorSlot);
             gTextures.erase(found);
         }
     }
     gTransientTextures.clear();
     gCommands.clear();
     gFrameVertices.clear();
+    gBackgroundVertices.clear(); gBackgroundConstants.clear();
     gFrameIndices.clear();
     gFrameFixedStates.clear();
     gFrameFixedStates.resize(1);
@@ -2644,6 +3562,15 @@ extern "C" void hwglEndFrame(void)
 }
 
 extern "C" void hwglAlphaFunc(GLenum func, GLclampf ref) { g.draw.alphaFunc = func; g.draw.alphaRef = ref; }
+extern "C" void hwglEngineGlow(float red,float green,float blue,float alpha,float exponent)
+{
+    g.engineGlowColor[0]=red;g.engineGlowColor[1]=green;
+    g.engineGlowColor[2]=blue;g.engineGlowColor[3]=alpha;
+    g.engineGlowExponent=std::isfinite(exponent)?std::max(0.0f,exponent):0;
+}
+extern "C" void hwglEngineTrail(int enabled) { g.engineTrail = enabled != 0; }
+extern "C" int hwglEngineGlowActive(void)
+{ return g.engineGlowExponent>0 && gpuFixedFunctionRuntimeEnabled(); }
 extern "C" void hwglBegin(GLenum mode) { if (gInBegin) { setError(GL_INVALID_OPERATION); return; } gInBegin = true; gImmediateMode = mode; gImmediate.clear(); }
 extern "C" void hwglEnd(void) { if (!gInBegin) { setError(GL_INVALID_OPERATION); return; } recordDraw(gImmediateMode, gImmediate); gImmediate.clear(); gInBegin = false; }
 extern "C" void hwglVertex2f(GLfloat x, GLfloat y) { if (gInBegin) gImmediate.push_back(makeVertex(x, y, 0.0f, 1.0f)); }
@@ -2720,6 +3647,11 @@ extern "C" void hwglCullFace(GLenum mode) { g.draw.cullMode=mode; }
 extern "C" void hwglPolygonMode(GLenum, GLenum mode) { g.draw.polygonMode=mode; }
 extern "C" void hwglShadeModel(GLenum mode) { g.shadeModel=mode; }
 extern "C" void hwglLineWidth(GLfloat width) { g.lineWidth=width; }
+extern "C" int hwglGetClipPlaneEye(float equation[4])
+{
+    std::memcpy(equation,g.clipEquationEye,sizeof(g.clipEquationEye));
+    return g.clipPlane0 ? 1 : 0;
+}
 extern "C" void hwglPointSize(GLfloat size) { g.pointSize=size; }
 extern "C" void hwglLineStipple(GLint, GLushort) {}
 
@@ -2842,7 +3774,7 @@ extern "C" void hwglBufferSubData(GLenum target, ptrdiff_t offset, ptrdiff_t siz
     if (byteCount > 0) std::memcpy(b.data() + begin, data, byteCount);
 }
 
-extern "C" void hwglGenTextures(GLsizei n, GLuint *out) { if(!out)return;for(GLsizei i=0;i<n;++i){out[i]=gNextTexture++;TextureRecord &t=texture(out[i]);t.descriptorSlot=std::min<unsigned int>(out[i],kSrvCapacity-1);} }
+extern "C" void hwglGenTextures(GLsizei n, GLuint *out) { if(!out)return;for(GLsizei i=0;i<n;++i){out[i]=gNextTexture++;texture(out[i]);} }
 extern "C" void hwglDeleteTextures(GLsizei n, const GLuint *ids)
 {
     if (ids == nullptr) return;
@@ -2853,6 +3785,7 @@ extern "C" void hwglDeleteTextures(GLsizei n, const GLuint *ids)
         if (found != gTextures.end())
         {
             retainAcrossFlight(found->second.gpu);
+            gTextureDescriptorSlots.retire(found->second.descriptorSlot);
             gTextures.erase(found);
         }
     }
@@ -2863,11 +3796,29 @@ extern "C" void hwglTexSubImage2D(GLenum target, GLint level, GLint xo, GLint yo
 {
     if(target!=GL_TEXTURE_2D||level!=0||!pixels||type!=GL_UNSIGNED_BYTE)return;TextureRecord &t=texture(g.draw.texture);if(t.compressed||t.width==0||t.height==0)return;TextureRecord sub;convertPixelsToRgba(sub,w,h,format,type,pixels);for(GLint y=0;y<h;++y){if(yo+y<0||static_cast<unsigned int>(yo+y)>=t.height)continue;for(GLint x=0;x<w;++x){if(xo+x<0||static_cast<unsigned int>(xo+x)>=t.width)continue;std::memcpy(t.pixels.data()+((static_cast<size_t>(yo+y)*t.width)+(xo+x))*4,sub.pixels.data()+((static_cast<size_t>(y)*w)+x)*4,4);}}t.dirty=true;
 }
-extern "C" void hwglTexParameteri(GLenum target, GLenum pname, GLint param) { if(target!=GL_TEXTURE_2D)return;TextureRecord &t=texture(g.draw.texture);if(pname==GL_TEXTURE_MIN_FILTER)t.minFilter=param;else if(pname==GL_TEXTURE_MAG_FILTER)t.magFilter=param;else if(pname==GL_TEXTURE_WRAP_S)t.wrapS=param;else if(pname==GL_TEXTURE_WRAP_T)t.wrapT=param; }
-extern "C" void hwglTexParameterf(GLenum target, GLenum pname, GLfloat param) { hwglTexParameteri(target,pname,static_cast<GLint>(param)); }
+extern "C" void hwglTexParameteri(GLenum target, GLenum pname, GLint param) {
+    if(target!=GL_TEXTURE_2D)return;
+    TextureRecord &t=texture(g.draw.texture);
+    if(pname==GL_TEXTURE_MIN_FILTER) {
+        if(!t.compressed && !t.generateMips && hwmodern::textureUsesMips(param)!=hwmodern::textureUsesMips(t.minFilter))t.dirty=true;
+        t.minFilter=param;
+    } else if(pname==GL_TEXTURE_MAG_FILTER)t.magFilter=param;
+    else if(pname==GL_TEXTURE_WRAP_S)t.wrapS=param;
+    else if(pname==GL_TEXTURE_WRAP_T)t.wrapT=param;
+    else if(pname==0x84FE)t.maxAnisotropy=std::clamp(float(param),1.0f,16.0f); // GL_TEXTURE_MAX_ANISOTROPY_EXT
+}
+extern "C" void hwglTexParameterf(GLenum target, GLenum pname, GLfloat param) {
+    if(target==GL_TEXTURE_2D && pname==0x84FE) {
+        texture(g.draw.texture).maxAnisotropy=std::isfinite(param)?std::clamp(param,1.0f,16.0f):1.0f;
+    } else hwglTexParameteri(target,pname,static_cast<GLint>(param));
+}
 extern "C" void hwglTexEnvi(GLenum target, GLenum pname, GLint param) { if(target==GL_TEXTURE_ENV&&pname==GL_TEXTURE_ENV_MODE)g.draw.texEnvMode=param; }
 extern "C" void hwglGetTexEnviv(GLenum target, GLenum pname, GLint *params) { if(params&&target==GL_TEXTURE_ENV&&pname==GL_TEXTURE_ENV_MODE)*params=g.draw.texEnvMode; }
-extern "C" void hwglGenerateMipmap(GLenum) {}
+extern "C" void hwglGenerateMipmap(GLenum target) {
+    if(target!=GL_TEXTURE_2D)return;
+    auto &t=texture(g.draw.texture);
+    if(!t.generateMips){t.generateMips=true;if(!t.compressed)t.dirty=true;}
+}
 extern "C" void hwglTexStorage2D(GLenum target, GLsizei, GLenum internalformat, GLsizei w, GLsizei h) { if(target==GL_TEXTURE_2D){TextureRecord &t=texture(g.draw.texture);t.internalFormat=internalformat;t.width=w;t.height=h;t.pixels.assign(static_cast<size_t>(w)*h*4,0);t.dirty=true;} }
 extern "C" void hwglCompressedTexImage2D(GLenum target, GLint level, GLenum internalFormat, GLsizei w, GLsizei h, GLint, GLsizei imageSize, const GLvoid *data)
 {

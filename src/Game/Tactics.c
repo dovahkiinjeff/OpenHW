@@ -5,6 +5,8 @@
 =============================================================================*/
 
 #include "Tactics.h"
+#include "ShipPilot.h"
+#include "Veterancy.h"
 
 #include <stdlib.h>
 
@@ -1852,7 +1854,7 @@ void tacticsUpdate(Ship *ship)
     tacticsManeuvUpdate(ship);
 
     //update strike crafts dodging
-    tacticsDodgeUpdate(ship);
+    if (!shipPilotControls(ship)) tacticsDodgeUpdate(ship);
 
     //update ships enemy + order status
     tacticsUpdateOrderStatus(ship);
@@ -2182,15 +2184,18 @@ real32 tacticsGetShipsMaxVelocity(Ship *ship)
 {
     real32 speedmult = 1.0f;
     real32 superSalvagerMult = 1.0f;
+    real32 veteranMult;
 
     if(ship->objtype != OBJ_ShipType)
     {
         return(ship->staticinfo->staticheader.maxvelocity);
     }
 
+    veteranMult = veterancyFactor(ship);
+
     if (ship->shiptype == Probe)
     {
-        return ProbeGetMaxVelocity(ship);
+        return ProbeGetMaxVelocity(ship) * veteranMult;
     }
 
     if (singlePlayerGame && opSuperSalvagers &&
@@ -2238,24 +2243,24 @@ real32 tacticsGetShipsMaxVelocity(Ship *ship)
         //       of ships as well as decreasing it.
 //        if (ship->singlePlayerSpeedLimiter < ship->staticinfo->staticheader.maxvelocity)
 //        {
-            return ship->singlePlayerSpeedLimiter;      // deliberately override other considerations - we want this to be the final word
+            return ship->singlePlayerSpeedLimiter * veteranMult;
 //        }
     }
     if(bitTest(ship->specialFlags,SPECIAL_SalvagerHasSomethingAttachedAndIsDoingSomethingElse))
     {
         SalCapCorvetteStatics *salcapcorvettestatics = ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo;
         return(salcapcorvettestatics->maxPushingVelocitySingle *
-               superSalvagerMult);
+               superSalvagerMult * veteranMult);
     }
 
     switch(ship->staticinfo->shipclass)
     {
     case CLASS_Fighter:
-        return(ship->staticinfo->staticheader.maxvelocity*tacticsInfo.MaxVelocityBonus[ship->tactics_ordertype][Tactics_Fighter][ship->tacticstype]*speedmult*superSalvagerMult);
+        return(ship->staticinfo->staticheader.maxvelocity*tacticsInfo.MaxVelocityBonus[ship->tactics_ordertype][Tactics_Fighter][ship->tacticstype]*speedmult*superSalvagerMult*veteranMult);
     case CLASS_Corvette:
-        return(ship->staticinfo->staticheader.maxvelocity*tacticsInfo.MaxVelocityBonus[ship->tactics_ordertype][Tactics_Corvette][ship->tacticstype]*speedmult*superSalvagerMult);
+        return(ship->staticinfo->staticheader.maxvelocity*tacticsInfo.MaxVelocityBonus[ship->tactics_ordertype][Tactics_Corvette][ship->tacticstype]*speedmult*superSalvagerMult*veteranMult);
     default:
-        return(ship->staticinfo->staticheader.maxvelocity*speedmult*superSalvagerMult);
+        return(ship->staticinfo->staticheader.maxvelocity*speedmult*superSalvagerMult*veteranMult);
     }
 
 }

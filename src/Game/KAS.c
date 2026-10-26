@@ -237,7 +237,7 @@ void kasExecute(void)
             CurrentTeamP = aiCurrentAIPlayer->teams[i];
             if (CurrentTeamP->teamType == ScriptTeam)
             {
-                if (CurrentTeamP->kasFSMWatchFunction)   // watch at the FSM level
+                if (!singlePlayerMissionEventsUpdate(CurrentTeamP) && CurrentTeamP->kasFSMWatchFunction)   // watch at the FSM level
                     CurrentTeamP->kasFSMWatchFunction();
                 if (CurrentTeamP->kasStateWatchFunction) // watch at the state level
                     CurrentTeamP->kasStateWatchFunction();
@@ -249,7 +249,7 @@ void kasExecute(void)
         CurrentTeamP = kasUnpausedTeam;                     //only execute this 1 unpaused team
         if (CurrentTeamP->teamType == ScriptTeam)
         {
-            if (CurrentTeamP->kasFSMWatchFunction)   // watch at the FSM level
+            if (!singlePlayerMissionEventsUpdate(CurrentTeamP) && CurrentTeamP->kasFSMWatchFunction)   // watch at the FSM level
                 CurrentTeamP->kasFSMWatchFunction();
             if (CurrentTeamP->kasStateWatchFunction) // watch at the state level
                 CurrentTeamP->kasStateWatchFunction();
@@ -1467,4 +1467,3 @@ void *kasConvertOffsetToFuncPtr(sdword offset)
             : NULL);
     }
 }
-

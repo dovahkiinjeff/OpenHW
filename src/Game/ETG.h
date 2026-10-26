@@ -671,6 +671,9 @@ void etgHistoryRegisterFunction(etgeffectstatic *stat);
 //update effects
 bool32 etgEffectUpdate(struct Effect *effect, real32 timeElapsed);
 void etgEffectDraw(struct Effect *effect);
+struct Camera;
+void etgSubmitEffectLighting(struct Effect *effect);
+bool32 etgDrawRemasteredEffect(struct Effect *effect,struct Camera *camera);
 void etgShipDied(struct Ship *deadDuck);
 sdword etgDeleteEffectsOwnedBy(struct Ship *owner);
 

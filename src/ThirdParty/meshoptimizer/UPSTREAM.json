@@ -1,0 +1,23 @@
+{
+  "repository": "https://github.com/zeux/meshoptimizer",
+  "tag": "v1.0",
+  "commit": "73583c335e541c139821d0de2bf5f12960a04941",
+  "files": [
+    {
+      "path": "src/meshoptimizer.h",
+      "sha256": "20867376a8e83fa7dc2eb3a87770d82a1d7e1e114be7c4ad4845ca9666ba371c"
+    },
+    {
+      "path": "src/indexgenerator.cpp",
+      "sha256": "4a9c596ad5976ee1cc490306660837cff8fde77c63820a0ca4e5538e6b044306"
+    },
+    {
+      "path": "src/allocator.cpp",
+      "sha256": "0bff407ee165d338026badacce8bd37320372cc687631a2a8054afa7147f1e26"
+    },
+    {
+      "path": "LICENSE.md",
+      "sha256": "e4a26033e3551fb2722888949fbb41e77aee628e8e8f04dcffeee301aa7e5634"
+    }
+  ]
+}

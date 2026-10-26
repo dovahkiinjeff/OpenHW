@@ -113,6 +113,7 @@ void MiningBaseDied(Ship *ship)
 {
     Ship *deleteme;
     Node *node;
+    Node *nextnode;
     MiningBaseSpec *spec = (MiningBaseSpec *)ship->ShipSpecifics;
 
     dbgAssertOrIgnore(ship->shiptype == MiningBase);
@@ -128,8 +129,9 @@ void MiningBaseDied(Ship *ship)
 
     // first pass: Set all other MiningBases to dontRecurseKill so we don't get weird recursion
 
-    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    for (node = universe.ShipList.head; node != NULL; node = nextnode)
     {
+        nextnode = node->next;
         deleteme = (Ship *)listGetStructOfNode(node);
         dbgAssertOrIgnore(deleteme->objtype == OBJ_ShipType);
 
@@ -142,8 +144,9 @@ void MiningBaseDied(Ship *ship)
 
     // delete all other mining bases
 
-    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    for (node = universe.ShipList.head; node != NULL; node = nextnode)
     {
+        nextnode = node->next;
         deleteme = (Ship *)listGetStructOfNode(node);
         dbgAssertOrIgnore(deleteme->objtype == OBJ_ShipType);
 
@@ -151,15 +154,18 @@ void MiningBaseDied(Ship *ship)
         {
             deleteme->howDidIDie = ship->howDidIDie;
             deleteme->whoKilledMe = ship->whoKilledMe;
-            univDeleteDeadShip(deleteme,EDT_AccumDamage);
+            bool32 detachedDeath = univDeleteDeadShip(deleteme,EDT_AccumDamage);
             listRemoveNode(&deleteme->shiplink);
             listRemoveNode(&deleteme->impactablelink);
 
 #if ETG_DISABLEABLE
-            if (!etgEffectsEnabled)
+            if (!etgEffectsEnabled || detachedDeath)
             {
                 univWipeShipOutOfExistence(deleteme);
             }
+#else
+            if (detachedDeath)
+                univWipeShipOutOfExistence(deleteme);
 #endif
         }
     }

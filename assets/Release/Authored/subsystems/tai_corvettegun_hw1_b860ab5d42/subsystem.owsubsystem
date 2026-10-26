@@ -1,0 +1,63 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_tai_corvettegun_hw1_b860ab5d42
+scale 1
+hull @/Subsystems/tai_corvettegun/model.hod
+mad -
+surface 0 0 @/Subsystems/tai_corvettegun/m0
+gun 0 Hull Weapon_Top_Position Weapon_Top_Latitude Weapon_Top_Latitude Weapon_Top_Muzzle
+gun 1 Hull Weapon_TopSlave_Position Weapon_TopSlave_Latitude Weapon_TopSlave_Latitude Weapon_TopSlave_Muzzle
+
+presentation Hull component_events.owevents
+[Weapons]
+GUN 0
+{
+WeaponFire @/RemasteredFX/WeaponFire/kinetic_small.wf
+
+Type                                GUN_NewGimble                    ; type of gun - either GUN_Fixed or GUN_Gimble
+SoundType                           GS_MediumEnergyCannon
+DamageLo                            14                           ; damage variance per shot - low
+DamageHi                            18                          ; damage variance per shot - high
+BulletLength                        25.0                          ; visual only.  Length of bullet on screen
+BulletRange                         5000.0                       ; distance bullets travel before disappearing
+BulletSpeed                         15000.0                        ; measured in m/s.
+BulletMass                          0.01                        ; mass of bullet
+FireTime                            2.8                          ; fire repeat rate (reciprocal = shots/second)
+TriggerHappy                       20.0
+minturnangle                      -90.0                         ; degrees
+maxturnangle                       30.0
+mindeclination                     -0.0
+maxdeclination                     30.0
+maxanglespeed                     360.0                         ; degrees/s
+maxdeclinationspeed               360.0
+angletracking                       3.0
+declinationtracking                 3.0
+BarrelLength                        12.00
+RecoilLength                        4.00
+}
+
+GUN 1
+{
+WeaponFire @/RemasteredFX/WeaponFire/kinetic_small.wf
+
+Type                                GUN_NewGimble                    ; type of gun - either GUN_Fixed or GUN_Gimble
+SoundType                           GS_MediumEnergyCannon
+DamageLo                            14                           ; damage variance per shot - low
+DamageHi                            18                          ; damage variance per shot - high
+BulletLength                        25.0                          ; visual only.  Length of bullet on screen
+BulletRange                         5000.0                       ; distance bullets travel before disappearing
+BulletSpeed                         15000.0                        ; measured in m/s.
+BulletMass                          0.01                        ; mass of bullet
+FireTime                            2.8                          ; fire repeat rate (reciprocal = shots/second)
+TriggerHappy                       20.0
+minturnangle                      -90.0                         ; degrees
+maxturnangle                       30.0
+mindeclination                     -0.0
+maxdeclination                     30.0
+maxanglespeed                     360.0                         ; degrees/s
+maxdeclinationspeed               360.0
+angletracking                       3.0
+declinationtracking                 3.0
+BarrelLength                        12.00
+RecoilLength                        4.00
+}
+[End]

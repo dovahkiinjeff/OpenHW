@@ -77,7 +77,7 @@ if ([string]::IsNullOrWhiteSpace($VcpkgRoot)) {
     # FFmpeg's vcpkg port refuses to build when VCPKG_ROOT/buildtrees contains
     # a space. Keep the dependency checkout out of commonly spaced game paths
     # such as "HW1 RTX" and share it safely between source-package revisions.
-    $VcpkgRoot = Join-Path $env:LOCALAPPDATA 'HomeworldModernDeps\vcpkg'
+    $VcpkgRoot = Join-Path $RepositoryRoot '.deps\vcpkg'
 }
 
 if ($VcpkgRoot -match '\s') {
@@ -86,7 +86,12 @@ if ($VcpkgRoot -match '\s') {
 
 if (-not (Test-Path (Join-Path $VcpkgRoot '.git'))) {
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $VcpkgRoot) | Out-Null
-    git clone --depth 1 https://github.com/microsoft/vcpkg.git $VcpkgRoot
+    git clone --no-checkout --filter=blob:none https://github.com/microsoft/vcpkg.git $VcpkgRoot
+    if ($LASTEXITCODE -ne 0) { throw 'vcpkg clone failed.' }
+    git -C $VcpkgRoot fetch --depth 1 origin ea1a7396b05637a53bf23c078647ecc0edee4b80
+    if ($LASTEXITCODE -ne 0) { throw 'Pinned vcpkg revision could not be downloaded.' }
+    git -C $VcpkgRoot checkout --detach ea1a7396b05637a53bf23c078647ecc0edee4b80
+    if ($LASTEXITCODE -ne 0) { throw 'Pinned vcpkg revision could not be selected.' }
 }
 
 $Bootstrap = Join-Path $VcpkgRoot 'bootstrap-vcpkg.bat'
@@ -193,7 +198,9 @@ $DependencyRoot = Join-Path $RepositoryRoot '.deps'
 $FidelityRoot = Join-Path $DependencyRoot 'fidelityfx'
 $FidelityArchive = Join-Path $DependencyRoot 'FidelityFX-SDK-v2.3.0.zip'
 $FidelityExtract = Join-Path $DependencyRoot '_fidelityfx_extract'
-if (-not (Test-Path (Join-Path $FidelityRoot 'bin\amd_fidelityfx_upscaler_dx12.dll'))) {
+if (-not (Test-Path (Join-Path $FidelityRoot 'bin\amd_fidelityfx_upscaler_dx12.dll')) -or
+    -not (Test-Path (Join-Path $FidelityRoot 'bin\amd_fidelityfx_framegeneration_dx12.dll')) -or
+    -not (Test-Path (Join-Path $FidelityRoot 'Kits\FidelityFX\framegeneration\include\ffx_framegeneration.h'))) {
     Install-VerifiedArchive 'AMD FidelityFX SDK v2.3.0' `
         'https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/archive/refs/tags/v2.3.0.zip' `
         'E7F274930086405071C01B4E7E1DE8CD3BB9FBCB987D711EBF65169464C28455' `
@@ -202,8 +209,10 @@ if (-not (Test-Path (Join-Path $FidelityRoot 'bin\amd_fidelityfx_upscaler_dx12.d
     New-Item -ItemType Directory -Force "$FidelityRoot\Kits\FidelityFX","$FidelityRoot\lib","$FidelityRoot\bin" | Out-Null
     Copy-Item "$($FidelitySource.FullName)\Kits\FidelityFX\api" "$FidelityRoot\Kits\FidelityFX" -Recurse -Force
     Copy-Item "$($FidelitySource.FullName)\Kits\FidelityFX\upscalers" "$FidelityRoot\Kits\FidelityFX" -Recurse -Force
+    Copy-Item "$($FidelitySource.FullName)\Kits\FidelityFX\framegeneration" "$FidelityRoot\Kits\FidelityFX" -Recurse -Force
     Copy-Item "$($FidelitySource.FullName)\Kits\FidelityFX\signedbin\amd_fidelityfx_loader_dx12.lib" "$FidelityRoot\lib" -Force
     Copy-Item "$($FidelitySource.FullName)\Kits\FidelityFX\signedbin\amd_fidelityfx_loader_dx12.dll","$($FidelitySource.FullName)\Kits\FidelityFX\signedbin\amd_fidelityfx_upscaler_dx12.dll" "$FidelityRoot\bin" -Force
+    Copy-Item "$($FidelitySource.FullName)\Kits\FidelityFX\signedbin\amd_fidelityfx_framegeneration_dx12.dll" "$FidelityRoot\bin" -Force
 }
 
 $XessRoot = Join-Path $DependencyRoot 'xess'

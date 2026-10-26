@@ -1,0 +1,6 @@
+HW_RM_DERELICT_VISUAL_1
+type Derelict_FragmentStrut
+scale 2.85714293
+hull hull.hod
+mad -
+surface 0 0 c0_m0

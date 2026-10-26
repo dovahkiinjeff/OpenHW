@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     Name    : Formation.c
     Purpose : Implementation of formations
@@ -7,6 +8,8 @@
 =============================================================================*/
 
 #include "Formation.h"
+#include "FormationSpreadPolicy.h"
+#include "MilitaryParadeLayout.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -22,6 +25,7 @@
 #include "FastMath.h"
 #include "Globals.h"
 #include "Memory.h"
+#include "NIS.h"
 #include "ProximitySensor.h"
 #include "SalCapCorvette.h"
 #include "SinglePlayer.h"
@@ -335,7 +339,7 @@ void formationArrangeOptimum(struct CommandToDo *formationtodo)
     {
         case FORMATION_SORT_BIGGEST_THEN_CLOSEST:
             formationBiggestThenClosestOptimum(selection,formationtodo->formation.formationtype);
-            formationtodo->formation.sortorder = FORMATION_SORT_BIGGEST_THEN_CLOSEST;
+            formationtodo->formation.sortorder = (formationtodo->formation.sortorder & ~FORMATION_SORT_MASK) | FORMATION_SORT_BIGGEST_THEN_CLOSEST;
             break;
 
         default:
@@ -1220,7 +1224,7 @@ void formationTypeHasChanged(struct CommandToDo *command)
 {
     TypeOfFormation formationtype = command->formation.formationtype;
 
-    if (formationSortType[formationtype] != command->formation.sortorder)
+    if (formationSortType[formationtype] != (command->formation.sortorder & FORMATION_SORT_MASK))
     {
         formationArrangeOptimum(command);
     }
@@ -1400,6 +1404,8 @@ defaultremove:
     return returnval;
 }
 
+#include "FormationSpread.inc"
+
 void FormationCalculateOffsets(struct CommandToDo *formationtodo)
 {
     SelectCommand *selection = formationtodo->selection;
@@ -1418,6 +1424,7 @@ void FormationCalculateOffsets(struct CommandToDo *formationtodo)
     if (formationtodo->formation.formationtype == SPHERE_FORMATION)
     {
         formationSpecificsSphere(formationtodo);
+        formationSpreadApply(formationtodo);
         return;
     }
 
@@ -1935,6 +1942,7 @@ void FormationCalculateOffsets(struct CommandToDo *formationtodo)
             dbgAssertOrIgnore(FALSE);
             break;
     }
+    formationSpreadApply(formationtodo);
 }
 
 real32 calculateTravelDistance(CommandToDo *formationtodo)
@@ -2308,7 +2316,7 @@ void FillInFormationSpecifics(CommandToDo *formationcommand,TypeOfFormation form
     setFormationTravelVelocity(formationcommand);
     formationcommand->formation.flagTravelSlowestShip = FORMATION_TRAVEL_SLOWEST_SHIP;  // obsolete flag, but set anyway
     formationcommand->formation.doneInitialAttack = FALSE;
-    formationcommand->formation.sortorder = 0;
+    formationcommand->formation.sortorder = newformation ? 0 : (formationcommand->formation.sortorder & ~FORMATION_SORT_MASK);
     formationcommand->formation.pulse = 0;
 
     if(newformation)
@@ -2685,6 +2693,111 @@ typedef struct
 #define SUBSLOT_BATCH      10      // subslots are allocated in batches of this many
 
 static ParadeTypeInfo paradeTypeInfos[NUMBER_PARADE_TYPES];
+sdword GetShipSlot(Ship *ship);
+
+bool32 paradeLayoutDefault(ShipRace host,ShipRace race,ShipType type,ParadeShipLayout *out)
+{
+    Ship ship={0};ShipStaticInfo info={0};SlotInfo *slot;sdword number;
+    if(host>R2 || !out || !paradeLayoutIdentityValid(race,type))return FALSE;
+    info.shiptype=type;
+    switch(type) {
+        case AdvanceSupportFrigate:case DDDFrigate:case DFGFrigate:case StandardFrigate:
+        case IonCannonFrigate:info.shipclass=CLASS_Frigate;break;
+        case MissileDestroyer:info.shipclass=CLASS_Destroyer;break;
+        case Carrier:info.shipclass=CLASS_Carrier;break;
+        default:info.shipclass=CLASS_NonCombat;break;
+    }
+    ship.staticinfo=&info;ship.shiprace=race;number=GetShipSlot(&ship);
+    slot=&paradeTypeInfos[host].slotinfos[number];memset(out,0,sizeof(*out));out->enabled=TRUE;
+    out->position[0]=slot->rightoffset;out->position[1]=slot->headingoffset;out->position[2]=slot->upoffset;
+    out->growth[0]=slot->rightspacing;out->growth[1]=slot->headingspacing;out->growth[2]=slot->upspacing;
+    out->rotation[2]=slot->facedirection==1?180:slot->facedirection==2?-90:slot->facedirection==3?90:0;
+    return TRUE;
+}
+
+static bool32 paradeCustomPose(MilitaryParadeCommand *parade,Ship *ship,vector *position,vector *face,vector *faceUp)
+{
+    ParadeShipLayout entry;float local[3],forward[3]={0,1,0},upLocal[3]={0,0,1},f[3],u[3];
+    vector up,right,heading;sdword slot,i,ordinal=0;
+    Ship *leader=parade->aroundShip;
+    if(multiPlayerGame || leader->shiptype!=Mothership || leader->shiprace>R2)return FALSE;
+    for(slot=0;slot<MAX_MILITARY_SLOTS;slot++) {
+        MilitarySlot *row=parade->militarySlots[slot];
+        for(i=0;i<=row->highestSlotUsed;i++) {
+            Ship *other=row->subslots[i].ship;
+            if(other==ship)goto counted;
+            if(other && other->shiprace==ship->shiprace && other->shiptype==ship->shiptype)ordinal++;
+        }
+    }
+counted:
+    if(!paradeLayoutRuntime(leader->shiprace,ship->shiprace,ship->shiptype,ordinal,&entry,local))return FALSE;
+    matGetVectFromMatrixCol1(up,leader->rotinfo.coordsys);
+    matGetVectFromMatrixCol2(right,leader->rotinfo.coordsys);
+    matGetVectFromMatrixCol3(heading,leader->rotinfo.coordsys);
+    *position=leader->posinfo.position;
+    vecAddToScalarMultiply(*position,right,local[0]);vecAddToScalarMultiply(*position,heading,local[1]);vecAddToScalarMultiply(*position,up,local[2]);
+    paradeLayoutRotate(entry.rotation,forward,f);paradeLayoutRotate(entry.rotation,upLocal,u);
+    vecScalarMultiply(*face,right,f[0]);vecAddToScalarMultiply(*face,heading,f[1]);vecAddToScalarMultiply(*face,up,f[2]);
+    vecScalarMultiply(*faceUp,right,u[0]);vecAddToScalarMultiply(*faceUp,heading,u[1]);vecAddToScalarMultiply(*faceUp,up,u[2]);
+    return TRUE;
+}
+
+static bool32 paradeCampaignPending=FALSE;
+void paradeCampaignLoaded(void)
+{
+    Ship *leader;
+    paradeCampaignPending=FALSE;
+    if(!singlePlayerGame || multiPlayerGame || !universe.curPlayerPtr)return;
+    leader=universe.curPlayerPtr->PlayerMothership;
+    if(!leader || leader->shiptype!=Mothership || leader->shiprace>R2)return;
+    /* The file is authoritative, not the layout cached before loading a save. */
+    if(!paradeLayoutReload(leader->shiprace)) {
+        HW_DIAG_FPRINTF(stderr,"[MilitaryParade] Campaign layout reload failed; retaining previous layout.\n");
+    }
+    paradeCampaignPending=TRUE;
+}
+
+void paradeCampaignUpdate(void)
+{
+    Ship *leader,*ship;Node *node;CommandToDo *command,*parade;
+    ParadeShipLayout entry;float local[3];sdword added=0,placed=0;
+    vector position,heading,up,right;
+    if(!paradeCampaignPending)return;
+    if(!singlePlayerGame || multiPlayerGame){paradeCampaignPending=FALSE;return;}
+    /* Neither intro choreography nor hyperspace arrivals may be repositioned. */
+    if(nisIsRunning || singlePlayerGameInfo.hyperspaceState!=NO_HYPERSPACE)return;
+    if(!universe.curPlayerPtr)return;
+    leader=universe.curPlayerPtr->PlayerMothership;
+    if(!leader || leader->flags&(SOF_Dead|SOF_NISShip|SOF_Hyperspace))return;
+    paradeCampaignPending=FALSE;
+    for(node=universe.ShipList.head;node;node=node->next) {
+        ship=listGetStructOfNode(node);
+        if(ship==leader || ship->playerowner!=universe.curPlayerPtr ||
+            ship->flags&(SOF_Dead|SOF_NISShip|SOF_Hyperspace|SOF_Disabled|SOF_Clamped) ||
+            ship->specialFlags&SPECIAL_Launching ||
+            (ship->flags&SOF_Slaveable && ship->slaveinfo && ship->slaveinfo->flags&SF_SLAVE) ||
+            !paradeLayoutRuntime(leader->shiprace,ship->shiprace,ship->shiptype,0,&entry,local))continue;
+        command=getShipAndItsCommand(&universe.mainCommandLayer,ship);
+        /* Preserve combat, formation, harvesting, repair, salvage and docking orders. */
+        if(command && !(command->ordertype.order==COMMAND_NULL && command->ordertype.attributes==0))continue;
+        GroupShipIntoMilitaryParade(&universe.mainCommandLayer,ship,leader);added++;
+    }
+    parade=GetMilitaryGroupAroundShip(&universe.mainCommandLayer,leader);
+    if(parade)for(node=universe.ShipList.head;node;node=node->next) {
+        ship=listGetStructOfNode(node);
+        if(ship->playerowner!=universe.curPlayerPtr || ship->flags&(SOF_Dead|SOF_NISShip|SOF_Hyperspace|SOF_Clamped) ||
+            (ship->flags&SOF_Slaveable && ship->slaveinfo && ship->slaveinfo->flags&SF_SLAVE) ||
+            getShipAndItsCommand(&universe.mainCommandLayer,ship)!=parade)continue;
+        /* Only authored identities move; vanilla/unconfigured entries stay untouched. */
+        if(paradeCustomPose(parade->militaryParade,ship,&position,&heading,&up)) {
+            ship->posinfo.position=position;
+            vecCrossProduct(right,heading,up);matCreateMatFromVecs(&ship->rotinfo.coordsys,&up,&right,&heading);
+            vecSet(ship->posinfo.velocity,0,0,0);vecSet(ship->rotinfo.rotspeed,0,0,0);
+            univUpdateObjRotInfo((SpaceObjRot *)ship);ship->shipidle=FALSE;placed++;
+        }
+    }
+    if(placed || added)HW_DIAG_FPRINTF(stderr,"[MilitaryParade] Applied saved campaign layout: %d ships placed, %d idle ships joined; active orders preserved.\n",placed,added);
+}
 
 void scriptSetSlotInfoCB(char *directory,char *field,void *dataToFillIn);
 
@@ -2787,6 +2900,8 @@ void processMilitaryParadeToDo(struct CommandToDo *command,bool32 passiveAttacke
     bool32 dontrotate;
     bool32 firstShipOfSlot;
     bool32 steadyFormation = TRUE;
+    bool32 customPose=FALSE;
+    vector legacyPosition,legacyHeading,customUp;
 
     dbgAssertOrIgnore(paradeType >= 0);
     dbgAssertOrIgnore(paradeType < NUMBER_PARADE_TYPES);
@@ -2852,6 +2967,13 @@ void processMilitaryParadeToDo(struct CommandToDo *command,bool32 passiveAttacke
             if (ship != NULL)
             {
                 shipstatic = (ShipStaticInfo *)ship->staticinfo;
+                if (singlePlayerHyperspaceOwnsSteering(ship))
+                {
+                    aitrackSteadyShipDriftOnly(ship);
+                    continue;
+                }
+                legacyPosition=positionat;legacyHeading=faceheading;
+                customPose=paradeCustomPose(militaryParade,ship,&positionat,&faceheading,&customUp);
                 dontrotate = (passiveAttacked & (bool32)shipstatic->rotateToRetaliate);
                 if(ship->shiptype == ResearchShip)
                 {
@@ -2916,7 +3038,7 @@ void processMilitaryParadeToDo(struct CommandToDo *command,bool32 passiveAttacke
                     udword tmpuseflags = AISHIP_PointInDirectionFlying | AISHIP_FastAsPossible;
                     bool32 trackheading = FALSE;
 
-                    if (thisslotinfo->facedirection)
+                    if (customPose || thisslotinfo->facedirection)
                     {
                         trackheading = TRUE;        // if facing nonstandard direction, always track heading
                     }
@@ -2952,7 +3074,8 @@ dontadjustheading:;
 
                     if (trackheading)
                     {
-                        aitrackHeadingWithBank(ship,&(faceheading),FLYSHIP_HEADINGACCURACY,shipstatic->sinbank);
+                        if(customPose) aitrackHeadingAndUp(ship,&faceheading,&customUp,FLYSHIP_HEADINGACCURACY);
+                        else aitrackHeadingWithBank(ship,&(faceheading),FLYSHIP_HEADINGACCURACY,shipstatic->sinbank);
                         tmpuseflags = AISHIP_FastAsPossible;
                     }
 
@@ -2984,6 +3107,7 @@ dontmovecloser:;
                         aitrackSteadyShipDriftOnly(ship);
                     }
                 }
+                positionat=legacyPosition;faceheading=legacyHeading;
             }
 
             vecAddTo(positionat,positionchange);
@@ -3057,8 +3181,15 @@ void setMilitaryParade(struct CommandToDo *command)
             ship = thisslot->subslots[subslot].ship;
             if (ship != NULL)
             {
-                ship->posinfo.position = positionat;
-                switch (thisslotinfo->facedirection)
+                vector customPosition=positionat,customHeading,customUp,customRight;
+                bool32 custom=paradeCustomPose(militaryParade,ship,&customPosition,&customHeading,&customUp);
+                ship->posinfo.position = customPosition;
+                if(custom)
+                {
+                    vecCrossProduct(customRight,customHeading,customUp);
+                    matCreateMatFromVecs(&ship->rotinfo.coordsys,&customUp,&customRight,&customHeading);
+                }
+                else switch (thisslotinfo->facedirection)
                 {
                     vector temp1,temp2;
 

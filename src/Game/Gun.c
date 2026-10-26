@@ -20,12 +20,18 @@
 #include "glinc.h"
 #include "Globals.h"
 #include "Gun.h"
+#include "ShipPilot.h"
+#include "RemasteredWeaponFX.h"
+#include "RemasteredPresentation.h"
+#include "NativeVisualRegistry.h"
+#include "Veterancy.h"
 #include "LinkedList.h"
 #include "MadLinkIn.h"
 #include "MadLinkInDefs.h"
 #include "mainrgn.h"
 #include "Matrix.h"
 #include "Memory.h"
+#include "Mesh.h"
 #include "MEX.h"
 #include "NIS.h"
 #include "Options.h"
@@ -61,13 +67,14 @@ bool32 vanillaGunsMode = FALSE;
    optional, LOD-controlled artwork and therefore cannot reliably tell the
    modern renderer that a weapon actually fired (small fighter guns were the
    most visible casualty of that old dependency). */
-static void gunTriggerModernMuzzleLight(Ship *ship, const vector *position,
+static void gunTriggerModernMuzzleLight(Ship *ship, Gun *gun, const vector *position,
                                         const vector *direction,
                                         real32 damage)
 {
     HWModernDynamicLightEmitter emitter = {0};
     real32 ownerRadius =
         ship->staticinfo->staticheader.staticCollInfo.collspheresize;
+    if(gun&&gun->gunstatic&&rmPresentationOwnsGunFx(ship,gun->gunstatic->gunindex))return;
 
     ownerRadius *= ship->magnitudeSquared;
     emitter.source = HW_MODERN_LIGHT_MUZZLE_FLASH;
@@ -75,6 +82,23 @@ static void gunTriggerModernMuzzleLight(Ship *ship, const vector *position,
     emitter.position[0] = position->x;
     emitter.position[1] = position->y;
     emitter.position[2] = position->z;
+    if (ship->shiprace==P1 &&
+        (ship->shiptype==P1StandardCorvette || ship->shiptype==P1MissileCorvette))
+    {
+        float nativeScale;unsigned nativeLOD;
+        lodinfo *levels=ship->staticinfo->staticheader.LOD;
+        /* The RM corvette marker is recessed into its barrel/launcher. A
+           zero-size analytic light there is completely self-shadowed. Move
+           only the light just beyond the muzzle, not shots or the FX marker. */
+        if (levels && levels->nLevels &&
+            meshNativeVisualParameters(levels->level[0].pData,&nativeScale,&nativeLOD))
+        {
+            real32 clearance=nativeScale*ship->magnitudeSquared*1.5f;
+            emitter.position[0]+=direction->x*clearance;
+            emitter.position[1]+=direction->y*clearance;
+            emitter.position[2]+=direction->z*clearance;
+        }
+    }
     emitter.direction[0] = direction->x;
     emitter.direction[1] = direction->y;
     emitter.direction[2] = direction->z;
@@ -98,6 +122,7 @@ static void gunTriggerModernMuzzleLight(Ship *ship, const vector *position,
         (32.0f + min(fsqrt(max(damage, 0.0f)), 24.0f));
     emitter.radius *= (real32)mainWeaponOriginLightRangePercent / 100.0f;
     emitter.intensity *= (real32)mainWeaponOriginLightIntensityPercent / 100.0f;
+    rmWeaponFxDiagnosticLight(ship,gun,position,direction,emitter.radius,emitter.intensity);
     hwModernGraphicsTriggerDynamicLight(&emitter, 0.12f);
 }
 #endif
@@ -113,7 +138,7 @@ static void gunTriggerModernMuzzleLight(Ship *ship, const vector *position,
     Outputs     :
     Return      : returns TRUE if gun can shoot
 ----------------------------------------------------------------------------*/
-bool32 gunCanShoot(Ship *ship, Gun *gun)
+static bool32 gunCanShootInternal(Ship *ship, Gun *gun)
 {
     GunStatic *gunstatic = gun->gunstatic;
     CommandToDo *command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
@@ -258,6 +283,14 @@ dontdospecialpassivefix2:
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+bool32 gunCanShoot(Ship *ship, Gun *gun)
+{
+    bool32 ready=gunCanShootInternal(ship,gun);
+    rmWeaponFxDiagnosticFireCheck(ship,gun,ready?"gun_ready":
+        (ship->staticinfo->maxfuel!=0 && ship->fuel<=0?"blocked_no_fuel":"blocked_cooldown_or_passive_penalty"));
+    return ready;
+}
+
 void gunNewGimbleUpdateCoordSys(Gun *gun,GunStatic *gunstatic)
 {
     matrix newmat,rotxmatrix,rotymatrix;
@@ -304,7 +337,7 @@ void gunUpdateSlave(Gun *gun, GunInfo *guns, sdword iSlaveDriver)
     Outputs     :
     Return      : TRUE if gun oriented as desired
 ----------------------------------------------------------------------------*/
-bool32 gunOrientGimbleGun(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
+static bool32 gunOrientGimbleGunInternal(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
 {
     GunStatic *gunstatic = gun->gunstatic;
     vector targetInWorldCoordSys;
@@ -445,6 +478,8 @@ bool32 gunOrientGimbleGun(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
 
                 turnangle = desiredanglespeed * universe.phystimeelapsed;
                 tryangle = turnangle + gun->angle;
+                if(shipPilotControls(ship))
+                    tryangle=max(gunstatic->minturnangle+0.000001f,min(gunstatic->maxturnangle-0.000001f,tryangle));
                 if ((tryangle < gunstatic->maxturnangle) && (tryangle > gunstatic->minturnangle))
                 {
                     gun->angle = tryangle;
@@ -468,6 +503,8 @@ bool32 gunOrientGimbleGun(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
 
                 turndeclination = desireddeclinationspeed * universe.phystimeelapsed;
                 tryangle = turndeclination + gun->declination;
+                if(shipPilotControls(ship))
+                    tryangle=max(gunstatic->mindeclination+0.000001f,min(gunstatic->maxdeclination-0.000001f,tryangle));
                 if ((tryangle < gunstatic->maxdeclination) && (tryangle > gunstatic->mindeclination))
                 {
                     gun->declination = tryangle;
@@ -510,10 +547,36 @@ onTargetExitEarly:
     return(FALSE);
 }
 
+bool32 gunOrientGimbleGun(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
+{
+    bool32 aligned=gunOrientGimbleGunInternal(ship,gun,target);
+    rmWeaponFxDiagnosticFireCheck(ship,gun,aligned?"turret_aligned":"blocked_turret_alignment");
+    return aligned;
+}
+
+#include "ShipPilotWeapons.inc"
+
 void gunGetGunPositionInWorld(vector *positionInWorldCoordSys,matrix *coordsys,Gun *gun)
 {
     GunStatic *gunstatic = gun->gunstatic;
     matMultiplyMatByVec(positionInWorldCoordSys,coordsys,&gunstatic->position);
+}
+
+static void gunNativeProjectilePosition(Ship *ship, Gun *gun, vector *worldPosition)
+{
+    sdword index;
+    if (!ship->gunInfo) return;
+    for (index=0;index<ship->gunInfo->numGuns;++index)
+        if (&ship->gunInfo->guns[index]==gun)
+        {
+            vector local,world;
+            if (meshRemasteredGunMuzzle(ship,(unsigned int)index,&local))
+            {
+                matMultiplyMatByVec(&world,&ship->rotinfo.coordsys,&local);
+                vecAdd(*worldPosition,world,ship->posinfo.position);
+            }
+            return;
+        }
 }
 
 /*-----------------------------------------------------------------------------
@@ -685,11 +748,14 @@ void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
     missile->posinfo.position.x += gunheadingInWorldCoordSys.x * gunstatic->barrelLength;
     missile->posinfo.position.y += gunheadingInWorldCoordSys.y * gunstatic->barrelLength;
     missile->posinfo.position.z += gunheadingInWorldCoordSys.z * gunstatic->barrelLength;
+    gunNativeProjectilePosition(ship,gun,&missile->posinfo.position);
+    meshRemasteredNotifyWeaponFire(ship,gunstatic->gunindex,universe.totaltimeelapsed);
+    rmPresentationCaptureProjectile(missile,ship,gunstatic->gunindex);
 
 #ifdef HW_ENABLE_D3D12_BACKEND
     if (gunstatic->guntype != GUN_MineLauncher)
     {
-        gunTriggerModernMuzzleLight(ship, &missile->posinfo.position,
+        gunTriggerModernMuzzleLight(ship, gun, &missile->posinfo.position,
                                     &gunheadingInWorldCoordSys,
                                     missile->damage);
     }
@@ -756,6 +822,7 @@ void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
     listAddNode(&universe.SpaceObjList,&(missile->objlink),missile);
     listAddNode(&universe.ImpactableList,&(missile->impactablelink),missile);
     listAddNode(&universe.MissileList,&(missile->missilelink),missile);
+    rmPresentationTrackProjectile(missile);
 
     univAddObjToRenderListIf((SpaceObj *)missile,(SpaceObj *)ship);     // add missile to render list if parent ship is in render list
 
@@ -770,7 +837,7 @@ void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
     etgLOD = etgGunEventTable[shipstatic->shiprace][gunstatic->gunsoundtype][EGT_GunFire];//get pointer to bullet effect
     if (etgLOD != NULL)
     {
-        LOD = ship->currentLOD;
+        LOD = 0; /* Muzzle flashes keep their authored highest-detail effect. */
         if (LOD >= etgLOD->nLevels)
         {
             stat = NULL;
@@ -785,6 +852,9 @@ void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
         stat = NULL;
     }
 //    stat = etgGunEventTable[shiprace][gunstatic->gunsoundtype][EGT_GunFire];//get gun effect
+    if (univSpaceObjInRenderList((SpaceObj *)ship) &&
+        rmWeaponFxMuzzle(ship,gun,&missile->posinfo.position,&gunheadingInWorldCoordSys))
+        stat = NULL;
 
     if (univSpaceObjInRenderList((SpaceObj *)ship))
     {
@@ -815,6 +885,22 @@ void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
     {                                                       //if we succeeded in shooting at enemy
         ((Ship *)target)->firingAtUs = ship;
         ((Ship *)target)->recentlyFiredUpon = RECENT_ATTACK_DURATION;
+    }
+    if(target && target==(SpaceObjRotImpTarg *)shipPilotTarget() && shipPilotControls(ship))
+    {
+        vector delta;real32 distance;sdword side=-1;
+        vecSub(delta,target->collInfo.collPosition,missile->posinfo.position);
+        distance=fsqrt(vecMagnitudeSquared(delta));
+        if(distance>0.001f)
+        {
+            real32 surface;
+            vecMultiplyByScalar(delta,1.0f/distance);
+            matCreateCoordSysFromHeading(&missile->rotinfo.coordsys,&delta);
+            surface=collCheckRectLine((SpaceObjRotImp *)target,&missile->posinfo.position,&delta,distance+1,&side);
+            if(surface>=0) distance=surface;
+        }
+        univMissileCollidedWithTarget(target,&target->staticinfo->staticheader,missile,distance,side);
+        AddMissileToDeleteMissileList(missile,-1);
     }
 }
 
@@ -889,6 +975,7 @@ void gunRecoilVectorCompute(vector *dest, real32 recoilLength, real32 lastFired,
 ----------------------------------------------------------------------------*/
 void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
 {
+    int presentationShot;
     Bullet *bullet;
     GunStatic *gunstatic = gun->gunstatic;
     ShipStaticInfo *shipstatic;
@@ -951,6 +1038,8 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
     }
 
 
+    presentationShot=rmPresentationPrepareIonShot(ship,gunstatic->gunindex,target);
+    if(!presentationShot)return;
     shipstatic = (ShipStaticInfo *)ship->staticinfo;
 
     gun->lasttimefired = universe.totaltimeelapsed;
@@ -1065,6 +1154,8 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
         }
     }
     bullet->SpecialEffectFlag = 0;
+    if(target && target==(SpaceObjRotImpTarg *)shipPilotTarget() && shipPilotControls(ship))
+        bullet->SpecialEffectFlag |= PILOT_HITSCAN_BULLET;
     bullet->DFGFieldEntryTime = 0.0f;
 
     // now fill in bullet->posinfo
@@ -1144,8 +1235,15 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
     bullet->posinfo.position.y += gunheadingInWorldCoordSys.y * gunstatic->barrelLength;
     bullet->posinfo.position.z += gunheadingInWorldCoordSys.z * gunstatic->barrelLength;
 
+    /* Native attachments supply the complete muzzle position, including their
+       authored barrel and current pivot pose. Keep gameplay heading, damage,
+       speed and classic MEX fallback unchanged; do not add barrel length twice. */
+    gunNativeProjectilePosition(ship,gun,&bullet->posinfo.position);
+    if(presentationShot!=2)meshRemasteredNotifyWeaponFire(ship,gunstatic->gunindex,universe.totaltimeelapsed);
+    rmPresentationCaptureProjectile(bullet,ship,gunstatic->gunindex);
+
 #ifdef HW_ENABLE_D3D12_BACKEND
-    gunTriggerModernMuzzleLight(ship, &bullet->posinfo.position,
+    gunTriggerModernMuzzleLight(ship, gun, &bullet->posinfo.position,
                                 &gunheadingInWorldCoordSys, bullet->damage);
 #endif
 
@@ -1162,6 +1260,7 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
     }
     listAddNode(&universe.SpaceObjList,&(bullet->objlink),bullet);
     listAddNode(&universe.BulletList,&(bullet->bulletlink),bullet);
+    rmPresentationTrackProjectile(bullet);
 
     univAddObjToRenderListIf((SpaceObj *)bullet,(SpaceObj *)ship);     // add to render list if parent ship is in render list
 
@@ -1203,6 +1302,7 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
         {
             LOD = ship->currentLOD;
         }
+        if (bullet->bulletType == BULLET_Beam) LOD = 0;
         if (LOD >= etgLOD->nLevels)
         {
             stat = NULL;
@@ -1224,7 +1324,11 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
         if (stat != NULL && etgBulletEffectsEnabled && !etgFrequencyExceeded(stat))
 #endif
         {
-            bullet->effect = etgEffectCreate(stat, (Ship *)bullet, NULL, &ship->posinfo.velocity, NULL, 1.0f, EAF_AllButNLips, 3, SCALECAST(intDamage), SCALECAST(intVelocity), SCALECAST(intLength));
+            if (rmPresentationOwnsProjectileFx(bullet)||(!bitTest(ship->specialFlags,SPECIAL_BurstFiring) &&
+                rmWeaponFxProjectileAvailable(ship,gun)))
+                bullet->effect = NULL;
+            else
+                bullet->effect = etgEffectCreate(stat, (Ship *)bullet, NULL, &ship->posinfo.velocity, NULL, 1.0f, EAF_AllButNLips, 3, SCALECAST(intDamage), SCALECAST(intVelocity), SCALECAST(intLength));
         }
         else
         {
@@ -1242,7 +1346,7 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
     etgLOD = etgGunEventTable[shipstatic->shiprace][gunstatic->gunsoundtype][EGT_GunFire];//get pointer to bullet effect
     if (etgLOD != NULL)
     {
-        LOD = ship->currentLOD;
+        LOD = 0; /* Muzzle flashes never inherit the hull's LOD. */
         if (LOD >= etgLOD->nLevels)
         {
             stat = NULL;
@@ -1257,6 +1361,10 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
         stat = NULL;
     }
 //    stat = etgGunEventTable[ship->shiprace][gunstatic->gunsoundtype][EGT_GunFire];//get gun effect
+    rmWeaponFxDiagnosticShot(ship,gun,univSpaceObjInRenderList((SpaceObj *)ship));
+    if (univSpaceObjInRenderList((SpaceObj *)ship) &&
+        rmWeaponFxMuzzle(ship,gun,&bullet->posinfo.position,&gunheadingInWorldCoordSys))
+        stat = NULL;
 
     if (univSpaceObjInRenderList((SpaceObj *)ship))
     {
@@ -1310,6 +1418,7 @@ bool32 gunShootGunsAtTarget(Ship *ship,SpaceObjRotImpTarg *target,real32 range,v
 
     if (gunInfo == NULL)
     {
+        rmWeaponFxDiagnosticFireCheck(ship,NULL,"blocked_no_guns");
 //        dbgMessagef("WARNING: no guns on ship %s %s, tried to shoot",ShipRaceToStr(ship->shiprace),ShipTypeToStr(ship->shiptype));
         return shotguns;
     }
@@ -1362,6 +1471,8 @@ bool32 gunShootGunsAtTarget(Ship *ship,SpaceObjRotImpTarg *target,real32 range,v
             }
         }
 
+        rmWeaponFxDiagnosticFireCheck(ship,gun,range < gunstatic->bulletrange*bonus?
+            "single_target_in_range":"blocked_out_of_range");
         if (range < gunstatic->bulletrange*bonus)
         {
             if (gunCanShoot(ship, gun))

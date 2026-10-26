@@ -18,6 +18,7 @@
 #include "Subtitle.h"
 #include "Switches.h"
 #include "Types.h"
+#include "RemasteredPcmStream.h"
 
 #if defined(_WIN32) && !defined(_MSC_VER)
     #define WIN32_LEAN_AND_MEAN
@@ -102,6 +103,7 @@ sdword soundstreaminit(void *pstreamer, sdword size, sdword nostreams, streampri
 {
 	sdword i, j;
 	STREAM *pstream;
+	rmPcmStreamReset();
 
 	memset(pstreamer, 0, size);
 
@@ -208,6 +210,7 @@ udword soundstreamopenfile(char *pszStreamFile, smemsize *handle)
 	Outputs		:
 	Return		: the handle to the stream
 ----------------------------------------------------------------------------*/	
+#include "AudioBus.h"
 sdword soundstreamcreatebuffer(void *pstreambuffer, sdword size, uword bitrate)
 {
 	sdword			channel = 0;
@@ -257,6 +260,7 @@ sdword soundstreamcreatebuffer(void *pstreambuffer, sdword size, uword bitrate)
 
 	pchan->handle = SNDcreatehandle(channel);
 	pstream->handle = pchan->handle;
+    soundStreamBus(pchan->handle, HW_AUDIO_SPEECH);
 
     return (pchan->handle);
 }
@@ -271,6 +275,8 @@ sdword soundstreamcreatebuffer(void *pstreambuffer, sdword size, uword bitrate)
 ----------------------------------------------------------------------------*/	
 sdword soundstreamnumqueued(sdword streamhandle)
 {
+    int pcm = rmPcmStreamQuery(streamhandle, 0);
+    if (pcm >= 0) return !pcm;
 #if 1
 	if (speechchannels[SNDchannel(streamhandle)].status <= SOUND_INUSE)
 	{
@@ -311,6 +317,8 @@ void soundstreamstopall(real32 fadetime)
 sdword soundstreamover(sdword streamhandle)
 {
 	sdword channel;
+    int pcm = rmPcmStreamQuery(streamhandle, 0);
+    if (pcm >= 0) return pcm;
 
 	if (!soundinited)
 	{
@@ -338,6 +346,8 @@ sdword soundstreamover(sdword streamhandle)
 sdword soundstreamfading(sdword streamhandle)
 {
 	sdword channel;
+    int pcm = rmPcmStreamQuery(streamhandle, 1);
+    if (pcm >= 0) return pcm;
 
 	if (!soundinited)
 	{
@@ -587,6 +597,7 @@ sdword soundstreamvolume(sdword handle, sword vol, real32 fadetime)
 	sdword fadeblocks = -1;
 	STREAM *pstream;
 	sdword i;
+    if (rmPcmStreamVolume(handle, vol, fadetime)) return SOUND_OK;
 
 	if (!soundinited)
 	{
@@ -843,6 +854,8 @@ foundInfo:;
 sword soundstreamgetvol(sdword handle)
 {
 	sdword channel;
+    int pcm = rmPcmStreamQuery(handle, 2);
+    if (pcm >= 0) return (sword)pcm;
 	
 	if (!soundinited)
 	{

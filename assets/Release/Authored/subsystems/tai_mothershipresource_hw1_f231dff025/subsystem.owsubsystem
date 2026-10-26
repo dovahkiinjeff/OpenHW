@@ -1,0 +1,9 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_tai_mothershipresource_hw1_f231dff025
+scale 1
+hull @/Subsystems/tai_mothershipresource/model.hod
+mad -
+
+presentation Hull component_events.owevents
+[Weapons]
+[End]

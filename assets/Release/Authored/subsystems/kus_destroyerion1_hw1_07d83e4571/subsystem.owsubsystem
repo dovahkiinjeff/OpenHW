@@ -1,0 +1,37 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_kus_destroyerion1_hw1_07d83e4571
+scale 1
+hull @/Subsystems/kus_destroyerion1/model.hod
+mad -
+surface 0 0 @/Subsystems/kus_destroyerion1/m0
+gun 0 Hull Weapon_Gun1_Position Weapon_Gun1_Latitude Weapon_Gun1_Latitude Weapon_Gun1_Muzzle
+
+presentation Hull component_events.owevents
+[Weapons]
+GUN 0
+{
+WeaponFire @/RemasteredFX/WeaponFire/kus_ionbeam.wf
+
+Type                            GUN_NewGimble
+SoundType                       GS_LargeIonCannon
+BulletType                      BULLET_Beam
+DamageLo                        20                            ; damage variance per shot - low  (continuous damage for BULLET_Beam)
+DamageHi                        25                            ; damage variance per shot - high
+BulletLength                    7426.0                        ; visual only.  Length of bullet on screen
+BulletRange                     7426.0                        ; distance bullets travel before disappearing
+BulletSpeed                     0.0                           ; measured in m/s.
+BulletLifeTime                  2.2
+BulletMass                      0.0                           ; mass of bullet
+FireTime                        6.0                           ; fire repeat rate (reciprocal = shots/second)
+TriggerHappy                   10.0
+minturnangle                  -5.0                    ; degrees
+maxturnangle                   10.0
+mindeclination                -10.0
+maxdeclination                 10.0
+maxanglespeed                 360.0                    ; degrees/s
+maxdeclinationspeed           360.0
+angletracking                   2.5
+declinationtracking             2.5
+BarrelLength                   108.0
+}
+[End]

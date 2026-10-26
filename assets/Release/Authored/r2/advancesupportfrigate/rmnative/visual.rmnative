@@ -1,0 +1,15 @@
+HW_RM_R2_VISUAL_1
+type Taiidan_AdvanceSupportFrigate
+scale 2.29440916
+hull hull.hod
+mad animation.mad
+marker engine_0 Hull EngineMainDrive
+attach Weapon_Gun1 Hardpoint_Gun1_Position 1 component1.hod
+attach Weapon_Gun2 Hardpoint_Gun2_Position 1 component1.hod
+surface 0 0 c0_m0
+surface 0 1 c0_m1
+surface 0 2 c0_m2
+surface 0 3 c0_m3
+surface 0 4 c0_m4
+surface 1 0 c1_m0
+surface 2 0 c1_m0

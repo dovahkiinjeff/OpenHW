@@ -6,6 +6,7 @@
     Copyright Relic Entertainment, Inc.  All rights reserved.
 =============================================================================*/
 
+#include "ResourceUnits.h"
 #include "Sensors.h"
 
 #include <float.h>
@@ -36,6 +37,7 @@
 #include "mouse.h"
 #include "MultiplayerGame.h"
 #include "ModernUI.h"
+#include "ModernGraphics.h"
 #include "NIS.h"
 #include "Options.h"
 #include "PiePlate.h"
@@ -931,6 +933,7 @@ void smBlobDrawClear(Camera *camera, blob *thisBlob, hmatrix *modelView, hmatrix
 
                                     wireOn = g_WireframeHack;
                                     g_WireframeHack = FALSE;
+                                    meshSetEngineMaterialOwner(obj);
                                     if (((Ship *)obj)->bindings != NULL)
                                     {
                                         meshRenderShipHierarchy(((Ship *)obj)->bindings,
@@ -941,6 +944,7 @@ void smBlobDrawClear(Camera *camera, blob *thisBlob, hmatrix *modelView, hmatrix
                                     {
                                         meshRender((meshdata *)level->pData, i);
                                     }
+                                    meshSetEngineMaterialOwner(NULL);
                                     g_WireframeHack = (ubyte)wireOn;
                                 }
                                 shPopLightMatrix();
@@ -1128,7 +1132,9 @@ justRenderAsDot:
 
                             wireOn = g_WireframeHack;
                             g_WireframeHack = FALSE;
+                            meshSetDerelictMotionOwner(obj);
                             meshRender((meshdata *)level->pData, i);
+                            meshSetEngineMaterialOwner(NULL);
                             g_WireframeHack = (ubyte)wireOn;
                         }
                         shPopLightMatrix();
@@ -2250,6 +2256,16 @@ void smZoomUpdate(real32 current, real32 range, bool32 bUpdateCamera)
 ----------------------------------------------------------------------------*/
 void smSensorsCloseForGood(void)
 {
+    regionhandle closingRegion;
+    /* Other screen transitions can already have removed the Sensors screen.
+       Repeated/reentrant close must not delete a stale region or free its
+       scroll arrays twice. Relinquish ownership before delete callbacks run. */
+    if (!smSensorsActive && smBaseRegion == NULL) return;
+    closingRegion = smBaseRegion;
+    smBaseRegion = NULL;
+    smSensorsActive = FALSE;
+    hwModernGraphicsSetSensorViewActive(FALSE);
+    smZoomingIn = smZoomingOut = FALSE;
 #if SM_VERBOSE_LEVEL >= 1
     dbgMessage("smSensorsCloseForGood");
 #endif
@@ -2258,7 +2274,9 @@ void smSensorsCloseForGood(void)
         tutGameMessage("Game_SensorsClose");
     }
     mrRenderMainScreen = TRUE;
-    feScreenDelete(smBaseRegion);
+    if (closingRegion != NULL)
+        feScreenDeleteFlags(closingRegion, FE_DONT_DELETE_REGION_IF_SCREEN_NOT_FOUND);
+    smViewportRegion = NULL;
 //    bobListDelete(&smBlobList);
 //    glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
     rndSetClearColor(colRGBA(colRed(universe.backgroundColor),
@@ -2267,10 +2285,11 @@ void smSensorsCloseForGood(void)
                              255));
     smSensorsActive = FALSE;
     universe.dontUpdateRenderList = FALSE;
-    if (smScrollListLeft) memFree(smScrollListLeft);
-    if (smScrollListRight) memFree(smScrollListRight);
-    if (smScrollListTop) memFree(smScrollListTop);
-    if (smScrollListBottom) memFree(smScrollListBottom);
+    if (smScrollListLeft) { memFree(smScrollListLeft); smScrollListLeft = NULL; }
+    if (smScrollListRight) { memFree(smScrollListRight); smScrollListRight = NULL; }
+    if (smScrollListTop) { memFree(smScrollListTop); smScrollListTop = NULL; }
+    if (smScrollListBottom) { memFree(smScrollListBottom); smScrollListBottom = NULL; }
+    smScrollCountLeft = smScrollCountRight = smScrollCountTop = smScrollCountBottom = 0;
     universe.mainCameraCommand.actualcamera.ignoreZoom = FALSE;
     mouseCursorShow();
     mrHoldLeft = mrHoldRight = mrNULL;
@@ -2968,6 +2987,7 @@ void smViewportRender(featom *atom, regionhandle region)
             smZoomingIn = FALSE;
             //...actually close the sensors manager
             smSensorsCloseForGood();                        //stop zooming in already!
+            return;                                         //do not draw/use the closed viewport
         }
 
         if (smZoomTime >= smCurrentMainViewZoomLength)
@@ -3327,7 +3347,7 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
                             real32 cost;
                             vecSub(distancevec,selCentrePoint,destination);
                             cost = hyperspaceCost(fsqrt(vecMagnitudeSquared(distancevec)),(SelectCommand *)&selSelected);
-                            if (universe.curPlayerPtr->resourceUnits < ((sdword)cost))
+                            if (!resourceUnitsCanAfford(universe.curPlayerPtr, (sdword)cost))
                             {
                                 if (battleCanChatterAtThisTime(BCE_CannotComply, selSelected.ShipPtr[0]))
                                 {
@@ -4091,6 +4111,30 @@ void smSensorsClose(char *name, featom *atom)
        camera stack, then frees our temporary Sensor copy. */
     smFocus = (smFocusCommand != NULL && smFocusCommand->numShips > 0);
 
+    if (!smFleetIntel)
+    {
+        /* Return directly before the next draw, rather than leaving the
+           world renderer disabled during an animated Sensors hand-off. */
+        smCamera.lookatpoint = smLookStart;
+        smCamera.eyeposition = smEyeStart;
+        vecSub(direction, smEyeStart, smLookStart);
+        GetDistanceAngleDeclination(&smCamera, &direction);
+        cameraCopyPositionInfo(&universe.mainCameraCommand.actualcamera, &smCamera);
+        universe.mainCameraCommand.actualcamera.ignoreZoom = FALSE;
+        if (smFocus)
+        {
+            ccFocusFar(&universe.mainCameraCommand, smFocusCommand,
+                       &universe.mainCameraCommand.actualcamera);
+            memFree(smFocusCommand);
+            smFocusCommand = NULL;
+        }
+        mrCamera = &universe.mainCameraCommand.actualcamera;
+        smSensorsCloseForGood();
+        univUpdateRenderList();
+        soundEvent(NULL, UI_SoundOfSpace);
+        return;
+    }
+
     //now create a render list as it will be when fully zoomed in
     smTempCamera.lookatpoint = smLookStart;
     smTempCamera.eyeposition = smEyeStart;
@@ -4602,6 +4646,7 @@ void smSensorsBegin(char *name, featom *atom)
 //    bobListCreate(&smBlobProperties, &smBlobList, universe.curPlayerIndex);
 
     smSensorsActive = TRUE;
+    hwModernGraphicsSetSensorViewActive(TRUE);
 
     soundEventStopSFX(0.5f);
 

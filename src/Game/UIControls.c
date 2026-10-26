@@ -4807,14 +4807,7 @@ void uicListRemoveItem(listwindowhandle listwindow, listitemhandle item)
     Outputs     : none
     Return      : none
 ----------------------------------------------------------------------------*/
-void uicListCleanUp(listwindowhandle listwindow)
-{
-    listDeleteAll(&listwindow->listofitems);
-    listwindow->topitem = NULL;
-    listwindow->ListTotal = 0;
-    listwindow->UpperIndex = 0;
-
-}
+#include "UIListLifetime.inc"
 
 /*-----------------------------------------------------------------------------
     Name        : uicListSort
@@ -4854,21 +4847,6 @@ void uicListSort(listwindowhandle listwindow, MergeSortCompareCb compare)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void uicListWindowSetCurItem(listwindowhandle listhandle, listitemhandle item)
-{
-    if (listhandle->CurLineSelected!=NULL)
-    {
-        bitClear(listhandle->CurLineSelected->flags, UICLI_Selected);
-    }
-
-    listhandle->CurLineSelected = item;
-    if (listhandle->CurLineSelected!= NULL)
-    {
-        bitSet(listhandle->CurLineSelected->flags, UICLI_Selected);
-        uicListWindowViewSelection(listhandle);
-    }
-}
-
 /*-----------------------------------------------------------------------------
     Name        : uicTextBufferResize
     Description : Resize the buffer in a text entry box

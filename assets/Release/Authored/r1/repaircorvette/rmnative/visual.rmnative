@@ -1,0 +1,10 @@
+HW_RM_R1_VISUAL_1
+type RepairCorvette
+scale 1.60551557
+hull hull.hod
+mad animation.mad
+marker engine_0 Hull EngineNozzle1
+surface 0 0 c0_m0
+surface 0 1 c0_m1
+surface 0 2 c0_m2
+surface 0 3 c0_m3

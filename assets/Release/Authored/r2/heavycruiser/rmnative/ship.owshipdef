@@ -1,0 +1,202 @@
+OPENHW_SHIP_2
+
+type Taiidan_HeavyCruiser
+scale 2.66459615
+hull hull.hod
+mad -
+marker engine_0 Hull EngineMainDrive
+surface 0 0 c0_m0
+surface 0 1 c0_m1
+surface 0 2 c0_m2
+StartShipHardPointConfig(NewShipType, "Weapon_Gun0", "Hardpoint_Gun0", "Weapon", "Innate", "Ship", "tai_cruisergun1_hw1_229be91a2b");
+weaponSlot Weapon_Gun0 0 0
+StartShipHardPointConfig(NewShipType, "Weapon_Gun1", "Hardpoint_Gun1", "Weapon", "Innate", "Ship", "tai_cruisergun1_hw1_34062c79ff");
+weaponSlot Weapon_Gun1 0 1
+StartShipHardPointConfig(NewShipType, "Weapon_Gun2", "Hardpoint_Gun2", "Weapon", "Innate", "Ship", "tai_cruisergun1_hw1_af69671159");
+weaponSlot Weapon_Gun2 0 2
+StartShipHardPointConfig(NewShipType, "Weapon_Gun3", "Hardpoint_Gun3", "Weapon", "Innate", "Ship", "tai_cruisergun1_hw1_c724702a64");
+weaponSlot Weapon_Gun3 0 3
+StartShipHardPointConfig(NewShipType, "Weapon_Gun4", "Hardpoint_Gun4", "Weapon", "Innate", "Ship", "tai_cruisergun1_hw1_ce8fc8223c");
+weaponSlot Weapon_Gun4 0 4
+StartShipHardPointConfig(NewShipType, "Weapon_Gun5", "Hardpoint_Gun5", "Weapon", "Innate", "Ship", "tai_cruisergun1_hw1_46a074068a");
+weaponSlot Weapon_Gun5 0 5
+StartShipHardPointConfig(NewShipType, "Weapon_Ion1", "Hardpoint_Ion1", "Weapon", "Innate", "Ship", "tai_cruiserion_hw1_d4f46c1b72");
+weaponSlot Weapon_Ion1 0 6
+weaponSlot Weapon_Ion1 1 7
+StartShipHardPointConfig(NewShipType, "Weapon_Ion2", "Hardpoint_Ion2", "Weapon", "Innate", "Ship", "tai_cruiserion_hw1_6fd11f0613");
+weaponSlot Weapon_Ion2 0 8
+weaponSlot Weapon_Ion2 1 9
+StartShipHardPointConfig(NewShipType, "Engine", "Hardpoint_Engine", "Engine", "Innate", "Ship", "tai_heavycruiserengine_hw1_0c39ebf429");
+
+presentation Hull hull_events.owevents
+[Ship]
+[HeavyCruiser]
+
+;Source Files
+;=----------=
+pMexData                            HeavyCruiser\Rl0\LOD0\HeavyCruiser.mex
+LODFile                             HeavyCruiser.lod
+
+;Ship Physics
+;=----------=
+mass                                10000.0              ; ship mass [fighter = 1]
+momentOfInertiaX                    10000.0               ; resistance to rotation
+momentOfInertiaY                    10000.0               ; [fighter = 1]
+momentOfInertiaZ                    10000.0
+avoidcollmodifier                   0.8
+maxvelocity                         250.0               ; [fighter = 1000]
+maxrot                              10.0                ; maximum rotation speed [don't make faster than ~10]
+
+;Basic Ship Stats
+;=--------------=
+shipclass                           CLASS_HeavyCruiser
+isCapitalShip                       TRUE
+buildCost                           3700                ; resource units to build
+buildTime                           420                 ; time in seconds to build
+maxhealth                           90000               ; hit points
+groupSize                           1                   ; size of group ships of this type tend to form
+repairTime                          5                   ; every this many seconds
+repairDamage                        320                  ; this much damage is repaired
+repairCombatTime                    10                   ; every this many seconds
+repairCombatDamage                  100                  ; this much damage is repaired
+
+blastRadiusShockWave                1.0
+blastRadiusDamage                   125
+
+
+
+
+
+;Moving Around
+;=-----------=
+thruststrength[TRANS_UP]          39.0  //35.0                 ; acceleration (m/s^2) [1-1000 approx. range]
+thruststrength[TRANS_DOWN]        39.0  //35.0
+thruststrength[TRANS_RIGHT]       39.0  //35.0
+thruststrength[TRANS_LEFT]        39.0  //35.0
+thruststrength[TRANS_FORWARD]     39.0  //35.0
+thruststrength[TRANS_BACK]        39.0  //35.0
+rotstrength[ROT_YAWLEFT]          0.36   //0.24                         ; rotational acceleration (deg/s^2) [0.01 - 1.0]
+rotstrength[ROT_YAWRIGHT]         0.36   //0.24
+rotstrength[ROT_PITCHUP]          0.06  //0.015
+rotstrength[ROT_PITCHDOWN]        0.06  //0.015
+rotstrength[ROT_ROLLRIGHT]        0.06   //0.15
+rotstrength[ROT_ROLLLEFT]         0.06   //0.15
+turnspeed[TURN_YAW]               0.20   //0.15                          ; speed at which ship tries to turn (1=standard)
+turnspeed[TURN_PITCH]             0.20   //0.15
+turnspeed[TURN_ROLL]              0.20   //0.15
+
+rotateToRetaliate                   TRUE
+passiveRetaliateZone                7000.0
+
+;Weapons
+;=------=
+
+canTargetMultipleTargets            TRUE
+
+
+;Very Large Energy Cannon, front turret, bottom, right side
+
+
+;Very Large Energy Cannon, front turret, top, right side
+
+
+;Very Large Energy Cannon, front turret, top, left side
+
+
+;Very Large Energy Cannon, front turret, bottom, left side
+
+
+;Very Large Energy Cannon, Left wing, outside gun
+
+
+;Very Large Energy Cannon, Right wing, outside gun
+
+
+;;Ion Cannon
+
+;This is the large Ion Cannon turret on TOP - the first gun is slaved to the second
+
+
+
+
+;This is the large Ion Cannon turret on BOTTOM - the first gun is slaved to the second
+
+
+
+
+
+NUMBER_OF_SALVAGE_POINTS        5
+NUM_NEEDED_FOR_SALVAGE          5               ;number of ships needed to capture a craft
+NEED_BIGR1                      TRUE
+NEED_BIGR2                      TRUE
+WILL_FIT_CARRIER                FALSE
+
+;       format:                    name,type
+SalvagePoint                       Point1,AttachPoint
+SalvagePoint                       Point2,AttachPoint
+SalvagePoint                       Point3,AttachPoint
+SalvagePoint                       Point4,AttachPoint
+SalvagePoint                       Point5,AttachPoint
+
+
+NUMBER_OF_NAV_LIGHTS           7
+
+; format is NavLight            name, type, blinkrate (in seconds), size (in meters), min LOD, texture name
+NavLight                        antenna1,       NAVLIGHT_Default, 2,   1, 0.2,   7, 2, etg\textures\glow32
+NavLight                        antenna2,       NAVLIGHT_Default, 2,   1, 0.2,   7, 2, etg\textures\glow32
+NavLight                        antenna3,       NAVLIGHT_Default, 2,   1, 0,   7, 2, etg\textures\glow32
+NavLight                        antenna4,       NAVLIGHT_Default, 2,   1, 0,   7, 2, etg\textures\glow32
+NavLight                        chin,           NAVLIGHT_Default, 0.7, 0.8, 0,   10, 2, etg\textures\glow32
+NavLight                        caution1,       NAVLIGHT_Default, 0.5, 1, 0,   10, 2, etg\textures\glow32
+NavLight                        caution2,       NAVLIGHT_Default, 0.5, 1, 0,   10, 2, etg\textures\glow32
+
+
+;Explosions
+;=--------=
+explosionType                       ET_CarrierExplosion
+
+
+//Very Large Energy Cannon, Top turret, left side
+BindGun                             HeavyCruiserGun(1) Gun0,Azimuth,Recoil,Frequency 1
+
+//Very Large Energy Cannon, Top turret, left side
+BindGun                             HeavyCruiserGun(2) Gun1,Azimuth,Recoil,Frequency 1
+
+//Very Large Energy Cannon, Left wing, inside gun
+BindGun                             HeavyCruiserGun(3) Gun2,Azimuth,Recoil,Frequency 1
+
+//Very Large Energy Cannon, Right wing, inside gun
+BindGun                             HeavyCruiserGun(4) Gun3,Azimuth,Recoil,Frequency 1
+
+//Very Large Energy Cannon, Left wing, outside gun
+BindGun                             HeavyCruiserGun(5) Gun4,Azimuth,Recoil,Frequency 1
+
+//Very Large Energy Cannon, Right wing, outside gun
+BindGun                             HeavyCruiserGun(6) Gun5,Azimuth,Recoil,Frequency 1
+
+//bottom ion cannon turret
+BindGun                             HeavyCruiserIon(1)     Gun7,Azimuth,Frequency 1
+//BindGun                             HeavyCruiserIon(1)     Gun6,Azimuth,Frequency 1
+
+//top ion cannon turret
+BindGun                             HeavyCruiserIon(2)     Gun9,Azimuth,Frequency 1
+//BindGun                             HeavyCruiserIon(2)     Gun8,Azimuth,Frequency 1
+
+
+
+
+
+;Engine Glows
+;=----------=
+trailWidth         275.0
+trailHeight        350.0
+trailLength        415.0
+;trailRibbonAdjust    1.32
+trailScaleCap        0.000094
+
+minimumZoomDistance                 975
+
+Overlay_Selection_Scalar            1.2         ; scale the tactical overlay by this amount
+
+
+[End]

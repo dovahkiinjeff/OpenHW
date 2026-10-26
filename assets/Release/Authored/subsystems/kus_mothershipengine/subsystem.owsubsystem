@@ -1,0 +1,5 @@
+OPENHW_SUBSYSTEM_1
+type Subsystem_kus_mothershipengine
+scale 1
+hull model.hod
+mad -

@@ -1,296 +1,151 @@
-# Homeworld RTX
+# OpenHW 1.0
 
-> [!CAUTION]
-> ## REQUIRED FOR EVERY NEW EXTRACT
-> Before the first launch, manually copy your legally owned `HW_Music.wxd` and
-> `HW_Comp.vce` into the **same folder as `HomeworldModern.exe`**. The current
-> first-run verification does not find these two archives reliably in their
-> original installation folder. On Steam, they are normally in
-> `Homeworld1Classic\Data`. Do not download or redistribute these retail files.
+**The best of both worlds: high-fidelity Homeworld Remastered assets and original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets with modern rendering and in-game creation tools to build the ultimate classic Homeworld experience. Formerly Homeworld RTX.
 
-<img width="2504" height="1280" alt="image" src="https://github.com/user-attachments/assets/7da977f2-049b-46e9-8448-ce998eb74959" />
-<img width="2213" height="1192" alt="image" src="https://github.com/user-attachments/assets/b5b06b59-8c9b-4c93-b6dc-fe9da581b6ba" />
+[![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-![Homeworld RTX interface](assets/UI/startup_splash.png)
-
-[![Release](https://img.shields.io/badge/release-v0.92.0--beta.1-d89b42)](https://github.com/dovahkiinjeff/Homeworld-RTX/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-5b9bd5)](#requirements)
-[![Renderer](https://img.shields.io/badge/renderer-Direct3D%2012%20%2B%20DXR-63b4c9)](#graphics)
-[![Status](https://img.shields.io/badge/status-public%20beta-c86f5b)](docs/LIMITATIONS.md)
-
-Homeworld RTX is a non-commercial Windows source port and graphics overhaul of
-the original 1999 Homeworld. It preserves the classic campaign, simulation,
-ships, controls, and data while adding a native Direct3D 12 presentation path,
-DXR multi-bounce lighting, modern display support, a responsive interface, and
-live authoring tools for maps, mission lighting, shadows, and volumetric dust.
+[Download OpenHW 1.0](https://github.com/dovahkiinjeff/OpenHW/releases/latest) Â· [Installation and controls](docs/USER_GUIDE.md) Â· [Editors](docs/EDITING_GUIDE.md) Â· [Modding](docs/MODDING.md) Â· [Build the installer](BUILD_INSTALLER.md)
 
 > [!IMPORTANT]
-> This repository and its releases do **not** contain the retail game archives,
-> music, speech, or movies. You must own Homeworld 1 Classic and supply the two
-> audio archives described in the required step above.
+> **Use AMD technology for 1.0. AMD FSR upscaling and AMD FSR frame generation are the recommended, working options.** DLSS currently has known visual issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.** Bundled vendor libraries or development code do not imply supported release features.
 
 > [!WARNING]
-> This is a Windows x64 beta. It is not affiliated with, endorsed by, or
-> supported by Gearbox, Relic Entertainment, Sierra On-Line, NVIDIA, or Valve.
-> Homeworld and related marks belong to their respective owners.
+> **Disk space:** allow approximately **120 GB free during conversion** as a conservative planning estimate; the exact peak of this compact installer has not been measured. The download is about 473 MB and the main generated game archive is about 34 GB, plus loose resources and user data. Setup reads the original Collection archives directly, stages selected HW1 resources and removes intermediate conversion caches. The original Collection and source-build dependencies occupy separate space.
 
-## Download and quick start
+## Installation
 
-1. Open the [0.92.0 public beta 1 release](https://github.com/dovahkiinjeff/Homeworld-RTX/releases/tag/v0.92.0-beta.1).
-2. Download `Homeworld-RTX-v0.92.0-beta.1-Windows-x64.zip`.
-3. Extract the ZIP to a normal writable folder. Do not run it from inside the ZIP.
-4. From your legal Homeworld Classic installation, copy `HW_Music.wxd` and
-   `HW_Comp.vce` into the extracted folder beside `HomeworldModern.exe`.
-5. Run `HomeworldModern.exe`.
-6. At the first-start picker, select your legally installed Homeworld Classic
-   `Homeworld.exe`.
+1. Install your legally owned **Homeworld Remastered Collection**, including Homeworld 1 Classic and the required English data archives.
+2. Download **OpenHW-Setup.exe** from Releases. Put it in the writable folder where you want OpenHW installed, for example `D:\Games\OpenHW`.
+3. Run it and select the Collection installation. The Collection root, `HomeworldRM`, or its `Data` directory can be selected; setup also locates the Collection's Classic data.
+4. Let extraction, conversion, package building and validation finish. Setup installs **beside itself** and leaves the original Collection untouched. There is no manual music/voice-copy step.
+5. Start **OpenHW.exe** after setup completes. Setup does not automatically start the game. The first launch detects your display resolution and refresh rate.
 
-Supported data sets:
+All application-owned settings, saves, mods, exports and working files stay inside the OpenHW folder. `Development` contains setup work, diagnostics, logs, caches and receipts. Successful setup removes its temporary `SetupSources` and `SetupWork` conversion copies; a failed setup keeps work for recovery. Windows and graphics-driver system caches remain under those components' control.
 
-- Homeworld Remastered Collection - `Homeworld1Classic` data
-- Original 1999 Homeworld data, preferably patched to 1.05
+Two game executables are supplied: **OpenHW.exe** has diagnostic logging compiled out; **OpenHW-Daignostics.exe** enables full diagnostics and writes under **Development**. The spelling of the diagnostic filename is intentional. Source is a separate download for developers, not required to play.
 
-The Remastered Collection Classic data requires `Homeworld.big`,
-`HW_Comp.vce`, and `HW_Music.wxd`. Original 1999 data additionally benefits
-from `Update.big`. For this beta, the two audio archives must be copied beside
-the RTX executable even though they remain part of your retail installation.
-A legal `Movies` folder enables the pre-mission animatics.
+## Watch the project
 
-See the [complete installation and user guide](docs/USER_GUIDE.md) for display
-modes, controls, graphics tuning, save locations, and diagnostics.
+[![OpenHW project showcase](https://img.youtube.com/vi/R4PvuIpeAaA/maxresdefault.jpg)](https://www.youtube.com/watch?v=R4PvuIpeAaA)
 
-## Project showcase
+This showcase documents the project's earlier Homeworld RTX development; the instructions on this page describe OpenHW 1.0.
 
-[![Watch the Homeworld RTX project showcase on YouTube](https://img.youtube.com/vi/R4PvuIpeAaA/maxresdefault.jpg)](https://www.youtube.com/watch?v=R4PvuIpeAaA)
+## Modern rendering and environments
 
-Watch the [Homeworld RTX project showcase](https://www.youtube.com/watch?v=R4PvuIpeAaA)
-for an extended look at the renderer, restored assets, fleet-scale battles, and
-the project in motion. GitHub READMEs cannot play iframe video inline, so the
-full-width preview opens the video directly on YouTube.
+- Native Windows x64 rendering with Direct3D 12 and optional hardware ray/path tracing; a non-path-traced mode is also available.
+- Non-path-traced rendering shares authored mission sun/key, ambient and local-light settings, with shadows and emissive materials. **Non-PT Glow Brightness defaults globally to 29%** and adjusts hangar/engine glow textures independently of path-traced rendering.
+- AMD FSR reconstruction and frame generation are the recommended 1.0 presentation path. Native rendering remains available. The interface is presented separately from reconstructed scene detail.
+- Locally imported Remastered HOD ships, rigs, subsystems, textures, animation/presentation data and distance LODs, including campaign-specific ships and stations. Classic gameplay remains the simulation foundation.
+- Fleet colors, mission-specific liveries and captured-ship identity; filtered, mipmapped materials, normal maps, emission and team-color masks.
+- Replacement asteroid models/materials, authored LODs, upgraded Classic texture assets, Remastered backgrounds and improved weapon, engine and missile effects.
+- OpenMW-derived volumetric cloud rendering adapted to finite, placed map volumes, ropes and detected particle fields. Clouds work without path tracing. Motion is optional and defaults off; there is no swirling requirement.
+- Authored cloud color, density, shape and detail control; original dust and rope presentation can be tuned independently. Converted fields follow connected particle distributions instead of requiring a hand-placed volume on every particle.
+- Per-mission maps, clouds and lighting shipped as defaults. All 16 map overlays are included, alongside the 15 authored lighting overrides that exist; Mission 15 uses its fallback lighting where no separate override was authored.
+- Brightness/gamma, bloom, god rays, lens flare, motion blur, chromatic aberration and film grain; adjustable texture resolution, effect density/budget, PT bounce/sample settings and frame limit; adjustable UI scale and display settings. Internal HDR lighting does not require Windows HDR output.
+- More informative startup and mission-loading status, shader/cache work, optimized asset reuse and parallel frame-preparation work. Performance depends on hardware, settings and scene complexity; generated FPS is not simulation FPS.
 
-Ship texture authors can use the non-destructive
-[ships-only batch upscaling pipeline](docs/SHIP_TEXTURE_UPSCALING.md). It applies
-AI restoration only to hull/albedo images while protecting team-color,
-emissive, material-mask, normal-map, and alpha data.
+## Fleet identity, capture and production
 
-## Fleet Identity - six systems, one coherent palette
+The Fleet Identity menu provides hull base/stripe colors, an independent engine-emission color override and player navigation-light appearance controls. Fleet Control includes Capture / Build All, Super Salvagers and Disable Unit Caps options. Capture foreign ships and retain their fleet identity. Captured build-capable ships use their appropriate production rosters. Carrier/mothership production and docking rules account for ship identity, with mission-required exceptions such as the Karos Graveyard communications relay accepting player-controlled fighters and corvettes. Select a build-capable carrier or mothership and press **B** to open its build menu.
 
-![Fleet Identity editor showing the unrestricted HSV palette and player-only effect channels](assets/UI/fleet_identity_editor.png)
+## Formations, fleet controls and gameplay
 
-Fleet Identity turns the old color picker into a full livery and emissive
-control center. It is deliberately direct: choose a channel on the left, pick
-any hue and saturation in the large field, set value with the vertical slider,
-watch the RGB/HSV/hex material key update live, and select **Apply**. There are
-no hidden minimum-brightness rules, so black and near-black hull colors work.
+- **Live Formation Spread:** select a same-type group in a formation to adjust its spacing immediately. The center is the normal layout, the left is tight spacing, and the right is twice the default spread. Mixed-type selections do not display this control.
+- Double-click a ship to select its visible peers. **Shift-double-click** another type to add its visible peers to the selection.
+- Main-view move placement no longer has the former short-range command clamp; use it like the Sensors Manager within the playable world.
+- Revised Launch Manager with improved hold selection, spacing and access to available holds. Drone frigates are excluded from carrier-style hold selection.
+- Camera-inside-ship handling hides the obstructing hull instead of drawing the expensive wireframe view.
+- Gameplay controls include unlimited strike-craft fuel, orders while paused, weapon recoil, resource multiplier, rank system, mission-start launch behavior, **Unlimited RUs**, and **Disable SP Resource Scaling**. The latter retains the full authored single-player resource population instead of reducing it to the campaign's adaptive amount.
+- **Show FPS** adds a classic yellow, black-outlined FRAPS-style counter at the top right.
+- Redesigned Build, Launch, Research, ship information, menus and loading panels, with subdued background art and scalable text/controls.
 
-The six independently selectable channels are:
+## Ship control: command or pilot
 
-| Channel | What it controls |
-| --- | --- |
-| **Hull Base** | Primary player-ship pigment across the fleet |
-| **Stripe / Marking** | Secondary livery and team markings |
-| **Engine Emission** | Engine ribbons, nozzle glow, and the linked DXR light emitter |
-| **Nav Lights** | Player navigation-light sprites and point emitters |
-| **Harvest Beam** | Player beam color, nozzle glow, and line-light emission |
-| **Hyperspace** | Player gate, slice, field effect, and matching DXR emission |
+Ship control is implemented, primarily for fun and as a foundation for future unusual game modes. Select an eligible ship and use **COMMAND** for EVE Online-style approach, orbit, keep-range, target locking and weapon-bank control, or **PILOT** for direct flight. Direct piloting includes throttle, turning, strafing, vertical movement and firing; eligible fighters also have a cockpit option.
 
-For the four effect channels, a single switch chooses between the original
-authored color and a custom player color. The visible raster effect and its
-ray-traced light use the same selection automatically: there is no second
-lighting menu to synchronize. Overrides apply only to the local player fleet;
-allied and enemy fleets retain their authored identities.
+**X and Claw formations can be controlled through their wingleader.** Select the formation's wingleader and enter ship control to lead the wing. The on-screen WINGLEADER status identifies the controlled formation. This is distinct from the Formation Spread slider.
 
-## Capture / Build All - stolen factories become working factories
+See the [ship-control reference](docs/USER_GUIDE.md#ship-control) for keys and the differences between command, external pilot and cockpit controls.
 
-![Fleet Control options showing Capture / Build All enabled](assets/UI/fleet_control_options.png)
+## In-game creation and modding
 
-In plain English: **yes, you can capture an enemy carrier or mothership and
-then build ships from it.** Enable **Capture / Build All** on the Fleet Control
-page, successfully salvage an exceptional enemy production ship, and the
-captured hull joins your owned factory selector with its native build roster.
-Turanic and Kadeshi production ships can therefore become functional parts of
-your fleet instead of oversized trophies.
+### Maps, clouds, ropes and particle fields
 
-The option respects the identity of the stolen factory: ships are created from
-that factory's native roster and race, not converted into the player's ordinary
-roster. Turning the option off does not confiscate captured hulls, and already
-queued construction can finish; it simply hides foreign factories from new
-build selection and blocks new foreign-factory orders until re-enabled. This is
-a single-player feature and does not alter multiplayer's deterministic,
-owner-race production rules.
+**Shift+F11** opens the live map workspace: Assets, Scene, Volumes, Ropes, RM Dust and Fields. Browse assets, place and transform objects, edit existing scene objects, configure cloud volumes, tune rope shapes and work with automatically grouped particle fields. Simulation and mission scripting can be paused independently during authoring.
 
-## Highlights
+Cloud color and opacity/density, procedural detail, size, placement and optional motion can be authored. Original dust particles have separate visibility, color and opacity controls; original rope meshes also have color/opacity overrides. Numeric editor fields support direct entry where exposed, including fine particle-spread values. Save/load map overlays and reusable cloud presets without rewriting the retail archives.
 
-### Graphics
+### Lighting, shadows and materials
 
-- Native Windows x64 executable with Direct3D 12/DXGI presentation.
-- Experimental native D3D12 fixed-function compatibility rasterizer.
-- DXR scene extraction from the exact visible meshes and transforms.
-- Progressive path-traced direct light and up to three diffuse bounces.
-- Mission-sky environment radiance, HSF map lights, dynamic FX lights,
-  emissive LIF materials, and active MEX navigation lights.
-- Depth-validated motion reprojection, disocclusion rejection, temporal
-  accumulation, spatial filtering, and firefly control.
-- Capability-based Auto reconstruction: DLAA/DLSS on NVIDIA, XeSS-SR on
-  Intel, and FidelityFX Native AA/FSR on AMD and other supported adapters.
-- Explicit DLAA/DLSS, FSR Native/Quality/Balanced/Performance, XeSS
-  AA/Quality/Balanced/Performance, universal temporal AA, FXAA, and Off modes.
-- Expandable Image Reconstruction and Frame Generation selectors keep the
-  vendor choices readable. NVIDIA DLSS-G and cross-vendor AMD FidelityFX frame
-  generation are integrated; Intel GPUs use the packaged FidelityFX path for
-  frame generation while native XeSS-FG remains runtime-gated.
-- Full-scene temporal inputs use corrected jitter, depth, motion, history reset,
-  and stationary-normal stability; the UI remains native resolution.
-- Four-times-resolution ship hull textures are stored as mipmapped BC7 DDS;
-  dedicated BC5 tangent-space normal maps replace resolution-dependent runtime
-  relief generation, while fleet masks use compact BC4 DDS.
-- The modernized gameplay asset set is restored at four times the vanilla
-  linear resolution. Ships, derelicts, scaffolds, debris, planets, asteroids,
-  and weapon FX use upgraded DDS assets; opaque surface assets receive literal
-  normals generated from their final upscaled color where that is materially
-  appropriate. UI, masks, alpha effects, and other technical data are
-  deliberately handled according to their function rather than given normals.
-- Release ship DDS assets are served from a single memory-mapped, indexed
-  `HomeworldTextures.hwt` archive to avoid thousands of filesystem opens during
-  mission loading. Developers can opt into loose DDS priority with
-  `HW_LOOSE_TEXTURE_OVERRIDES=1`; release builds avoid those filesystem probes.
-- Ray-traced soft shadows with editable sun size, ray counts, biases, contact
-  reinforcement, and maximum range.
-- Optional bloom, god rays, motion blur, chromatic aberration, film grain, and
-  output dithering, with the UI kept outside scene post-processing.
-- World-locked FP16 volumetric dust with stable 3D density, depth-aware ship
-  occlusion, local and mission lighting, ship wakes, noise-displaced authoring
-  boundaries, and editable map-wide distance fade controls.
-- Four replacement asteroids use projected-size LOD chains derived from those
-  same authored meshes, preserving their silhouettes in dense mission fields.
-- Highest-detail ship LOD0 policy, stable zoom, modern cursor scaling, and the
-  original campaign BTG skies with modern lighting metadata.
+**Shift+F12**, also reachable through the map editor's Lighting button, exposes mission sun/key direction and color, intensity, ambient mode/color, custom lights, tuning and shadows. Place or aim lights, solo the key, adjust visual response, and save/export per-mission authoring. The map editor's texture/material workspace exposes the corresponding live surface controls. Global Non-PT Glow Brightness affects only the non-path-traced renderer.
 
-### Interface and gameplay
+### Ship editor and reusable subsystems
 
-- Resolution-aware 16:9, ultrawide, 4K, and high-DPI interface scaling.
-- Rebuilt front end, campaign screens, options, modal dialogs, and in-game
-  Build, Research, and Launch docks.
-- Ship Dossier with loaded statistics and Fleet Archive descriptions.
-- Full HSV fleet palette, including true black.
-- Independent engine-trail, navigation-light, harvesting-beam, and hyperspace
-  color overrides; visible effects and their DXR emission stay synchronized.
-- Optional single-player quality-of-life modes: unlimited strike-craft fuel,
-  Super Salvagers, Capture / Build All, and a 1x-4x resource multiplier.
-- Captured enemy carriers and exceptional production motherships can retain
-  their native build rosters and operate as player-controlled factories.
-- Presentation frame rate is separated from the fixed simulation clock.
+Open **Modding > Ship Viewer / Editor / New Ship Project**. Preview installed ships, inspect hull/joint and attachment hierarchies, move and rotate parts, copy or duplicate subsystem chains, and edit ship/weapon definitions. Native subsystem edits synchronize to the editable ship definition; copied functional weapon mounts retain their own weapon-slot identities and settings.
 
-### Live authoring tools
+**Copy/paste, duplicate and place subsystems—including turrets—on ships**, then save supported configurations as mods. The ship editor will continue improving in future releases.
 
-- **Shift+F11 - Map Editor:** browse legal BIG archives, place and transform
-  ships/resources, hide original objects through non-destructive overlays,
-  author raymarched dust volumes, manage reusable cloud presets, and export
-  portable `.rtxmap` files.
-- **Shift+F12 - Lighting Editor:** edit the mission key and ambient wash,
-  import retail HSF lights, add point/spot/ambient lights, place and aim them
-  in the viewport, tune global materials/exposure, and edit ray-traced shadows.
-- `kas2c.exe` and its source are retained for mission-script development.
-- Human-readable exports are written beneath `RTXExports` beside the executable.
+The workspace includes save/load, undo/redo, numeric transforms, axis handles, a ship-definition text editor and a read-only view of connected event data. OBJ preview/import and image assignment are available for authoring projects; this is not an arbitrary OBJ-to-HOD compiler or a full replacement for external modeling software.
 
-The detailed [authoring guide](docs/EDITING_GUIDE.md) documents every page,
-field, shortcut, output path, and safe workflow.
+**SAVE MOD** publishes a new native ship mod; **APPEND TO MOD** adds to an existing one. Validation checks native dependencies and bindings. Enable the result in **Mod Manager**, arrange priority, and restart. Modified weapon counts should be tested in a fresh mission: existing saves do not migrate their weapon arrays. The experimental extra-turret Kushan Assault Frigate modification is not enabled or included as a release gameplay override.
+
+### Mod Manager and parade editor
+
+Enable/disable installed mods and drag them into load order. Lower enabled entries override higher ones. Files remain in local `mods` folders; original imported assets remain the baseline. There is no general DLL plugin loader or live simulation-asset hot reload.
+
+The **Military Parade Formation Editor** lets you author Kushan/Taiidan mothership parade layouts using real ship previews, position/rotation handles, numeric edits and growth offsets for repeated ship types. Campaign presets apply to ships joining military parade. Multiplayer-named preset files are editor storage only: multiplayer integration and synchronization are not implemented by that feature.
+
+Read the [editing guide](docs/EDITING_GUIDE.md), [modding guide](docs/MODDING.md), [ship definition format](docs/OPENHW_SHIP_DEFINITIONS.md), and [parade editor guide](docs/MILITARY_PARADE_EDITOR.md).
 
 ## Requirements
 
-Minimum practical requirements for the beta:
-
-- 64-bit Windows 10 or Windows 11
-- A legally installed copy of Homeworld 1 Classic
-- Direct3D 12-capable GPU and current vendor driver
-- DXR-capable GPU for path tracing and ray-traced shadows
-- A compatible NVIDIA GPU for DLAA/DLSS; AMD FidelityFX and Intel XeSS-SR
-  runtimes are packaged for AMD/Intel and cross-vendor reconstruction
-- Approximately 2 GB free space for extraction, logs, and shader cache
-
-Non-DXR hardware can run the D3D12 presentation/raster path with path tracing
-disabled. Auto selects an available backend and explicit unsupported temporal
-modes fall back safely instead of preventing the game from rendering.
+- Windows 10/11 x64; a writable destination folder.
+- Your own installed Homeworld Remastered Collection with the required Classic and English data.
+- A supported Direct3D 12 GPU and current graphics driver; hardware DXR capability for path tracing.
+**Disk space:** allow approximately **120 GB free during conversion** as a conservative planning estimate; the exact peak of this compact installer has not been measured. The download is about 473 MB and the main generated game archive is about 34 GB, plus loose resources and user data. Setup reads the original Collection archives directly, stages selected HW1 resources and removes intermediate conversion caches. The original Collection and source-build dependencies occupy separate space.
+- AMD FSR upscaling/frame generation are the recommended technologies regardless of GPU brand, where supported by the adapter/runtime. Do not select NVIDIA or Intel alternatives expecting 1.0 parity.
 
 ## Essential controls
 
 | Control | Action |
 | --- | --- |
-| `Shift+F11` | Toggle the live map and volumetric editor |
-| `Shift+F12` | Toggle the live lighting/shadow editor |
-| `Ctrl+Shift+F12` | Reset the renderer |
-| Right-click with ships selected | Open the tactical menu and Ship Dossier |
-| Mouse wheel | Camera zoom; editor fly movement when Shift+F11 is open |
+| Shift+F11 | Live map/cloud editor |
+| Shift+F12 | Lighting and shadow editor |
+| B with a build-capable ship selected | That ship's build menu |
+| Double-click / Shift-double-click | Select visible type / add visible type |
+| Formation Spread slider | Immediately change same-type formation spacing |
+| COMMAND / PILOT | Ship command control / direct piloting |
+| Esc during ship control | Return to normal fleet control |
+| Modding menu | Ship projects, Mod Manager and parade editor |
 
-Both editors are designed for mouse use and also expose keyboard workflows.
-See [Editing Guide](docs/EDITING_GUIDE.md#shortcut-reference).
+## Documentation and source
 
-## Documentation
+- [Install, settings and gameplay controls](docs/USER_GUIDE.md)
+- [Map, cloud, lighting and texture authoring](docs/EDITING_GUIDE.md)
+- [Ship editing, mod publication and load order](docs/MODDING.md)
+- [Ship control and formation reference](docs/USER_GUIDE.md#ship-control)
+- [Military parade layouts](docs/MILITARY_PARADE_EDITOR.md)
+- [Known limitations and reporting](docs/LIMITATIONS.md)
+- [1.0 release notes](RELEASE_NOTES_1.0.md)
+- [Build OpenHW-Setup.exe from the complete source](BUILD_INSTALLER.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
 
-- [Installation and User Guide](docs/USER_GUIDE.md)
-- [Map, Lighting, Shadow, and Volumetric Editing Guide](docs/EDITING_GUIDE.md)
-- [Known Limitations and Beta Expectations](docs/LIMITATIONS.md)
-- [Native Windows Build Guide](Windows/BUILD_MODERN.md)
-- [Graphics Feature Status](documentation/GRAPHICS_FEATURE_STATUS.md)
-- [Renderer Architecture and Roadmap](documentation/MODERN_RENDERER_ROADMAP.md)
-- [Original Source Baseline](documentation/ORIGINAL_SOURCE_BASELINE.md)
-- [Third-Party Notices](THIRD_PARTY_NOTICES.md)
-- PDF manual attached to each GitHub release
+Download **OpenHW-1.0-Source.zip** for the full working source, shaders, importers, tools, tests, reviewed release content and installer factory. Generated build caches and your retail data are not part of the source download. The build guide specifies the compiler, SDK and pinned dependencies.
 
-## Building from source
+## Immediate future updates
 
-Install Visual Studio 2022 or 2026 with Desktop development with C++, then run
-from a Developer PowerShell:
+The next priorities are **fully implementing and stabilizing NVIDIA DLSS and Intel technologies**, and **fixing bugs and visual glitches reported by people playing OpenHW**. For 1.0, stick to AMD FSR upscaling and AMD FSR frame generation.
 
-```powershell
-./Windows/bootstrap.ps1
-./Windows/build.ps1 -Configuration Release
-```
+**Cataclysm and multiplayer support are planned** as more issues are ironed out and performance continues to improve. They are future work, not supported 1.0 game modes, and have no announced delivery date.
 
-The bootstrap obtains pinned dependencies and NVIDIA Streamline 2.12.0, checks
-the Streamline archive digest, and keeps the vcpkg build tree in a no-space
-directory beneath LocalAppData. Generated dependencies and build outputs are
-not committed.
-
-The build produces `HomeworldModern.exe`, its PDB symbols, required DLLs,
-project assets, and `kas2c.exe`. Full details are in
-[Windows/BUILD_MODERN.md](Windows/BUILD_MODERN.md).
-
-## Road to 1.0
-
-The renderer, asset pipeline, live authoring tools, and campaign foundation are
-now feature-complete enough that the remaining planned 1.0 work is focused:
-
-- one final, small performance and loading optimization pass;
-- capture and production support for ships belonging to the race opposite the
-  player's chosen starting race;
-- intentional dust-cloud placement and tuning on the remaining missions; and
-- one final campaign-wide lighting pass.
-
-Unexpected beta defects may still change that list, but these are the known
-release-candidate tasks rather than another renderer rewrite.
-
-## Beta status
-
-This release is intended for testing, authoring, and community development.
-The Windows/D3D12/DXR path is the active target. Linux and macOS are not
-supported by this branch. HDR output, native Intel XeSS-FG, full Reflex
-integration, specular ray transport, and complete native-raster parity remain
-future work. Read [Known Limitations](docs/LIMITATIONS.md) before filing a
-report.
+Player reports matter: they reveal mission, hardware and gameplay combinations that development testing can miss. Please report problems to the project author through [GitHub Issues](https://github.com/dovahkiinjeff/OpenHW/issues), with reproducible steps and useful evidence.
 
 ## Reporting problems
 
-Include the mission, exact steps, GPU/driver, display mode, graphics settings,
-and the diagnostic ZIP produced by `Windows/run-with-log.ps1`. Please do not
-upload retail Homeworld archives, movies, voice files, or music.
+Include the mission/save context, what you did, expected versus actual behavior, GPU and driver, resolution, path-tracing state, upscaling mode and frame-generation state. Screenshots/video are helpful. Reproduce using `OpenHW-Daignostics.exe` when logs are needed and include the relevant files from `Development`; review captures for personal information before sharing. Do not upload retail archives, extracted game assets, music, voice or movies. See [known limitations](docs/LIMITATIONS.md).
 
 ## License and ownership
 
-The original Homeworld source baseline is governed by the Relic source-code
-agreement in [LICENSE.txt](LICENSE.txt), including its non-commercial terms.
-Third-party components retain their own licenses. Project documentation and
-new work do not grant rights to Homeworld retail data, imagery, audio, movies,
-or trademarks. Review [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+OpenHW is a free, unofficial project, not affiliated with or endorsed by the original developers/publishers or GPU vendors. The original engine source is subject to the Relic agreement in [LICENSE.txt](LICENSE.txt), including its non-commercial terms. Third-party code and art retain their own notices and ownership; this is not a blanket public-domain or permissive-license release.
 
-This project is distributed free of charge and without warranty.
+The package includes the approved upscaled Classic texture set, supplied concept artwork and creator-made asteroid replacements. Remastered models/materials, retail archives and original audio/movies are imported locally from the user's Collection, not supplied as an installed game download. See [content provenance and build details](BUILD_INSTALLER.md#content-boundary-and-source-snapshot) and [third-party notices](THIRD_PARTY_NOTICES.md).

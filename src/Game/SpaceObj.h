@@ -1451,6 +1451,9 @@ typedef struct Ship         // Ship object
 //    RepairDroid *pRepairDroids;     // Alex's repair droid stuff...
     struct ShipSinglePlayerGameInfo *shipSinglePlayerGameInfo;     // stuff for the single player game
     void* lightning[2];             //lightning effect stuff
+    udword veterancyKills[NUM_CLASSES]; // final blows by victim class
+    ubyte veterancyRank;             // 0..4, derived from veterancyKills
+    ubyte veterancyPadding[3];
     udword sizeofShipSpecifics;
     udword ShipSpecifics[1];        //this member must go last
 } Ship;
@@ -1948,4 +1951,3 @@ extern GodWritePacketHeader *godUniverseSnapShotHeader;
 =============================================================================*/
 
 #endif //___SPACEOBJ
-

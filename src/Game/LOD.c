@@ -20,6 +20,9 @@
 #include "texreg.h"
 #include "LOD.h"
 #include "Options.h"
+#include "Universe.h"
+#include "main.h"
+#include "ModernShipLOD.h"
 
 extern meshdata *defaultmesh;          // hack for now.  remove later when defaults no longer needed
 
@@ -265,6 +268,40 @@ sdword rndLOD = 0;
 sdword lodTuningMode = FALSE;
 sdword lodDrawingMode = FALSE;
 #endif
+// Mission discovery uses the authored distance bands, not the geometry chosen
+// by the renderer. Keeping high-detail visuals must not reveal remote wrecks.
+sdword lodDiscoveryLevelGet(void *spaceObj)
+{
+    SpaceObj *obj = (SpaceObj *)spaceObj;
+    lodinfo *info = obj->staticinfo->staticheader.LOD;
+    sdword level = 0;
+    if (info == NULL || info->nLevels <= 0)
+        return LOD_NumberLevels - 1;
+    while (level + 1 < info->nLevels &&
+           obj->cameraDistanceSquared > info->level[level].bOff * lodScaleFactor)
+    {
+        level++;
+    }
+    return level;
+}
+
+static lod *lodModernShipLevelGet(SpaceObj *obj, lodinfo *info)
+{
+    sdword available = 0;
+    // Some capital ships only supply LOD0-3; missing/point entries must never
+    // resolve to a dummy mesh or make an otherwise visible ship disappear.
+    while (available < info->nLevels && available < 5 &&
+           (info->level[available].flags & LM_LODType) == LT_Mesh &&
+           info->level[available].pData != NULL &&
+           info->level[available].pData != defaultmesh)
+        available++;
+    obj->currentLOD = (ubyte)hwModernShipLODSelect(
+        obj->cameraDistanceSquared, obj->staticinfo->staticheader.staticCollInfo.collspheresize,
+        universe.mainCameraCommand.actualcamera.fieldofview, MAIN_WindowHeight,
+        obj->currentLOD, available);
+    return &info->level[obj->currentLOD];
+}
+
 lod *lodLevelGet(void *spaceObj, vector *camera, vector *ship)
 {
     real32 distance;
@@ -277,9 +314,10 @@ lod *lodLevelGet(void *spaceObj, vector *camera, vector *ship)
     obj->cameraDistanceSquared = distance = vecMagnitudeSquared(obj->cameraDistanceVector);
 
 #ifdef HW_MODERN_FORCE_LOD0
-    /* Modern GPUs can retain the original highest-detail geometry at every
-       distance.  Keeping the topology stable also avoids rebuilding future
-       ray-tracing acceleration structures when a legacy LOD threshold flips. */
+    // Ship-only modern LOD policy is independent of opNoLODVal, which legacy
+    // options force on whenever ray tracing is enabled. Other assets keep LOD0.
+    if (obj->objtype == OBJ_ShipType)
+        return lodModernShipLevelGet(obj, info);
     obj->currentLOD = 0;
     return(&info->level[0]);
 #endif
@@ -351,6 +389,11 @@ lod* lodPanicLevelGet(void* spaceObj, vector* camera, vector* ship)
     lodinfo* info = obj->staticinfo->staticheader.LOD;
 
 #ifdef HW_MODERN_FORCE_LOD0
+    if (obj->objtype == OBJ_ShipType)
+    {
+        // Do not let legacy polygon-budget panic override camera-distance LOD.
+        return lodLevelGet(spaceObj, camera, ship);
+    }
     obj->currentLOD = 0;
     return(&info->level[0]);
 #endif

@@ -1,0 +1,42 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_kus_assaultgun_hw1_4fe150a31d
+scale 1
+hull @/Subsystems/kus_assaultgun/model.hod
+mad -
+surface 0 0 @/Subsystems/kus_assaultgun/m0
+gun 0 Hull Weapon_Gun0_Position Weapon_Gun0_Latitude Weapon_Gun0_Latitude Weapon_Gun0_Muzzle
+
+presentation Hull component_events.owevents
+[Weapons]
+GUN 0
+{
+WeaponFire @/RemasteredFX/WeaponFire/kinetic_small.wf
+
+//Desired Range = 4800
+//ADD this amount: 150 to compensate for centrepoint
+//ADD this amount: 784 to compensate for stopping distance
+
+Type                                GUN_NewGimble               ; type of gun - either GUN_Fixed or GUN_Gimble
+SoundType                           GS_SmallProjectile
+DamageLo                            12                           ; damage variance per shot - low
+DamageHi                            16                          ; damage variance per shot - high
+BulletLength                        18.0                        ; visual only.  Length of bullet on screen
+BulletRange                         2500.0                      ; distance bullets travel before disappearing
+BulletSpeed                         7000.0                      ; measured in m/s.
+BulletMass                          0.15                         ; mass of bullet
+FireTime                            0.25   //0.2                          ; fire repeat rate (reciprocal = shots/second)
+BurstFireTime                       1.1
+BurstWaitTime                       1.1 //1.5
+TriggerHappy                        5.0
+minturnangle                        -180.0                      ; degrees
+maxturnangle                        180.0
+mindeclination                      -90.0
+maxdeclination                      02.0
+maxanglespeed                       360.0                        ; degrees/s
+maxdeclinationspeed                 360.0
+angletracking                       4.0
+declinationtracking                 4.0
+BarrelLength                        20.0
+RecoilLength                        3.0
+}
+[End]

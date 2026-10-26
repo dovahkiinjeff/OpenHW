@@ -386,6 +386,7 @@ void   rmAddTechToPlayer(struct Player *player, udword techlevel)
 ----------------------------------------------------------------------------*/
 bool32 rmCanBuildShip(Player *player, ShipType type)
 {
+
     if (bitTest(player->researchinfo.techstat->TechNeededToBuildShip[type], RM_Disabled))
     {
         return(FALSE);
@@ -1267,4 +1268,3 @@ void rmSetTechDependCB(char *directory, char *field, void *dataToFillIn)
 
     ((udword *)dataToFillIn)[techset] = mask;
 }
-

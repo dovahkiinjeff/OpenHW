@@ -1,3 +1,5 @@
+#define HW_DIAGNOSTIC_IMPLEMENTATION
+#include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     File.c: Functions for reading and saving files, including .BIG files.
 
@@ -17,10 +19,13 @@
 #include "LZSS.h"
 #include "Memory.h"
 #include "TexturePack.h"
+#include "OpenHWArchive.h"
+#include "OpenHWShipDocument.h"
 
 #ifdef _WIN32
     #define WIN32_LEAN_AND_MEAN
     #include <windows.h>
+    #include <shlobj.h>
     #include <direct.h>
 #else
     #include <dirent.h>
@@ -675,8 +680,8 @@ bool8 fileMakeDirectory (const char* directoryName)
 
     char* pChar;
 
-    dbgAssertOrIgnore(directoryName != NULL);
-    dbgAssertOrIgnore(strlen(directoryName) <= PATH_MAX);
+    if (directoryName == NULL || strlen(directoryName) > PATH_MAX) return FALSE;
+    if (directoryName[0] == '\0') return TRUE;
 
     /* Make a copy of the directory name with which we can modify as
        needed. */
@@ -684,11 +689,39 @@ bool8 fileMakeDirectory (const char* directoryName)
     directoryCopy[PATH_MAX] = '\0';
 
     /* Reduce the path name. */
+#ifndef _WIN32
     fileNameReducePath(directoryCopy);
+#endif
+
+#ifdef _WIN32
+    // Let Windows handle missing parents, drive roots and UNC shares. The
+    // legacy component walker treated a UNC prefix as an empty directory and
+    // could dereference NULL after a drive-root-only path.
+    {
+        char absoluteDirectory[PATH_MAX + 1];
+        DWORD length;
+        int result;
+        DWORD attributes;
+        if (directoryCopy[0] == '\0') return TRUE;
+        length = GetFullPathNameA(directoryCopy, sizeof(absoluteDirectory),
+            absoluteDirectory, NULL);
+        if (length == 0 || length >= sizeof(absoluteDirectory)) return FALSE;
+        attributes = GetFileAttributesA(absoluteDirectory);
+        if (attributes != INVALID_FILE_ATTRIBUTES)
+            return (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        result = SHCreateDirectoryExA(NULL, absoluteDirectory, NULL);
+        if (result != ERROR_SUCCESS && result != ERROR_ALREADY_EXISTS &&
+            result != ERROR_FILE_EXISTS) return FALSE;
+        attributes = GetFileAttributesA(absoluteDirectory);
+        return attributes != INVALID_FILE_ATTRIBUTES &&
+            (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    }
+#endif
 
     directoryLen = strlen(directoryCopy);
     if (directoryLen == 0)
         return TRUE;
+    if (directoryLen >= PATH_MAX) return FALSE;
 
     /* Add a trailing slash to our directory name. */
 #ifdef _WIN32
@@ -819,8 +852,54 @@ bool8 fileMakeDestinationDirectory (const char* fileName)
     Note        : Generates a fatal error if file doesn't exist.  If you don't
         like this behavior, call fileExists() first.
 ----------------------------------------------------------------------------*/
+static const void *fileObigView(char *name, udword flags, int *size)
+{
+    const void *view;
+    struct stat local;
+    if (!openhwArchiveMounted() || bitTest(flags, FF_UserSettingsPath|FF_CDROM|FF_WriteMode|FF_AppendMode)) return NULL;
+    /* User/editor loose files override the base archive. Absolute requests
+       outside the portable root are rejected by the archive normalizer. */
+    if (stat(filePathPrepend(name, flags), &local)==0) return NULL;
+    view=openhwArchiveView(name,size);
+    return view;
+}
+
+static int fileShipDocumentName(const char* name,char* source,size_t capacity)
+{
+    size_t n=strlen(name);const char* suffix=".owshipdef.gameplay";
+    if(n<strlen(suffix)||_stricmp(name+n-strlen(suffix),suffix))return 0;
+    if(n-9>=capacity)return 0;memcpy(source,name,n-9);source[n-9]=0;return 1;
+}
+static int fileShipDocumentRead(void* user,const char* name,const void** bytes,size_t* size)
+{
+    void* data=NULL;char path[FL_Path];sdword n;
+    if(strncmp(name,"@/Subsystems/",13))return 0;
+    snprintf(path,sizeof(path),"%s",name+2);if(!fileExists(path,0))return 0;
+    n=fileSizeGet(path,0);if(n<=0||n>1024*1024)return 0;
+    n=fileLoadAlloc(path,&data,0);*bytes=data;*size=n;return n>0;
+}
+static void fileShipDocumentRelease(void* user,const void* bytes){memFree((void*)bytes);}
+static sdword fileShipDocumentGameplay(char* name,void** address,udword flags)
+{
+    char source[FL_Path],error[256];void* raw=NULL;void* result=NULL;size_t size=0;sdword n;
+    if(!fileShipDocumentName(name,source,sizeof(source)))return -1;
+    n=fileSizeGet(source,flags);if(n<=0||n>1024*1024)return -2;
+    n=fileLoadAlloc(source,&raw,flags);
+    if(!openhwShipDocumentCompile(raw,n,fileShipDocumentRead,fileShipDocumentRelease,NULL,1,&result,&size,error,sizeof(error))) {
+        memFree(raw);HW_DIAG_FPRINTF(stderr,"[ShipDefinition] %s: %s\n",source,error);return -2;
+    }
+    memFree(raw);*address=memAlloc(size?size:1,"Ship settings",NonVolatile);memcpy(*address,result,size);openhwShipDocumentFree(result);return (sdword)size;
+}
 sdword fileLoadAlloc(char *_fileName, void **address, udword flags)
 {
+    sdword compiled=fileShipDocumentGameplay(_fileName,address,flags);if(compiled!=-1)return compiled;
+    int obigSize;const void *obig=fileObigView(_fileName,flags,&obigSize);
+    if (obig)
+    {
+        *address=memAlloc(obigSize?obigSize:1,_fileName,(flags & (NonVolatile|Pyrophoric))|MBF_String);
+        if(obigSize)memcpy(*address,obig,(size_t)obigSize);
+        return obigSize;
+    }
     char  *memoryName = NULL,
           *fileName   = NULL;
     FILE  *inFile     = NULL;
@@ -938,6 +1017,8 @@ sdword fileLoadAlloc(char *_fileName, void **address, udword flags)
 ----------------------------------------------------------------------------*/
 sdword fileLoad(char *_fileName, void *address, udword flags)
 {
+    int obigSize;const void *obig=fileObigView(_fileName,flags,&obigSize);
+    if(obig){if(obigSize)memcpy(address,obig,(size_t)obigSize);return obigSize;}
     char  *fileName   = NULL;
     FILE  *inFile     = NULL;
     
@@ -1070,7 +1151,9 @@ bool32 fileExistsInBigFile(char *fileName) {
     Return      : TRUE if file found, FALSE otherwise
 ----------------------------------------------------------------------------*/
 bool32 fileExists(char *_fileName, udword flags) {
+    char source[FL_Path];if(fileShipDocumentName(_fileName,source,sizeof(source)))return fileExists(source,flags);
     char *fileName;
+    int obigSize;if(fileObigView(_fileName,flags,&obigSize))return TRUE;
 
     if (!IgnoreBigfiles && !bitTest(flags, FF_CDROM|FF_IgnoreBIG|FF_UserSettingsPath))
     {
@@ -1114,6 +1197,9 @@ bool32 fileExists(char *_fileName, udword flags) {
 ----------------------------------------------------------------------------*/
 sdword fileSizeGet(char *_fileName, udword flags)
 {
+    void* compiled=NULL;sdword compiledSize=fileShipDocumentGameplay(_fileName,&compiled,flags);
+    if(compiledSize!=-1){if(compiled)memFree(compiled);return compiledSize;}
+    int obigSize;if(fileObigView(_fileName,flags,&obigSize))return obigSize;
     FILE *file;
     sdword length;
     char *fileName;
@@ -1211,6 +1297,21 @@ filehandle fileOpen(char *_fileName, udword flags)
     }
 
     strcpy(filesOpen[fh].path, _fileName);
+    filesOpen[fh].mappedArchive=FALSE;
+    {
+        void* compiled=NULL;sdword compiledSize=fileShipDocumentGameplay(_fileName,&compiled,flags);
+        if(compiledSize!=-1){if(compiledSize<0)return 0;
+            filesOpen[fh].inUse=TRUE;filesOpen[fh].usingBigfile=TRUE;
+            filesOpen[fh].decompBuf=compiled;filesOpen[fh].offsetVirtual=0;
+            filesOpen[fh].length=compiledSize;filesOpen[fh].textMode=bitTest(flags,FF_TextMode);return fh;}
+    }
+    {
+        int obigSize;const void *obig=fileObigView(_fileName,flags,&obigSize);
+        if(obig){filesOpen[fh].inUse=TRUE;filesOpen[fh].usingBigfile=TRUE;
+            filesOpen[fh].mappedArchive=TRUE;filesOpen[fh].decompBuf=(char*)obig;
+            filesOpen[fh].offsetVirtual=0;filesOpen[fh].length=obigSize;
+            filesOpen[fh].textMode=bitTest(flags,FF_TextMode);return fh;}
+    }
 
     // if the filename starts with a slash it's a full path
     // which we should use as is
@@ -1377,6 +1478,11 @@ filehandle fileOpen(char *_fileName, udword flags)
     if (bitTest(flags, FF_AppendMode | FF_WriteMode) &&
         !fileMakeDestinationDirectory(fileName))
     {
+        if (bitTest(flags, FF_ReturnNULLOnFail))
+        {
+            HW_DIAG_FPRINTF(stderr, "[File] Cannot create destination directory: %s\n", fileName);
+            return 0;
+        }
         dbgFatalf(
             DBG_Loc,
             "fileOpen: unable to create destination directory for file %s",
@@ -1420,7 +1526,7 @@ void fileClose(filehandle handle)
 
     if (!filesOpen[handle].usingBigfile)
         fclose(filesOpen[handle].fileP);
-    else if (filesOpen[handle].decompBuf)
+    else if (filesOpen[handle].decompBuf && !filesOpen[handle].mappedArchive)
     {
         if (filesOpen[handle].decompBuf == decompWorkspaceP)
             decompWorkspaceInUse = FALSE;
@@ -1646,6 +1752,7 @@ sdword fileLineRead(filehandle handle, char *dest, sdword nChars)
                     /* Remove the "\n" character if this is a DOS
                        end-of-line. */
                     // getc
+                    if (filesOpen[handle].offsetVirtual >= filesOpen[handle].length) break;
                     ch = *(loc++);
                     ++filesOpen[handle].offsetVirtual;
                     if (ch != '\n')
@@ -1918,10 +2025,27 @@ void filePathMaxBufferSet(char *buffer, char *path)
 char *filePathPrepend(char *fileName, udword flags)
 {
     dbgAssertOrIgnore(fileName != NULL);
+    if(!bitTest(flags,FF_UserSettingsPath|FF_CDROM|FF_HomeworldDataPath|FF_WriteMode|FF_AppendMode) &&
+       openhwModOverride(fileName,filePathTempBuffer,sizeof(filePathTempBuffer)))return filePathTempBuffer;
 
     if (bitTest(flags, FF_IgnorePrepend))
     {
-        strcpy(filePathTempBuffer, "");
+        /* Legacy scriptSet() requests FF_IgnorePrepend even for relative
+           game-data names. In a loose WIP install those files live in Data;
+           absolute/editor/user paths keep their original meaning. */
+        if (getenv("HW_LOOSE_DATA") &&
+            !bitTest(flags, FF_WriteMode|FF_AppendMode) &&
+            fileName[0] != '/' && fileName[0] != '\\' &&
+            !(isalpha((unsigned char)fileName[0]) && fileName[1] == ':') &&
+            strlen(fileHomeworldDataPath)+strlen(fileName) < sizeof(filePathTempBuffer))
+        {
+            char candidate[PATH_MAX];
+            struct stat status;
+            strcpy(candidate,fileHomeworldDataPath);
+            strcat(candidate,fileName);
+            strcpy(filePathTempBuffer,stat(candidate,&status)==0 ? fileHomeworldDataPath : "");
+        }
+        else strcpy(filePathTempBuffer, "");
     }
     else if (bitTest(flags, FF_HomeworldDataPath))
     {
@@ -1938,6 +2062,23 @@ char *filePathPrepend(char *fileName, udword flags)
     else
     {
         strcpy(filePathTempBuffer, fileOverrideBigPath);
+        /* Initial portable setups placed the legacy audio streams in Data.
+           Resolve them locally there if no root override exists. This lets a
+           binary-only update repair startup without reimporting any assets. */
+        if (getenv("HW_PORTABLE_ROOT") &&
+            (!strcmp(fileName,"HW_Music.wxd") || !strcmp(fileName,"HW_comp.vce") ||
+             !strcmp(fileName,"HW_Comp.vce")))
+        {
+            char streamPath[PATH_MAX];
+            struct stat streamStatus;
+            if (strlen(fileOverrideBigPath)+strlen(fileName)<sizeof(streamPath))
+            {
+                strcpy(streamPath,fileOverrideBigPath);
+                strcat(streamPath,fileName);
+                if (stat(streamPath,&streamStatus)!=0)
+                    strcpy(filePathTempBuffer,fileHomeworldDataPath);
+            }
+        }
     }
 
     // Fixup double backslash paths
@@ -2011,12 +2152,18 @@ bool32 fileUserSettingsPathSet(char *path) {
 ----------------------------------------------------------------------------*/
 void logfileClear(char *logfile)
 {
+#if HW_ENABLE_DIAGNOSTICS
+
     FILE *file = NULL;
 
     if ((file = fopen(logfile, "wt")) != NULL)      // open and close to make it 0 size
     {
         fclose(file);
     }
+
+#else
+
+#endif
 }
 
 /*-----------------------------------------------------------------------------
@@ -2028,6 +2175,8 @@ void logfileClear(char *logfile)
 ----------------------------------------------------------------------------*/
 void logfileLog(char *logfile, char *str)
 {
+#if HW_ENABLE_DIAGNOSTICS
+
     FILE *file = NULL;
 
     if ((file = fopen(logfile, "at")) != NULL)
@@ -2035,6 +2184,10 @@ void logfileLog(char *logfile, char *str)
         fprintf(file, "%s", str);
         fclose(file);
     }
+
+#else
+
+#endif
 }
 
 /*-----------------------------------------------------------------------------
@@ -2046,6 +2199,8 @@ void logfileLog(char *logfile, char *str)
 ----------------------------------------------------------------------------*/
 void logfileLogf(char *logfile, char *format, ...)
 {
+#if HW_ENABLE_DIAGNOSTICS
+
     char buffer[200];
     va_list argList;
     va_start(argList, format);                  //get first arg
@@ -2053,4 +2208,8 @@ void logfileLogf(char *logfile, char *format, ...)
     va_end(argList);
 
     logfileLog(logfile,buffer);
+
+#else
+
+#endif
 }

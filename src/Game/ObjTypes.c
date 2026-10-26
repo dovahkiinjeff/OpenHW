@@ -721,4 +721,3 @@ ObjType StrToObjType(char *str)
 {
     return StrToNum(objtypeinfo, str);
 }
-

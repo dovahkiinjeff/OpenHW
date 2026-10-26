@@ -88,8 +88,7 @@ typedef struct shadeLight
 
 static shadeLight shLight[2];
 
-static hmatrix shLightMatStack[10];
-static long shLightMatStackPos = 0;
+#include "ShaderLightMatrixStack.h"
 
 static sdword nVerts;
 static hvector* normalList = NULL;
@@ -122,8 +121,7 @@ void shStartup(void)
     shGammaAdjust = 0.15f;
     shBrightness = shGammaAdjust * 127.0f;
 
-	shLightMatStackPos = 0;
-	shLightMatStack[0] = IdentityHMatrix;
+    shLightMatrixStackReset();
 }
 
 /*-----------------------------------------------------------------------------
@@ -135,6 +133,7 @@ void shStartup(void)
 ----------------------------------------------------------------------------*/
 void shShutdown(void)
 {
+    shLightMatrixStackRelease();
     nVerts = 0;
     if (normalList != NULL)
     {
@@ -678,6 +677,24 @@ void shShadeBuffer(sdword nVertices, hvector* source)
     }
 }
 
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+int shCapturePersistentShade(HWLegacyShadeState *state)
+{
+    sdword light;
+    if(!state||lightNumLights>2)return 0;
+    memset(state,0,sizeof(*state));
+    memcpy(state->base,shBaseColor,3*sizeof(float));state->base[3]=shBaseAlpha;
+    for(light=0;light<lightNumLights;++light) {
+        memcpy(state->direction[light],shLight[light].inverseworldposition,3*sizeof(float));
+        memcpy(state->diffuse[light],shLight[light].matdiffuse,3*sizeof(float));
+    }
+    state->dock[0]=shDockScalarRed;state->dock[1]=shDockScalarGreen;
+    state->dock[2]=shDockScalarBlue;state->dock[3]=shDockFactor;
+    state->parameters[0]=1;state->parameters[1]=(float)lightNumLights;
+    return 1;
+}
+#endif
+
 void shColourSet0(vector* norm)
 {
     udword l;
@@ -1111,44 +1128,4 @@ long	i;
 	}
 }
 
-static void shMultiplyHMatByHMatRot(hmatrix *result, hmatrix *first, hmatrix *second)
-{
-	result->m11 = matrixdot(first->m11,first->m12,first->m13,second->m11,second->m21,second->m31);
-	result->m12 = matrixdot(first->m11,first->m12,first->m13,second->m12,second->m22,second->m32);
-	result->m13 = matrixdot(first->m11,first->m12,first->m13,second->m13,second->m23,second->m33);
-
-	result->m21 = matrixdot(first->m21,first->m22,first->m23,second->m11,second->m21,second->m31);
-	result->m22 = matrixdot(first->m21,first->m22,first->m23,second->m12,second->m22,second->m32);
-	result->m23 = matrixdot(first->m21,first->m22,first->m23,second->m13,second->m23,second->m33);
-
-	result->m31 = matrixdot(first->m31,first->m32,first->m33,second->m11,second->m21,second->m31);
-	result->m32 = matrixdot(first->m31,first->m32,first->m33,second->m12,second->m22,second->m32);
-	result->m33 = matrixdot(first->m31,first->m32,first->m33,second->m13,second->m23,second->m33);
-}
-
-
-void shPushLightMatrix(hmatrix *pMat)
-{
-hmatrix	*pCurMat, *pNewMat;
-
-	pCurMat = &shLightMatStack[shLightMatStackPos];
-	shLightMatStackPos++;
-
-	dbgAssertOrIgnore(shLightMatStackPos < 10);
-
-	pNewMat = pCurMat+1;
-
-	shMultiplyHMatByHMatRot(pNewMat, pCurMat, pMat);
-
-	shUpdateLightsFromMatrix(pNewMat);
-}
-
-void shPopLightMatrix(void)
-{
-	shLightMatStackPos--;
-
-	dbgAssertOrIgnore(shLightMatStackPos >= 0);
-
-	shUpdateLightsFromMatrix(&shLightMatStack[shLightMatStackPos]);
-}
-
+#include "ShaderLightMatrixStack.inc"

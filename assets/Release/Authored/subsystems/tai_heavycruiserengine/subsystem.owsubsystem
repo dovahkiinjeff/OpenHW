@@ -1,0 +1,5 @@
+OPENHW_SUBSYSTEM_1
+type Subsystem_tai_heavycruiserengine
+scale 1
+hull model.hod
+mad -

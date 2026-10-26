@@ -1,0 +1,10 @@
+HW_RM_P2_VISUAL_1
+type P2AdvanceSwarmer
+scale 2.91076026
+hull hull.hod
+mad -
+marker engine_0 Hull EngineNozzle1
+attach FuelTank Hardpoint_FuelTank_Position 3 component1.hod
+surface 0 0 c0_m0
+surface 0 1 c0_m1
+surface 1 0 c1_m0

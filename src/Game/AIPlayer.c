@@ -16,6 +16,7 @@
 #include "NIS.h"
 #include "Randy.h"
 #include "SaveGame.h"
+#include "SaveGameLayout.h"
 #include "SinglePlayer.h"
 #include "Stats.h"
 #include "Tweak.h"
@@ -1740,20 +1741,33 @@ AIPlayer *LoadThisAIPlayer(void)
     SaveChunk *chunk;
     AIPlayer *aiplayer;
     udword i;
+    unsigned savedShipCount;
 
     chunk = LoadNextChunk();
-    VerifyChunk(chunk,BASIC_STRUCTURE|AIPLAYER,sizeof(AIPlayer));
+    VerifyChunkNoSize(chunk,BASIC_STRUCTURE|AIPLAYER);
 
     aiplayer = memAlloc(sizeof(AIPlayer),"AIPlayer",0);
-    memcpy(aiplayer,chunkContents(chunk),sizeof(AIPlayer));
+    savedShipCount = saveMigrateAIPlayer(aiplayer,chunkContents(chunk),chunk->contentsSize);
+    if (!savedShipCount)
+    {
+        dbgFatalf(DBG_Loc,"Unsupported saved AI layout (%d bytes)",chunk->contentsSize);
+        memFree(chunk);
+        memFree(aiplayer);
+        return NULL;
+    }
     memFree(chunk);
 
     LoadGrowSelectionAndFix(&aiplayer->newships);
 
-    for (i=0;i<TOTAL_NUM_SHIPS;i++)
+    for (i=0;i<savedShipCount;i++)
     {
         LoadGrowSelectionAndFix(&aiplayer->enemyShipsIAmAwareOf[i]);
         LoadGrowSelectionAndFix(&aiplayer->primaryEnemyShipsIAmAwareOf[i]);
+    }
+    for (;i<TOTAL_NUM_SHIPS;i++)
+    {
+        growSelectInit(&aiplayer->enemyShipsIAmAwareOf[i]);
+        growSelectInit(&aiplayer->primaryEnemyShipsIAmAwareOf[i]);
     }
 
     LoadLinkedListOfStuff(&aiplayer->AttackManRequestShipsQ,LoadRequestShipsCB);
@@ -1871,5 +1885,4 @@ void aiplayerLoad(void)
 #ifdef _WIN32_FIX_ME
  #pragma warning( 2 : 4047)      // turn back on "different levels of indirection warning"
 #endif
-
 

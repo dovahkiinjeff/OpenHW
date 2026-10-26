@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     Name    : Font.c
     Purpose : Functions for loading and drawing fonts.
@@ -582,6 +583,9 @@ bool32 glfontDisplayString(fontheader* font, char* string, sdword x, sdword y, c
     bright = colRGB(brights[0], brights[1], brights[2]);
 
     //set up GL state
+#ifdef HW_ENABLE_D3D12_NATIVE_RASTER
+    hwglCaptureEngineIdle(-1.0f);
+#endif
     trClearCurrent();
     lastGLHandle = 0;
     texOn = rndTextureEnable(TRUE);
@@ -1138,7 +1142,7 @@ sdword fontPrintN(sdword x, sdword y, color c, char *string, sdword maxCharacter
     }
 
 #ifdef HW_ENABLE_GLES
-    fprintf(stderr, "failed to display string: %s\n", string);
+    HW_DIAG_FPRINTF(stderr, "failed to display string: %s\n", string);
 #else
 #if FONT_MANUAL_CLIP
 /*

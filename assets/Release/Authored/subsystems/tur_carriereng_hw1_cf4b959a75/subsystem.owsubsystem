@@ -1,0 +1,9 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_tur_carriereng_hw1_cf4b959a75
+scale 1
+hull @/Subsystems/tur_carriereng/model.hod
+mad -
+
+presentation Hull component_events.owevents
+[Weapons]
+[End]

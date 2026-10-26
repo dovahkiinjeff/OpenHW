@@ -82,6 +82,7 @@ typedef struct {
     sdword inUse;
     char path[PATH_MAX];    // full path name of open file
     sdword usingBigfile;    // true if this has been "opened" within the bigfile instead of on disk
+    sdword mappedArchive;  // decompBuf borrows immutable OBIG memory; never free it
     FILE *fileP;            // valid if we've opened directly from disk
     // valid when usingBigfile:
     FILE *bigFP;            // could be using either the main
@@ -151,5 +152,12 @@ sdword fileSizeGet(char *fileName, udword flags);
 void logfileClear(char *logfile);
 void logfileLog(char *logfile,char *str);
 void logfileLogf(char *logfile,char *format, ...);
+
+#include "../Modern/DiagnosticPolicy.h"
+#if !HW_ENABLE_DIAGNOSTICS && !defined(HW_DIAGNOSTIC_IMPLEMENTATION)
+#define logfileClear(...) ((void)0)
+#define logfileLog(...) ((void)0)
+#define logfileLogf(...) ((void)0)
+#endif
 
 #endif

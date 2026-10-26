@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     Name    : Texreg.c
     Purpose : Maintain a texture registry
@@ -32,7 +33,9 @@
 
 #ifdef HW_ENABLE_D3D12_BACKEND
 #include "ModernGraphics.h"
+#include "ReplacementTextureStorage.h"
 extern void meshResolveModernSurfaceTextures(void);
+static HWReplacementTextureStorage trReplacementStorage[TR_RegistrySize];
 
 static bool32 trModernTextureDiagEnabled(void)
 {
@@ -60,6 +63,18 @@ static bool32 trNoPalInitialized = FALSE;
 static unsigned long long trTeamColorCalls = 0;
 static unsigned long long trTeamColorPixels = 0;
 static double trTeamColorMilliseconds = 0.0;
+static bool32 trLoadingUploadProgressActive = FALSE;
+static unsigned trLoadingUploadCompleted = 0, trLoadingUploadTotal = 0;
+
+static void trLoadingTextureReady(const char *name)
+{
+    if (trLoadingUploadProgressActive)
+    {
+        char task[256];
+        snprintf(task, sizeof(task), "Texture ready: %.210s", name);
+        HorseRaceLoadingProgress(++trLoadingUploadCompleted, trLoadingUploadTotal, task);
+    }
+}
 
 sdword trTextureChanges = 0;
 sdword trAvoidedChanges = 0;
@@ -154,6 +169,9 @@ void trReload(void)
 ----------------------------------------------------------------------------*/
 void trStartup(void)
 {
+#ifdef HW_ENABLE_D3D12_BACKEND
+    memset(trReplacementStorage, 0, sizeof(trReplacementStorage));
+#endif
 #if TR_DEBUG_TEXTURES
     sdword index;
     for (index = 0; index < TR_PaletteLength; index++)
@@ -238,7 +256,7 @@ void trShutdown(void)
 {
     if (trTeamColorCalls != 0)
     {
-        fprintf(stderr,
+        HW_DIAG_FPRINTF(stderr,
             "[TexturePerf] CPU fleet coloration=%llu calls %.1f Mpixels %.1f ms\n",
             trTeamColorCalls, (double)trTeamColorPixels / 1000000.0,
             trTeamColorMilliseconds);
@@ -320,6 +338,14 @@ void trInternalTexturesDelete(trhandle handle)
 
     //free the palette or list of texture handles
     //sharing handled
+#ifdef HW_ENABLE_D3D12_BACKEND
+    if (hwReplacementStorageOwns(&trReplacementStorage[trIndex(handle)], reg->palettes))
+    {
+        /* Slot-owned replacement metadata is not a legacy heap allocation. */
+        trReplacementStorage[trIndex(handle)].resident = 0;
+    }
+    else
+#endif
     if (reg->sharedFrom != TR_NotShared)
     {                                                       //if it's shared
         memFree(reg->palettes);
@@ -426,6 +452,16 @@ sdword trTextureDelete(trhandle handle)
         trAllSharedFromDelete(trIndex(handle), FALSE);
     }
 
+    // Internal deletion leaves a pending color-info list. Release it as well
+    // when retiring the registry slot (including slots already pending).
+    if (reg->palettes != NULL)
+    {
+        memFree(reg->palettes);
+        reg->palettes = NULL;
+    }
+#ifdef HW_ENABLE_D3D12_BACKEND
+    trReplacementStorage[trIndex(handle)].resident = 0;
+#endif
     //delete the name string
     memFree(reg->fileName);                                 //free the name of the texture
     trNameCRCs[trIndex(handle)] = 0;                        //clear this CRC to blank
@@ -1717,11 +1753,12 @@ ubyte *trImageScaleIndexed(ubyte *data, sdword width, sdword height, sdword newW
 void trPreLoadedTextureScale(sdword handle, sdword newWidth, sdword newHeight)
 {
     texreg *reg = &trTextureRegistry[handle];
-    ubyte *newIndexed, *oldIndexed;
-    trcolorinfo *oldColorInfos, *newColorInfos;
-    udword *handles;
-    bool32 bUseAlpha;
-    sdword index;
+
+#ifdef HW_ENABLE_D3D12_BACKEND
+    /* scaledWidth/Height describe the real DDS/PNG allocation, not the LIF
+       budget. Retained ships must keep that allocation across mission loads. */
+    if (trReplacementStorage[handle].resident) return;
+#endif
 
     //sharing handled
     if (reg->sharedFrom != TR_NotShared)
@@ -1732,21 +1769,10 @@ void trPreLoadedTextureScale(sdword handle, sdword newWidth, sdword newHeight)
     dbgAssertOrIgnore(newWidth != reg->scaledWidth || newHeight != reg->scaledHeight);
     dbgAssertOrIgnore(!trPending(handle));
 
-    //... flag the texture for re-loading (make pending).
-    if (bitTest(reg->flags, TRF_Paletted))
-    {                                                   //if it's a paletted texture
-        oldColorInfos = (trcolorinfo *)((ubyte *)reg->palettes + TR_PaletteSize * reg->nPalettes);
-    }
-    else
-    {                                                   //else's it's an RGB texture
-        oldColorInfos = (trcolorinfo *)((ubyte *)reg->palettes + sizeof(udword) * reg->nPalettes);
-    }
-    //make duplicate copy of the colorinfo structures
-    newColorInfos = memAlloc(TR_NumPaletteSize, "dupe trcolorinfo list", NonVolatile);
-    memcpy(newColorInfos, oldColorInfos, sizeof(trcolorinfo) * reg->nPalettes);
-
+    //... flag the legacy texture for re-loading (make pending).
     trInternalTexturesDelete(handle);                   //kill the GL textures and palettes
-    reg->palettes = (ubyte *)newColorInfos;             //save new list of color infos
+    // trInternalTexturesDelete already retains the colors; a second copy
+    // leaked its first allocation on every transition-driven resize.
     trSetPending(trIndex(handle));                      //make this texture pending, to be re-loaded
 
     reg->scaledWidth = newWidth;
@@ -1916,7 +1942,8 @@ static bool32 trModernLoadLooseGrayPng(const char *name,
         unsigned int ddsWidth = 0, ddsHeight = 0;
         unsigned char *rgba = NULL;
         pixels = NULL;
-        if (hwModernGraphicsDecodeDds(fileData, (unsigned int)fileSize,
+        if (hwModernGraphicsDecodeModelDds(fileData, (unsigned int)fileSize,
+                                     name, mainTextureResolution,
                                      &ddsWidth, &ddsHeight, &rgba))
         {
             sdword index;
@@ -1979,15 +2006,23 @@ static ubyte *trModernLoosePngEffectMap(const lifheader *lifFile,
         snprintf(extension,
                  sizeof(maskName) - (size_t)(extension - maskName),
                  "_teamEffect%d.dds", effectIndex);
-        if (!trModernLoadLooseGrayPng(maskName, sourceWidth, sourceHeight,
+        if (!trModernLoadLooseGrayPng(maskName, width, height,
                                       &explicitMask))
         {
             snprintf(extension,
                      sizeof(maskName) - (size_t)(extension - maskName),
                      "_teamEffect%d.png", effectIndex);
-            trModernLoadLooseGrayPng(maskName, sourceWidth, sourceHeight,
+            trModernLoadLooseGrayPng(maskName, width, height,
                                      &explicitMask);
         }
+    }
+
+    /* Imported masks belong to the full-resolution DDS, not the small LIF
+       bootstrap. Only the legacy fallback uses the LIF dimensions. */
+    if (explicitMask != NULL)
+    {
+        sourceWidth = width;
+        sourceHeight = height;
     }
 
     result = (ubyte *)memAlloc((memsize)width * height,
@@ -2087,13 +2122,36 @@ static bool32 trModernTryLoadLoosePng(texreg *reg,
     bool32 isDds;
     ubyte *effect0;
     ubyte *effect1;
+    ubyte *paintShade = NULL;
     color *colored = NULL;
     sdword count;
     bool32 useAlpha;
+    ubyte originalFlags;
+    crc32 originalPaletteCRC;
+    sdword ddsSourceWidth = 0, ddsSourceHeight = 0;
+    int textureQuality = mainTextureResolution;
+    unsigned int textureCap;
+    const char *component;
+
+    /* FX replacements have their own 256..2048 source-size policy. Hull
+       texture quality must not discard their authored top mip. Animation UVs
+       still use diskWidth/diskHeight; physical dimensions remain separate. */
+    if (lifName != NULL)
+        for (component = lifName; *component; ++component)
+            if ((component == lifName || component[-1] == '\\' || component[-1] == '/') &&
+                tolower((unsigned char)component[0]) == 'e' &&
+                tolower((unsigned char)component[1]) == 't' &&
+                tolower((unsigned char)component[2]) == 'g' &&
+                (component[3] == '\\' || component[3] == '/'))
+            { textureQuality = 3; break; }
+    textureCap = hwModernGraphicsModelTextureCap(textureQuality);
 
     if (reg == NULL || lifFile == NULL || lifName == NULL ||
+        reg->nPalettes < 1 || reg->nPalettes > HW_REPLACEMENT_PALETTES ||
         !trModernLoosePngPath(pngName, sizeof(pngName), lifName))
         return FALSE;
+    originalFlags = reg->flags;
+    originalPaletteCRC = reg->paletteCRC;
 
     fileSize = fileLoadAlloc(pngName, &fileData, FF_IgnoreBIG);
     if (fileSize <= 0 || fileData == NULL) return FALSE;
@@ -2106,7 +2164,11 @@ static bool32 trModernTryLoadLoosePng(texreg *reg,
        the complete authored mip chain. Team-colored surfaces still take the
        CPU path below because the legacy registry bakes fleet colors per
        palette before upload. */
-    if (isDds && !(reg->flags & (TRF_TeamColor0 | TRF_TeamColor1)))
+    if (isDds && trModernDdsDimensions(fileData, fileSize,
+            &ddsSourceWidth, &ddsSourceHeight) &&
+        (!textureCap || (ddsSourceWidth <= (sdword)textureCap &&
+                         ddsSourceHeight <= (sdword)textureCap)) &&
+        !(reg->flags & (TRF_TeamColor0 | TRF_TeamColor1)))
     {
         bool32 directSucceeded = TRUE;
         sdword physicalWidth = 0;
@@ -2123,11 +2185,14 @@ static bool32 trModernTryLoadLoosePng(texreg *reg,
         reg->paletteCRC = TR_BadCRC;
         if (colorInfo != NULL)
         {
-            reg->palettes = memAlloc(sizeof(udword) * reg->nPalettes +
-                                     sizeof(trcolorinfo) * reg->nPalettes,
-                                     "Modern direct DDS handles", NonVolatile);
-            memcpy((ubyte *)reg->palettes + sizeof(udword) * reg->nPalettes,
-                   colorInfo, sizeof(trcolorinfo) * reg->nPalettes);
+            reg->palettes = hwReplacementStorageBegin(
+                &trReplacementStorage[reg - trTextureRegistry],
+                reg->nPalettes, colorInfo);
+            if (reg->palettes == NULL)
+            {
+                memFree(fileData);
+                return FALSE;
+            }
             for (count = 0; count < reg->nPalettes; ++count)
             {
                 udword handle = TR_InvalidInternalHandle;
@@ -2153,12 +2218,28 @@ static bool32 trModernTryLoadLoosePng(texreg *reg,
         {
             reg->scaledWidth = (sword)physicalWidth;
             reg->scaledHeight = (sword)physicalHeight;
-            if (trModernTextureDiagEnabled())
-                fprintf(stderr,
-                    "[ModernTexture] direct BC7+mips replaces LIF: %s -> %s\n",
-                    lifName, pngName);
+            if (trModernTextureDiagEnabled() ||
+                strstr(lifName, "Mothership\\RMNative\\") != NULL)
+                HW_DIAG_FPRINTF(stderr,
+                    "[ModernTexture] direct DDS replaces LIF: %s -> %s (%dx%d)\n",
+                    lifName, pngName, physicalWidth, physicalHeight);
             return TRUE;
         }
+        /* A failed replacement upload must roll back to the pending legacy
+           colors, not hand slot-owned storage to the LIF loader's memFree. */
+        if (reg->nPalettes > 1 && reg->palettes != NULL)
+        {
+            for (count = 0; count < reg->nPalettes; ++count)
+                if (((udword *)reg->palettes)[count] != TR_InvalidInternalHandle)
+                    glDeleteTextures(1, (GLuint *)&((udword *)reg->palettes)[count]);
+        }
+        else if (reg->handle != TR_InvalidInternalHandle)
+            glDeleteTextures(1, (GLuint *)&reg->handle);
+        trReplacementStorage[reg - trTextureRegistry].resident = 0;
+        reg->palettes = (ubyte *)colorInfo;
+        reg->handle = TR_InvalidInternalHandle;
+        reg->flags = originalFlags;
+        reg->paletteCRC = originalPaletteCRC;
         return FALSE;
     }
 
@@ -2166,8 +2247,8 @@ static bool32 trModernTryLoadLoosePng(texreg *reg,
     {
         unsigned int ddsWidth = 0, ddsHeight = 0;
         pixels = NULL;
-        if (hwModernGraphicsDecodeDdsShared(
-                fileData, (unsigned int)fileSize, pngName,
+        if (hwModernGraphicsDecodeModelDds(
+                fileData, (unsigned int)fileSize, pngName, textureQuality,
                 &ddsWidth, &ddsHeight, &pixels))
         {
             width = (int)ddsWidth;
@@ -2219,13 +2300,28 @@ static bool32 trModernTryLoadLoosePng(texreg *reg,
     reg->scaledWidth = (sword)width;
     reg->scaledHeight = (sword)height;
 
+    /* Optional imported-material paint shading. Existing assets have no
+       sidecar and retain their exact legacy fleet-color behavior. */
+    {
+        char shadeName[PATH_MAX];
+        char *shadeExtension;
+        strncpy(shadeName, pngName, sizeof(shadeName) - 1);
+        shadeName[sizeof(shadeName) - 1] = 0;
+        shadeExtension = strrchr(shadeName, '.');
+        if (shadeExtension != NULL)
+        {
+            snprintf(shadeExtension,
+                sizeof(shadeName) - (size_t)(shadeExtension - shadeName),
+                "_paintShade.dds");
+            trModernLoadLooseGrayPng(shadeName, width, height, &paintShade);
+        }
+    }
+
     if (colorInfo != NULL)
     {
-        reg->palettes = memAlloc(sizeof(udword) * reg->nPalettes +
-                                 sizeof(trcolorinfo) * reg->nPalettes,
-                                 "Modern loose PNG RGB handles", NonVolatile);
-        memcpy((ubyte *)reg->palettes + sizeof(udword) * reg->nPalettes,
-               colorInfo, sizeof(trcolorinfo) * reg->nPalettes);
+        reg->palettes = hwReplacementStorageBegin(
+            &trReplacementStorage[reg - trTextureRegistry],
+            reg->nPalettes, colorInfo);
         colored = (color *)memAlloc((memsize)sizeof(color) * width * height,
                                     "Modern loose PNG colored image", 0);
 
@@ -2239,6 +2335,20 @@ static bool32 trModernTryLoadLoosePng(texreg *reg,
                                      colorInfo[count].base, colorInfo[count].detail,
                                      width * height, reg->flags,
                                      scalar0[count], scalar1[count]);
+                    if (paintShade != NULL)
+                    {
+                        sdword shadeIndex;
+                        for (shadeIndex = 0; shadeIndex < width * height; ++shadeIndex)
+                        {
+                            color texel = colored[shadeIndex];
+                            udword shade = paintShade[shadeIndex];
+                            colored[shadeIndex] = colRGBA(
+                                (colRed(texel) * shade + 127) / 255,
+                                (colGreen(texel) * shade + 127) / 255,
+                                (colBlue(texel) * shade + 127) / 255,
+                                colAlpha(texel));
+                        }
+                    }
                     reg->handle = trRGBTextureCreate(colored, width, height,
                                                      useAlpha);
                 }
@@ -2267,12 +2377,14 @@ static bool32 trModernTryLoadLoosePng(texreg *reg,
     }
 
     if (colored != NULL) memFree(colored);
+    if (paintShade != NULL) memFree(paintShade);
     memFree(effect0);
     memFree(effect1);
     if (ddsPixels) hwModernGraphicsFreeDecodedDds(pixels);
     else stbi_image_free(pixels);
-    if (trModernTextureDiagEnabled())
-        fprintf(stderr,
+    if (trModernTextureDiagEnabled() ||
+        strstr(lifName, "Mothership\\RMNative\\") != NULL)
+        HW_DIAG_FPRINTF(stderr,
             "[ModernTexture] DDS/image replaces LIF: %s -> %s (%dx%d)\n",
             lifName, pngName, width, height);
     return TRUE;
@@ -2302,6 +2414,7 @@ void trMeshSortListLoad(trmeshsort *sortList)
     real32 scalar0[MAX_MULTIPLAYER_PLAYERS], scalar1[MAX_MULTIPLAYER_PLAYERS];
     real32 baseScalar, stripeScalar;
     ShipRace race;
+    char loadingTask[256];
 
 #if TR_ERROR_CHECKING
     sdword firstIndex = -1;
@@ -2338,6 +2451,8 @@ void trMeshSortListLoad(trmeshsort *sortList)
         if (trPending(sortList->textureList[index]))
         {                                                   //if texture needs loading
             reg = &trTextureRegistry[sortList->textureList[index]];
+            snprintf(loadingTask, sizeof(loadingTask), "Loading texture: %.210s", reg->fileName);
+            HorseRaceLoadingTask(loadingTask);
 
             if (reg->sharedFrom != TR_NotShared)
             {                                               //if this texture just refers to another texture
@@ -2346,6 +2461,7 @@ void trMeshSortListLoad(trmeshsort *sortList)
                 // which it refers are consistant.  This is OK, but we must keep track of this case
                 // and treat it specially later on when we try to access the color info structures
                 trClearPending(sortList->textureList[index]);
+                trLoadingTextureReady(reg->fileName);
                 continue;
             }
             //load in the image from pre-quantized .LiF file
@@ -2434,6 +2550,7 @@ void trMeshSortListLoad(trmeshsort *sortList)
                 trClearPending(sortList->textureList[index]);
                 memFree(colorInfo);
                 memFree(lifFile);
+                trLoadingTextureReady(reg->fileName);
                 continue;
             }
             if (bitTest(reg->flags, TRF_Paletted))
@@ -2656,6 +2773,7 @@ alreadyFoundPalette:;
 //            bitClear(reg->flags, TRF_Pending);              //texture no longer pending
             memFree(colorInfo);
             memFree(lifFile);                               //get rid of the image which is no longer needed
+            trLoadingTextureReady(reg->fileName);
         }
     }
 }
@@ -2952,6 +3070,9 @@ sdword trCramRAMScaleCompute(void)
 void trCramIntoRAM(sdword scaleFactor)
 {
     sdword x, y, index, used, size, width, height;
+#ifdef HW_ENABLE_D3D12_BACKEND
+    sdword retainedReplacements = 0;
+#endif
     sdword newSize[TR_TexSizesX][TR_TexSizesY];
     texreg *reg;
 
@@ -2988,6 +3109,10 @@ void trCramIntoRAM(sdword scaleFactor)
         {                                                   //else image already loaded and in use
             if (width != reg->scaledWidth || height != reg->scaledHeight)
             {                                               //if it needs to be scaled down
+#ifdef HW_ENABLE_D3D12_BACKEND
+                if (trReplacementStorage[trSizeSortList[index].index].resident)
+                    ++retainedReplacements;
+#endif
                 trPreLoadedTextureScale(trSizeSortList[index].index,
                                         width, height);     //scale it back
             }
@@ -3031,6 +3156,10 @@ itFitFine:;
             }
         }
     }
+#ifdef HW_ENABLE_D3D12_BACKEND
+    HW_DIAG_FPRINTF(stderr, "[TextureTransition] Preserved %d resident replacement textures at physical DDS/PNG dimensions.\n",
+            retainedReplacements);
+#endif
 }
 
 #ifdef _X86_64
@@ -3066,7 +3195,7 @@ void trListFileLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
 
     oldHeader = oldptr = oldbase;
 
-    //printf("%s size is %d\n", fileName, oldLength);
+    //HW_DIAG_PRINTF("%s size is %d\n", fileName, oldLength);
 
     newLength = 2*oldLength;
 
@@ -3101,21 +3230,21 @@ void trListFileLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
         newElement->imageCRC = oldElement->imageCRC; 
         newElement->nShared = oldElement->nShared; 
         if (oldElement->sharedTo != -1){    
-    //        printf("%x: pointer to %x\n",i,oldElement->sharedTo);
+    //        HW_DIAG_PRINTF("%x: pointer to %x\n",i,oldElement->sharedTo);
             newElement->sharedTo = (sdword*)((memsize)oldElement->sharedTo); 
         }
         else {
             newElement->sharedTo = (sdword *)-1;
         }
         if (oldElement->sharedFrom != -1){    
-     //       printf("%x:pointer to parent %x\n",i,oldElement->sharedFrom);
+     //       HW_DIAG_PRINTF("%x:pointer to parent %x\n",i,oldElement->sharedFrom);
             newElement->sharedFrom = oldElement->sharedFrom; 
         }
         else{
             newElement->sharedFrom = -1;
         }
 
-        //printf("%5d: %s: shared:%2d sharedTo: %5d sharedFrom:%5d\n",i, (memsize)tmpptr + (memsize)newElement->textureName, newElement->nShared,  newElement->sharedTo, newElement->sharedFrom); 
+        //HW_DIAG_PRINTF("%5d: %s: shared:%2d sharedTo: %5d sharedFrom:%5d\n",i, (memsize)tmpptr + (memsize)newElement->textureName, newElement->nShared,  newElement->sharedTo, newElement->sharedFrom); 
 
         offset += sizeof(llelement);
         newptr += sizeof(llelement);
@@ -3388,6 +3517,66 @@ bool32 trLiFMeasure(char *fileName, sdword *width, sdword *height, udword *flags
     return(TRUE);
 }
 
+static bool32 trPreparePreviewIndex(sdword index,sdword depth)
+{
+    texreg *reg;
+    trmeshsort list;
+    sdword width,height;
+    udword flags;
+    char source[PATH_MAX];
+    const char *name;
+    int length;
+    if(index<0 || index>=TR_RegistrySize || depth>=32 || !trAllocated(index))return FALSE;
+    reg=&trTextureRegistry[index];
+    if(!trPending(index))return TRUE;
+    if(reg->sharedFrom!=TR_NotShared){
+        if(!trPreparePreviewIndex((sdword)reg->sharedFrom,depth+1))return FALSE;
+        trClearPending(index);
+        return TRUE;
+    }
+    name=reg->fileName;
+    if(!name)return FALSE;
+    if(bitTest(reg->flags,TRF_SharedFileName))name+=strlen(name)+1;
+    length=snprintf(source,sizeof(source),"%s.LiF",name);
+    if(length<=0 || length>=(int)sizeof(source))return FALSE;
+    if(!trLiFMeasure(source,&width,&height,&flags)){
+        /* Classic shared files may not have a physical LIF at the alias path.
+           Resolve just this entry from the existing listing, not the registry. */
+        sdword listingLength=0;
+        llelement *listing;
+        char *shared=NULL;
+        bool32 measured;
+        if(!fileExists(TR_LifListing,0))return FALSE;
+        listing=trListFileLoad(TR_LifListing,&listingLength);
+        measured=trImageMeasureFromListing(reg->fileName,listing,listingLength,&width,&height,&flags,&shared);
+        if(measured && shared){
+            trSharedFilenameCreate(index,listing,listingLength);
+            name=(const char*)memchr(reg->fileName,0,SWORD_Max)+1;
+            length=snprintf(source,sizeof(source),"%s.LiF",name);
+        }
+        if(listing)memFree(listing);
+        if(!measured || length<=0 || length>=(int)sizeof(source) || !fileExists(source,0))return FALSE;
+    }
+    if(width<=0 || height<=0 || width>32767 || height>32767)return FALSE;
+    reg->diskWidth=reg->scaledWidth=(sword)width;
+    reg->diskHeight=reg->scaledHeight=(sword)height;
+    reg->flags|=(ubyte)(flags&TRM_ListFlag);
+    memset(&list,0,sizeof(list));
+    list.meshReference=reg->meshReference;
+    list.nAllocated=list.nTextures=1;
+    list.textureList=&index;
+    list.teamFlags=reg->flags;
+    trMeshSortListLoad(&list);
+    trClearCurrent();
+    return !trPending(index);
+}
+
+bool32 trPreparePreviewTexture(trhandle handle)
+{
+    if(handle==TR_Invalid || trIndex(handle)>=TR_RegistrySize)return FALSE;
+    return trPreparePreviewIndex((sdword)trIndex(handle),0);
+}
+
 /*-----------------------------------------------------------------------------
     Name        : trRegistryRefresh
     Description : Refresh the texture registry, deleting old textures and
@@ -3407,16 +3596,30 @@ void trRegistryRefresh(void)
     llelement *lifListing;
     sdword listingLength;
     udword listFlags;
+    unsigned loadingLayoutCompleted = 0, loadingLayoutTotal = 3;
+    char loadingTask[256];
+    trLoadingUploadProgressActive = FALSE;
 
 #if TR_NIL_TEXTURE
     if (GLOBAL_NO_TEXTURES)
+    {
+        HorseRaceLoadingPhaseBegin(HR_LOAD_TEXTURE_LAYOUT, "Textures disabled; no layout work requested");
+        HorseRaceLoadingPhaseComplete(HR_LOAD_TEXTURE_LAYOUT);
+        HorseRaceLoadingPhaseBegin(HR_LOAD_TEXTURE_UPLOAD, "Textures disabled; no upload work requested");
+        HorseRaceLoadingPhaseComplete(HR_LOAD_TEXTURE_UPLOAD);
         return;
+    }
 #endif
 
+    HorseRaceLoadingPhaseBegin(HR_LOAD_TEXTURE_LAYOUT, "Preparing the texture registry");
+    HorseRaceLoadingTask("Removing unreferenced textures");
 #if TR_VERBOSE_LEVEL >= 1
     dbgMessagef("trRegistryRefresh: Refreshing up to %d textures", trHighestAllocated);
 #endif  //TR_VERBOSE_LEVEL
     trTextureDeleteAllUnregistered();                       //start by getting rid of dead weight
+    for (index = 0; index <= trHighestAllocated; ++index)
+        if (trAllocated(index)) ++loadingLayoutTotal;
+    HorseRaceLoadingProgress(0, loadingLayoutTotal, "Preparing texture catalog and sharing");
 
     //allocate the texture size sort list
     dbgAssertOrIgnore(trSizeSortList == NULL);
@@ -3429,11 +3632,13 @@ void trRegistryRefresh(void)
     trMeshSortList = NULL;
 
     //load in the .ll file for sharing and sizing purposes
+    HorseRaceLoadingTask("Reading the texture dimensions and sharing catalog");
     lifListing = trListFileLoad(TR_LifListing, &listingLength);
 
     //sharing handled
     //this pass will ensure that all shared textures are consitent in color with the textures from which they are shared.
     //texture that are inconsitent will be made pending.
+    HorseRaceLoadingTask("Checking shared textures and team colors");
     for (index = 0; index <= trHighestAllocated; index++)
     {                                                       //for all loaded textures
         if (trAllocated(index))
@@ -3454,6 +3659,7 @@ void trRegistryRefresh(void)
             }
         }
     }
+    HorseRaceLoadingProgress(++loadingLayoutCompleted, loadingLayoutTotal, "Texture catalog and sharing checked");
     HorseRaceBeginBar(TEXTURE1_BAR);
     //now run through list and get image size of all pending images
     for (index = 0; index <= trHighestAllocated; index++)
@@ -3461,6 +3667,8 @@ void trRegistryRefresh(void)
         if (trAllocated(index))
         {                                                   //texture slot not free
             reg = &trTextureRegistry[index];                //get pointer to current texture reg struct
+            snprintf(loadingTask, sizeof(loadingTask), "Measuring texture: %.210s", reg->fileName);
+            HorseRaceLoadingTask(loadingTask);
             if (trPending(index))
             {                                               //if pending a load
                 //... get width/height/flags trying several methods
@@ -3569,6 +3777,7 @@ void trRegistryRefresh(void)
             trSizeSortList[trSizeSortLength].height = reg->diskHeight;
             trSizeSortLength++;
             trMeshSortAdd(index, listFlags);                //add entry to mesh-sort list
+            HorseRaceLoadingProgress(++loadingLayoutCompleted, loadingLayoutTotal, loadingTask);
         }
 
         if ((index & 31) == 0)
@@ -3589,7 +3798,9 @@ void trRegistryRefresh(void)
     }
 
     //now that we have the lists, we can sort them
+    HorseRaceLoadingTask("Sorting the texture layout by image dimensions");
     qsort(trSizeSortList, trSizeSortLength, sizeof(trmemmap), trSizeSortCompare);
+    HorseRaceLoadingProgress(++loadingLayoutCompleted, loadingLayoutTotal, "Texture dimension sorting complete");
 
     //!!! important note:  the texture cramming operation uses an order inherently
     //  different from the one used in actual texture creation (size-sorted as
@@ -3599,9 +3810,26 @@ void trRegistryRefresh(void)
     //  as the mesh-sort lists.
 
     //fit all textures into allotted RAM
+    HorseRaceLoadingTask("Planning texture storage and resolution");
     scaleFactor = trCramRAMScaleCompute();
     trCramIntoRAM(scaleFactor);
+    HorseRaceLoadingProgress(++loadingLayoutCompleted, loadingLayoutTotal, "Texture storage layout complete");
+    HorseRaceLoadingPhaseComplete(HR_LOAD_TEXTURE_LAYOUT);
 
+    // Count actual pending texture entries, not mesh-list indexes. Cached
+    // entries are not uploads; shared and loose-PNG fast paths each resolve
+    // one pending entry. The final item resolves native surface channels.
+    trLoadingUploadCompleted = 0;
+    trLoadingUploadTotal = 1;
+    for (index = 0; index < trMeshSortLength; ++index)
+    {
+        sdword textureIndex;
+        for (textureIndex = 0; textureIndex < trMeshSortList[index].nTextures; ++textureIndex)
+            if (trPending(trMeshSortList[index].textureList[textureIndex])) ++trLoadingUploadTotal;
+    }
+    trLoadingUploadProgressActive = TRUE;
+    HorseRaceLoadingPhaseBegin(HR_LOAD_TEXTURE_UPLOAD, "Loading and preparing texture images");
+    HorseRaceLoadingProgress(0, trLoadingUploadTotal, "Preparing texture image uploads");
     //now run through the mesh-sorted lists and load them in that order
     for (index = texes = 0; index < trMeshSortLength; index++)
     {
@@ -3611,6 +3839,12 @@ void trRegistryRefresh(void)
     HorseRaceBeginBar(TEXTURE2_BAR);  //texture barnumber = second parm
     for (index = 0; index < trMeshSortLength; index++)
     {                                                       //for each mesh-sort list
+        if (trMeshSortList[index].nTextures > 0)
+        {
+            const texreg *firstTexture = &trTextureRegistry[trMeshSortList[index].textureList[0]];
+            snprintf(loadingTask, sizeof(loadingTask), "Loading texture group: %.200s", firstTexture->fileName);
+            HorseRaceLoadingTask(loadingTask);
+        }
         HorseRaceNext(((real32)index)/((real32)texes));
         if (hrAbortLoadingGame)
         {
@@ -3645,9 +3879,16 @@ abortloading:
 #ifdef HW_ENABLE_D3D12_BACKEND
     if (!hrAbortLoadingGame)
     {
+        HorseRaceLoadingTask("Resolving Remastered surface texture channels");
         meshResolveModernSurfaceTextures();
     }
 #endif
+    if (!hrAbortLoadingGame)
+    {
+        trLoadingTextureReady("Final surface texture bindings");
+        HorseRaceLoadingPhaseComplete(HR_LOAD_TEXTURE_UPLOAD);
+    }
+    trLoadingUploadProgressActive = FALSE;
 #if MEM_ANALYSIS
     memAnalysisCreate();
 #endif
@@ -3697,6 +3938,7 @@ void trMakeCurrent(trhandle handle)
 #if TR_ERROR_CHECKING
         dbgMessagef("%s: sent invalid trhandle: 0x%lx", __func__, handle);
 #endif
+        rndTextureEnable(FALSE);
         return;
     }
 
@@ -3712,14 +3954,14 @@ void trMakeCurrent(trhandle handle)
         rndTextureEnable(FALSE);
         return;
     }
-    if (trCurrentHandle == handle)
-    {                                                       //if this texture already enabled
-        trAvoidedChanges++;
-        return;                                             //don't do anything
-    }
     trTextureChanges++;
     trCurrentHandle = handle;                               //save the current handle
     reg = trStructure(handle);                              //get pointer to registry entry
+    if (!trAllocated(trIndex(handle)) || trPending(trIndex(handle)))
+    {
+        rndTextureEnable(FALSE);
+        return;
+    }
     if (reg->sharedFrom != TR_NotShared)
     {                                                       //is this a shared texture
 #if TR_VISUALIZE_SHARING
@@ -3765,6 +4007,34 @@ void trMakeCurrent(trhandle handle)
     }
     else
     {                                                       //else it's an non-paletted texture
+        /* UI, FX and editor draws bind GL names directly, without touching
+           trCurrentHandle. A registry-handle match is therefore not proof
+           that its diffuse is still bound (a UI logo can be left current).
+           Verify the actual binding, after resolving sharing and palette. */
+        GLuint expectedTexture = reg->nPalettes > 1
+            ? ((udword *)reg->palettes)[trPaletteIndex(handle)]
+            : reg->handle;
+        GLint boundTexture = 0;
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &boundTexture);
+#ifdef HW_ENABLE_D3D12_BACKEND
+        {
+            static GLuint loggedDerelictTexture[TR_RegistrySize];
+            if (reg->fileName != NULL &&
+                (strncmp(reg->fileName, "DERELICTS\\", 10) == 0 ||
+                 strncmp(reg->fileName, "derelicts\\", 10) == 0) &&
+                loggedDerelictTexture[trIndex(handle)] != expectedTexture)
+            {
+                HW_DIAG_FPRINTF(stderr,
+                    "[DerelictDiffuse] texture=\"%s\" registry=%llu palette=%llu GL=%u previousBound=%u size=%dx%d\n",
+                    reg->fileName, (unsigned long long)trIndex(handle),
+                    (unsigned long long)trPaletteIndex(handle), expectedTexture,
+                    (GLuint)boundTexture, reg->scaledWidth, reg->scaledHeight);
+                loggedDerelictTexture[trIndex(handle)] = expectedTexture;
+            }
+        }
+#endif
+        if ((GLuint)boundTexture != expectedTexture)
+            glBindTexture(GL_TEXTURE_2D, expectedTexture);
         if (bitTest(reg->flags, TRF_Alpha))
         {                                                   //and has alpha
             glEnable(GL_ALPHA_TEST);
@@ -3773,16 +4043,6 @@ void trMakeCurrent(trhandle handle)
         else
         {                                                   //else turning alpha off
             glDisable(GL_ALPHA_TEST);
-        }
-        //bind the proper version of this texture
-        if (reg->nPalettes > 1)
-        {
-            glBindTexture(GL_TEXTURE_2D,                //set new texture
-                          ((udword *)reg->palettes)[trPaletteIndex(handle)]);
-        }
-        else
-        {
-            glBindTexture(GL_TEXTURE_2D, reg->handle);  //set new texture
         }
     }
 }

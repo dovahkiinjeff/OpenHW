@@ -7,6 +7,8 @@ RWTexture2D<float4> AccumulationHistory : register(u4);
 RWTexture2D<float4> DiffuseAlbedoGuide : register(u5);
 RWTexture2D<float4> SpecularAlbedoGuide : register(u6);
 RWTexture2D<float4> NormalRoughnessGuide : register(u7);
+RWStructuredBuffer<uint4> SurfaceHistory : register(u8);
+RWStructuredBuffer<uint4> PreviousSurfaceHistory : register(u9);
 
 struct SceneLight
 {
@@ -28,12 +30,27 @@ struct InstanceMotion
     float4 previousRow0;
     float4 previousRow1;
     float4 previousRow2;
+    uint historyIdentity;
+    float4 clipEquationEye;
+    uint flags; // bit 0: clip plane; bit 1: matched surface history
+    float engineBlend;
 };
 
 StructuredBuffer<SceneLight> Lights : register(t1);
 StructuredBuffer<uint4> SurfaceTexels : register(t2);
 StructuredBuffer<InstanceMotion> InstanceMotions : register(t3);
 Texture2D<float4> MissionEnvironment : register(t4);
+Texture2DArray<float4> MaterialTextures[32768] : register(t5);
+#if defined(HW_MATERIAL_SAMPLER_FEEDBACK)
+// Capture is a separate lib_6_3 variant. Hardware feedback executes later in
+// a compute shader; hit shaders only reduce actual whole-material mip demand.
+RWStructuredBuffer<uint> MaterialMipRequests : register(u10);
+void RecordMaterialMip(uint index, float lod)
+{
+    InterlockedMin(MaterialMipRequests[index], asuint(max(0.0, lod)));
+}
+#endif
+SamplerState MaterialSampler : register(s0);
 
 cbuffer FrameConstants : register(b0)
 {
@@ -73,6 +90,8 @@ cbuffer FrameConstants : register(b0)
     float4 PreviousWorldToViewRow2;
     uint EnvironmentIsDualParaboloid;
     uint ViewHistoryValid;
+    float PreviousTanHalfFieldOfView;
+    float PreviousAspectRatio;
 };
 
 StructuredBuffer<float3> Vertices : register(t0, space1);
@@ -90,6 +109,10 @@ struct TriangleSurface
     uint textureWidth;
     uint textureHeight;
     uint flags;
+    uint textureIndex;
+    uint idleTextureIndex;
+    uint idleTextureOffset;
+    uint engineBlendEnabled;
 };
 StructuredBuffer<TriangleSurface> Surfaces : register(t2, space1);
 
@@ -104,8 +127,11 @@ struct RayPayload
     float historyDepth;
     float previousHistoryDepth;
     float3 primaryAlbedo;
+    float primaryEmissiveMask;
     float3 primarySpecularAlbedo;
     float4 primaryNormalRoughness;
+    uint historyIdentity;
+    float3 historyNormal;
 };
 
 static const uint LIGHT_AMBIENT = 0;
@@ -113,6 +139,8 @@ static const uint LIGHT_DIRECTIONAL = 1;
 static const uint LIGHT_SPOT = 3;
 static const uint LIGHT_LINE = 4;
 static const uint SURFACE_HAS_TEXTURE = 0x80000000u;
+static const uint SURFACE_NATIVE_NORMAL = 0x40000000u;
+static const uint SURFACE_RM_MATERIAL = 0x20000000u;
 static const float PI = 3.14159265358979323846;
 
 float4 UnpackRgba(uint packed)
@@ -132,8 +160,8 @@ uint SurfaceTexelIndex(TriangleSurface surface, int2 coordinate)
     return surface.textureOffset + y * surface.textureWidth + x;
 }
 
-float4 SampleSurfaceChannel(TriangleSurface surface, float2 uv,
-                            uint channel)
+float4 SampleSurfaceChannelLod(TriangleSurface surface, float2 uv,
+                            uint channel, float lod)
 {
     if ((surface.flags & SURFACE_HAS_TEXTURE) == 0 ||
         surface.textureWidth == 0 || surface.textureHeight == 0)
@@ -148,27 +176,49 @@ float4 SampleSurfaceChannel(TriangleSurface surface, float2 uv,
                      surface.emissiveIntensity > 0.0 ? 1.0 : 0.0)
             : float4(1.0, 1.0, 1.0, 1.0);
     }
-    float2 texelPosition = frac(uv) *
-        float2(surface.textureWidth, surface.textureHeight) - 0.5;
-    int2 base = int2(floor(texelPosition));
-    float2 blend = frac(texelPosition);
-    uint4 packed00 = SurfaceTexels[SurfaceTexelIndex(surface, base)];
-    uint4 packed10 = SurfaceTexels[SurfaceTexelIndex(surface,
-                                                      base + int2(1, 0))];
-    uint4 packed01 = SurfaceTexels[SurfaceTexelIndex(surface,
-                                                      base + int2(0, 1))];
-    uint4 packed11 = SurfaceTexels[SurfaceTexelIndex(surface,
-                                                      base + int2(1, 1))];
-    float4 sample00 = UnpackRgba(packed00[channel]);
-    float4 sample10 = UnpackRgba(packed10[channel]);
-    float4 sample01 = UnpackRgba(packed01[channel]);
-    float4 sample11 = UnpackRgba(packed11[channel]);
-    return lerp(lerp(sample00, sample10, blend.x),
-                lerp(sample01, sample11, blend.x), blend.y);
+#if defined(HW_MATERIAL_SAMPLER_FEEDBACK)
+    RecordMaterialMip(surface.textureIndex, lod);
+#endif
+    float4 active = MaterialTextures[NonUniformResourceIndex(surface.textureIndex)].SampleLevel(
+        MaterialSampler, float3(uv, channel), max(0.0, lod));
+    if (surface.engineBlendEnabled != 0) {
+#if defined(HW_MATERIAL_SAMPLER_FEEDBACK)
+        RecordMaterialMip(surface.idleTextureIndex, lod);
+#endif
+        float4 idle = MaterialTextures[NonUniformResourceIndex(surface.idleTextureIndex)].SampleLevel(
+            MaterialSampler, float3(uv, channel), max(0.0, lod));
+        return lerp(idle, active, saturate(InstanceMotions[InstanceID()].engineBlend));
+    }
+    return active;
+}
+
+float SurfaceMipLevel(TriangleSurface surface)
+{
+    uint3 tri = Triangles[PrimitiveIndex()];
+    float3 e0 = mul((float3x3)ObjectToWorld3x4(), Vertices[tri.y] - Vertices[tri.x]);
+    float3 e1 = mul((float3x3)ObjectToWorld3x4(), Vertices[tri.z] - Vertices[tri.x]);
+    float area = length(cross(e0, e1));
+    if (area < 1e-8) return 0.0;
+    float2 size = float2(surface.textureWidth, surface.textureHeight);
+    // Solve UV gradients on the triangle plane, including skinny triangles.
+    float3 n = cross(e0, e1) / area;
+    float2 du0 = (surface.uv1 - surface.uv0) * size;
+    float2 du1 = (surface.uv2 - surface.uv0) * size;
+    float3 gradU = (du0.x * cross(e1, n) + du1.x * cross(n, e0)) / area;
+    float3 gradV = (du0.y * cross(e1, n) + du1.y * cross(n, e0)) / area;
+    float footprint = 2.0 * RayTCurrent() * TanHalfFieldOfView /
+        max(1.0, (float)DispatchRaysDimensions().y);
+    footprint /= max(0.15, abs(dot(n, WorldRayDirection())));
+    return log2(max(1.0, footprint * max(length(gradU), length(gradV))));
+}
+
+float4 SampleSurfaceChannel(TriangleSurface surface, float2 uv, uint channel)
+{
+    return SampleSurfaceChannelLod(surface, uv, channel, SurfaceMipLevel(surface));
 }
 
 float3 SampleGeneratedNormal(TriangleSurface surface, float2 uv,
-                             float filterTexels)
+                             float filterTexels, float surfaceMip)
 {
     if ((surface.flags & SURFACE_HAS_TEXTURE) == 0 ||
         surface.textureWidth == 0 || surface.textureHeight == 0)
@@ -178,25 +228,14 @@ float3 SampleGeneratedNormal(TriangleSurface surface, float2 uv,
     /* Ray shaders have no implicit texture derivatives. Filter a symmetric
        projected footprint supplied by ApplyGeneratedNormal so rotating a
        four-times-resolution map cannot walk through subpixel slopes. */
-    filterTexels = clamp(filterTexels, 1.0, 16.0);
-    float radius = max(0.35, filterTexels * 0.5);
-    float filterMix = smoothstep(1.0, 2.5, filterTexels);
-    float2 texel = 1.0 / float2(surface.textureWidth, surface.textureHeight);
-    float4 centerSample = SampleSurfaceChannel(surface, uv, 2u);
-    float2 offsetX = float2(texel.x * radius, 0.0);
-    float2 offsetY = float2(0.0, texel.y * radius);
-    float2 diagonalA = offsetX + offsetY;
-    float2 diagonalB = offsetX - offsetY;
-    float4 footprintSample = (centerSample * 4.0 +
-        (SampleSurfaceChannel(surface, uv + offsetX, 2u) +
-         SampleSurfaceChannel(surface, uv - offsetX, 2u) +
-         SampleSurfaceChannel(surface, uv + offsetY, 2u) +
-         SampleSurfaceChannel(surface, uv - offsetY, 2u)) * 2.0 +
-        SampleSurfaceChannel(surface, uv + diagonalA, 2u) +
-        SampleSurfaceChannel(surface, uv - diagonalA, 2u) +
-        SampleSurfaceChannel(surface, uv + diagonalB, 2u) +
-        SampleSurfaceChannel(surface, uv - diagonalB, 2u)) / 16.0;
-    float4 normalSample = lerp(centerSample, footprintSample, filterMix);
+    float4 normalSample = SampleSurfaceChannelLod(surface, uv, 2u,
+        max(surfaceMip, log2(max(1.0, filterTexels))));
+    if ((surface.flags & SURFACE_NATIVE_NORMAL) != 0u)
+    {
+        /* RM authored normals are not generated height fields. No editor
+           multiplier, slope cap or paint-derived micro-cavity correction. */
+        return normalize(normalSample.xyz * 2.0 - 1.0);
+    }
     float2 encodedSlope = normalSample.xy * 2.0 - 1.0;
     float3 detail = float3(encodedSlope,
         sqrt(saturate(1.0 - dot(encodedSlope, encodedSlope))));
@@ -219,7 +258,7 @@ float3 SampleGeneratedNormal(TriangleSurface surface, float2 uv,
 void EvaluateSurface(BuiltInTriangleIntersectionAttributes attributes,
                      out TriangleSurface surface, out float2 uv,
                      out float3 baseColor, out float3 emission,
-                     out float opacity)
+                     out float opacity, out float surfaceMip)
 {
     surface = Surfaces[PrimitiveIndex()];
     float3 barycentric = float3(1.0 - attributes.barycentrics.x -
@@ -229,8 +268,11 @@ void EvaluateSurface(BuiltInTriangleIntersectionAttributes attributes,
     uv = surface.uv0 * barycentric.x +
          surface.uv1 * barycentric.y +
          surface.uv2 * barycentric.z;
-    float4 visible = SampleSurfaceChannel(surface, uv, 0u);
-    float4 emissive = SampleSurfaceChannel(surface, uv, 1u);
+    // All channels share one ray footprint; don't solve triangle UV gradients
+    // independently for diffuse, emission, ORM and the normal-map fetch.
+    surfaceMip = SurfaceMipLevel(surface);
+    float4 visible = SampleSurfaceChannelLod(surface, uv, 0u, surfaceMip);
+    float4 emissive = SampleSurfaceChannelLod(surface, uv, 1u, surfaceMip);
     baseColor = surface.baseColor * visible.rgb;
     emission = emissive.rgb * surface.emissiveIntensity;
     opacity = surface.opacity * visible.a;
@@ -325,20 +367,38 @@ float3 ShadowSampleDirection(float3 direction, float angularRadius,
 
 float ShadowVisibility(float3 origin, float3 direction, float maximumDistance,
                        uint sampleCount, float angularRadius,
-                       float3 hitPosition, uint lightIndex)
+                       float3 hitPosition, uint lightIndex,
+                       bool enableContactShadow)
 {
-    uint count = max(1u, sampleCount);
-    float rotation = StableShadowNoise(hitPosition, lightIndex);
+    uint authoredCount = max(1u, sampleCount);
+    /* Soft-shadow quality is accumulated temporally.  Firing every authored
+       sample for every primary hit makes large, layered objects (especially
+       hangar interiors) scale catastrophically with screen coverage.  Rotate
+       one stratified sample per frame instead; RR/the internal history sees
+       the same distribution over time at a fraction of the traversal cost. */
+    uint count = 1u;
+    uint temporalIndex = authoredCount > 1u
+        ? FrameSeed % authoredCount : 0u;
+    float rotation = frac(StableShadowNoise(hitPosition, lightIndex) +
+                          (float)(FrameSeed & 255u) * 0.61803398875);
     float visible = 0.0;
     [loop]
     for (uint sampleIndex = 0; sampleIndex < count; ++sampleIndex)
     {
         float3 sampledDirection = ShadowSampleDirection(
-            direction, angularRadius, sampleIndex, count, rotation);
+            direction, angularRadius, temporalIndex, authoredCount, rotation);
         visible += IsVisible(origin, sampledDirection, maximumDistance) ? 1.0 : 0.0;
     }
     visible /= (float)count;
-    if (ContactShadowStrength > 0.0001 && ContactShadowDistance > 0.001)
+    /* Contact shadows are useful for the sun, but duplicating a short-range
+       visibility ray for every point/nav/weapon light is both redundant and
+       the dominant cost in emissive hangar bays. */
+    /* A blocked full-range ray already contributes zero visibility. For a
+       zero-radius light, a clear full-range ray also proves the shorter
+       contact segment clear: repeating traversal cannot change the result. */
+    if (enableContactShadow && visible > 0.0 && angularRadius > 0.000001 &&
+        ContactShadowStrength > 0.0001 &&
+        ContactShadowDistance > 0.001)
     {
         float contactDistance = min(maximumDistance, ContactShadowDistance);
         float contact = IsVisible(origin, direction, contactDistance) ? 1.0 : 0.0;
@@ -360,6 +420,15 @@ float2 ViewPositionToUv(float3 position)
     float2 ndc = float2(position.x * inverseDepth /
                             (TanHalfFieldOfView * AspectRatio),
                         position.y * inverseDepth / TanHalfFieldOfView);
+    return float2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
+}
+
+float2 PreviousViewPositionToUv(float3 position)
+{
+    float inverseDepth = 1.0 / max(NearPlane, -position.z);
+    float2 ndc = float2(position.x * inverseDepth /
+                            (PreviousTanHalfFieldOfView * PreviousAspectRatio),
+                        position.y * inverseDepth / PreviousTanHalfFieldOfView);
     return float2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
 }
 
@@ -385,6 +454,15 @@ float2 ViewDirectionToUv(float3 viewDirection)
     float2 ndc = float2(
         viewDirection.x * inverseDepth / (TanHalfFieldOfView * AspectRatio),
         viewDirection.y * inverseDepth / TanHalfFieldOfView);
+    return float2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
+}
+
+float2 PreviousViewDirectionToUv(float3 viewDirection)
+{
+    float inverseDepth = 1.0 / max(0.0001, -viewDirection.z);
+    float2 ndc = float2(
+        viewDirection.x * inverseDepth / (PreviousTanHalfFieldOfView * PreviousAspectRatio),
+        viewDirection.y * inverseDepth / PreviousTanHalfFieldOfView);
     return float2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
 }
 
@@ -476,13 +554,14 @@ float3 SampleMissionEnvironment(float3 direction)
 float3 ApplyGeneratedNormal(float3 geometricNormal,
                             float3 p0, float3 p1, float3 p2,
                             TriangleSurface surface, float2 uv,
-                            float rayDistance)
+                            float rayDistance, float surfaceMip)
 {
     float2 uvEdge0 = surface.uv1 - surface.uv0;
     float2 uvEdge1 = surface.uv2 - surface.uv0;
     float determinant = uvEdge0.x * uvEdge1.y -
                         uvEdge0.y * uvEdge1.x;
-    if (abs(determinant) < 0.000001 || NormalDetailStrength <= 0.0001)
+    if (abs(determinant) < 0.000001 ||
+        ((surface.flags & SURFACE_NATIVE_NORMAL) == 0u && NormalDetailStrength <= 0.0001))
     {
         return geometricNormal;
     }
@@ -513,7 +592,7 @@ float3 ApplyGeneratedNormal(float3 geometricNormal,
        conservative ray-cone approximation at grazing angles. */
     float filterTexels = max(1.0,
         worldPixelFootprint * texelsPerWorldUnit * 1.35);
-    float3 detail = SampleGeneratedNormal(surface, uv, filterTexels);
+    float3 detail = SampleGeneratedNormal(surface, uv, filterTexels, surfaceMip);
     return normalize(tangent * detail.x + bitangent * detail.y +
                      geometricNormal * detail.z);
 }
@@ -540,7 +619,8 @@ float GeneratedReliefResponse(float3 shadingNormal,
 
 float3 EvaluateDirectLighting(float3 hitPosition, float3 shadingNormal,
                               float3 geometricNormal, float3 viewDirection,
-                              uint bounceDepth, float materialRoughness)
+                              uint bounceDepth, float materialRoughness,
+                              float materialSpecular, bool rmMaterial)
 {
     /* Never offset a visibility ray along texture-derived detail.  Doing so
        makes a sub-texel normal change cross the source triangle and produces
@@ -569,7 +649,7 @@ float3 EvaluateDirectLighting(float3 hitPosition, float3 shadingNormal,
     {
         float3 reflectedDirection = reflect(-viewDirection, shadingNormal);
         float reflectionGain = lerp(0.20, 0.055, materialRoughness) *
-                               SurfaceReflectivity;
+                               SurfaceReflectivity * materialSpecular;
         lighting += SampleMissionEnvironment(reflectedDirection) *
                     EnvironmentStrength * reflectionGain;
     }
@@ -648,7 +728,10 @@ float3 EvaluateDirectLighting(float3 hitPosition, float3 shadingNormal,
             }
         }
 
-        float lambert = saturate(dot(shadingNormal, lightVector));
+        // Texture relief cannot turn the back of the actual hull into a
+        // directly lit surface. Keep visibility in the geometry hemisphere.
+        float lambert = dot(geometricNormal, lightVector) > 0.0
+            ? saturate(dot(shadingNormal, lightVector)) : 0.0;
         if (lambert > 0.0001)
         {
             uint shadowSamples = light.type == LIGHT_DIRECTIONAL
@@ -669,7 +752,8 @@ float3 EvaluateDirectLighting(float3 hitPosition, float3 shadingNormal,
             {
                 visibility = ShadowVisibility(
                     origin, lightVector, maximumDistance, shadowSamples,
-                    shadowRadius, hitPosition, index);
+                    shadowRadius, hitPosition, index,
+                    light.type == LIGHT_DIRECTIONAL);
             }
             if (visibility <= 0.0001)
                 continue;
@@ -678,7 +762,9 @@ float3 EvaluateDirectLighting(float3 hitPosition, float3 shadingNormal,
             if (bounceDepth == 0 && SurfaceReflectivity > 0.0001)
             {
                 float3 halfVector = normalize(lightVector + viewDirection);
-                float exponent = lerp(112.0, 7.0, materialRoughness);
+                float exponent = rmMaterial
+                    ? max(2.0, 2.0 / max(0.001, materialRoughness * materialRoughness) - 2.0)
+                    : lerp(112.0, 7.0, materialRoughness);
                 float normalHighlight = pow(
                     saturate(dot(shadingNormal, halfVector)), exponent);
                 float grazing = 1.0 - saturate(
@@ -686,7 +772,7 @@ float3 EvaluateDirectLighting(float3 hitPosition, float3 shadingNormal,
                 float fresnel = 0.16 + 0.84 * grazing * grazing *
                                 grazing * grazing * grazing;
                 float specular = normalHighlight * fresnel *
-                                 SurfaceReflectivity *
+                                 SurfaceReflectivity * materialSpecular *
                                  (1.0 - materialRoughness * 0.55);
                 lighting += light.color *
                     (light.intensity * attenuation * specular * visibility);
@@ -746,8 +832,12 @@ void RayGeneration()
     float primaryHistoryDepth = -1.0;
     float primaryPreviousHistoryDepth = -1.0;
     float3 primaryAlbedo = 0.0;
+    float primaryEmissiveMask = 0.0;
     float3 primarySpecularAlbedo = 0.0;
     float4 primaryNormalRoughness = float4(0.0, 0.0, 1.0, 1.0);
+    uint primaryIdentity = 0u;
+    float3 primaryHistoryNormal = float3(0, 0, 1);
+    float acceptedHistoryAge = 0.0;
     uint sampleCount = max(1u, SamplesPerPixel);
 
     [loop]
@@ -771,8 +861,11 @@ void RayGeneration()
         payload.historyDepth = -1.0;
         payload.previousHistoryDepth = -1.0;
         payload.primaryAlbedo = 0.0;
+        payload.primaryEmissiveMask = 0.0;
         payload.primarySpecularAlbedo = 0.0;
         payload.primaryNormalRoughness = float4(0.0, 0.0, 1.0, 1.0);
+        payload.historyIdentity = 0u;
+        payload.historyNormal = float3(0, 0, 1);
         TraceRay(Scene, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES,
                  INSTANCE_MASK_PRIMARY, 0, 2, 0, ray, payload);
         sampleLighting += payload.lighting;
@@ -786,8 +879,11 @@ void RayGeneration()
             primaryHistoryDepth = payload.historyDepth;
             primaryPreviousHistoryDepth = payload.previousHistoryDepth;
             primaryAlbedo = payload.primaryAlbedo;
+            primaryEmissiveMask = payload.primaryEmissiveMask;
             primarySpecularAlbedo = payload.primarySpecularAlbedo;
             primaryNormalRoughness = payload.primaryNormalRoughness;
+            primaryIdentity = payload.historyIdentity;
+            primaryHistoryNormal = payload.historyNormal;
         }
     }
 
@@ -837,20 +933,28 @@ void RayGeneration()
             {
                 float4 historySample =
                     AccumulationHistory[historyBase + historyOffsets[historyIndex]];
+                uint2 historyPixel = uint2(historyBase + historyOffsets[historyIndex]);
+                uint4 metadata = PreviousSurfaceHistory[historyPixel.y * dimensions.x + historyPixel.x];
+                float3 historyNormal = float3(metadata.y & 1023u,
+                    (metadata.y >> 10u) & 1023u, (metadata.y >> 20u) & 1023u) / 511.5 - 1.0;
+                bool identityAgrees = primaryIdentity != 0u && metadata.x == primaryIdentity &&
+                    dot(historyNormal, primaryHistoryNormal) > 0.95;
                 bool depthAgrees = historySample.a >= 0.0 &&
                     primaryPreviousHistoryDepth >= 0.0 &&
                     abs(historySample.a - primaryPreviousHistoryDepth) <
                         depthTolerance;
-                float acceptedWeight = depthAgrees
+                float acceptedWeight = depthAgrees && identityAgrees
                     ? historyWeights[historyIndex] : 0.0;
                 history += historySample * acceptedWeight;
                 acceptedHistoryWeight += acceptedWeight;
+                acceptedHistoryAge += min(metadata.z, 32u) * acceptedWeight;
             }
             bool surfaceAgrees = current.a >= 0.0 &&
                 acceptedHistoryWeight > 0.0001;
             if (surfaceAgrees)
             {
                 history /= acceptedHistoryWeight;
+                acceptedHistoryAge /= acceptedHistoryWeight;
                 float currentLuminance = dot(current.rgb,
                     float3(0.2126, 0.7152, 0.0722));
                 float historyLuminance = dot(history.rgb,
@@ -913,14 +1017,19 @@ void RayGeneration()
                         smoothstep(0.08, 0.55, lightingDisagreement));
                     responseLimit *= responsiveHistory;
                 }
-                float progressiveWeight = (float)AccumulationFrame /
-                    ((float)AccumulationFrame + 1.0);
+                float progressiveWeight = acceptedHistoryAge /
+                    (acceptedHistoryAge + 1.0);
                 accumulated = lerp(current, history,
                     min(progressiveWeight, responseLimit));
             }
         }
     }
+    accumulated.a = current.a; // Reprojection must never average surface depth.
     Accumulation[pixel] = accumulated;
+    uint3 encodedNormal = uint3(saturate(primaryHistoryNormal * 0.5 + 0.5) * 1023.0 + 0.5);
+    uint packedNormal = encodedNormal.x | (encodedNormal.y << 10u) | (encodedNormal.z << 20u);
+    SurfaceHistory[pixel.y * dimensions.x + pixel.x] = uint4(primaryIdentity,
+        packedNormal, primaryHit != 0 ? min(32u, (uint)acceptedHistoryAge + 1u) : 0u, 0u);
 
     float3 exposed = accumulated.rgb * Exposure;
     float3 toneMapped = exposed / (1.0 + exposed);
@@ -936,7 +1045,9 @@ void RayGeneration()
     SceneMotion[pixel] = primaryMotion;
     /* The diffuse guide also feeds the hybrid presenter's foreground-emissive
        protection, so keep it current even when DLSS-RR itself is disabled. */
-    DiffuseAlbedoGuide[pixel] = float4(saturate(primaryAlbedo), 1.0);
+    // RGB remains the RR material guide. Alpha carries the authored emission
+    // mask for hybrid compositing, not a brightness/colour heuristic.
+    DiffuseAlbedoGuide[pixel] = float4(saturate(primaryAlbedo), saturate(primaryEmissiveMask));
     if (RayReconstructionEnabled != 0)
     {
         SpecularAlbedoGuide[pixel] = float4(saturate(primarySpecularAlbedo), 1.0);
@@ -967,7 +1078,7 @@ void PrimaryMiss(inout RayPayload payload)
                 previousViewDirection.z < -0.0001)
             {
                 float2 currentUv = ViewDirectionToUv(currentViewDirection);
-                float2 previousUv = ViewDirectionToUv(previousViewDirection);
+                float2 previousUv = PreviousViewDirectionToUv(previousViewDirection);
                 /* Stored as UV delta in the miss shader; RayGeneration has
                    the dispatch dimensions and converts this miss-only value
                    to the pixel units used by Streamline/history reprojection. */
@@ -975,6 +1086,7 @@ void PrimaryMiss(inout RayPayload payload)
             }
         }
         payload.primaryAlbedo = 0.0;
+        payload.primaryEmissiveMask = 0.0;
         payload.primarySpecularAlbedo = 0.0;
         payload.primaryNormalRoughness = float4(0.0, 0.0, 1.0, 1.0);
     }
@@ -999,12 +1111,21 @@ void ShadowClosestHit(inout RayPayload payload,
 void SurfaceAnyHit(inout RayPayload payload,
                    in BuiltInTriangleIntersectionAttributes attributes)
 {
-    TriangleSurface surface;
-    float2 uv;
-    float3 baseColor;
-    float3 emission;
-    float opacity;
-    EvaluateSurface(attributes, surface, uv, baseColor, emission, opacity);
+    /* Same eye-space hyperspace plane as the raster hull. Reject before any
+       diffuse, normal, emission or shadow evaluation, including opaque assets. */
+    InstanceMotion instance = InstanceMotions[InstanceID()];
+    if ((instance.flags & 1u) != 0u &&
+        dot(instance.clipEquationEye,float4(WorldRayOrigin()+RayTCurrent()*WorldRayDirection(),1)) < 0.0)
+    {
+        IgnoreHit();
+        return;
+    }
+    // Transparency traversal needs coverage only, never emission or shading.
+    TriangleSurface surface = Surfaces[PrimitiveIndex()];
+    float3 barycentric = float3(1.0 - attributes.barycentrics.x - attributes.barycentrics.y,
+                               attributes.barycentrics.x, attributes.barycentrics.y);
+    float2 uv = surface.uv0*barycentric.x + surface.uv1*barycentric.y + surface.uv2*barycentric.z;
+    float opacity = surface.opacity * SampleSurfaceChannel(surface, uv, 0u).a;
     if (opacity <= 0.05)
     {
         IgnoreHit();
@@ -1031,33 +1152,35 @@ void PrimaryClosestHit(inout RayPayload payload,
     float2 uv;
     float3 baseColor;
     float3 emission;
-    float opacity;
-    EvaluateSurface(attributes, surface, uv, baseColor, emission, opacity);
-    float4 orm = SampleSurfaceChannel(surface, uv, 3u);
+    float opacity, surfaceMip;
+    EvaluateSurface(attributes, surface, uv, baseColor, emission, opacity, surfaceMip);
+    float4 orm = SampleSurfaceChannelLod(surface, uv, 3u, surfaceMip);
     bool authoredOrm = orm.a > 0.5;
     float materialAo = authoredOrm ? saturate(orm.r) : 1.0;
     float materialRoughness = authoredOrm ? saturate(orm.g)
                                           : saturate(SurfaceRoughness);
-    float materialMetallic = authoredOrm ? saturate(orm.b) : 0.0;
+    bool rmMaterial = (surface.flags & SURFACE_RM_MATERIAL) != 0u;
+    float materialMetallic = authoredOrm && !rmMaterial ? saturate(orm.b) : 0.0;
+    float materialSpecular = rmMaterial ? saturate(orm.b) : 1.0;
     /* Generated normals are a primary-surface shading detail, not transport
        geometry.  Secondary hits use the authored mesh normal so tiny texture
        changes cannot redirect an entire indirect-light path. */
     float3 shadingNormal = payload.depth == 0
         ? ApplyGeneratedNormal(geometricNormal, p0, p1, p2, surface, uv,
-                               RayTCurrent())
+                               RayTCurrent(), surfaceMip)
         : geometricNormal;
-    if (dot(shadingNormal, WorldRayDirection()) > 0.0)
-    {
-        shadingNormal = -shadingNormal;
-    }
+    // Only the geometric normal is face-forwarded. Flipping texture detail
+    // against the view reverses all three components at grazing angles,
+    // producing bright moving flecks on otherwise shadowed painted hulls.
 
     float3 hitPosition = WorldRayOrigin() +
                          WorldRayDirection() * RayTCurrent();
     float3 lighting = EvaluateDirectLighting(
         hitPosition, shadingNormal, geometricNormal,
-        normalize(-WorldRayDirection()), payload.depth, materialRoughness);
+        normalize(-WorldRayDirection()), payload.depth, materialRoughness, materialSpecular, rmMaterial);
     lighting *= lerp(0.35, 1.0, materialAo);
-    if (payload.depth == 0 && NormalDetailStrength > 0.0001)
+    if (payload.depth == 0 && NormalDetailStrength > 0.0001 &&
+        (surface.flags & SURFACE_NATIVE_NORMAL) == 0u)
     {
         lighting *= GeneratedReliefResponse(
             shadingNormal, geometricNormal,
@@ -1089,6 +1212,7 @@ void PrimaryClosestHit(inout RayPayload payload,
             bounce.historyDepth = -1.0;
             bounce.previousHistoryDepth = -1.0;
             bounce.primaryAlbedo = 0.0;
+            bounce.primaryEmissiveMask = 0.0;
             bounce.primarySpecularAlbedo = 0.0;
             bounce.primaryNormalRoughness = float4(0.0, 0.0, 1.0, 1.0);
             TraceRay(Scene, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES,
@@ -1115,17 +1239,18 @@ void PrimaryClosestHit(inout RayPayload payload,
 
     if (payload.depth == 0)
     {
-        /* RR guide data describes the primary material only.  The renderer has
-           no per-material metalness channel, so derive a conservative specular
-           albedo from the same reflectivity model used by the path shader. */
+        /* Painted dielectric specular is neutral. Reflection gain must never
+           turn paint into metal in the reconstruction guide. Native RM B is
+           dielectric strength; only actual ORM materials supply metalness. */
         const float dielectricF0 = 0.04;
-        float reflectivity = saturate(SurfaceReflectivity * 0.5);
         float roughness = materialRoughness;
         float3 viewDirection = normalize(-WorldRayDirection());
         float3 specularColor = saturate(
-            lerp(float3(dielectricF0, dielectricF0, dielectricF0),
-                 baseColor, max(materialMetallic, reflectivity * 0.35)));
+            lerp(float3(dielectricF0, dielectricF0, dielectricF0) * materialSpecular,
+                 baseColor, materialMetallic));
         payload.primaryAlbedo = saturate(baseColor);
+        payload.primaryEmissiveMask = surface.emissiveIntensity > 0.0
+            ? SampleSurfaceChannelLod(surface, uv, 1u, surfaceMip).a : 0.0;
         payload.primarySpecularAlbedo = RrSpecularAlbedo(
             specularColor, roughness, dot(shadingNormal, viewDirection));
         payload.primaryNormalRoughness = float4(
@@ -1139,16 +1264,18 @@ void PrimaryClosestHit(inout RayPayload payload,
                                p1 * barycentric.y +
                                p2 * barycentric.z;
         InstanceMotion motion = InstanceMotions[InstanceID()];
+        payload.historyIdentity = motion.historyIdentity;
+        payload.historyNormal = normalize(cross(p1 - p0, p2 - p0));
         float4 local = float4(localPosition, 1.0);
         float3 previousPosition = float3(dot(motion.previousRow0, local),
                                          dot(motion.previousRow1, local),
                                          dot(motion.previousRow2, local));
         float2 currentUv = ViewPositionToUv(hitPosition);
         float2 previousUv = previousPosition.z < -NearPlane
-            ? ViewPositionToUv(previousPosition) : currentUv;
+            ? PreviousViewPositionToUv(previousPosition) : currentUv;
         payload.depthValue = DeviceDepth(hitPosition.z);
         payload.historyDepth = log2(1.0 + max(RayTCurrent(), 0.0));
-        payload.previousHistoryDepth = previousPosition.z < -NearPlane
+        payload.previousHistoryDepth = (motion.flags & 2u) != 0u && previousPosition.z < -NearPlane
             ? log2(1.0 + length(previousPosition)) : -1.0;
         payload.motionPixels = (previousUv - currentUv) *
                                float2(DispatchRaysDimensions().xy);

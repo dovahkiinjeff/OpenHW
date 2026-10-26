@@ -1,0 +1,76 @@
+OPENHW_SUBSYSTEM_2
+type Subsystem_tai_destroyergun_hw1_6605561078
+scale 1
+hull @/Subsystems/tai_destroyergun/model.hod
+mad -
+surface 0 0 @/Subsystems/tai_destroyergun/m0
+gun 0 Hull Weapon_Gun0_Position Weapon_Gun0_Latitude Weapon_Gun0_Latitude Weapon_Gun0_Muzzle
+gun 1 Hull Weapon_Gun0Slave_Position Weapon_Gun0Slave_Latitude Weapon_Gun0Slave_Latitude Weapon_Gun0Slave_Muzzle
+
+presentation Hull component_events.owevents
+[Weapons]
+GUN 0
+//Desired Range = 4000
+//ADD this amount:  92 to compensate for centrepoint
+//ADD this amount: 892 to compensate for stopping distance
+{
+WeaponFire @/RemasteredFX/WeaponFire/kinetic_large.wf
+
+Type                                GUN_NewGimble                   ; type of gun - either GUN_Fixed or GUN_Gimble
+SoundType                           GS_VeryLargeEnergyCannon
+DamageLo                                50          ; damage variance per shot - low
+DamageHi                                62.5            ; damage variance per shot - high
+BulletLength                            20.0                ; visual only.  Length of bullet on screen
+BulletRange                           4984.0                ; distance bullets travel before disappearing
+BulletSpeed                           4300.0                ; measured in m/s.
+BulletMass                              1.2                    ; mass of bullet
+FireTime                                 2.7            ; fire repeat rate (reciprocal = shots/second)
+TriggerHappy                             5.0
+minturnangle                          -110.0                    ; degrees
+maxturnangle                           110.0
+mindeclination                          -5.0
+maxdeclination                          30.0
+maxanglespeed                          360.0                    ; degrees/s
+maxdeclinationspeed                    360.0
+angletracking                            2.0
+declinationtracking                      2.0
+BarrelLength                            83.0
+OffsetX                                  0.01
+OffsetY                                -11.0
+OffsetZ                                 -3.0
+RecoilLength                            26.0
+}
+
+GUN 1
+//Desired Range = 4000
+//ADD this amount:  92 to compensate for centrepoint
+//ADD this amount: 892 to compensate for stopping distance
+{
+WeaponFire @/RemasteredFX/WeaponFire/kinetic_large.wf
+
+Type                                GUN_NewGimble                   ; type of gun - either GUN_Fixed or GUN_Gimble
+SoundType                           GS_VeryLargeEnergyCannon
+DamageLo                                50          ; damage variance per shot - low
+DamageHi                                62.5            ; damage variance per shot - high
+BulletLength                            20.0                ; visual only.  Length of bullet on screen
+BulletRange                           4984.0                ; distance bullets travel before disappearing
+BulletSpeed                           4300.0                ; measured in m/s.
+BulletMass                               1.2                    ; mass of bullet
+FireTime                                 2.7            ; fire repeat rate (reciprocal = shots/second)
+TriggerHappy                             5.0
+minturnangle                          -110.0                    ; degrees
+maxturnangle                           110.0
+mindeclination                          -5.0
+maxdeclination                          30.0
+maxanglespeed                          360.0                    ; degrees/s
+maxdeclinationspeed                    360.0
+angletracking                            2.0
+declinationtracking                      2.0
+BarrelLength                            83.0
+OffsetX                                  0.01
+OffsetY                                 11.0
+OffsetZ                                 -3.0
+SlaveDriver                              2
+RecoilLength                            26.0
+}
+[End]

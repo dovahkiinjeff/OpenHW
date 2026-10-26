@@ -58,6 +58,8 @@ typedef struct Camera
 =============================================================================*/
 
 void cameraInit(Camera *camera,real32 distance);
+/* Repair invalid projection/basis fields only; never change a valid view. */
+bool32 cameraEnsureRenderable(Camera *camera);
 void cameraJoystickReset(void);
 void cameraRotAngle(Camera *camera,real32 angle);
 void cameraRotDeclination(Camera *camera,real32 declination);
@@ -68,6 +70,9 @@ void cameraCopyPositionInfo(Camera *dst,Camera *src);
 void cameraChangeLookatpoint(Camera *camera,vector *newlookatpoint);
 void cameraRotateAbout(Camera *camera,vector about,real32 deg);
 void cameraSensitivitySet(sdword sens100);
+/* Shared by gameplay and preview editors; does not consume global input. */
+void cameraMouseDrag(Camera *camera,sdword x,sdword y,bool32 zoom,bool32 enforceShipDistances);
+real32 cameraWheelZoomFactor(bool32 zoomIn);
 void cameraRayCast(vector *dest, Camera *cam, sdword screenX, sdword screenY, sdword screenWidth, sdword screenHeight);
 #if CAM_CHECKSUM
 udword cameraChecksum(Camera *cam);
@@ -99,6 +104,7 @@ extern real32 CAMERA_FLOAT_OFFSET_SCALAR2;
 extern real32 CAMERA_MOUSE_SENS_MIN;
 extern real32 CAMERA_MOUSE_SENS;
 extern real32 CAMERA_MOUSE_SENS_MAX;
+extern real32 CAMERA_WHEEL_ZOOM_RESPONSE;
 
 extern real32 CAMERA_MAX_ZOOMOUT_DISTANCE;
 extern real32 CAMERA_MIN_ZOOMOUT_DISTANCE;

@@ -46,6 +46,7 @@ bool32 gunShootGunsAtTarget(Ship *ship,SpaceObjRotImpTarg *target,real32 range,v
 bool32 gunShootGunsAtMultipleTargets(Ship *ship);
 
 bool32 gunMatrixUpdate(udword flags, hmatrix *startMatrix, hmatrix *matrix, void *data, smemsize ID);
+void gunRecoilVectorCompute(vector *dest, real32 recoilLength, real32 lastFired, real32 rateOfFire);
 
 #if RND_VISUALIZATION
 void gunDrawGunInfo(Ship *ship);

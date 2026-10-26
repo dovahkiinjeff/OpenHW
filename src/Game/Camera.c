@@ -6,6 +6,7 @@
 // =============================================================================
 
 #include "Camera.h"
+#include <math.h>
 
 #include "FastMath.h"
 #include "Key.h"
@@ -57,6 +58,10 @@ real32 CAMERA_FIELD_OF_VIEW    = 90.0f;
    Complete fast-scroll magnitude is applied below with exponentiation. */
 real32 CAMERA_WHEEL_ZOOM_IN    = 0.925f;
 real32 CAMERA_WHEEL_ZOOM_OUT   = 1.081081f;
+/* Wheel notches set a destination rather than teleporting the camera.  The
+   exponential response is frame-rate independent and remains responsive when
+   several wheel events arrive in one frame. */
+real32 CAMERA_WHEEL_ZOOM_RESPONSE = 12.0f;
 
 real32 CAMERA_MAX_ZOOMOUT_DISTANCE = 10000.0f;
 real32 CAMERA_MIN_ZOOMOUT_DISTANCE = 10.0f;
@@ -86,6 +91,7 @@ scriptEntry CameraTweaks[] =
     makeEntry(CAMERA_CLIP_FAR_PLANET,scriptSetReal32CB),
     makeEntry(CAMERA_WHEEL_ZOOM_IN,scriptSetReal32CB),
     makeEntry(CAMERA_WHEEL_ZOOM_OUT,scriptSetReal32CB),
+    makeEntry(CAMERA_WHEEL_ZOOM_RESPONSE,scriptSetReal32CB),
     makeEntry(CAMERA_MAX_ZOOMOUT_DISTANCE,scriptSetReal32CB),
     makeEntry(CAMERA_MIN_ZOOMOUT_DISTANCE,scriptSetReal32CB),
     makeEntry(CAMERA_FLOAT_SCALAR0,scriptSetReal32CB),
@@ -99,6 +105,33 @@ scriptEntry CameraTweaks[] =
     
     END_SCRIPT_ENTRY
 };
+
+/* Kept outside Camera so saved games and binary camera layouts are unchanged. */
+static Camera *cameraSmoothZoomOwner = NULL;
+static real32 cameraSmoothZoomTarget = 0.0f;
+static real32 cameraSmoothZoomLastApplied = 0.0f;
+static real32 cameraSmoothZoomLastTime = 0.0f;
+
+real32 cameraMinimumZoom(Camera* camera);
+
+static real32 cameraConstrainZoomDistance(Camera *camera, real32 distance,
+                                          bool32 EnforceShipDistances)
+{
+    real32 minZoom;
+
+    if (camera->ignoreZoom)
+        return distance;
+
+    if (distance > camera->farthestZoom)
+        distance = camera->farthestZoom;
+
+    minZoom = EnforceShipDistances ? cameraMinimumZoom(camera)
+                                   : camera->closestZoom;
+    if (distance < minZoom)
+        distance = minZoom;
+
+    return distance;
+}
 
 /*=============================================================================
     Private Functions:
@@ -184,6 +217,57 @@ void cameraRotateAbout(Camera *camera,vector about,real32 deg)
     vecSub(position,camera->eyeposition,about);
     matMultiplyMatByVec(&rotatedposition,&rotzmatrix,&position);
     vecAdd(camera->eyeposition,about,rotatedposition);
+}
+
+bool32 cameraEnsureRenderable(Camera *camera)
+{
+    bool32 changed = FALSE;
+    double x, y, z, up2, direction2, cross2;
+    double cx, cy, cz;
+    if (camera == NULL) return FALSE;
+    if (!isfinite(camera->fieldofview) || camera->fieldofview <= 0.01f ||
+        camera->fieldofview >= 179.99f)
+    {
+        camera->fieldofview = isfinite(CAMERA_FIELD_OF_VIEW) &&
+            CAMERA_FIELD_OF_VIEW > 0.01f && CAMERA_FIELD_OF_VIEW < 179.99f
+            ? CAMERA_FIELD_OF_VIEW : 75.0f;
+        changed = TRUE;
+    }
+    if (!isfinite(camera->clipPlaneNear) || camera->clipPlaneNear <= 0.0f)
+    {
+        camera->clipPlaneNear = isfinite(CAMERA_CLIP_NEAR) && CAMERA_CLIP_NEAR > 0.0f
+            ? CAMERA_CLIP_NEAR : 1.0f;
+        changed = TRUE;
+    }
+    if (!isfinite(camera->clipPlaneFar) || camera->clipPlaneFar <= camera->clipPlaneNear)
+    {
+        camera->clipPlaneFar = isfinite(CAMERA_CLIP_FAR) && CAMERA_CLIP_FAR > camera->clipPlaneNear
+            ? CAMERA_CLIP_FAR : camera->clipPlaneNear + 35000.0f;
+        changed = TRUE;
+    }
+    x = (double)camera->eyeposition.x - camera->lookatpoint.x;
+    y = (double)camera->eyeposition.y - camera->lookatpoint.y;
+    z = (double)camera->eyeposition.z - camera->lookatpoint.z;
+    direction2 = x*x + y*y + z*z;
+    up2 = (double)camera->upvector.x * camera->upvector.x +
+        (double)camera->upvector.y * camera->upvector.y +
+        (double)camera->upvector.z * camera->upvector.z;
+    cx = (double)camera->upvector.y*z - (double)camera->upvector.z*y;
+    cy = (double)camera->upvector.z*x - (double)camera->upvector.x*z;
+    cz = (double)camera->upvector.x*y - (double)camera->upvector.y*x;
+    cross2 = cx*cx + cy*cy + cz*cz;
+    if (!isfinite(up2) || up2 < 1.0e-12 ||
+        (isfinite(direction2) && direction2 > 1.0e-12 &&
+         cross2 <= direction2 * up2 * 1.0e-12))
+    {
+        /* World-up matches the normal orbit camera. A vertical look needs a
+           different up axis; otherwise LookAt still has two zero rows. */
+        camera->upvector.x = 0.0f;
+        camera->upvector.y = isfinite(direction2) && z*z > direction2 * 0.99 ? 1.0f : 0.0f;
+        camera->upvector.z = camera->upvector.y != 0.0f ? 0.0f : 1.0f;
+        changed = TRUE;
+    }
+    return changed;
 }
 
 void cameraCopyPositionInfo(Camera *dst,Camera *src)
@@ -338,32 +422,85 @@ void cameraZoom(Camera *camera,real32 zoomfactor, bool32 EnforceShipDistances)
     Return      : returns a mask of user actions performed
                   0x01 = moved  0x02 = zoomed
 ----------------------------------------------------------------------------*/
+real32 cameraWheelZoomFactor(bool32 zoomIn)
+{
+    return zoomIn ? 1.0f - (1.0f - (useSlowWheelZoomIn ? 0.96f : CAMERA_WHEEL_ZOOM_IN)) * CAMERA_MOUSE_SENS
+                  : (CAMERA_WHEEL_ZOOM_OUT - 1.0f) * CAMERA_MOUSE_SENS + 1.0f;
+}
+
+void cameraMouseDrag(Camera *camera,sdword x,sdword y,bool32 zoom,bool32 enforceShipDistances)
+{
+    if(zoom) {
+        if(y<0)cameraZoom(camera,1.0f+(1.0f-CAMERA_ZOOM_OUT)*(real32)y*CAMERA_MOUSE_SENS,enforceShipDistances);
+        else if(y>0)cameraZoom(camera,1.0f-(1.0f-CAMERA_ZOOM_IN)*(real32)y*CAMERA_MOUSE_SENS,enforceShipDistances);
+    } else {
+        cameraRotDeclination(camera,CAMERA_DECLINATION_ROT*(real32)y*CAMERA_MOUSE_SENS);
+        cameraRotAngle(camera,CAMERA_ANGLE_ROT*(real32)x*CAMERA_MOUSE_SENS);
+    }
+}
+
 sdword cameraControl(Camera *camera, bool32 EnforceShipDistances)
 {
     sdword UserAction = 0;
+    real32 now = taskTimeElapsed;
+    real32 dt;
+
+    if (cameraSmoothZoomOwner != camera ||
+        fabs(camera->distance - cameraSmoothZoomLastApplied) >
+            max(0.01f, camera->distance * 0.0001f))
+    {
+        /* Focus changes, scripted cameras and stack switches remain
+           authoritative; begin smoothing from their new distance. */
+        cameraSmoothZoomOwner = camera;
+        cameraSmoothZoomTarget = camera->distance;
+        cameraSmoothZoomLastApplied = camera->distance;
+        cameraSmoothZoomLastTime = now;
+    }
+
+    dt = now - cameraSmoothZoomLastTime;
+    if (dt < 0.0f || dt > 0.25f)
+        dt = 1.0f / 60.0f;
+    cameraSmoothZoomLastTime = now;
 
     if (wheel_down > 0)
     {
         sdword steps = wheel_down;
-        real32 stepFactor =
-            (CAMERA_WHEEL_ZOOM_OUT - 1.0f) * CAMERA_MOUSE_SENS + 1.0f;
+        real32 stepFactor = cameraWheelZoomFactor(FALSE);
         wheel_down = 0;
-        cameraZoom(camera, (real32)pow((double)stepFactor, (double)steps),
-                   EnforceShipDistances);
+        cameraSmoothZoomTarget *=
+            (real32)pow((double)stepFactor, (double)steps);
+        cameraSmoothZoomTarget = cameraConstrainZoomDistance(
+            camera, cameraSmoothZoomTarget, EnforceShipDistances);
         UserAction |= CAM_USER_ZOOMED;
     }
     
     if (wheel_up > 0)
     {
         sdword steps = wheel_up;
-        real32 stepFactor = 1.0f -
-            (1.0f - (useSlowWheelZoomIn ? 0.96f : CAMERA_WHEEL_ZOOM_IN)) *
-            CAMERA_MOUSE_SENS;
+        real32 stepFactor = cameraWheelZoomFactor(TRUE);
         wheel_up = 0;
-        cameraZoom(camera, (real32)pow((double)stepFactor, (double)steps),
-                   EnforceShipDistances);
+        cameraSmoothZoomTarget *=
+            (real32)pow((double)stepFactor, (double)steps);
+        cameraSmoothZoomTarget = cameraConstrainZoomDistance(
+            camera, cameraSmoothZoomTarget, EnforceShipDistances);
         UserAction |= CAM_USER_ZOOMED;
     }
+
+    if (fabs(cameraSmoothZoomTarget - camera->distance) > 0.001f)
+    {
+        real32 response = max(1.0f, CAMERA_WHEEL_ZOOM_RESPONSE);
+        real32 blend = 1.0f - (real32)exp(-(double)(response * dt));
+        camera->distance +=
+            (cameraSmoothZoomTarget - camera->distance) * blend;
+
+        if (fabs(cameraSmoothZoomTarget - camera->distance) <
+            max(0.01f, cameraSmoothZoomTarget * 0.0001f))
+            camera->distance = cameraSmoothZoomTarget;
+
+        UserAction |= CAM_USER_ZOOMED;
+    }
+
+    cameraSmoothZoomLastApplied = camera->distance;
 
     if (zoomOutNow)//keyIsHit(NUMMINUSKEY) || keyIsHit(MINUSKEY))
     {
@@ -407,25 +544,10 @@ sdword cameraControl(Camera *camera, bool32 EnforceShipDistances)
     {
         if (keyIsHit(RMOUSE_BUTTON))
         {
-            if (keyIsHit(LMOUSE_BUTTON))
-            {
-                if (camMouseY < 0)
-                {
-                    cameraZoom(camera, 1.0f + (1.0f - CAMERA_ZOOM_OUT) * (real32)camMouseY * CAMERA_MOUSE_SENS, EnforceShipDistances);
-                    UserAction |= CAM_USER_ZOOMED;
-                }
-                else if (camMouseY > 0)
-                {
-                    cameraZoom(camera, 1.0f - (1.0f - CAMERA_ZOOM_IN) * (real32)camMouseY * CAMERA_MOUSE_SENS, EnforceShipDistances);
-                    UserAction |= CAM_USER_ZOOMED;
-                }
-            }
-            else
-            {
-                cameraRotDeclination(camera,CAMERA_DECLINATION_ROT * (real32)camMouseY * CAMERA_MOUSE_SENS);
-                cameraRotAngle(camera,CAMERA_ANGLE_ROT * (real32)camMouseX * CAMERA_MOUSE_SENS);
-                UserAction |= CAM_USER_MOVED;
-            }
+            bool32 zoom=keyIsHit(LMOUSE_BUTTON);
+            cameraMouseDrag(camera,camMouseX,camMouseY,zoom,EnforceShipDistances);
+            if(!zoom)UserAction |= CAM_USER_MOVED;
+            else if(camMouseY)UserAction |= CAM_USER_ZOOMED;
         }
         camMouseX = camMouseY = 0;
     }

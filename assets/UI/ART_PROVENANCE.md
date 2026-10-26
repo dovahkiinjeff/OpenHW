@@ -18,3 +18,30 @@ imagery is used.
 The executable selects plates deterministically from the current UI context;
 there is no per-frame randomization. This keeps the archive visible throughout
 the front end without producing visual noise or temporal flicker.
+
+## Additional owner-supplied concept art
+
+The 2026-10-20 attachments contribute 13 unique, unmodified PNG images.
+The repeated hangar and nebula uploads are included once each. Pixel hashes,
+original attachment filenames and dimensions are recorded in
+CONCEPT_ART_MANIFEST.json. UI scaling preserves aspect ratio; dark overlays
+keep the artwork subordinate to labels, lists and controls.
+
+| Image | Primary context |
+| --- | --- |
+| concept_interceptor.png | Fleet menus |
+| concept_science.png | Research manager |
+| concept_dock.png | Build manager |
+| concept_corvette.png | Audio options |
+| concept_blue_corvette.png | Gameplay options |
+| concept_bridge.png | Keyboard controls |
+| concept_hangar.png | Launch manager |
+| concept_industry.png | General options |
+| concept_nebula.png | Campaign/mission menus |
+| concept_mothership.png | Multiplayer/connection menus |
+| concept_engineering.png | Texture editor |
+| concept_cockpit.png | Video options |
+| concept_drone.png | Lighting editor |
+
+Other menus select deterministically from the expanded concept-art pool.
+No AI reconstruction or invented detail was necessary for these subtle panels.

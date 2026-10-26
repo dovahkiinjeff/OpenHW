@@ -1,3 +1,4 @@
+#include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     MEMORY.C:   Routines to manage memory
 =============================================================================*/
@@ -1161,6 +1162,8 @@ mempool *memNewGrowthPoolAlloc(sdword length)
     }
     memPoolReset(&memGrowthPool[memNumberGrowthPools], newPool, length, FALSE);
     memNumberGrowthPools++;
+    HW_DIAG_FPRINTF(stderr, "[Memory] Allocated growth pool %d/%d: %d bytes (on demand).\n",
+            memNumberGrowthPools, MGH_NumberGrowthHeaps, length);
     return(&memGrowthPool[memNumberGrowthPools - 1]);
 }
 

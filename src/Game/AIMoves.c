@@ -2773,6 +2773,15 @@ sdword aimProcessSwarmAttack(AITeam *team)
     Outputs     : Moves ships around
     Return      : TRUE if the move is finished
 ----------------------------------------------------------------------------*/
+static void aimSwarmDefenseReplacePods(paramsSwarmDefense *params, SelectCommand *pods)
+{
+    // The old selection was allocated for the original pod group (often one
+    // ship). Its numShips becoming zero does not increase its capacity.
+    SelectCommand *replacement = selectMemDupSelection(pods, "swarmPods", 0);
+    aiumemFree(params->Pods);
+    params->Pods = replacement;
+}
+
 sdword aimProcessSwarmDefense(AITeam *team)
 {
     AITeamMove *thisMove = team->curMove;
@@ -2808,7 +2817,7 @@ sdword aimProcessSwarmDefense(AITeam *team)
 
         if (newPodTeam)
         {
-              selSelectionCopy((MaxAnySelection *)params->Pods, (MaxAnySelection *)newPodTeam->shipList.selection);
+            aimSwarmDefenseReplacePods(params, newPodTeam->shipList.selection);
 //            aitMoveSwarmersToNewPod(team, newPodTeam);
 //            return TRUE;
         }
@@ -6043,4 +6052,3 @@ void aimPreFix_FancyGetShips(AITeamMove *move)
 #ifdef _WIN32_FIX_ME
  #pragma warning( 2 : 4047)      // turn back on "different levels of indirection warning"
 #endif
-

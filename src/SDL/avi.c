@@ -421,6 +421,9 @@ int aviStart(char* filename)
     char error[AV_ERROR_MAX_STRING_SIZE];
     videoStream = -1;
 
+#if !HW_ENABLE_DIAGNOSTICS
+    av_log_set_level(AV_LOG_QUIET);
+#endif
     if (avformat_open_input(&pFormatCtx, filename, NULL, NULL) < 0) {
         dbgMessagef("aviStart: unable to open movie: %s", filename);
         return FALSE;
