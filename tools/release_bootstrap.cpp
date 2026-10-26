@@ -6,6 +6,10 @@
 #include <commctrl.h>
 #include <bcrypt.h>
 #include <wincrypt.h>
+#ifdef OPENHW_PATCH_INSTALLER
+#include <shlobj.h>
+#include <tlhelp32.h>
+#endif
 #include <array>
 #include <vector>
 #include <string>
@@ -23,7 +27,13 @@ static void pump(){MSG m;while(PeekMessageW(&m,nullptr,0,0,PM_REMOVE)){Translate
 static void status(const wchar_t* text){if(labelHandle)SetWindowTextW(labelHandle,text);pump();}
 static void createProgress(){
     INITCOMMONCONTROLSEX controls={sizeof(controls),ICC_PROGRESS_CLASS};InitCommonControlsEx(&controls);
-    windowHandle=CreateWindowExW(WS_EX_DLGMODALFRAME,L"STATIC",L"OpenHW 1.0 setup",WS_OVERLAPPED|WS_CAPTION|WS_VISIBLE,
+    windowHandle=CreateWindowExW(WS_EX_DLGMODALFRAME,L"STATIC",
+#ifdef OPENHW_PATCH_INSTALLER
+        L"OpenHW 1.0.1 patch",
+#else
+        L"OpenHW 1.0 setup",
+#endif
+        WS_OVERLAPPED|WS_CAPTION|WS_VISIBLE,
         CW_USEDEFAULT,CW_USEDEFAULT,560,165,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
     labelHandle=CreateWindowExW(0,L"STATIC",L"Preparing installer files in this folder…",WS_CHILD|WS_VISIBLE,20,24,510,42,windowHandle,nullptr,nullptr,nullptr);
     progressHandle=CreateWindowExW(0,PROGRESS_CLASSW,nullptr,WS_CHILD|WS_VISIBLE|PBS_MARQUEE,20,80,510,22,windowHandle,nullptr,nullptr,nullptr);
@@ -52,7 +62,34 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
     BCRYPT_ALG_HANDLE algorithm=nullptr;BCRYPT_HASH_HANDLE hash=nullptr;
     try{
         wchar_t executable[32768]={};check(GetModuleFileNameW(nullptr,executable,32768)!=0,"Cannot locate this installer.");
-        const auto root=std::filesystem::path(executable).parent_path();const auto development=root/L"Development";
+        auto root=std::filesystem::path(executable).parent_path();
+#ifdef OPENHW_PATCH_INSTALLER
+        if(!std::filesystem::is_regular_file(root/L"setup-complete.json")){
+            CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
+            BROWSEINFOW selection={};selection.lpszTitle=L"Select your installed OpenHW folder";
+            selection.ulFlags=BIF_RETURNONLYFSDIRS|BIF_NEWDIALOGSTYLE;
+            auto item=SHBrowseForFolderW(&selection);
+            if(!item)return 0;
+            wchar_t selected[MAX_PATH]={};const BOOL selectedOk=SHGetPathFromIDListW(item,selected);CoTaskMemFree(item);
+            check(selectedOk!=0,"Cannot read the selected installation folder.");root=selected;
+        }
+        check(std::filesystem::is_regular_file(root/L"setup-complete.json") &&
+              std::filesystem::is_regular_file(root/L"Development/Installer/Development/python312.dll"),
+              "Select an installed OpenHW 1.0 folder, not the original Collection.");
+        HANDLE snapshot=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
+        check(snapshot!=INVALID_HANDLE_VALUE,"Cannot check whether OpenHW is running.");
+        PROCESSENTRY32W entry={};entry.dwSize=sizeof(entry);bool running=false;
+        if(Process32FirstW(snapshot,&entry))do{
+            if(!_wcsicmp(entry.szExeFile,L"OpenHW.exe") || !_wcsicmp(entry.szExeFile,L"OpenHW-Daignostics.exe"))running=true;
+        }while(Process32NextW(snapshot,&entry));CloseHandle(snapshot);
+        check(!running,"Close OpenHW and OpenHW-Daignostics before applying this patch.");
+        const auto backup=root/L"Development/Patches/1.0.1/Backup";
+        std::filesystem::create_directories(backup);
+        for(const wchar_t* name:{L"OpenHW.exe",L"OpenHW-Daignostics.exe",L"version.json"})
+            if(std::filesystem::is_regular_file(root/name) && !std::filesystem::exists(backup/name))
+                std::filesystem::copy_file(root/name,backup/name);
+#endif
+        const auto development=root/L"Development";
         std::filesystem::create_directories(development/L"Logs");
         std::filesystem::create_directories(development/L"Temp");
         for(const wchar_t* name:{L"TEMP",L"TMP",L"TMPDIR"})SetEnvironmentVariableW(name,(development/L"Temp").c_str());
@@ -96,7 +133,13 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         DeleteFileW(archive.c_str());
         if(windowHandle){DestroyWindow(windowHandle);windowHandle=labelHandle=progressHandle=nullptr;}
         const auto engine=development/L"Installer/OpenHW-SetupEngine.exe";
-        const DWORD result=launch(engine.wstring(),quiet?L"--verify-payload":L"",log,!quiet);
+        const DWORD result=launch(engine.wstring(),
+#ifdef OPENHW_PATCH_INSTALLER
+            L"--apply-hotfix",
+#else
+            quiet?L"--verify-payload":L"",
+#endif
+            log,!quiet);
         if(log!=INVALID_HANDLE_VALUE)CloseHandle(log);return int(result);
     }catch(const std::exception& error){
         if(log!=INVALID_HANDLE_VALUE){DWORD written=0;WriteFile(log,error.what(),DWORD(std::strlen(error.what())),&written,nullptr);WriteFile(log,"\r\n",2,&written,nullptr);}

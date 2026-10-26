@@ -1,6 +1,6 @@
 # OpenHW 1.0
 
-**The best of both worlds: high-fidelity Homeworld Remastered assets with original Homeworld 1 gameplay.** Formerly Homeworld RTX, OpenHW combines RM and HW1 assets, modern rendering, a revised interface and extensive in-game authoring/modding tools.
+**The best of both worlds: high-fidelity Homeworld Remastered assets with original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets, modern rendering, a revised interface and extensive in-game authoring/modding tools.
 
 > [!IMPORTANT]
 > **For 1.0, use AMD FSR upscaling and AMD FSR frame generation. Both fully work and are the recommended options.** DLSS currently has issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.**

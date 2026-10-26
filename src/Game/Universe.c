@@ -3716,10 +3716,12 @@ void universeNoStaticLoadedOrNeeded(void)
 }
 
 #include "ModernParticleFields.h"
+#include "ModernMapEditor.h"
 void universeInit(void)
 {
     sdword index;
 
+    modernMapEditorMissionReset();
     modernParticleFieldsReset();
     univupdateInit();
 
@@ -3755,6 +3757,7 @@ void universeReset(void)
 {
     sdword index;
 
+    modernMapEditorMissionReset();
     modernParticleFieldsReset();
     clReset(&universe.mainCommandLayer);
     ccReset(&universe.mainCameraCommand);

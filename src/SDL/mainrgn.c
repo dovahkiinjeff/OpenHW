@@ -5881,6 +5881,9 @@ void mrRegionDraw(regionhandle reg)
         glEnable(GL_SCISSOR_TEST);
         glScissor(0, NIS_LetterHeight, MAIN_WindowWidth, MAIN_WindowHeight - NIS_LetterHeight * 2);
     }
+    /* Authored dust/rope/cloud state belongs to the loaded universe, including
+       cinematic and save-load frames; it must not depend on the RTS camera. */
+    modernMapEditorUpdateEnvironment();
     if (nisCaptureCamera)
     {
         mrCamera = nisCamera;

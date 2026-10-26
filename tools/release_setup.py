@@ -63,6 +63,8 @@ def install(root,selected):
             with archive.open(record) as source, temporary.open('wb') as output:shutil.copyfileobj(source,output)
             temporary.replace(target)
     result=convert(root,dev/'SetupTools',manifest['sky_size'])
+    from release_sky_lighting import ensure as ensure_sky_lighting
+    ensure_sky_lighting(root,selected=selected)
     from release_mission_authoring import verify_published_missions
     authored=verify_published_missions(dev/'Content/missions',root)
     (dev/'installed-mission-authoring.json').write_text(json.dumps(authored,indent=2))
@@ -82,7 +84,12 @@ def install(root,selected):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--collection',type=Path);p.add_argument('--check',action='store_true');p.add_argument('--verify-payload',action='store_true')
+    p.add_argument('--apply-hotfix',action='store_true')
     a=p.parse_args();root=root_directory();local_environment(root)
+    if a.apply_hotfix:
+        from release_patch import run
+        run(root)
+        return
     if a.verify_payload:
         manifest=verify_payload(root)
         import importlib

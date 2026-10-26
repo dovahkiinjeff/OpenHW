@@ -22835,8 +22835,8 @@
     },
     {
       "path": "BUILD_INSTALLER.md",
-      "size": 5559,
-      "sha256": "4b190bc419bafe6caf4e08d58964e595f9f49bdef95c38657fccfb1bfd7b1060"
+      "size": 5974,
+      "sha256": "067fbb70df71fa48e3cd8b9d10db6cb4ab435f967d9ee740b02bd5b10c6d86f2"
     },
     {
       "path": "CHANGELOG",
@@ -22850,8 +22850,8 @@
     },
     {
       "path": "CMakeLists.txt",
-      "size": 70303,
-      "sha256": "38972c9baae337d2c019db20ab354e1a15c7f3da803a7d1b84a8ec5fb2d3b7fe"
+      "size": 70796,
+      "sha256": "21fdc5b80197f29aa25c83904dc8b374282a657fbac009cacaa5d3e3d4405c84"
     },
     {
       "path": "CMakePresets.json",
@@ -23030,8 +23030,8 @@
     },
     {
       "path": "docs/USER_GUIDE.md",
-      "size": 8084,
-      "sha256": "8f2785df0506264f48a4f36317b74abb9a2493c52281640278c62492240eb4fd"
+      "size": 8434,
+      "sha256": "5b9639eb43a5478575fa94d7732b8c7b7a08d5a8360cde24255cb4205d77e2a4"
     },
     {
       "path": "docs/WEAPON_FX_UPSCALING.md",
@@ -23095,18 +23095,18 @@
     },
     {
       "path": "README.md",
-      "size": 16969,
-      "sha256": "e0ca30f2a4545d8c332a579c211b657aeb1b430849f08f7e55dbc8be5a65957e"
+      "size": 18828,
+      "sha256": "46381b0398f7091077d3fe9677ef4b1239040601c1285b03e0631e48c2205b77"
     },
     {
-      "path": "RELEASE_NOTES_0.92.0_BETA1.md",
-      "size": 4505,
-      "sha256": "c2dbd37cc1e80c392395c4871fffa4c78ec3b5e10431def4d618469bf73cf85f"
+      "path": "RELEASE_NOTES_1.0.1.md",
+      "size": 2625,
+      "sha256": "132d0be40a27b792bf8425e5017b38493146b8c1d3637ebe3e1d1366224250fd"
     },
     {
       "path": "RELEASE_NOTES_1.0.md",
-      "size": 10660,
-      "sha256": "f31bbd4db059a7f8c3c19cd38a465e8e9e0f0e55f1978236387a9edc78aa7fa8"
+      "size": 10636,
+      "sha256": "e43c0f2b578a167ec9fc6bbc981d0a11c94ceb9c92d2ec986bcd6cd924f8e898"
     },
     {
       "path": "SECURITY.md",
@@ -24095,13 +24095,13 @@
     },
     {
       "path": "src/Game/ModernMapEditor.c",
-      "size": 195319,
-      "sha256": "3c3162d9572d64e9ef02ececcf05123f7c2d5f224f7ddc58541022ec1d54af9e"
+      "size": 195885,
+      "sha256": "bfb6381ca96e7d0cfede8e183a1418000061680958285b7cad5c28d02293efc0"
     },
     {
       "path": "src/Game/ModernMapEditor.h",
-      "size": 2307,
-      "sha256": "dbc01e0db899dd3b1697a5b91a0494fc14dfcb79ad690356097ac8ba06d9f365"
+      "size": 2472,
+      "sha256": "a8ee083d26ce1e8c07c9d2a06ea4edcc152c7965450fab85a3632dabd284793b"
     },
     {
       "path": "src/Game/ModernMissionBackdrop.c",
@@ -24150,8 +24150,8 @@
     },
     {
       "path": "src/Game/ModernUI.c",
-      "size": 404344,
-      "sha256": "238ceb5a220e94af30352ed973065500d29c1b6aeefdacc8c5f2abee14f9f909"
+      "size": 404479,
+      "sha256": "53097a1521571139c1b3a480fabc87805be09da4d4829fa108e19fda93055007"
     },
     {
       "path": "src/Game/ModernUI.h",
@@ -24975,8 +24975,8 @@
     },
     {
       "path": "src/Game/Universe.c",
-      "size": 237708,
-      "sha256": "2f77650e8597319c18c441cc9abff3a26558d02939afbebd90ad5172615d549b"
+      "size": 237807,
+      "sha256": "16f45d3778d7e76132f6ae7f59bedd65d5154637beb5105855a8f25caa99a467"
     },
     {
       "path": "src/Game/Universe.h",
@@ -25750,8 +25750,8 @@
     },
     {
       "path": "src/SDL/mainrgn.c",
-      "size": 238608,
-      "sha256": "423fb599b8761ebd282057347df75a60a81d476ea1e44a2665e67801aa52850c"
+      "size": 238811,
+      "sha256": "2ac930ac65a07f21e6dba1f3cad69d2b8ba6f0bf1f73a0d3e9d38b3ac84a223e"
     },
     {
       "path": "src/SDL/mainrgn.h",
@@ -27340,8 +27340,8 @@
     },
     {
       "path": "tools/build_release_setup.py",
-      "size": 3223,
-      "sha256": "45cc9c5c33d5b1a1c5b0b558a9f7a17b78af8eb8a6ce4cdfa0608a773266934e"
+      "size": 3380,
+      "sha256": "3167d5b641877762ba0b89f93784bfd835c7ff156ec2b3f982ec72525bbd99da"
     },
     {
       "path": "tools/build_weapon_fx_textures.py",
@@ -27594,6 +27594,11 @@
       "sha256": "4e689de6b6957d053f2a71b4eb300d9838668e4cc93cfcebc554e5566880ab1d"
     },
     {
+      "path": "tools/package_release_patch.py",
+      "size": 5241,
+      "sha256": "73315409b77d7c421742e5e7baa8ba61afe2e5da314737401d51e62b77c3d893"
+    },
+    {
       "path": "tools/package_ship_document_update.py",
       "size": 3216,
       "sha256": "22ca25af8452c7ce5df8bd56106765c2139bbd45728e6ea22c29ed129b8553ea"
@@ -27620,8 +27625,8 @@
     },
     {
       "path": "tools/release_bootstrap.cpp",
-      "size": 9239,
-      "sha256": "0c7f00782fb180d97bf3c9d3bbdb6f790fdc64e6f776179c2180644fabafaf77"
+      "size": 11395,
+      "sha256": "555c9dd0206676b0c8aad43edf8c5ecf86227fc1cb9d983437c4d3988c972c3e"
     },
     {
       "path": "tools/release_compact.py",
@@ -27654,9 +27659,19 @@
       "sha256": "03f1036f61e83647a67c9a85b25fb188bea3d7f413309f5ec8c8ac1c1a971b65"
     },
     {
+      "path": "tools/release_patch.py",
+      "size": 3644,
+      "sha256": "5e16b13a301fbe935a97158949d5c12267889c1f0ba84e41131d6353a8220a90"
+    },
+    {
       "path": "tools/release_setup.py",
-      "size": 10924,
-      "sha256": "e42b257c448b227f91dacb7c39668cb9d04225fc69bc2779cb9ec1f1b660e3a8"
+      "size": 11197,
+      "sha256": "79838268b17d81474a6ea123f2296ce498cb92ddbbbf61bb3acdbedcc63b643d"
+    },
+    {
+      "path": "tools/release_sky_lighting.py",
+      "size": 4516,
+      "sha256": "f1e3e0f8c09223914f1330cad22931ea35dad6c8f06a3e2aadffddd515df0d39"
     },
     {
       "path": "tools/release_source_manifest.py",
@@ -27897,11 +27912,6 @@
       "path": "Windows/HomeworldModern.rc.in",
       "size": 63,
       "sha256": "3cc5db3cb4f1e35580435ecd7234844fe34f82f2a7dd10282375522824bc7283"
-    },
-    {
-      "path": "Windows/package-0.92.0-beta.1.ps1",
-      "size": 3842,
-      "sha256": "1e41613a510bd8b60975be174573f63568e9cd0553690b5990525b57012474ba"
     },
     {
       "path": "Windows/release-python-requirements.txt",

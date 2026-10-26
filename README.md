@@ -1,10 +1,10 @@
-# OpenHW 1.0
+# OpenHW 1.0.1
 
-**The best of both worlds: high-fidelity Homeworld Remastered assets and original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets with modern rendering and in-game creation tools to build the ultimate classic Homeworld experience. Formerly Homeworld RTX.
+**The best of both worlds: high-fidelity Homeworld Remastered assets and original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets with modern rendering and in-game creation tools to build the ultimate classic Homeworld experience.
 
 [![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-[Download OpenHW 1.0](https://github.com/dovahkiinjeff/OpenHW/releases/latest) Â· [Installation and controls](docs/USER_GUIDE.md) Â· [Editors](docs/EDITING_GUIDE.md) Â· [Modding](docs/MODDING.md) Â· [Build the installer](BUILD_INSTALLER.md)
+[Base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe) · [1.0.1 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.1/OpenHW-Patch-1.0.1.exe) Â· [Installation and controls](docs/USER_GUIDE.md) Â· [Editors](docs/EDITING_GUIDE.md) Â· [Modding](docs/MODDING.md) Â· [Build the installer](BUILD_INSTALLER.md)
 
 > [!IMPORTANT]
 > **Use AMD technology for 1.0. AMD FSR upscaling and AMD FSR frame generation are the recommended, working options.** DLSS currently has known visual issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.** Bundled vendor libraries or development code do not imply supported release features.
@@ -12,13 +12,27 @@
 > [!WARNING]
 > **Disk space:** allow approximately **120 GB free during conversion** as a conservative planning estimate; the exact peak of this compact installer has not been measured. The download is about 473 MB and the main generated game archive is about 34 GB, plus loose resources and user data. Setup reads the original Collection archives directly, stages selected HW1 resources and removes intermediate conversion caches. The original Collection and source-build dependencies occupy separate space.
 
+## 1.0.1 patch — dust settings and mission lighting
+
+[Download OpenHW-Patch-1.0.1.exe](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.1/OpenHW-Patch-1.0.1.exe) — approximately **40 MB**. Updates an existing OpenHW installation.
+
+- Applies authored dust color, opacity and cloud settings before the first rendered mission frame, including cutscenes. Opening Shift+F11 is no longer required to initialize them.
+- Reloads cloud settings when loading a saved game, including another save of the same mission, instead of retaining an invalid initialization flag.
+- Restores missing mission sky textures and lighting metadata from the player's own Homeworld Collection, so the mission lighting controls and god rays have their required resources.
+
+**Close OpenHW and its diagnostic executable, then run the patch.** Put it beside OpenHW.exe or select your installed OpenHW folder when prompted. Keep your original Collection installed: the patch reuses its recorded location, or asks for it if it has moved. Let lighting conversion finish; it may take a few minutes. Saves, options, mods and authored map/light settings are preserved. Previous program files are backed up under `Development/Patches/1.0.1/Backup`.
+
+**New installation:** run the [1.0 base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe), then apply this patch before playing. This patch does not include the base game.
+
+Both updated game variants and the patch launcher compiled successfully. Gameplay testing is performed by the project owner; no additional game or installation runs were made for this patch.
+
 ## Installation
 
 1. Install your legally owned **Homeworld Remastered Collection**, including Homeworld 1 Classic and the required English data archives.
-2. Download **OpenHW-Setup.exe** from Releases. Put it in the writable folder where you want OpenHW installed, for example `D:\Games\OpenHW`.
+2. Download the [**OpenHW-Setup.exe** base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe). Put it in the writable folder where you want OpenHW installed, for example `D:\Games\OpenHW`.
 3. Run it and select the Collection installation. The Collection root, `HomeworldRM`, or its `Data` directory can be selected; setup also locates the Collection's Classic data.
 4. Let extraction, conversion, package building and validation finish. Setup installs **beside itself** and leaves the original Collection untouched. There is no manual music/voice-copy step.
-5. Start **OpenHW.exe** after setup completes. Setup does not automatically start the game. The first launch detects your display resolution and refresh rate.
+5. Apply the **1.0.1 patch** after setup completes, then start **OpenHW.exe**. Setup does not automatically start the game. The first launch detects your display resolution and refresh rate.
 
 All application-owned settings, saves, mods, exports and working files stay inside the OpenHW folder. `Development` contains setup work, diagnostics, logs, caches and receipts. Successful setup removes its temporary `SetupSources` and `SetupWork` conversion copies; a failed setup keeps work for recovery. Windows and graphics-driver system caches remain under those components' control.
 
@@ -28,7 +42,7 @@ Two game executables are supplied: **OpenHW.exe** has diagnostic logging compile
 
 [![OpenHW project showcase](https://img.youtube.com/vi/R4PvuIpeAaA/maxresdefault.jpg)](https://www.youtube.com/watch?v=R4PvuIpeAaA)
 
-This showcase documents the project's earlier Homeworld RTX development; the instructions on this page describe OpenHW 1.0.
+This showcase documents earlier development; use the current installation and patch instructions above.
 
 ## Modern rendering and environments
 

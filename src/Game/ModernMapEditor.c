@@ -3096,6 +3096,7 @@ static void mmeOpenInternal(bool32 fromBoot)
     rectangle right;
     rectangle toolbar;
     if (ghMainRegion == NULL || !gameIsRunning) return;
+    modernMapEditorUpdateEnvironment();
     modernUICloseLightingEditor();
     modernUICloseShipDossier();
     mdCloseAllManagers();
@@ -4425,7 +4426,22 @@ void modernMapEditorToggle(void)
     mmeOpenInternal(FALSE);
 }
 
-void modernMapEditorCameraUpdate(void)
+void modernMapEditorMissionReset(void)
+{
+    /* The mission number alone cannot identify the lifetime of a loaded
+       universe. Save loading resets particle styles even for the same level. */
+    mmeVolumeMission = -1;
+    mmeVolumeCount = 0;
+    memset(mmeVolumes, 0, sizeof(mmeVolumes));
+    mmeTrackedCount = 0;
+    memset(mmeTracked, 0, sizeof(mmeTracked));
+    mme.selectedTracked = -1;
+    mme.selectedVolume = -1;
+    mmeSelectedField = -1;
+    mmeFieldScroll = 0;
+}
+
+void modernMapEditorUpdateEnvironment(void)
 {
     /* Simulation time is independent of editor visibility and density rebuilds.
        It stays fixed while paused; the renderer ignores it when motion is off. */
@@ -4458,6 +4474,10 @@ void modernMapEditorCameraUpdate(void)
         }
     }
     mmeSyncDustVolumesToRenderer();
+}
+
+void modernMapEditorCameraUpdate(void)
+{
     if (mme.active) mmeUpdateFreeCamera();
 }
 

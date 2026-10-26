@@ -64,6 +64,9 @@ bool32 modernMapEditorHandleWorldEvent(udword event, udword data);
 bool32 modernMapEditorHandleKey(sdword key);
 bool32 modernMapEditorPump(void);
 void modernMapEditorCameraUpdate(void);
+/* Universe resets also occur when loading another save of the same mission. */
+void modernMapEditorMissionReset(void);
+void modernMapEditorUpdateEnvironment(void);
 bool32 modernMapEditorWireframeActive(void);
 /* Called from the live main-world draw after scene/selection rendering so the
    selected-object 3D manipulator is guaranteed to be visible in Shift+F11. */

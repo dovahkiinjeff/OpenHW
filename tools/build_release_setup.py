@@ -19,6 +19,8 @@ def main():
     sys.argv=['PyInstaller','--noconfirm','--clean','--onedir','--windowed','--contents-directory','Development','--noupx',
       '--name','OpenHW-Setup','--distpath',str(a.output),'--workpath',str(repo/'out/release-freeze-work'),
       '--specpath',str(repo/'out/release-freeze-work'),'--paths',str(repo/'tools')]
+    modules+=['release_patch','release_sky_lighting']
+    sys.argv+=['--add-data',str(repo/'tools/sky_materials/btg_microstructure.png')+';sky_materials']
     for module in modules:sys.argv+=['--hidden-import',module]
     sys.argv+=[str(repo/'tools/release_setup.py')];runpy.run_module('PyInstaller',run_name='__main__')
     notices=a.output/'OpenHW-Setup/ThirdPartyNotices';notices.mkdir(parents=True,exist_ok=True)

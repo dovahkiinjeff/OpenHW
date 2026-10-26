@@ -90,3 +90,7 @@ Shift+F11 opens map/cloud authoring; Shift+F12 opens lighting. The main-menu Mod
 ## Reporting and upcoming work
 
 Completing NVIDIA DLSS and Intel support and addressing player-reported bugs/glitches are immediate priorities. Until then use AMD FSR for 1.0. Include the mission, reproducible steps, GPU/driver, all reconstruction/frame-generation settings, screenshots/video and relevant diagnostic output. Do not share retail game assets. [Known limitations](LIMITATIONS.md) distinguishes supported behavior from unfinished integrations.
+
+## OpenHW 1.0.1 patch
+
+Close both game executables and run OpenHW-Patch-1.0.1.exe against an existing installation. It restores dust settings on startup/save loading and regenerates missing mission lighting skies from the original Collection. Existing user settings and authored maps are preserved. See [patch notes](../RELEASE_NOTES_1.0.1.md).

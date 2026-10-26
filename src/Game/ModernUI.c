@@ -5550,7 +5550,9 @@ void modernUIToggleLightingEditor(void)
         sdword beforeCount = -1;
         if (modernMissionBackdropLightingAuthoringGet(&beforeState))
             beforeCount = beforeState.authoredLightCount;
-        if (!modernMissionBackdropLightingAuthoringAdoptMapLights())
+        if (beforeCount < 0)
+            muiLightingSetStatus("MISSION SKY ASSETS MISSING OR NOT READY / REPAIR INSTALLATION");
+        else if (!modernMissionBackdropLightingAuthoringAdoptMapLights())
             muiLightingSetStatus("WARNING: COULD NOT IMPORT ALL RETAIL MAP LIGHTS");
         else if (beforeCount >= 0 &&
                  modernMissionBackdropLightingAuthoringGet(&state) &&
