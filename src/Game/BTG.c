@@ -1441,9 +1441,6 @@ void btgRender(void)
     extern bool32 gMosaic;
 #endif
 
-    modernMissionBackdropPrepare();
-    if (remasteredBackdropRender((real32)btgFade / 255.0f)) return;
-
     if (btgHead == NULL)
     {
 #ifdef _WIN32
@@ -1452,6 +1449,11 @@ void btgRender(void)
         btgLoad("BTG/default.btg");
 #endif
     }
+
+    /* Resolve the current map's default before selecting a modern backdrop.
+       A previous map's cached name must not bypass default.btg initialization. */
+    modernMissionBackdropPrepare();
+    if (remasteredBackdropRender((real32)btgFade / 255.0f)) return;
 
     /* Campaign skies are now complete, seamless 360-degree environments.
        A successful modern draw owns the background for this frame; the old

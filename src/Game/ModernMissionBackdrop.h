@@ -6,7 +6,7 @@
 void modernMissionBackdropLightingTuningCapture(void);
 void modernMissionBackdropLightingTuningApply(void);
 
-/* Draws the campaign mission environment as a native fullscreen D3D12
+/* Draws the story or multiplayer map environment as a native fullscreen D3D12
    direction lookup from a pole-safe dual-paraboloid HDR Texture2D. TRUE means
    the modern layer rendered successfully and the caller must skip the visible
    legacy BTG; FALSE deliberately leaves the BTG as a fallback. */
@@ -15,6 +15,8 @@ bool32 modernMissionBackdropActive(void);
 /* Shared validated upload only; does not replace mission lighting metadata. */
 bool32 modernMissionBackdropLoadSkyTexture(const char *path, udword *texture);
 void modernMissionBackdropPrepare(void);
+/* Campaign IDs remain 1..16; multiplayer IDs are stable and map-specific. */
+sdword modernMissionBackdropEnvironmentId(void);
 bool32 modernMissionBackdropSkyLighting(real32 outDirection[3],
                                         real32 outSourceColor[3],
                                         real32 outAmbientColor[3],

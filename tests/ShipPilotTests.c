@@ -3,7 +3,8 @@
 #include <SDL2/SDL.h>
 static Uint32 testTicks=100;
 #define SDL_GetTicks() testTicks
-#define SDL_GetKeyboardFocus() ((SDL_Window *)1)
+#define SDL_GetKeyboardFocus() (testFocus?(SDL_Window *)1:NULL)
+static int testFocus=1;
 #include "../src/Game/ShipPilot.c"
 #include "MadLinkIn.h"
 #include "MadLinkInDefs.h"
@@ -15,6 +16,20 @@ Universe universe;
 TacticsInfo tacticsInfo;
 MaxSelection selSelected;
 bool32 gameIsRunning=TRUE,singlePlayerGame=TRUE,nisIsRunning=FALSE,smSensorsActive=FALSE;
+bool32 multiPlayerGame=FALSE,playPackets=FALSE,recordFakeSendPackets=FALSE;
+IDToPtrTable ShipIDToPtr;
+static ShipPilotFrame lastPilotFrame;
+static unsigned pilotPackets;
+void clSendPilotFrame(const ShipPilotFrame *frame) {lastPilotFrame=*frame;pilotPackets++;}
+SpaceObjPtr IDToPtrTableIDToObj(IDToPtrTable *table,uword id)
+{
+    Node *n;(void)table;
+    for(n=universe.ShipList.head;n;n=n->next) {
+        Ship *s=(Ship *)listGetStructOfNode(n);
+        if(s->shipID.shipNumber==id)return (SpaceObjPtr)s;
+    }
+    return NULL;
+}
 sdword MAIN_WindowWidth=1280,MAIN_WindowHeight=720;
 sdword camMouseX,camMouseY,wheel_up,wheel_down;
 real32 burstCoolDownTime=10;
@@ -88,7 +103,7 @@ int main(void)
     memset(&ship,0,sizeof(ship));memset(&stats,0,sizeof(stats));
     stats.staticheader.maxvelocity=100;stats.minimumZoomDistance=30;
     stats.staticheader.staticCollInfo.collspheresize=10;
-    ship.staticinfo=&stats;ship.playerowner=&player;ship.shipID.shipNumber=7;
+    ship.objtype=OBJ_ShipType;ship.staticinfo=&stats;ship.playerowner=&player;ship.shipID.shipNumber=7;
     guns.numGuns=1;guns.guns[0].gunstatic=&weapon;ship.gunInfo=&guns;
     weapon.guntype=GUN_Fixed;weapon.gunnormal.z=1;weapon.triggerHappy=0.99f;
     ship.rotinfo.coordsys.m11=ship.rotinfo.coordsys.m22=ship.rotinfo.coordsys.m33=1;
@@ -398,6 +413,109 @@ int main(void)
         keyScanCode[CONTROLKEY].keypressed=0;shipPilotExit();
         stats.shipclass=CLASS_Fighter;CHECK(!shipPilotCommandAvailable());
     }
+    /* Local skirmish uses both controls, just like campaign play. */
+    memset((void *)keyScanCode,0,sizeof(keyScanCode));
+    singlePlayerGame=FALSE;stats.shipclass=CLASS_Frigate;
+    CHECK(shipPilotCanEnter() && shipPilotCommandAvailable());
+    pilotEnter();CHECK(shipPilotActive());pilot.throttle=.5f;
+    shipPilotUpdate();CHECK(velocityRequest.z==40);shipPilotExit();
+    stats.shipclass=CLASS_Fighter;pilotEnter();CHECK(shipPilotActive());shipPilotExit();
+    /* Network input cannot move a hull until echoed through the shared stream. */
+    multiPlayerGame=TRUE;stats.shipclass=CLASS_Frigate;
+    ship.command=NULL;ship.formationcommand=NULL;
+    pilotPackets=0;CHECK(shipPilotCanEnter());pilotEnter();
+    CHECK(pilot.awaiting && pilotPackets==1 && lastPilotFrame.action==PILOT_FRAME_BEGIN);
+    CHECK(ship.command==NULL && !shipPilotOwns(&ship));
+    shipPilotReceiveFrame(0,&lastPilotFrame);
+    CHECK(!pilot.awaiting && shipPilotOwns(&ship) && ship.command->ordertype.order==COMMAND_HALT);
+    pilot.throttle=.5f;velocityRequest.z=-999;shipPilotUpdate();
+    CHECK(lastPilotFrame.action==PILOT_FRAME_UPDATE && velocityRequest.z==0);
+    shipPilotReceiveFrame(0,&lastPilotFrame);shipPilotUpdate();CHECK(velocityRequest.z==40);
+    {
+        ShipPilotFrame frame=lastPilotFrame;
+        unsigned savedSequence=networkSequences[0];
+        frame.sequence+=10;frame.throttle=1;
+        shipPilotReceiveFrame(1,&frame);CHECK(networkPilots[1].ship==NULL); /* owner spoof */
+        frame.throttle=NAN;shipPilotReceiveFrame(0,&frame);CHECK(networkSequences[0]==savedSequence);
+        frame.throttle=1;frame.navigation=99;shipPilotReceiveFrame(0,&frame);CHECK(networkSequences[0]==savedSequence);
+        frame.navigation=0;frame.sequence=networkSequences[0];
+        shipPilotReceiveFrame(0,&frame);CHECK(networkPilots[0].throttle==.5f); /* duplicate */
+    }
+    /* A remote pilot executes with the same steering/weapon rules even when
+       the observing client has no pilot active and presses unrelated keys. */
+    shipPilotExit();CHECK(endPending);
+    shipPilotReceiveFrame(0,&lastPilotFrame);CHECK(!shipPilotOwns(&ship) && !endPending);
+    {
+        Ship remote={0},wing={0};ShipStaticInfo remoteStats={0};Player remoteOwner={0};
+        Node remoteNode={0},wingNode={0};CommandToDo squad={0};
+        struct {sdword numShips;Ship *ShipPtr[2];} members;
+        ShipPilotFrame frame={0};
+        remoteOwner.playerIndex=1;remote.objtype=wing.objtype=OBJ_ShipType;
+        remote.staticinfo=wing.staticinfo=&remoteStats;remoteStats.shipclass=CLASS_Fighter;
+        remoteStats.staticheader.maxvelocity=50;
+        remote.playerowner=wing.playerowner=&remoteOwner;
+        remote.shipID.shipNumber=70;wing.shipID.shipNumber=71;
+        remote.rotinfo.coordsys.m11=remote.rotinfo.coordsys.m22=remote.rotinfo.coordsys.m33=1;
+        remoteNode.structptr=&remote;wingNode.structptr=&wing;
+        node.next=&remoteNode;remoteNode.next=&wingNode;
+        members.numShips=2;members.ShipPtr[0]=&remote;members.ShipPtr[1]=&wing;
+        squad.selection=(SelectCommand *)&members;squad.ordertype.attributes=COMMAND_MASK_FORMATION;
+        squad.formation.formationtype=DELTA3D_FORMATION;
+        remote.command=remote.formationcommand=wing.command=wing.formationcommand=&squad;
+        frame.sequence=1;frame.action=PILOT_FRAME_BEGIN;frame.ship=70;frame.squad=TRUE;
+        frame.navRange=1500;frame.throttle=1;frame.picked=0xffff;
+        shipPilotReceiveFrame(1,&frame);
+        CHECK(shipPilotOwns(&remote) && shipPilotControls(&wing) && !shipPilotActive());
+        keyScanCode[QKEY].keypressed=keyScanCode[RKEY].keypressed=1;
+        formationUpdates=0;shipPilotUpdate();
+        CHECK(velocityRequest.x==0 && velocityRequest.y==0 && velocityRequest.z==40 && formationUpdates==1);
+        squad.formation.formationtype=CLAW_FORMATION;
+        CHECK(shipPilotControls(&wing));
+        squad.ordertype.order=COMMAND_DOCK;
+        CHECK(!shipPilotControls(&wing) && !shipPilotOwns(&remote));
+        shipPilotUpdate();CHECK(networkPilots[1].ship==NULL);
+        frame.sequence=2;frame.action=PILOT_FRAME_UPDATE;
+        shipPilotReceiveFrame(1,&frame);CHECK(networkPilots[1].ship==NULL); /* never steals new orders */
+        /* Command navigation and per-gun toggles are also replicated. */
+        remote.command=remote.formationcommand=NULL;remote.gunInfo=&guns;
+        remoteStats.shipclass=CLASS_Frigate;
+        ship.flags=SOF_Targetable;ship.collInfo.collPosition.z=2000;
+        frame.sequence=3;frame.action=PILOT_FRAME_BEGIN;frame.squad=FALSE;
+        frame.commandMode=TRUE;frame.navigation=1;frame.navHeading.z=1;
+        frame.locked=TRUE;frame.target=ship.shipID.shipNumber;
+        frame.weaponCount=1;frame.weapons[0]=1;
+        weapon.guntype=GUN_NewGimble;weapon.bulletrange=10000;aligned=ready=1;
+        shipPilotReceiveFrame(1,&frame);CHECK(shipPilotTargetFor(&remote)==&ship);
+        {
+            int before=shots;
+            shipPilotUpdate();CHECK(shots==before+1 && shotTarget==(SpaceObjRotImpTarg *)&ship);
+            /* Observer camera/focus and held keys cannot change remote physics. */
+            testFocus=0;c->eyeposition.x=987654;c->angle=2.7f;
+            shipPilotUpdate();CHECK(velocityRequest.z==40 && shots==before+2);
+            testFocus=1;
+            frame.sequence=4;frame.action=PILOT_FRAME_UPDATE;frame.weapons[0]=0;
+            shipPilotReceiveFrame(1,&frame);shipPilotUpdate();CHECK(shots==before+2);
+        }
+        /* Cockpit steering rates have no dependency on a remote camera. */
+        remoteStats.shipclass=CLASS_Fighter;
+        remoteStats.staticheader.momentOfInertiaX=remoteStats.staticheader.momentOfInertiaY=2;
+        for(int k=0;k<6;k++)remote.nonstatvars.rotstrength[k]=10;
+        remote.nonstatvars.turnspeed[TURN_YAW]=remote.nonstatvars.turnspeed[TURN_PITCH]=1;
+        universe.phystimeelapsed=.05f;
+        frame.sequence=5;frame.commandMode=FALSE;frame.cockpit=TRUE;frame.locked=FALSE;
+        frame.yawRate=.2f;frame.pitchRate=.3f;
+        shipPilotReceiveFrame(1,&frame);memset(axisTorque,0,sizeof(axisTorque));
+        testFocus=0;shipPilotUpdate();testFocus=1;
+        CHECK(axisTorque[ROT_ABOUTXCCW]>0 && axisTorque[ROT_ABOUTYCCW]>0);
+        /* END, stale BEGIN, then universe reset leave no detached session. */
+        frame.sequence=6;frame.action=PILOT_FRAME_END;shipPilotReceiveFrame(1,&frame);
+        CHECK(!shipPilotOwns(&remote));
+        frame.sequence=5;frame.action=PILOT_FRAME_BEGIN;shipPilotReceiveFrame(1,&frame);
+        CHECK(!shipPilotOwns(&remote));
+        node.next=NULL;
+    }
+    shipPilotReset();CHECK(!endPending && localSequence==0 && networkSequences[0]==0);
+    multiPlayerGame=FALSE;singlePlayerGame=TRUE;
     fprintf(stdout,"Ship piloting checks: %s\n",failures?"FAILED":"passed");
     return failures?EXIT_FAILURE:EXIT_SUCCESS;
 }

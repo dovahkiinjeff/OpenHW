@@ -68,6 +68,7 @@
 #include "Tutor.h"
 #include "Tweak.h"
 #include "Universe.h"
+#include "ModernMapEditor.h"
 #include "utility.h"
 
 #ifdef HW_ENABLE_D3D12_BACKEND
@@ -6501,7 +6502,7 @@ DONT_MOVE_ME_YET:
 ----------------------------------------------------------------------------*/
 void univupdateReset()
 {
-    shipPilotExit();
+    shipPilotReset();
     universe.phystimeelapsed = UNIVERSE_UPDATE_PERIOD;
     universe.totaltimeelapsed = 0.0f;
     universe.radius = 20000.0f;
@@ -6604,6 +6605,7 @@ void univFreeEffectContents(Effect *effect)
 ----------------------------------------------------------------------------*/
 void univFreeDerelictContents(Derelict *derelict)
 {
+    modernMapEditorForgetDerelict(derelict);
     meshMotionRetireDerelict(derelict);
     if (derelict->navLightInfo)
     {
@@ -6958,7 +6960,7 @@ void univFreeShipContents(Ship *ship)
 ----------------------------------------------------------------------------*/
 void univupdateCloseAllObjectsAndMissionSpheres()
 {
-    shipPilotExit();
+    shipPilotReset();
     Node *objnode = universe.SpaceObjList.head;
     SpaceObj *obj;
     sdword i;
@@ -7310,7 +7312,7 @@ void univUpdateMinorRenderList()
         distsqr = vecMagnitudeSquared(distvec);
 
 #ifdef HW_MODERN_INFINITE_DRAW_DISTANCE
-        if (TRUE)
+        if (!opRestoreFogOfWar || distsqr < RENDER_VIEWABLE_DISTANCE_SQR)
 #else
         if (distsqr < RENDER_VIEWABLE_DISTANCE_SQR)
 #endif
@@ -7393,22 +7395,26 @@ void univUpdateRenderList()
         else
         {                                                   //else check if object should be in render list
 #ifdef HW_MODERN_INFINITE_DRAW_DISTANCE
-            if ((obj->flags & SOF_Hide) == 0)
+            if (!opRestoreFogOfWar)
             {
-                vecSub(obj->cameraDistanceVector, eyeposition,
-                       obj->posinfo.position);
-                obj->cameraDistanceSquared =
-                    vecMagnitudeSquared(obj->cameraDistanceVector);
-                if (bitTest(obj->flags, SOF_AlwaysSortFront))
+                if ((obj->flags & SOF_Hide) == 0)
                 {
-                    listAddNode(&sortFrontList, &obj->renderlink, obj);
-                }
-                else
-                {
-                    listAddNode(&universe.RenderList, &obj->renderlink, obj);
+                    vecSub(obj->cameraDistanceVector, eyeposition,
+                           obj->posinfo.position);
+                    obj->cameraDistanceSquared =
+                        vecMagnitudeSquared(obj->cameraDistanceVector);
+                    if (bitTest(obj->flags, SOF_AlwaysSortFront))
+                    {
+                        listAddNode(&sortFrontList, &obj->renderlink, obj);
+                    }
+                    else
+                    {
+                        listAddNode(&universe.RenderList, &obj->renderlink, obj);
+                    }
                 }
             }
-#else
+            else
+#endif
             if (obj->objtype == OBJ_ShipType)
             {
                 ShipClass shipclass;
@@ -7488,7 +7494,6 @@ void univUpdateRenderList()
                     }
                 }
             }
-#endif
         }
 
         objnode = objnode->next;

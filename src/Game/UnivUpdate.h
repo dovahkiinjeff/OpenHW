@@ -183,6 +183,7 @@ void univInitFastNetworkIDLookups(void);
 void univCloseFastNetworkIDLookups(void);
 void univResetFastNetworkIDLookups(void);
 void IDToPtrTableAdd(IDToPtrTable *table,uword ID,SpaceObj *obj);
+SpaceObjPtr IDToPtrTableIDToObj(IDToPtrTable *table,uword ID);
 // fast id table save stuff
 void LoadIDToPtrTable(IDToPtrTable *table);
 void SaveIDToPtrTable(IDToPtrTable *table);

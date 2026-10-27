@@ -26,7 +26,7 @@ void gunPilotAimAndFire(Ship *ship,const vector *point,Ship *target,bool32 fire,
 {
     SpaceObjRotImpTarg aim;
     sdword i;
-    bool32 locked=target && target==shipPilotTarget() && shipPilotControls(ship);
+    bool32 locked=target && target==shipPilotTargetFor(ship) && shipPilotControls(ship);
     if(!ship->gunInfo) return;
     memset(&aim,0,sizeof(aim));
     aim.objtype=OBJ_AsteroidType;

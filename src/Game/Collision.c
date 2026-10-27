@@ -27,9 +27,7 @@
    out of saves and suppresses repeated damage/audio while hulls remain touching. */
 static bool32 pilotContactDamage(SpaceObjRotImpTarg *a,SpaceObjRotImpTarg *b)
 {
-    static struct {const void *other;real32 seen;uword id;} contacts[64];
-    static Ship *owner;
-    static uword ownerID;
+    static struct {const void *other;const Ship *owner;real32 seen;uword id,ownerID;} contacts[256];
     static unsigned cursor;
     Ship *pilot=NULL;
     SpaceObjRotImpTarg *other;
@@ -42,15 +40,15 @@ static bool32 pilotContactDamage(SpaceObjRotImpTarg *a,SpaceObjRotImpTarg *b)
     if(!pilot) return FALSE;
     other=a==(SpaceObjRotImpTarg *)pilot?b:a;
     id=other->objtype==OBJ_ShipType?((Ship *)other)->shipID.shipNumber:0;
-    if(owner!=pilot || ownerID!=pilot->shipID.shipNumber)
-    { memset(contacts,0,sizeof(contacts));owner=pilot;ownerID=pilot->shipID.shipNumber;cursor=0; }
-    for(i=0;i<64;i++) if(contacts[i].other==other && contacts[i].id==id)
+    for(i=0;i<256;i++) if(contacts[i].owner==pilot && contacts[i].ownerID==pilot->shipID.shipNumber &&
+        contacts[i].other==other && contacts[i].id==id)
     {
         real32 elapsed=now-contacts[i].seen;contacts[i].seen=now;
         if(elapsed>=0 && elapsed<=universe.phystimeelapsed*2.1f) return TRUE;
         break;
     }
-    if(i==64) i=cursor++%64;
+    if(i==256) i=cursor++%256;
+    contacts[i].owner=pilot;contacts[i].ownerID=pilot->shipID.shipNumber;
     contacts[i].other=other;contacts[i].id=id;contacts[i].seen=now;
     vecSub(normal,other->collInfo.collPosition,pilot->collInfo.collPosition);
     length=fsqrt(vecMagnitudeSquared(normal));

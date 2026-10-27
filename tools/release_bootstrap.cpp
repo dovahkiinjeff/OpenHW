@@ -29,7 +29,7 @@ static void createProgress(){
     INITCOMMONCONTROLSEX controls={sizeof(controls),ICC_PROGRESS_CLASS};InitCommonControlsEx(&controls);
     windowHandle=CreateWindowExW(WS_EX_DLGMODALFRAME,L"STATIC",
 #ifdef OPENHW_PATCH_INSTALLER
-        L"OpenHW 1.0.1 patch",
+        L"OpenHW 1.0.2 patch",
 #else
         L"OpenHW 1.0 setup",
 #endif
@@ -83,7 +83,7 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
             if(!_wcsicmp(entry.szExeFile,L"OpenHW.exe") || !_wcsicmp(entry.szExeFile,L"OpenHW-Daignostics.exe"))running=true;
         }while(Process32NextW(snapshot,&entry));CloseHandle(snapshot);
         check(!running,"Close OpenHW and OpenHW-Daignostics before applying this patch.");
-        const auto backup=root/L"Development/Patches/1.0.1/Backup";
+        const auto backup=root/L"Development/Patches/1.0.2/Backup";
         std::filesystem::create_directories(backup);
         for(const wchar_t* name:{L"OpenHW.exe",L"OpenHW-Daignostics.exe",L"version.json"})
             if(std::filesystem::is_regular_file(root/name) && !std::filesystem::exists(backup/name))

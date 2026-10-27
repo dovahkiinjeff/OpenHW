@@ -19,7 +19,7 @@ for i in range(struct.unpack_from('<I', data, off)[0]):
     length = struct.unpack_from('<I', data, nameoff)[0]
     name = data[nameoff + 4:nameoff + 4 + length].decode('utf-16-le')
     modules.append((base, size, name))
-exe = next(m for m in modules if Path(m[2]).name.lower() in ('homeworldmodern.exe','openhw.exe'))
+exe = next(m for m in modules if Path(m[2]).name.lower() in ('homeworldmodern.exe','openhw.exe','openhw-daignostics.exe'))
 off, _ = streams[6]
 tid = struct.unpack_from('<I', data, off)[0]
 address = struct.unpack_from('<Q', data, off + 24)[0]

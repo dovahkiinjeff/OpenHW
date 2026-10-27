@@ -52,6 +52,7 @@
 #include "ModernHarvestableDust.h"
 #include "ModernParticleFields.h"
 #include "ModernMissionBackdrop.h"
+#include "ModernMapEditor.h"
 #include "ModernUI.h"
 #include "mouse.h"
 #include "ShipPilot.h"
@@ -2141,7 +2142,7 @@ void rndRenderAHomeworld(void* voidCamera, void *voidWorld)
         }
     }
 
-    planetScale = world->staticinfo->scaleFactor;
+    planetScale = world->staticinfo->scaleFactor * modernMapEditorDerelictScale(world);
     position = &world->posinfo.position;
     worldMesh = (meshdata *)world->staticinfo->staticheader.LOD->level[0].pData;
     glMatrixMode(GL_PROJECTION);
@@ -3517,7 +3518,7 @@ dontdraw:
                 }
             } break;
             case OBJ_ShipType:
-                if(shipPilotCockpit() && shipPilotOwns((Ship *)spaceobj)) break;
+                if(shipPilotCockpit() && shipPilotShip()==(Ship *)spaceobj) break;
                 /* A containing hull is invisible. Skip before pose, mesh,
                    ray tracing submission, nav lights and trails; the former
                    two-sided wireframe path was expensive at close range. */
@@ -4008,7 +4009,12 @@ dontdraw:
                             glMultMatrixf((float *)&coordMatrixForGL);//ship's rotation matrix
                             shPushLightMatrix(&coordMatrixForGL);
 
-                            if (spaceobj->objtype == OBJ_AsteroidType)
+                            if (spaceobj->objtype == OBJ_DerelictType)
+                            {
+                                real32 scaling=modernMapEditorDerelictScale(spaceobj);
+                                if(scaling!=1.0f)glScalef(scaling,scaling,scaling);
+                            }
+                            else if (spaceobj->objtype == OBJ_AsteroidType)
                             {
                                 real32 scaling = ((Asteroid *)spaceobj)->scaling;
                                 if (scaling != 1.0f)

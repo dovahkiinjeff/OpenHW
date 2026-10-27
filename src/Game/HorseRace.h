@@ -76,7 +76,7 @@ void HorseRaceBeginBar(uword barnum);
 bool32 HorseRaceNext(real32 percent);
 
 /* Local mission-loading detail; deliberately separate from network horse
-   packets and their original percentages. Calls outside an active story load
+   packets and their original percentages. Calls outside an active world load
    are ignored. Task/item callbacks only update data, never graphics state. */
 enum
 {

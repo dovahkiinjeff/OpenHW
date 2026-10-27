@@ -491,6 +491,8 @@ udword opMissionStartLaunch = 0;
    values stay authored while harvest speed and deposited payout scale 1x-4x. */
 udword opResourceMultiplier = 1;
 udword opUnlimitedRUs = 0;
+udword opRestoreFogOfWar = 0;
+static udword opSaveRestoreFogOfWar = 0;
 static udword opSaveUnlimitedRUs = 0;
 udword opDisableSPResourceScaling = 0;
 static udword opSaveDisableSPResourceScaling = 0;
@@ -1597,6 +1599,7 @@ void opRestoreSavedSettings(void)
     opInfoOverlayVar = opSaveInfoOverlay;
     opUnlimitedFuel = opSaveUnlimitedFuel;
     opUnlimitedRUs = opSaveUnlimitedRUs;
+    opRestoreFogOfWar = opSaveRestoreFogOfWar;
     opDisableSPResourceScaling = opSaveDisableSPResourceScaling;
     mainShowFPS = opSaveShowFPS;
     if (opInfoOverlayVar)
@@ -1909,6 +1912,7 @@ void opOptionsSaveSettings(void)
     opSaveInfoOverlay = opInfoOverlayVar;
     opSaveUnlimitedFuel = opUnlimitedFuel;
     opSaveUnlimitedRUs = opUnlimitedRUs;
+    opSaveRestoreFogOfWar = opRestoreFogOfWar;
     opSaveDisableSPResourceScaling = opDisableSPResourceScaling;
     opSaveShowFPS = mainShowFPS;
 

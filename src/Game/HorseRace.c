@@ -171,34 +171,12 @@ static double hrLoadingSeconds(void)
     return (double)SDL_GetTicks64() / 1000.0;
 }
 
-void HorseRaceLoadingPhaseBegin(int phase, const char *task)
-{
-    if (hrRunning && singlePlayerGame)
-        hwMissionLoadProgressPhaseBegin(phase, task, hrLoadingSeconds());
-}
-
-void HorseRaceLoadingPhaseComplete(int phase)
-{
-    if (hrRunning && singlePlayerGame)
-        hwMissionLoadProgressPhaseComplete(phase, hrLoadingSeconds());
-}
-
-void HorseRaceLoadingTask(const char *task)
-{
-    if (hrRunning && singlePlayerGame)
-        hwMissionLoadProgressTask(task, hrLoadingSeconds());
-}
-
-void HorseRaceLoadingProgress(unsigned int completed, unsigned int total, const char *task)
-{
-    if (hrRunning && singlePlayerGame)
-        hwMissionLoadProgressItems(completed, total, task, hrLoadingSeconds());
-}
+#include "LoadingProgressBridge.inc"
 
 void HorseRaceLoadingRefresh(void)
 {
     Uint64 now = SDL_GetTicks64();
-    if (!hrRunning || !singlePlayerGame || hrLoadingDrawInProgress ||
+    if (!hrRunning || hrLoadingDrawInProgress ||
         (hrLoadingLastDraw != 0 && now - hrLoadingLastDraw < 100)) return;
     hrDirtyProgressBar();
     horseRaceRender();
@@ -315,76 +293,10 @@ static void hrLoadingElapsed(double elapsed, char *text, size_t capacity)
         snprintf(text, capacity, "%llu:%02llu", seconds / 60, seconds % 60);
 }
 
-void hrDrawPlayersProgress(featom *atom, regionhandle region)
+static void hrDrawLoadingPanel(void)
 {
-    sdword     index;
-    rectangle pos;
-    rectangle outline;
     real32 percent;
-    fonthandle currentfont;
-    bool32 droppedOut;
-
-    hrProgressRegion = region;
-
-    pos = region->rect;
-
-//  primRectSolid2(&pos, colRGBA(0, 0, 0, 64));
-
-    pos.y0+=fontHeight(" ");
-    pos.y1=pos.y0+8;
-
-    currentfont = fontMakeCurrent(playernamefont);
-
-    if (multiPlayerGame)
-    {
-        dbgAssertOrIgnore(sigsNumPlayers == tpGameCreated.numPlayers);
-        for (index=0;index<sigsNumPlayers;index++)
-        {
-            droppedOut = playerHasDroppedOutOrQuit(index);
-
-            outline = pos;
-            outline.x0 -= 5;
-            outline.x1 += 10;
-            outline.y0 -= 3;
-            outline.y1 = outline.y0 + fontHeight(" ")*2 - 2;
-
-            if ((hrBackgroundDirty) || (!PlayersAlreadyDrawnDropped[index]))
-            {
-                PlayersAlreadyDrawnDropped[index] = droppedOut;
-
-                primRectSolid2(&outline, colBlack);
-
-                if (droppedOut)
-                {
-                    fontPrintf(pos.x0,pos.y0,colBlack,"%s",tpGameCreated.playerInfo[index].PersonalName);
-                    fontPrintf(pos.x0,pos.y0,HorseRaceDropoutColor,"%s",
-                               (playersReadyToGo[index] == PLAYER_QUIT) ? strGetString(strQuit) : strGetString(strDroppedOut));
-                }
-                else
-                {
-                    fontPrintf(pos.x0,pos.y0,tpGameCreated.playerInfo[index].baseColor,"%s",tpGameCreated.playerInfo[index].PersonalName);
-
-                    if (horseracestatus.hrstatusstr[index][0])
-                    {
-                        fontPrintf(pos.x0+150,pos.y0,tpGameCreated.playerInfo[index].baseColor,"%s",horseracestatus.hrstatusstr[index]);
-                    }
-                }
-            }
-
-            primRectOutline2(&outline, 1, (droppedOut) ? HorseRaceDropoutColor : tpGameCreated.playerInfo[index].stripeColor);
-
-            pos.y0+=fontHeight(" ");
-            pos.y1=pos.y0+4;
-
-            percent = horseracestatus.percent[index];
-
-            hrBarDraw(&pos,hrBackBarColor,(droppedOut) ? HorseRaceDropoutColor : tpGameCreated.playerInfo[index].baseColor,percent);
-
-            pos.y0+=fontHeight(" ");
-        }
-    }
-    else if (singlePlayerGame)
-    {
+    fonthandle currentfont = fontMakeCurrent(playernamefont);
         static const char *missionTitles[] = {
             "UNKNOWN DESTINATION", "KHARAK SYSTEM",
             "OUTSKIRTS OF KHARAK SYSTEM", "RETURN TO KHARAK",
@@ -409,6 +321,8 @@ void hrDrawPlayersProgress(featom *atom, regionhandle region)
         char elapsed[32], taskElapsed[32];
         sdword margin, padding, bodyHeight, headingHeight, lineHeight, gap;
         sdword historyRows = HW_MISSION_LOAD_HISTORY_LINES;
+        sdword networkRows = multiPlayerGame ? sigsNumPlayers : 0;
+        if (networkRows < 0 || networkRows > MAX_MULTIPLAYER_PLAYERS) networkRows = 0;
         sdword panelHeight, x, y, textWidth, row;
         sdword missionIndex = spGetCurrentMission();
         hwMissionLoadProgressSnapshot(&loading);
@@ -430,7 +344,7 @@ void hrDrawPlayersProgress(featom *atom, regionhandle region)
         padding = uiScaleSize(18);
         if (margin < 4) margin = 4;
         if (padding < 4) padding = 4;
-        panelHeight = padding * 2 + headingHeight + lineHeight * (6 + historyRows) + uiScaleSize(10);
+        panelHeight = padding * 2 + headingHeight + lineHeight * (6 + historyRows + networkRows + (networkRows > 0)) + uiScaleSize(10);
         while (historyRows > 0 && panelHeight > MAIN_WindowHeight * 3 / 5)
         {
             --historyRows;
@@ -446,7 +360,10 @@ void hrDrawPlayersProgress(featom *atom, regionhandle region)
         accent = panel;
         accent.x1 = accent.x0 + uiScaleSize(4);
         primRectSolid2(&accent, colRGB(222, 162, 62));
-        if (missionIndex >= 0 && missionIndex <
+        if (!singlePlayerGame)
+            snprintf(mission, sizeof(mission), "%s / %.70s", multiPlayerGame ? "MULTIPLAYER" : "SKIRMISH",
+                tpGameCreated.DisplayMapName[0] ? tpGameCreated.DisplayMapName : "LOCAL BATTLE");
+        else if (missionIndex >= 0 && missionIndex <
             (sdword)(sizeof(missionTitles) / sizeof(missionTitles[0])))
             snprintf(mission, sizeof(mission), "MISSION %02d / %s",
                      missionIndex, missionTitles[missionIndex]);
@@ -477,6 +394,22 @@ void hrDrawPlayersProgress(featom *atom, regionhandle region)
             snprintf(line, sizeof(line), "ELAPSED %s  |  TASK %s", elapsed, taskElapsed);
         hrLoadingPrintFit(x, y, textWidth, colRGB(143, 157, 157), line);
         y += lineHeight;
+        if (networkRows > 0)
+        {
+            hrLoadingPrintFit(x, y, textWidth, colRGB(222, 162, 62), "PLAYER READINESS");
+            y += lineHeight;
+            for (row=0;row<networkRows;++row)
+            {
+                real32 ready=horseracestatus.percent[row];
+                if (!isfinite(ready) || ready < 0) ready=0;
+                if (ready > 1) ready=1;
+                snprintf(line,sizeof(line),"%.80s / %u%% / %.100s",
+                    tpGameCreated.playerInfo[row].PersonalName,(unsigned)(ready*100),
+                    playerHasDroppedOutOrQuit(row) ? "DISCONNECTED" : horseracestatus.hrstatusstr[row]);
+                hrLoadingPrintFit(x,y,textWidth,colRGB(143,157,157),line);
+                y += lineHeight;
+            }
+        }
         hrLoadingPrintFit(x, y, textWidth, colRGB(222, 162, 62), "RECENT ACTIVITY");
         y += lineHeight;
         for (row = 0; row < historyRows; ++row)
@@ -498,31 +431,14 @@ void hrDrawPlayersProgress(featom *atom, regionhandle region)
         primRectSolid2(&fill, colRGB(105, 184, 196));
         primRectOutline2(&bar, 1, colRGB(78, 105, 114));
         ++hrProgressCounter;
-    }
-    else
-    {
-        if (hrBackgroundDirty)
-        {
-            outline = pos;
-            outline.x0 -= 5;
-            outline.x1 += 10;
-            outline.y0 -= 3;
-            outline.y1 = outline.y0 + fontHeight(" ")*2 - 2;
-
-            primRectTranslucent2(&outline, colRGBA(0,0,0,64));
-            primRectOutline2(&outline, 1, teColorSchemes[0].textureColor.detail);
-
-            fontPrintf(pos.x0,pos.y0,teColorSchemes[0].textureColor.base,"%s",playerNames[0]);
-        }
-
-        pos.y0+=fontHeight(" ");
-        pos.y1=pos.y0+4;
-
-        percent = horseracestatus.percent[0];
-
-        hrBarDraw(&pos,hrBackBarColor,teColorSchemes[0].textureColor.base,percent);
-    }
     fontMakeCurrent(currentfont);
+}
+
+void hrDrawPlayersProgress(featom *atom, regionhandle region)
+{
+    /* Rendering is owned by horseRaceRender, independent of the old FIB's
+       single-player-only progress region and its dirty flags. */
+    hrProgressRegion = region;
 }
 
 void hrDrawChatBox(featom *atom, regionhandle region)
@@ -632,189 +548,79 @@ void hrChooseSinglePlayerBitmap(char* pFilenameBuffer)
     hrSinglePlayerPos.y1 = y + height;
 }
 
-void hrChooseRandomBitmap(char *pFilenameBuffer)
+void hrChooseRandomBitmap(char *output)
 {
-#ifdef _WIN32
-    struct _finddata_t  FindData;
-    intptr_t hFind;
-#else
-    DIR *dp;
-    struct dirent* dir_entry;
-    FILE* fp;
-#endif
+    char directory[PATH_MAX], pattern[PATH_MAX], line[PATH_MAX];
+    int count = 0, wanted, pass;
     filehandle handle;
-    long userScreenShotCount = 0, BigFileCount = 0,
-         chosenFileIndex = 0, currentFileIndex = 0, Result;
-    char BigName[PATH_MAX], CurDir[PATH_MAX], NewDir[PATH_MAX];
-
-    // Remember the current directory
-    getcwd(CurDir, PATH_MAX);
-
-    NewDir[0] = 0;
-    strcpy(NewDir, filePathPrepend("ScreenShots", FF_UserSettingsPath));
-
-    // Prefer user screenshots over pre-saved ones; they're more likely to be 
-    // at a higher resolution, not to mention more interesting...
-
-    // Switch to the screenshots directory and count the ones in there
-    /*SetCurrentDirectory(NewDir);*/
-    chdir(NewDir);
+    output[0] = '\0';
+    snprintf(directory, sizeof(directory), "%s", filePathPrepend("ScreenShots", FF_UserSettingsPath));
+    wanted = 0;
+    for (pass = 0; pass < 2; ++pass)
+    {
+        int index = 0;
 #ifdef _WIN32
-    hFind = _findfirst("*.jpg", &FindData);
-    if(hFind != -1)
-    {
-        do {
-            if( ((FindData.attrib & _A_SUBDIR) == 0) &&
-                ((FindData.attrib & _A_HIDDEN) == 0) )
-                userScreenShotCount++;
-        } while (_findnext(hFind, &FindData) == 0);
-        _findclose(hFind);
-    }
-#else
-    dp = opendir(".");
-
-    if (dp)
-    {
-        unsigned int dir_str_len;
-
-        while ((dir_entry = readdir(dp)))
+        struct _finddata_t entry;
+        intptr_t search;
+        snprintf(pattern, sizeof(pattern), "%s/*.jpg", directory);
+        search = _findfirst(pattern, &entry);
+        if (search != -1)
         {
-            if (dir_entry->d_name[0] == '.')
-                continue;
-            dir_str_len = strlen(dir_entry->d_name);
-            if (dir_str_len < 4 ||
-                strcasecmp(dir_entry->d_name + dir_str_len - 4, ".jpg"))
-                continue;
-
-            /* See if the current process can actually open the file (simple
-               check for read permissions and if it's a directory). */
-            if (!(fp = fopen(dir_entry->d_name, "rb")))
-                continue;
-            fclose(fp);
-
-            userScreenShotCount++;
-        }
-
-        closedir(dp);
-    }
-#endif
-
-    if (userScreenShotCount > 0)
-    {
-        chosenFileIndex = (utyTimerLast % 32777) % userScreenShotCount;
-
-#ifdef _WIN32
-        hFind = _findfirst("*.jpg", &FindData);
-        if(hFind != -1)
-        {
-            do {
-                if( ((FindData.attrib & _A_SUBDIR) == 0) &&
-                    ((FindData.attrib & _A_HIDDEN) == 0) )
-                {
-                    if(currentFileIndex == chosenFileIndex)
-                    {
-                        _findclose(hFind);
-                        strcpy(pFilenameBuffer, filePathPrepend("ScreenShots\\", FF_UserSettingsPath));
-                        strcat(pFilenameBuffer, FindData.name);
-                        break;
-                    }
-                    else
-                        currentFileIndex++;
-                }
-            } while (_findnext(hFind, &FindData) == 0);
-        }
-#else
-        dp = opendir(".");
-
-        if (dp)
-        {
-            unsigned int dir_str_len;
-
-            while ((dir_entry = readdir(dp)))
+            do
             {
-                if (dir_entry->d_name[0] == '.')
-                    continue;
-                dir_str_len = strlen(dir_entry->d_name);
-                if (dir_str_len < 4 ||
-                    strcasecmp(dir_entry->d_name + dir_str_len - 4, ".jpg"))
-                    continue;
-                if (!(fp = fopen(dir_entry->d_name, "rb")))
-                    continue;
-                fclose(fp);
-
-                if (currentFileIndex != chosenFileIndex)
-                {
-                    currentFileIndex++;
-                    continue;
-                }
-
-                strcat(pFilenameBuffer, filePathPrepend("ScreenShots/", FF_UserSettingsPath));
-                strcat(pFilenameBuffer, dir_entry->d_name);
-                
-                break;
+                if (entry.attrib & (_A_SUBDIR | _A_HIDDEN)) continue;
+                if (pass == 1 && index == wanted)
+                    snprintf(output, PATH_MAX, "%s/%s", directory, entry.name);
+                ++index;
+            } while (_findnext(search, &entry) == 0);
+            _findclose(search);
+        }
+#else
+        DIR *dp = opendir(directory);
+        struct dirent *entry;
+        if (dp != NULL)
+        {
+            while ((entry = readdir(dp)) != NULL)
+            {
+                size_t n = strlen(entry->d_name);
+                if (entry->d_name[0] == '.' || n < 4 ||
+                    strcasecmp(entry->d_name + n - 4, ".jpg") != 0) continue;
+                if (pass == 1 && index == wanted)
+                    snprintf(output, PATH_MAX, "%s/%s", directory, entry->d_name);
+                ++index;
             }
-
             closedir(dp);
         }
 #endif
-    }
-    else // look in the big file for fallback images
-    {   
-        // First, find screen shots listed in the BigFile
-#ifdef _WIN32
-        handle = fileOpen("ScreenShots\\ShotList.script", FF_ReturnNULLOnFail | FF_TextMode);
-#else
-        handle = fileOpen("ScreenShots/ShotList.script", FF_ReturnNULLOnFail | FF_TextMode);
-#endif
-        if(handle)
+        if (pass == 0)
         {
-            do {
-                Result = fileLineRead(handle, BigName, 512);
-
-                if(Result != FR_EndOfFile && Result > 0)    // Found one!
-                    BigFileCount++;
-
-            } while(Result != FR_EndOfFile);
-
-            fileClose(handle);
-        }
-        
-        if (BigFileCount > 0)
-        {
-            chosenFileIndex = (utyTimerLast % 32777) % BigFileCount;
-
-#ifdef _WIN32
-            handle = fileOpen("ScreenShots\\ShotList.script", FF_ReturnNULLOnFail | FF_TextMode);
-#else
-            handle = fileOpen("ScreenShots/ShotList.script", FF_ReturnNULLOnFail | FF_TextMode);
-#endif
-            if(handle)
-            {
-                do {
-                    Result = fileLineRead(handle, BigName, 512);
-
-                    if(Result != FR_EndOfFile && Result > 0)    // Found one!
-                        chosenFileIndex--;
-
-                } while( (chosenFileIndex >= 0) && (Result != FR_EndOfFile));
-#ifdef _WIN32
-                strcpy(pFilenameBuffer, "ScreenShots\\");
-#else
-                strcpy(pFilenameBuffer, "ScreenShots/");
-#endif
-                strcat(pFilenameBuffer, BigName);
-            }
+            count = index;
+            if (count == 0) break;
+            wanted = (utyTimerLast % 32777) % count;
         }
     }
-
-    // Did we find any at all?
-    if(userScreenShotCount == 0 && BigFileCount == 0)
+    if (output[0] != '\0') return;
+    /* The screenshot list is optional and may not ship with a compact install.
+       Close it on both passes; repeated skirmishes must not exhaust file slots. */
+    for (pass = 0; pass < 2; ++pass)
     {
-        pFilenameBuffer[0] = 0;
+        int index = 0;
+        handle = fileOpen("ScreenShots/ShotList.script", FF_ReturnNULLOnFail | FF_TextMode);
+        if (!handle) return;
+        while (fileLineRead(handle, line, sizeof(line)) != FR_EndOfFile)
+        {
+            if (line[0] == '\0' || line[0] == ';' || line[0] == '#') continue;
+            if (pass == 1 && index == wanted)
+                snprintf(output, PATH_MAX, "ScreenShots/%s", line);
+            ++index;
+        }
+        fileClose(handle);
+        if (pass == 0)
+        {
+            if (index == 0) return;
+            wanted = (utyTimerLast % 32777) % index;
+        }
     }
-
-    /*SetCurrentDirectory(CurDir);*/
-    chdir(CurDir);
 }
 
 typedef struct
@@ -932,16 +738,13 @@ static unsigned char *hrUpscaleArtwork(const unsigned char *source,int w,int h,i
     free(rows);return output;
 }
 
+#include "LoadingArtwork.inc"
+
 void hrInitBackground(void)
 {
-    char CurDir[PATH_MAX], NewDir[PATH_MAX];
     char hrImageName[PATH_MAX];
-    filehandle handle;
     ubyte *fileData;
-    udword i;
     int width, height, channels;
-
-    getcwd(CurDir, PATH_MAX);
 
     hrImageName[0] = 0;
     if (singlePlayerGame)
@@ -953,17 +756,18 @@ void hrInitBackground(void)
         hrChooseRandomBitmap(hrImageName);
     }
 
-    getcwd(NewDir, PATH_MAX);
-
-    dbgAssertOrIgnore(strcasecmp(CurDir,NewDir) == 0);
-
-    if (fileExists(hrImageName, 0))
+    /* No screenshot is a normal outcome on a fresh installation. */
     {
-        uint32_t fileSize = fileLoadAlloc(hrImageName, (void**)&fileData, 0);
+        int fileSize = 0;
+        fileData = hrReadOptionalArtwork(hrImageName, &fileSize);
+        if (fileData == NULL)
+            fileData = hrReadOptionalArtwork("UI/concept_hangar.png", &fileSize);
+        if (fileData == NULL) return;
+    {
 
         unsigned char *pixels = stbi_load_from_memory(fileData, fileSize, &width, &height, &channels, 3);
         unsigned char *upscaled=NULL;GLint unpackAlignment;
-        if(!pixels||width<=0||height<=0){if(pixels)stbi_image_free(pixels);memFree(fileData);return;}
+        if(!pixels||width<=0||height<=0){if(pixels)stbi_image_free(pixels);free(fileData);return;}
         {
             float factor=fminf(3840.0f/width,2160.0f/height);
             if(factor>1){
@@ -989,10 +793,11 @@ void hrInitBackground(void)
         glPixelStorei(GL_UNPACK_ALIGNMENT,unpackAlignment);free(upscaled);
         
         stbi_image_free(pixels);
-        memFree(fileData);
+        free(fileData);
         
         hrBackXFrac = 1.0f;
         hrBackYFrac = 1.0f;
+    }
     }
 }
 
@@ -1327,11 +1132,9 @@ void horseRaceInit(void)
     hrBackgroundReinit = FALSE;
     hrLoadingLastDraw = 0;
     hrLoadingDrawInProgress = FALSE;
-    if (singlePlayerGame)
-    {
-        hwMissionLoadProgressReset(hrLoadingSeconds());
-        HorseRaceLoadingPhaseBegin(HR_LOAD_PREPARE, "Preparing mission loading systems");
-    }
+    hwMissionLoadProgressReset(hrLoadingSeconds());
+    HorseRaceLoadingPhaseBegin(HR_LOAD_PREPARE,
+        singlePlayerGame ? "Preparing mission loading systems" : "Preparing battle loading systems");
 }
 
 void horseRaceShutdown(void)
@@ -1340,7 +1143,7 @@ void horseRaceShutdown(void)
     HWMissionLoadProgressSnapshot loading;
 
     hwMissionLoadProgressSnapshot(&loading);
-    if (hrRunning && singlePlayerGame && !hrAbortLoadingGame &&
+    if (hrRunning && !hrAbortLoadingGame &&
         loading.percentHundredths == 10000 && !hrLoadingDrawInProgress)
     {
         hrDirtyProgressBar();
@@ -1434,7 +1237,7 @@ void horseRaceRender(void)
     SDL_Event e;
     hrLoadingDrawInProgress = TRUE;
     hrLoadingLastDraw = SDL_GetTicks64();
-    if (singlePlayerGame) hrDirtyProgressBar();
+    hrDirtyProgressBar();
 
 #ifdef HW_ENABLE_D3D12_BACKEND
     /* HorseRace owns its own render loop.  Without a presenter frame the
@@ -1602,6 +1405,7 @@ void horseRaceRender(void)
     hrDrawBackground();
 
     regFunctionsDraw();                                //render all regions
+    if (!hrAbortLoadConfirm) hrDrawLoadingPanel();
     primErrorMessagePrint();
 
     hrUncleanDecorative();
@@ -1665,6 +1469,7 @@ bool32 HorseRaceNext(real32 percent)
 //    static real32 lastper = 0.0f;
     static sdword modulusCounter = 0;
 
+    if (!hrRunning) return percent >= 1.0f;
     if (percent > 1.0f) percent = 1.0f;
 //    if(utyTeaserHeader)  return TRUE;
 

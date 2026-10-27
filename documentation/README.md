@@ -4,6 +4,8 @@
 
 ## Current entry points
 
+- [1.0.2 patch notes and required installation order](../RELEASE_NOTES_1.0.2.md)
+
 - [Project and complete feature overview](../README.md)
 - [Installation, settings, fleet/formation controls and ship piloting](../docs/USER_GUIDE.md)
 - [Map, cloud, rope, dust, lighting and material authoring](../docs/EDITING_GUIDE.md)

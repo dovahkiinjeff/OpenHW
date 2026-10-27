@@ -51,6 +51,7 @@ typedef int bool32, sdword, GLint;
 typedef uint32_t udword, GLuint;
 typedef unsigned char ubyte;
 typedef float real32;
+#define HW_DIAG_FPRINTF fprintf
 #define TRUE 1
 #define FALSE 0
 #define MISSION_1_KHARAK_SYSTEM 1
@@ -69,16 +70,19 @@ typedef float real32;
 #define GL_PROJECTION 11
 #define GL_MODELVIEW 12
 '''
+        harness += '#include "' + (ROOT/'src/Game/BackdropMapPolicy.h').as_posix() + '"\n'
         harness += header + '\n' + backdrop[globals_start:globals_end]
         harness += r'''
 static int currentMission, gameIsRunning, showBackgrounds;
+static int singlePlayerGame = TRUE;
+static char btgLastBackground[128];
 static int loads, metadataLoads, uploads, btgDraws, modernDraws, starDraws;
 static int missingAsset, uploadFailure, invalidAsset, maxTextureSize = 16384;
 static int lastAssetMission;
 static GLuint nextTexture = 1;
 static real32 btgFieldOfView = 90, rndAspectRatio = 1.5f;
 typedef struct { real32 clipPlaneNear, clipPlaneFar; } Camera;
-static sdword mmbCurrentCampaignMission(void) { return currentMission; }
+static sdword mmbCurrentEnvironment(void) { return currentMission; }
 static void glDeleteTextures(int n, const GLuint *p) { (void)n; (void)p; }
 static void trClearCurrent(void) {}
 static void glBindTexture(int target, GLuint id) { (void)target; (void)id; }
@@ -188,7 +192,21 @@ int main(void) {
         CHECK(btgDraws==before+2 && loads==1);
     }
     missingAsset=invalidAsset=uploadFailure=0;maxTextureSize=16384;
-    /* Main menu has no world draw; multiplayer/noncampaign retains BTG. */
+    /* Multiplayer loads the named sky but retains a distinct authoring key
+       for each map, even when both maps share the same sky resource. */
+    singlePlayerGame=FALSE;strcpy(btgLastBackground,"BTG/ez08.btg");
+    currentMission=hwBackdropContext(0,1,"map-a",btgLastBackground);
+    before=modernDraws;loads=metadataLoads=0;
+    rndBackgroundRender(1,&camera,TRUE);
+    CHECK(modernDraws==before+1 && lastAssetMission==8 && loads==1 && metadataLoads==1);
+    CHECK(modernMissionBackdropLightingAuthoringGet(&authoring));
+    CHECK(authoring.mission==currentMission && authoring.available);
+    currentMission=hwBackdropContext(0,1,"map-b",btgLastBackground);
+    rndBackgroundRender(1,&camera,TRUE);
+    CHECK(loads==2 && metadataLoads==2 && lastAssetMission==8);
+    CHECK(modernMissionBackdropLightingAuthoringGet(&authoring) && authoring.mission==currentMission);
+    singlePlayerGame=TRUE;
+    /* Main menu has no world draw; unknown custom environments retain BTG. */
     before=btgDraws+modernDraws;gameIsRunning=FALSE;currentMission=6;loads=0;
     rndBackgroundRender(1,&camera,TRUE);
     CHECK(btgDraws+modernDraws==before && loads==0);

@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "MultiplayerGame.h"
+#include "ModernUI.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1800,7 +1801,8 @@ void mgSkirmish(char *name, featom *atom)
     tpGameCreated.numPlayers    = 1;
     
     // use the previous number of computer players unless it takes us over the limit
-    if (tpGameCreated.numComputers + tpGameCreated.numPlayers > MAX_MULTIPLAYER_PLAYERS) {
+    if (tpGameCreated.numComputers < 1 ||
+        tpGameCreated.numComputers + tpGameCreated.numPlayers > MAX_MULTIPLAYER_PLAYERS) {
         tpGameCreated.numComputers = 1;
     }
     
@@ -4399,89 +4401,14 @@ sdword mgAddCPUProcess(regionhandle region, sdword ID, udword event, udword data
 ----------------------------------------------------------------------------*/
 void mgDrawArrow(regionhandle region, bool32 leftArrow, bool32 human)
 {
-    sdword y;
-    rectangle *rect = &region->rect;
-    triangle tri;
-    sdword width = rect->x1 - rect->x0 - 4;
-    bool32 flag;
-
-    y = rect->y0 + mg_ArrowMarginTop;
-
-    if(leftArrow)
+    bool32 enabled = TRUE;
+    if (!human)
     {
-        tri.x0 = rect->x1 - 2;
-        tri.x1 = rect->x0 + 2;
-        tri.x2 = rect->x1 - 2;
+        int minimum = (LoggedIn || LANGame) ? 0 : 1;
+        enabled = leftArrow ? tpGameCreated.numComputers > minimum :
+            tpGameCreated.numComputers + tpGameCreated.numPlayers < MAX_MULTIPLAYER_PLAYERS;
     }
-    else
-    {
-        tri.x0 = rect->x0 + 2;
-        tri.x1 = rect->x0 + 2;
-        tri.x2 = rect->x1 - 2;
-    }
-
-
-    if(leftArrow)
-    {
-        tri.y0 = y;
-        tri.y1 = y + (width / 2);
-        tri.y2 = y + width;
-    }
-    else
-    {
-        tri.y0 = y;
-        tri.y1 = y + width;
-        tri.y2 = y + (width / 2);
-    }
-
-
-    if (human)
-    {
-        flag = ((leftArrow && mgHumanLeftArrowActive) || (!leftArrow && mgHumanRightArrowActive));
-        if (flag)
-        {
-            mgHumanLeftArrowActive  = FALSE;
-            mgHumanRightArrowActive = FALSE;
-            mgHumanArrowIndex = -1;
-            primTriSolid2(&tri, colRGB(200, 0, 0));
-
-        }
-        else if (bitTest(region->status, RSF_MouseInside) )
-        {
-            primTriSolid2(&tri, colRGB(100, 100, 100));
-        }
-        else
-        {
-            primTriSolid2(&tri, colRGB(0, 0, 0));
-        }
-
-
-    }
-    else //cpu
-    {
-        flag = ((leftArrow && mgCPULeftArrowActive) || (!leftArrow && mgCPURightArrowActive));
-        if( flag )
-        {
-            mgCPULeftArrowActive  = FALSE;
-            mgCPURightArrowActive = FALSE;
-            mgCPUArrowIndex = -1;
-            primTriSolid2(&tri, colRGB(200, 0, 0));
-        }
-        else if (bitTest(region->status, RSF_MouseInside) )
-        {
-            primTriSolid2(&tri, colRGB(100, 100, 100));
-        }
-        else
-        {
-            primTriSolid2(&tri, colRGB(0, 0, 0));
-        }
-
-    }
-
-
-    primTriOutline2(&tri, 1, colRGB(200, 200, 0));
-
-
+    modernUIDrawStepperButton(region, leftArrow, enabled);
 }
 
 
@@ -4616,17 +4543,8 @@ void mgGameType(char *name, featom *atom)
 
 void mgNumberOfComputers(featom *atom, regionhandle region)
 {
-    fonthandle oldfont;
-
     mgNumCompPlayerReg = region;
-
-    primRectSolid2(&region->rect,0);
-
-    oldfont = fontMakeCurrent(mgOptionsFont);
-
-    fontPrintf(region->rect.x0,region->rect.y0, mgNumberOfComputersColor, "%d", tpGameCreated.numComputers);
-
-    fontMakeCurrent(oldfont);
+    modernUIDrawStepperValue(region, tpGameCreated.numComputers);
 }
 
 

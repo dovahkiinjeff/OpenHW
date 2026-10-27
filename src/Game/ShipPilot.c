@@ -1,4 +1,7 @@
 #include "ShipPilot.h"
+#include "ShipPilotFrame.h"
+#include "CommandNetwork.h"
+#include "UnivUpdate.h"
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
@@ -26,7 +29,7 @@
 #include "key.h"
 #include "region.h"
 
-static struct {
+typedef struct ShipPilotState {
     Ship *ship;
     Ship *target;
     uword targetID;
@@ -56,7 +59,33 @@ static struct {
     real32 pressureX, pressureY;
     vector aim;
     Uint32 cameraTick;
-} pilot;
+    bool32 awaiting;
+    sdword ownerIndex;
+    uword held, pickedID;
+    bool32 netFire;
+    real32 netYaw,netPitch;
+} ShipPilotState;
+static ShipPilotState pilot;
+static ShipPilotState networkPilots[MAX_MULTIPLAYER_PLAYERS];
+static udword networkSequences[MAX_MULTIPLAYER_PLAYERS],localSequence;
+static bool32 networkSimulation, endPending, resettingPilots;
+static uword endShip;
+static bool32 pilotNetworked(void) { return multiPlayerGame || playPackets || recordFakeSendPackets; }
+static void pilotSendInput(ubyte action);
+static void pilotUpdateSimulation(void);
+static bool32 pilotSessionValid(const ShipPilotState *state);
+static bool32 pilotStateControls(const ShipPilotState *state,const Ship *ship);
+static uword pilotInputBit(sdword key)
+{
+    switch(key) {
+    case QKEY:return 1;case EKEY:return 2;case RKEY:return 4;case FKEY:return 8;
+    case AKEY:return 16;case DKEY:return 32;case SPACEKEY:return 64;
+    default:return 0;
+    }
+}
+static bool32 pilotFlightKey(sdword key)
+{ return networkSimulation?(pilot.held&pilotInputBit(key))!=0:keyIsHit(key); }
+
 
 /* Pressure tracks outward pixels for speed only, never cursor position. Reverse input clears it
    immediately; only outward travel beyond the visible boundary adds pressure. */
@@ -133,7 +162,15 @@ static bool32 pilotOverButton(sdword x,sdword y)
 
 static real32 pilotClamp(real32 x) { return x<0?0:(x>1?1:x); }
 bool32 shipPilotActive(void) { return pilot.ship!=NULL; }
-bool32 shipPilotOwns(const Ship *s) { return s && s==pilot.ship; }
+bool32 shipPilotOwns(const Ship *s)
+{
+    sdword i;
+    if(!s)return FALSE;
+    if(!pilotNetworked())return s==pilot.ship;
+    for(i=0;i<MAX_MULTIPLAYER_PLAYERS;i++)
+        if(networkPilots[i].ship==s && pilotSessionValid(&networkPilots[i]))return TRUE;
+    return FALSE;
+}
 bool32 shipPilotCockpit(void) { return pilot.ship && pilot.cockpit; }
 bool32 shipPilotCommandMode(void) { return pilot.ship && pilot.commandMode; }
 const char *shipPilotNavigation(void)
@@ -158,20 +195,29 @@ static CommandToDo *pilotFormation(Ship *s)
     for(i=0;i<c->selection->numShips;i++)
     {
         Ship *member=c->selection->ShipPtr[i];
-        if(member->playerowner!=universe.curPlayerPtr ||
+        if(member->playerowner!=s->playerowner ||
            (member->staticinfo->shipclass!=CLASS_Fighter && member->staticinfo->shipclass!=CLASS_Corvette) ||
            (member->flags&(SOF_Dead|SOF_Hide|SOF_Disabled|SOF_Hyperspace|SOF_NISShip|SOF_Crazy|SOF_Clamped)) || member->dockingship) return NULL;
     }
     return c;
 }
-bool32 shipPilotControls(const Ship *s)
+static bool32 pilotStateControls(const ShipPilotState *state,const Ship *s)
 {
     CommandToDo *c;
     sdword i;
-    if(shipPilotOwns(s)) return TRUE;
-    c=pilot.squad?pilotFormation(pilot.ship):NULL;
+    if(!state->ship || !s)return FALSE;
+    if(s==state->ship)return TRUE;
+    c=state->squad?pilotFormation(state->ship):NULL;
     if(c && c->ordertype.order==COMMAND_HALT)
-        for(i=1;i<c->selection->numShips;i++) if(c->selection->ShipPtr[i]==s) return TRUE;
+        for(i=1;i<c->selection->numShips;i++)if(c->selection->ShipPtr[i]==s)return TRUE;
+    return FALSE;
+}
+bool32 shipPilotControls(const Ship *s)
+{
+    sdword i;
+    if(!pilotNetworked())return pilotStateControls(&pilot,s);
+    for(i=0;i<MAX_MULTIPLAYER_PLAYERS;i++)
+        if(pilotSessionValid(&networkPilots[i]) && pilotStateControls(&networkPilots[i],s))return TRUE;
     return FALSE;
 }
 sdword shipPilotSquadCount(void)
@@ -225,7 +271,7 @@ static void pilotLockNearest(void)
     for(n=universe.ShipList.head;n;n=n->next)
     {
         Ship *s=(Ship *)listGetStructOfNode(n);real32 x,y,dist;
-        if(shipPilotControls(s) || !(s->flags&SOF_Targetable) ||
+        if(pilotStateControls(&pilot,s) || !(s->flags&SOF_Targetable) ||
            (s->flags&(SOF_Dead|SOF_Hide|SOF_Hyperspace|SOF_Cloaked)) || !shipPilotTargetScreen(s,&x,&y)) continue;
         if(x<0 || y<0 || x>=MAIN_WindowWidth || y>=MAIN_WindowHeight) continue;
         dist=(x-mouseCursorX())*(x-mouseCursorX())+(y-mouseCursorY())*(y-mouseCursorY());
@@ -238,6 +284,10 @@ void shipPilotReticle(sdword *x,sdword *y) { *x=pilot.x; *y=pilot.y; }
 void shipPilotExit(void)
 {
     if (!pilot.ship) return;
+    if(networkSimulation) { free(pilot.weapons);memset(&pilot,0,sizeof(pilot));return; }
+    if(!resettingPilots && pilotNetworked() && !playPackets) {
+        endShip=pilot.id;endPending=TRUE;pilotSendInput(PILOT_FRAME_END);
+    }
     universe.mainCameraCommand.actualcamera=pilot.saved;
     free(pilot.weapons);
     memset(&pilot,0,sizeof(pilot));
@@ -249,7 +299,7 @@ void shipPilotExit(void)
 
 static bool32 pilotEligible(Ship *s)
 {
-    return s && s->playerowner==universe.curPlayerPtr &&
+    return s && (networkSimulation?s->playerowner->playerIndex==pilot.ownerIndex:s->playerowner==universe.curPlayerPtr) &&
         !(s->flags&(SOF_Dead|SOF_Hide|SOF_Disabled|SOF_Hyperspace|SOF_NISShip|SOF_Crazy)) &&
         !(s->flags&SOF_Clamped) && !s->dockingship;
 }
@@ -257,7 +307,7 @@ Ship *shipPilotShip(void)
 {
     Node *n;
     if (!pilot.ship) return NULL;
-    if (!gameIsRunning || nisIsRunning || smSensorsActive || modernMapEditorActive())
+    if (!networkSimulation && (!gameIsRunning || nisIsRunning || smSensorsActive || modernMapEditorActive()))
     { shipPilotExit(); return NULL; }
     for(n=universe.ShipList.head;n;n=n->next)
     {
@@ -266,6 +316,7 @@ Ship *shipPilotShip(void)
         {
             /* Mission scripts can replace our halt order. Yield to docking,
                hyperspace or other externally issued orders instead of fighting. */
+            if(pilot.awaiting && !networkSimulation)return s;
             if(s->command && (pilot.squad?pilotFormation(s)!=NULL:s->command->selection->numShips==1) &&
                s->command->ordertype.order==COMMAND_HALT) return s;
             break;
@@ -276,8 +327,10 @@ Ship *shipPilotShip(void)
 }
 bool32 shipPilotCanEnter(void)
 {
-    return gameIsRunning && singlePlayerGame && !nisIsRunning && !smSensorsActive &&
-        !modernMapEditorActive() && selSelected.numShips==1 && pilotEligible(selSelected.ShipPtr[0]);
+    return gameIsRunning && !playPackets && !nisIsRunning && !smSensorsActive &&
+        !modernMapEditorActive() && selSelected.numShips==1 && pilotEligible(selSelected.ShipPtr[0]) &&
+        (!pilotNetworked() || !selSelected.ShipPtr[0]->gunInfo ||
+         selSelected.ShipPtr[0]->gunInfo->numGuns<=PILOT_WEAPON_BYTES*8);
 }
 static void pilotEnter(void)
 {
@@ -295,10 +348,11 @@ static void pilotEnter(void)
     pilot.navRange=1500;
     pilot.cameraTick=SDL_GetTicks();
     pilot.id=pilot.ship->shipID.shipNumber;
+    pilot.ownerIndex=pilot.ship->playerowner->playerIndex;
     one.numShips=1; one.ShipPtr[0]=pilot.ship;
-    if(pilotFormation(pilot.ship))
-    {
-        pilot.squad=TRUE;
+    pilot.squad=pilotFormation(pilot.ship)!=NULL;
+    if(pilotNetworked())pilot.awaiting=TRUE;
+    else if(pilot.squad) {
         clHaltThese(&universe.mainCommandLayer,pilot.ship->command->selection);
         pilot.ship->command->formation.formationLocked=FALSE;
     }
@@ -318,6 +372,7 @@ static void pilotEnter(void)
     camMouseX=camMouseY=wheel_up=wheel_down=0;
     mouseWheelStepsTake();
     shipPilotCamera(c);
+    if(pilotNetworked())pilotSendInput(PILOT_FRAME_BEGIN);
 }
 bool32 shipPilotKey(sdword key)
 {
@@ -618,20 +673,24 @@ static void pilotCommandVelocity(Ship *s,vector *desired)
     if(vecMagnitudeSquared(*desired)>speed*speed && speed>0) { vecNormalize(desired);vecMultiplyByScalar(*desired,speed); }
     if(speed<=0) desired->x=desired->y=desired->z=0;
 }
-void shipPilotUpdate(void)
+static void pilotUpdateSimulation(void)
 {
     Ship *s=shipPilotShip(),*target=NULL;
     vector forward,right,up,hullForward,desired,offset;
     real32 speed;
     Camera *c=&universe.mainCameraCommand.actualcamera;
     if(!s) return;
-    if(!SDL_GetKeyboardFocus()) { pilot.steerX=pilot.steerY=0;return; }
-    pilotThrottleUpdate();
-    if(pilot.cockpit)
+    if(!networkSimulation && !SDL_GetKeyboardFocus()) { pilot.steerX=pilot.steerY=0;return; }
+    if(!networkSimulation)pilotThrottleUpdate();
+    if(pilot.cockpit && !networkSimulation)
         pilot.throttle=max(-1.0f,min(1.0f,pilot.throttle+
-            ((keyIsHit(WKEY)?1:0)-(keyIsHit(SKEY)?1:0))*universe.phystimeelapsed*0.75f));
+            ((pilotFlightKey(WKEY)?1:0)-(pilotFlightKey(SKEY)?1:0))*universe.phystimeelapsed*0.75f));
     /* Resolve real targets, never store a stack aim-point in projectiles. */
-    target=pilotPickTarget(s,c,&pilot.aim,&offset);
+    if(networkSimulation) {
+        target=(Ship *)IDToPtrTableIDToObj(&ShipIDToPtr,pilot.pickedID);
+        if(target && (target->flags&(SOF_Dead|SOF_Hide|SOF_Hyperspace)))target=NULL;
+        offset=pilot.aim;
+    } else target=pilotPickTarget(s,c,&pilot.aim,&offset);
     if(shipPilotTarget()) { target=shipPilotTarget();offset=target->collInfo.collPosition; }
     matGetVectFromMatrixCol2(right,s->rotinfo.coordsys);
     matGetVectFromMatrixCol1(up,s->rotinfo.coordsys);
@@ -639,10 +698,10 @@ void shipPilotUpdate(void)
     /* Cruise is independent of camera/aim. Lateral and vertical thrusters
        also operate at STOP; the combined request cannot exceed native speed. */
     desired=hullForward;vecMultiplyByScalar(desired,pilot.throttle);
-    if(keyIsHit(EKEY)) { vecAddTo(desired,right); }
-    if(keyIsHit(QKEY)) { vecSubFrom(desired,right); }
-    if(keyIsHit(RKEY)) { vecAddTo(desired,up); }
-    if(keyIsHit(FKEY)) { vecSubFrom(desired,up); }
+    if(pilotFlightKey(EKEY)) { vecAddTo(desired,right); }
+    if(pilotFlightKey(QKEY)) { vecSubFrom(desired,right); }
+    if(pilotFlightKey(RKEY)) { vecAddTo(desired,up); }
+    if(pilotFlightKey(FKEY)) { vecSubFrom(desired,up); }
     if(vecMagnitudeSquared(desired)>1.0f) vecNormalize(&desired);
     speed=shipPilotMaxSpeed();
     vecMultiplyByScalar(desired,speed);
@@ -657,11 +716,11 @@ void shipPilotUpdate(void)
     else if(pilot.cockpit)
     {
         real32 dt=max(0.001f,universe.phystimeelapsed);
-        real32 yaw=mouseRightButton()?0:-pilot.steerX*0.003f/dt;
-        real32 pitch=mouseRightButton()?0:pilot.steerY*0.003f/dt;
-        real32 roll=((keyIsHit(DKEY)?1:0)-(keyIsHit(AKEY)?1:0))*s->nonstatvars.turnspeed[TURN_ROLL];
-        bool32 steering=!mouseRightButton() && (pilot.steerX!=0 || pilot.steerY!=0);
-        if(steering || keyIsHit(AKEY) || keyIsHit(DKEY)) pilot.cockpitIdleTime=0;
+        real32 yaw=networkSimulation?pilot.netYaw:(mouseRightButton()?0:-pilot.steerX*0.003f/dt);
+        real32 pitch=networkSimulation?pilot.netPitch:(mouseRightButton()?0:pilot.steerY*0.003f/dt);
+        real32 roll=((pilotFlightKey(DKEY)?1:0)-(pilotFlightKey(AKEY)?1:0))*s->nonstatvars.turnspeed[TURN_ROLL];
+        bool32 steering=networkSimulation?(yaw!=0 || pitch!=0):(!mouseRightButton() && (pilot.steerX!=0 || pilot.steerY!=0));
+        if(steering || pilotFlightKey(AKEY) || pilotFlightKey(DKEY)) pilot.cockpitIdleTime=0;
         else pilot.cockpitIdleTime+=universe.phystimeelapsed;
         /* Zero input always brakes yaw/pitch/roll immediately. After a short
            quiet interval, gently remove bank; firing/throttle do not inhibit
@@ -674,10 +733,10 @@ void shipPilotUpdate(void)
         pilotTrackAxis(s,roll,s->rotinfo.rotspeed.z,s->staticinfo->staticheader.momentOfInertiaZ,ROT_ABOUTZCCW);
         pilot.steerX=pilot.steerY=0;
     }
-    else if(!pilot.cockpit && !!keyIsHit(AKEY)!=!!keyIsHit(DKEY))
+    else if(!pilot.cockpit && !!pilotFlightKey(AKEY)!=!!pilotFlightKey(DKEY))
     {
         forward=right;
-        if(keyIsHit(AKEY)) { vecMultiplyByScalar(forward,-1); }
+        if(pilotFlightKey(AKEY)) { vecMultiplyByScalar(forward,-1); }
         vecAddTo(forward,hullForward);vecNormalize(&forward);
         aitrackHeading(s,&forward,0.999f);
     }
@@ -685,17 +744,19 @@ void shipPilotUpdate(void)
     aitrackVelocityVector(s,&desired);
     gunPilotAimAndFire(s,&offset,target,pilot.commandMode?
         (shipPilotTarget()!=NULL && shipPilotAutoFire()):
-        (keyIsHit(SPACEKEY) || (mouseLeftButton() && !pilot.uiPress && !pilotOverButton(mouseCursorX(),mouseCursorY()))),pilot.all);
+        (networkSimulation?pilot.netFire:(pilotFlightKey(SPACEKEY) || (mouseLeftButton() && !pilot.uiPress && !pilotOverButton(mouseCursorX(),mouseCursorY())))),pilot.all);
     if(pilot.squad && pilotFormation(s))
     {
         CommandToDo *c=pilotFormation(s);
         sdword i;
         processFormationToDo(c,FALSE,FALSE);
         for(i=1;i<c->selection->numShips;i++)
-            gunPilotAimAndFire(c->selection->ShipPtr[i],&offset,target,keyIsHit(SPACEKEY) ||
-                (mouseLeftButton() && !pilot.uiPress && !pilotOverButton(mouseCursorX(),mouseCursorY())),pilot.all);
+            gunPilotAimAndFire(c->selection->ShipPtr[i],&offset,target,networkSimulation?pilot.netFire:(pilotFlightKey(SPACEKEY) ||
+                (mouseLeftButton() && !pilot.uiPress && !pilotOverButton(mouseCursorX(),mouseCursorY()))),pilot.all);
     }
 }
+#include "ShipPilotNetwork.inc"
+
 real32 shipPilotGunReady(Ship *s,Gun *g,const char **status)
 {
     real32 remaining,period;

@@ -2209,7 +2209,7 @@ static void scriptSetDerelictToBeNeeded(char *directory,char *field,void *dataTo
 static void llLoadingTask(const char *action, const char *filename)
 {
     char task[256];
-    if (!hrRunning || !singlePlayerGame) return;
+    if (!hrRunning) return;
     snprintf(task, sizeof(task), "%s: %s", action, filename != NULL ? filename : "mission");
     HorseRaceLoadingTask(task);
 }

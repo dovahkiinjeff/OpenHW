@@ -8,6 +8,9 @@
 #include <string.h>
 
 #include "MissionEnum.h"
+#include "BTG.h"
+#include "BackdropMapPolicy.h"
+#include "MultiplayerGame.h"
 #include "File.h"
 #include "ModernGraphics.h"
 #include "glinc.h"
@@ -161,7 +164,9 @@ static void mmbLightingOverrideDefaults(sdword mission)
 
 static void mmbLightingOverridePath(char path[96], sdword mission)
 {
-    snprintf(path, 96, "RTXLighting/Mission%02d.rtxlight", mission);
+    char name[64];
+    hwBackdropLightingName(name, sizeof(name), mission);
+    snprintf(path, 96, "RTXLighting/%s", name);
 }
 
 static void mmbPushAuthoringLights(void)
@@ -232,7 +237,9 @@ static void mmbLightingOverrideLoad(sdword mission)
         char *basePath = SDL_GetBasePath();
         if (basePath != NULL)
         {
-            snprintf(path, sizeof(path), "%sData/Missions/Mission%02d.rtxlight", basePath, mission);
+            char name[64];
+            hwBackdropLightingName(name, sizeof(name), mission);
+            snprintf(path, sizeof(path), "%sData/Missions/%s", basePath, name);
             SDL_free(basePath);
             handle = fileOpen(path, FF_TextMode | FF_IgnoreBIG |
                               FF_IgnorePrepend | FF_ReturnNULLOnFail);
@@ -623,15 +630,15 @@ static void *mmbLoadAsset(const char *relativePath, size_t *fileSize)
     return data;
 }
 
-static sdword mmbCurrentCampaignMission(void)
+static sdword mmbCurrentEnvironment(void)
 {
-    const MissionEnum mission = spGetCurrentMission();
-    if (!singlePlayerGame || mission < MISSION_1_KHARAK_SYSTEM ||
-        mission > MISSION_16_HIIGARA)
-    {
-        return 0;
-    }
-    return (sdword)mission;
+    return hwBackdropContext(singlePlayerGame, (int)spGetCurrentMission(),
+        tpGameCreated.MapName, btgLastBackground);
+}
+
+sdword modernMissionBackdropEnvironmentId(void)
+{
+    return mmbCurrentEnvironment();
 }
 
 static void mmbReleaseTexture(void)
@@ -1095,11 +1102,13 @@ static bool32 mmbEnsureTexture(sdword mission)
     void *fileData;
     size_t fileSize;
     sdword width, height, mipCount;
-    sdword assetMission = mission == MISSION_3_RETURN_TO_KHARAK ?
+    sdword assetMission = !singlePlayerGame ? hwBackdropAssetForName(btgLastBackground) :
+        mission == MISSION_3_RETURN_TO_KHARAK ?
         MISSION_1_KHARAK_SYSTEM : mission;
     udword format;
     GLint maximumTextureSize = 0;
 
+    if (assetMission == 0) return FALSE;
     if (mmbTextureMission == mission && mmbTexture != 0) return TRUE;
     if (mmbTextureAttemptMission == mission) return FALSE;
 
@@ -1189,7 +1198,7 @@ bool32 modernMissionBackdropSkyLighting(real32 outDirection[3],
                                         real32 outAmbientColor[3],
                                         bool32 *outSourceValid)
 {
-    const sdword mission = mmbCurrentCampaignMission();
+    const sdword mission = mmbCurrentEnvironment();
     if (!mmbEffectiveLighting(mission, outDirection, outSourceColor,
                               outAmbientColor, outSourceValid))
     {
@@ -1206,7 +1215,7 @@ bool32 modernMissionBackdropSkyLighting(real32 outDirection[3],
 
 bool32 modernMissionBackdropGodRaySource(real32 outDirection[3])
 {
-    const sdword mission = mmbCurrentCampaignMission();
+    const sdword mission = mmbCurrentEnvironment();
     bool32 sourceValid = FALSE;
     if (outDirection == NULL || mmbGodRaySourceMission != mission ||
         !mmbEffectiveLighting(mission, outDirection, NULL, NULL,
@@ -1220,7 +1229,7 @@ bool32 modernMissionBackdropGodRaySource(real32 outDirection[3])
 bool32 modernMissionBackdropLightingAuthoringGet(
     ModernMissionLightingAuthoringState *outState)
 {
-    const sdword mission = mmbCurrentCampaignMission();
+    const sdword mission = mmbCurrentEnvironment();
     sdword index;
     if (outState == NULL) return FALSE;
     memset(outState, 0, sizeof(*outState));
@@ -1290,7 +1299,7 @@ bool32 modernMissionBackdropLightingAuthoringGet(
 bool32 modernMissionBackdropLightingAuthoringSet(
     const ModernMissionLightingAuthoringState *state)
 {
-    const sdword mission = mmbCurrentCampaignMission();
+    const sdword mission = mmbCurrentEnvironment();
     sdword index;
     if (state == NULL || mission == 0 || mmbTextureMission != mission ||
         state->mission != mission)
@@ -1337,7 +1346,7 @@ bool32 modernMissionBackdropLightingAuthoringSet(
 
 void modernMissionBackdropLightingAuthoringReset(void)
 {
-    const sdword mission = mmbCurrentCampaignMission();
+    const sdword mission = mmbCurrentEnvironment();
     if (mission == 0 || mmbTextureMission != mission) return;
     mmbLightingOverrideDefaults(mission);
     modernMissionBackdropLightingTuningApply();
@@ -1403,7 +1412,7 @@ static void mmbWriteLightingAuthoringStream(FILE *stream)
 
 bool32 modernMissionBackdropLightingAuthoringSave(void)
 {
-    const sdword mission = mmbCurrentCampaignMission();
+    const sdword mission = mmbCurrentEnvironment();
     char path[96];
     filehandle handle;
     FILE *stream;
@@ -1430,8 +1439,8 @@ bool32 modernMissionBackdropLightingAuthoringSave(void)
 
 bool32 modernMissionBackdropLightingAuthoringExport(void)
 {
-    const sdword mission = mmbCurrentCampaignMission();
-    char path[1024];
+    const sdword mission = mmbCurrentEnvironment();
+    char path[1024], name[64];
     char exportRoot[1024];
     char exportDirectory[1024];
     char *basePath;
@@ -1441,6 +1450,7 @@ bool32 modernMissionBackdropLightingAuthoringExport(void)
     int directoryLength;
     if (mission == 0 || mmbTextureMission != mission) return FALSE;
     mmbLightingOverrideEnsure(mission);
+    hwBackdropLightingName(name, sizeof(name), mission);
     basePath = SDL_GetBasePath();
     if (basePath == NULL)
     {
@@ -1452,15 +1462,15 @@ bool32 modernMissionBackdropLightingAuthoringExport(void)
     directoryLength = snprintf(exportDirectory, sizeof(exportDirectory),
                                "%s%s\\Missions", basePath,getenv("HW_LOOSE_DATA")?"Dev/RTXExports":"RTXExports");
     pathLength = snprintf(path, sizeof(path),
-                          "%s%s\\Missions\\Mission%02d.rtxlight",
-                          basePath,getenv("HW_LOOSE_DATA")?"Dev/RTXExports":"RTXExports", mission);
+                          "%s%s\\Missions\\%s",
+                          basePath,getenv("HW_LOOSE_DATA")?"Dev/RTXExports":"RTXExports", name);
 #else
     rootLength = snprintf(exportRoot, sizeof(exportRoot), "%s%s", basePath,getenv("HW_LOOSE_DATA")?"Dev/RTXExports":"RTXExports");
     directoryLength = snprintf(exportDirectory, sizeof(exportDirectory),
                                "%s%s/Missions", basePath,getenv("HW_LOOSE_DATA")?"Dev/RTXExports":"RTXExports");
     pathLength = snprintf(path, sizeof(path),
-                          "%s%s/Missions/Mission%02d.rtxlight",
-                          basePath,getenv("HW_LOOSE_DATA")?"Dev/RTXExports":"RTXExports", mission);
+                          "%s%s/Missions/%s",
+                          basePath,getenv("HW_LOOSE_DATA")?"Dev/RTXExports":"RTXExports", name);
 #endif
     SDL_free(basePath);
     if (rootLength < 0 || (size_t)rootLength >= sizeof(exportRoot) ||
@@ -1517,7 +1527,7 @@ bool32 modernMissionBackdropLightingAuthoringExport(void)
 
 bool32 modernMissionBackdropLightingAuthoringAdoptMapLights(void)
 {
-    const sdword mission = mmbCurrentCampaignMission();
+    const sdword mission = mmbCurrentEnvironment();
     unsigned int mapCount;
     unsigned int index;
     sdword eligible = 0;
@@ -1583,7 +1593,7 @@ bool32 modernMissionBackdropLightingAuthoringAdoptMapLights(void)
 
 bool32 modernMissionBackdropLightingAuthoringReload(void)
 {
-    const sdword mission = mmbCurrentCampaignMission();
+    const sdword mission = mmbCurrentEnvironment();
     if (mission == 0 || mmbTextureMission != mission) return FALSE;
     memset(&mmbLightingOverride, 0, sizeof(mmbLightingOverride));
     mmbLightingOverrideLoad(mission);
@@ -1596,18 +1606,18 @@ bool32 modernMissionBackdropActive(void)
     /* "Active" also gates mission-light authoring and suppression of the
        unrelated procedural star layer.  It must remain independent from the
        decision to draw the packed sky image. */
-    return mmbCurrentCampaignMission() != 0;
+    return mmbCurrentEnvironment() != 0;
 }
 
 void modernMissionBackdropPrepare(void)
 {
-    sdword mission = mmbCurrentCampaignMission();
+    sdword mission = mmbCurrentEnvironment();
     if (mission != 0) mmbEnsureTexture(mission);
 }
 
 bool32 modernMissionBackdropRender(real32 fade)
 {
-    const sdword mission = mmbCurrentCampaignMission();
+    const sdword mission = mmbCurrentEnvironment();
 
     /* RTX-0070: Temporarily prefer the original BTG renderer for campaign
        backgrounds.  The source backdrop is continuous in the game's native

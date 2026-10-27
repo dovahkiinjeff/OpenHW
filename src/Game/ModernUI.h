@@ -29,6 +29,8 @@ void modernUIDrawStaticRectangle(regionhandle region);
 void modernUIDrawDecorative(regionhandle region);
 void modernUIDrawButton(regionhandle region, bool32 checked, bool32 roundControl);
 void modernUIDrawSlider(regionhandle region, bool32 vertical);
+void modernUIDrawStepperButton(regionhandle region, bool32 decrease, bool32 enabled);
+void modernUIDrawStepperValue(regionhandle region, sdword value);
 void modernUIDrawScrollBar(regionhandle region);
 void modernUIDrawScrollBarButton(regionhandle region);
 void modernUIDrawListFrame(regionhandle region);

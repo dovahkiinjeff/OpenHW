@@ -9,6 +9,7 @@
 #define ___COMMANDNETWORK_H
 
 #include "Captaincy.h"
+#include "ShipPilotFrame.h"
 #include "Chatting.h"
 #include "CommandLayer.h"
 #include "Globals.h"
@@ -154,6 +155,7 @@ where Commands is a bunch of commands, one after the other, as defined above.
 
 #define COMMANDTYPE_DETERMINISTICBUILD  18
 
+#define COMMANDTYPE_SHIP_PILOT          20
 #define COMMANDTYPE_RESEARCHINFO        19
     #define RESEARCH_SUBCOMMAND_START   0
     #define RESEARCH_SUBCOMMAND_STOP    1
@@ -504,6 +506,7 @@ void CommandNetworkReset(void);
 void SendTransferCaptaincyPacket(sdword playerIndex,uword subtype,udword misc,CaptaincyCustomInfo *custominfo);
 void SendRequestSyncPkts(udword frompacketnum,udword topacketnum);
 
+void clSendPilotFrame(const ShipPilotFrame *frame);
 void clSendMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to);
 void clSendAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom);
 void clSendFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation formation);

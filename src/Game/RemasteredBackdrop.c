@@ -3,6 +3,8 @@
 #include "ModernMissionBackdrop.h"
 #include "ModernGraphics.h"
 #include "MissionEnum.h"
+#include "BTG.h"
+#include "BackdropMapPolicy.h"
 #include "glinc.h"
 #include "texreg.h"
 #include <SDL2/SDL.h>
@@ -42,6 +44,13 @@ void remasteredBackdropShutdown(void)
     renderedBackdrop = FALSE;
     releaseBackdrop();
     attemptedMission = 0;
+}
+
+static sdword backdropAssetMission(void)
+{
+    sdword mission = (sdword)spGetCurrentMission();
+    if (singlePlayerGame) return mission >= 1 && mission <= 16 ? mission : 0;
+    return hwBackdropAssetForName(btgLastBackground);
 }
 
 static bool32 loadBackdrop(sdword mission)
@@ -115,9 +124,9 @@ static bool32 loadBackdrop(sdword mission)
 
 bool32 remasteredBackdropRender(real32 fade)
 {
-    sdword mission = (sdword)spGetCurrentMission();
+    sdword mission = backdropAssetMission();
     renderedBackdrop = FALSE;
-    if (!singlePlayerGame || mission < 1 || mission > 16)
+    if (mission == 0)
     {
         if (loadedMission) releaseBackdrop();
         attemptedMission = 0;
@@ -135,6 +144,5 @@ bool32 remasteredBackdropRender(real32 fade)
 
 bool32 remasteredBackdropActive(void)
 {
-    return renderedBackdrop && singlePlayerGame &&
-        loadedMission == (sdword)spGetCurrentMission();
+    return renderedBackdrop && loadedMission == backdropAssetMission();
 }

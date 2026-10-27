@@ -68,6 +68,9 @@ void modernMapEditorCameraUpdate(void);
 void modernMapEditorMissionReset(void);
 void modernMapEditorUpdateEnvironment(void);
 bool32 modernMapEditorWireframeActive(void);
+/* Per-instance visual scale; no shared models or saved-game layouts change. */
+real32 modernMapEditorDerelictScale(const void *derelict);
+void modernMapEditorForgetDerelict(const void *derelict);
 /* Called from the live main-world draw after scene/selection rendering so the
    selected-object 3D manipulator is guaranteed to be visible in Shift+F11. */
 void modernMapEditorDrawWorldGizmo(void);

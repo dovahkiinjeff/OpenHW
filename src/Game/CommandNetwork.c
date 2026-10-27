@@ -8,6 +8,7 @@
 // =============================================================================
 
 #include "CommandNetwork.h"
+#include "ShipPilot.h"
 
 #include "AutoDownloadMap.h"
 #include "HorseRace.h"
@@ -1014,6 +1015,19 @@ void clSendLaunchMultipleShips(CommandLayer *comlayer,SelectCommand *selectcom,S
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+void clSendPilotFrame(const ShipPilotFrame *input)
+{
+    udword size=sizeof(HWPacketHeader)+sizeof(HWCommandHeader)+sizeof(*input);
+    HWPacketHeader *packet=memAlloc(size,"pilotpacket",0);
+    HWCommandHeader *command;
+    memset(packet,0,size);
+    packet->type=PACKETTYPE_COMMAND;packet->from=(uword)sigsPlayerIndex;packet->numberOfCommands=1;
+    command=(HWCommandHeader *)((ubyte *)packet+sizeof(*packet));
+    command->commandType=COMMANDTYPE_SHIP_PILOT|(sigsPlayerIndex<<8);
+    memcpy((ubyte *)command+sizeof(*command),input,sizeof(*input));
+    if(packetSendToCaptain((ubyte *)packet,size))memFree(packet);
+}
+
 void clSendMisc(CommandLayer *comlayer,SelectCommand *selectcom,uword miscCommand,udword miscData)
 {
     udword sizeofPacket;
@@ -1766,6 +1780,16 @@ void clProcessSyncPacket(CommandLayer *comlayer,ubyte *packet,udword sizeofPacke
                 NetRUTransferferCommand *rucommand = (NetRUTransferferCommand *)curpacket;
                 clRUTransfer(comlayer,rucommand->to,rucommand->from,rucommand->resourceUnits,rucommand->flags);
                 curpacket+=sizeof(NetRUTransferferCommand);
+            }
+            break;
+
+            case COMMANDTYPE_SHIP_PILOT:
+            {
+                ShipPilotFrame input;
+                if(curpacket>packet+sizeofPacket || (size_t)(packet+sizeofPacket-curpacket)<sizeof(input))return;
+                memcpy(&input,curpacket,sizeof(input));
+                shipPilotReceiveFrame(from,&input);
+                curpacket+=sizeof(input);
             }
             break;
 

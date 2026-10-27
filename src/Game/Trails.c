@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "Trails.h"
+#include "EngineTrailAnchor.h"
 
 #include <float.h>
 #include <math.h>
@@ -537,6 +538,31 @@ void trailGetNozzleOffset(real32* vec, shiptrail* trail)
     VECCOPY(vec, &((ShipStaticInfo*)ship->staticinfo)->engineNozzleOffset[trail->trailNum]);
 }
 
+/* One physical emitter for both the billboard bulb and every trail sample.
+   History must use the same offset as the live head, or the first segment
+   bends back toward the ship and becomes visible before the bulb. */
+static real32 trailBulbRadius(shiptrail *trail, Ship *ship)
+{
+    real32 maxVelocity=tacticsGetShipsMaxVelocity(ship);
+    real32 speed=fsqrt(vecMagnitudeSquared(ship->posinfo.velocity));
+    real32 ratio=maxVelocity>0 ? speed/maxVelocity : 0;
+    trail->ran=.975f+.025f*(real32)sin((double)(universe.totaltimeelapsed*7.0f+
+        (real32)trail->trailNum*1.713f));
+    return engineGlowRadius(ship->staticinfo->staticheader.staticCollInfo.collspheresize,
+        ship->staticinfo->trailSpriteRadius[trail->trailNum],ratio,trail->ran,
+        GLOW_RADIALADJUST,GLOW_BASERADIALSCALE);
+}
+static real32 trailBulbOffset(shiptrail *trail, Ship *ship)
+{
+    return engineGlowOriginOffset(ship->staticinfo->trailSpriteOffset[trail->trailNum],
+        XADJ,trailBulbRadius(trail,ship));
+}
+static void trailGetVisualNozzlePosition(real32 *position, shiptrail *trail)
+{
+    trailGetNozzleOffset(position,trail);
+    position[2]-=trailBulbOffset(trail,(Ship *)trail->vship);
+}
+
 //convenience fn.  copies ship.coordsys into provided matrix
 void trailGetCoordsys(real32* mat, shiptrail* trail)
 {
@@ -679,7 +705,7 @@ void trailUpdate(shiptrail *trail, vector *position)
 
     seg = &trail->segments[trail->iHead];
 
-    trailGetNozzleOffset(seg->position, trail);
+    trailGetVisualNozzlePosition(seg->position, trail);
     trailGetCoordsys(seg->rotation, trail);
     trailGetTranslation(seg->translation, trail);
 
@@ -1250,14 +1276,7 @@ void trailDrawBillboardedSquareThingz(shiptrail* trail, trailsegment* seg, real3
         return;
     }
 
-    //grab ship's static glow radius if one exists
-    if (ship->staticinfo->trailSpriteRadius[trail->trailNum] != -1.0f)
-    {
-        rad = ship->staticinfo->trailSpriteRadius[trail->trailNum];
-    }
-
-    rad = (1.0f - GLOW_BASERADIALSCALE) * (GLOW_RADIALADJUST * velratio * rad * trail->ran)
-          + GLOW_BASERADIALSCALE * rad;
+    rad = trailBulbRadius(trail, ship);
 
     depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
     glGetBooleanv(GL_DEPTH_WRITEMASK, &depthWriteWasEnabled);
@@ -1273,15 +1292,7 @@ void trailDrawBillboardedSquareThingz(shiptrail* trail, trailsegment* seg, real3
     glColor4ub(255,255,255,255);
 
     VECCOPY(&pos, seg->position);
-    pos.z -= 0.6f*XADJ;
-    //offset also by ship's static sprite offset amount
-    pos.z -= ship->staticinfo->trailSpriteOffset[trail->trailNum];
-    /* The glow is a camera-facing quad.  Centering that quad exactly on the
-       nozzle lets the rear hull slice it along a hard, angle-dependent line.
-       Move the visual emitter just outside the nozzle along its authored
-       exhaust axis; opaque depth remains enabled, so it still cannot shine
-       through unrelated geometry or the far side of the ship. */
-    pos.z -= MAX2(0.35f, rad * 0.38f);
+    pos.z -= trailBulbOffset(trail, ship);
     trailInplaceShipToWorld((real32*)&pos, seg->rotation, seg->translation);
 
 #ifdef HW_ENABLE_D3D12_BACKEND
@@ -2445,11 +2456,8 @@ void trailDraw(vector *current, shiptrail *trail, sdword LOD, sdword teamIndex)
         }
     }
 
-    lastSegment.position[2] -= 0.3f*XADJ;
-    for (index = 0; index < 3; index++)
-    {
-        lastSegment.position[index] *= NLipsScaleFactor;
-    }
+    /* Match the unchanged bulb exactly; do not NLIPS-scale its physical origin. */
+    trailGetVisualNozzlePosition(lastSegment.position, trail);
     trailCopySegment(&currentSegment, &lastSegment);
 
     mag = fsqrt(vecMagnitudeSquared(ship->posinfo.velocity));

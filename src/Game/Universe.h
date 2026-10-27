@@ -291,6 +291,7 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race);
 void CloseStatShipInfo(ShipStaticInfo *statinfo);
 void CloseStatAsteroidInfo(AsteroidStaticInfo *asteroidStatInfo);
 void CloseStatDerelictInfo(DerelictStaticInfo *derelictStatInfo);
+void InitStatDerelictInfo(DerelictStaticInfo *derelictStatInfo, DerelictType derelicttype);
 void CloseStatDustCloudInfo(DustCloudStaticInfo *dustcloudStatInfo);
 void CloseStatGasCloudInfo(GasCloudStaticInfo *gascloudStatInfo);
 void CloseStatMissileInfo(MissileStaticInfo *missileStatInfo);

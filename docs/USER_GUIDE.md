@@ -12,6 +12,10 @@ Start `OpenHW.exe` for normal play. `OpenHW-Daignostics.exe` is the full-logging
 
 First boot detects resolution and refresh rate rather than imposing the author's monitor mode. Other options use the authored release defaults. Change video/gameplay options to suit your system. Keep backups of `SavedGames`, `Homeworld.cfg`, `RTXExports`, `RTXLighting`, `Modding`, `mods` and parade presets before installing updates. Never overwrite the only copy of your authoring work.
 
+## Patch installation order
+
+Install the original OpenHW base game, apply **1.0.1**, then apply **1.0.2** to the same folder. Close both game executables before patching. See the [1.0.2 notes](../RELEASE_NOTES_1.0.2.md) for downloads and the complete changes.
+
 ## Recommended graphics settings
 
 | Feature | OpenHW 1.0 status |
@@ -35,13 +39,13 @@ Double-click a ship to select visible ships of that type. Shift-double-click ano
 
 Select ships of **one type in a formation** to display Formation Spread. It changes spacing immediately, without requiring another move order. Center is the default layout, the tight end brings ships close, and the wide end doubles the default spread. Mixed-type selections do not show the slider. Main-view move orders no longer use the former short-range clamp, although the game still has a finite playable world.
 
-Gameplay options include camera sensitivity, cursor scale, unlimited strike-craft fuel, orders while paused, ship weapon recoil, resource multiplier, ranks, mission-start launch behavior, FPS display, Disable SP Resource Scaling and Unlimited RUs. Resource/fuel cheats are single-player options. Disable SP Resource Scaling keeps the authored maximum resource population instead of reducing it according to adaptive campaign scaling; it is separate from resource yield and unlimited currency.
+Gameplay options include camera sensitivity, cursor scale, unlimited strike-craft fuel, orders while paused, ship weapon recoil, resource multiplier, ranks, mission-start launch behavior, FPS display, Disable SP Resource Scaling, Unlimited RUs and Restore Fog of War. Restore Fog of War restores original object visibility ranges instead of unlimited distant rendering; it is a saved local preference, defaults OFF and does not reset Sensor Manager exploration. Resource/fuel cheats are single-player options. Disable SP Resource Scaling keeps the authored maximum resource population instead of reducing it according to adaptive campaign scaling; it is separate from resource yield and unlimited currency.
 
 Fleet Identity offers hull base/stripe color, engine-emission override and player navigation-light controls. Fleet Control also contains Capture / Build All, Super Salvagers and Disable Unit Caps. Use these optional gameplay changes deliberately when playing the campaign.
 
 ## Ship control
 
-This is primarily a fun feature and a foundation for future unusual game modes. Select one eligible player ship and click **COMMAND** or **PILOT**. Eligibility and available cockpit controls depend on ship class. Normal fleet command resumes on Esc.
+This is primarily a fun feature and a foundation for future unusual game modes. Select one eligible player ship and click **COMMAND** or **PILOT**. Eligibility and available cockpit controls depend on ship class. Normal fleet command resumes on Esc. In 1.0.2 these controls also work in local skirmish, with ownership-checked shared input for network sessions. All network participants need the same rebuilt 1.0.2 patch; multi-computer gameplay still needs player testing.
 
 ### EVE Online-style command controls
 

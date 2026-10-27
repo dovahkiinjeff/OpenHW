@@ -18,6 +18,9 @@
 #include "Matrix.h"
 #include "ManagerDock.h"
 #include "ModernUI.h"
+#include "ModernMissionBackdrop.h"
+#include "BackdropMapPolicy.h"
+#include "EditorInstanceScale.h"
 #include "ModernGraphics.h"
 #include "CloudRenderSettings.h"
 #include "ModernHarvestableDust.h"
@@ -67,7 +70,8 @@
 #define MME_TAB_DUST 4
 #define MME_TAB_FIELDS 5
 #define MME_TAB_CLOUDS 6
-#define MME_TAB_COUNT 7
+#define MME_TAB_OBJECTS 7
+#define MME_TAB_COUNT 8
 
 #define MME_TRANSFORM_MOVE 0
 #define MME_TRANSFORM_ROTATE 1
@@ -171,6 +175,8 @@ typedef struct MMEState
     sdword tab;
     sdword assetScroll;
     sdword sceneScroll;
+    sdword objectScroll;
+    bool32 derelictDropdownOpen;
     sdword volumeScroll;
     sdword dustScroll;
     sdword selectedAsset;
@@ -206,6 +212,7 @@ typedef struct MMEState
 } MMEState;
 
 static MMEState mme;
+static EditorInstanceScaleStore mmeDerelictScales;
 static MMEAsset mmeAssets[MME_MAX_ASSETS];
 static sdword mmeAssetCount = 0;
 static MMETrackedObject mmeTracked[MME_MAX_TRACKED];
@@ -436,7 +443,7 @@ static void mmeLayoutTabs(const rectangle *panel, rectangle tabs[MME_TAB_COUNT],
     }
     /* Renderer controls apply to all cloud placements, so give their shared
        tab the full row beneath the three placement/style tabs. */
-    tabs[MME_TAB_CLOUDS].x1 = panel->x1 - pad;
+    tabs[MME_TAB_OBJECTS].x1 = panel->x1 - pad;
     list->x0 = panel->x0 + pad;
     list->x1 = panel->x1 - pad;
     list->y0 = tabs[MME_TAB_COUNT-1].y1 + uiScaleSize(8);
@@ -626,12 +633,32 @@ static void mmeBuildAssets(void)
             }
         }
     }
+    /* Portable OBIG installations do not expose the old retail BIG TOC.
+       The complete enum catalog remains authoritative for placeable derelicts. */
+    {
+        sdword type;
+        for(type=0;type<NUM_DERELICTTYPES;++type)
+        {
+            char label[96], path[128];
+            snprintf(label,sizeof(label),"DERELICT / %s",DerelictTypeToStr((DerelictType)type));
+            snprintf(path,sizeof(path),"Derelicts/%s.shp",DerelictTypeToStr((DerelictType)type));
+            mmeAssetAdd(MME_ASSET_DERELICT,0,type,"DERELICT CATALOG",path,label);
+        }
+    }
     mmeAssetAdd(MME_ASSET_RTX_DUST_VOLUME, 0, 0, "RTX PROCEDURAL", "RTX/VolumetricDust",
                 "RTX VOLUMETRIC DUST VOLUME");
     if (mmeAssetCount > 1) qsort(mmeAssets, (size_t)mmeAssetCount, sizeof(mmeAssets[0]), mmeAssetSortCompare);
     if (mme.selectedAsset >= mmeAssetCount) mme.selectedAsset = mmeAssetCount - 1;
-    if (mme.selectedAsset < 0 && mmeAssetCount > 0) mme.selectedAsset = 0;
+    if (mme.selectedAsset < 0 && mmeAssetCount > 0)
+    {
+        sdword i;
+        mme.selectedAsset=0;
+        for(i=0;i<mmeAssetCount;++i)
+            if(mmeAssets[i].kind==MME_ASSET_RTX_DUST_VOLUME){mme.selectedAsset=i;break;}
+    }
 }
+
+#include "MapEditorCatalog.inc"
 
 static vector *mmeObjectPosition(SpaceObj *object)
 {
@@ -667,9 +694,22 @@ static RotInfo *mmeObjectRotInfo(SpaceObj *object)
     }
 }
 
+real32 modernMapEditorDerelictScale(const void *object)
+{
+    const Derelict *derelict=(const Derelict *)object;
+    if(derelict==NULL)return 1.0f;
+    return editorInstanceScaleGet(&mmeDerelictScales,object,derelict->derelictID.derelictNumber);
+}
+void modernMapEditorForgetDerelict(const void *object)
+{
+    const Derelict *derelict=(const Derelict *)object;
+    if(derelict!=NULL)editorInstanceScaleSet(&mmeDerelictScales,object,derelict->derelictID.derelictNumber,1.0f);
+}
+
 static real32 mmeObjectScale(SpaceObj *object)
 {
     if (object == NULL) return 1.0f;
+    if (object->objtype == OBJ_DerelictType) return modernMapEditorDerelictScale(object);
     if (object->objtype == OBJ_AsteroidType) return ((Asteroid *)object)->scaling;
     if (object->objtype == OBJ_DustType) return ((DustCloud *)object)->scaling;
     if (object->objtype == OBJ_GasType) return ((GasCloud *)object)->scaling;
@@ -681,7 +721,9 @@ static void mmeSetObjectScale(SpaceObj *object, real32 scale)
 {
     if (object == NULL) return;
     scale = mmeClampF(scale, 0.05f, 50.0f);
-    if (object->objtype == OBJ_AsteroidType) ((Asteroid *)object)->scaling = scale;
+    if (object->objtype == OBJ_DerelictType)
+        editorInstanceScaleSet(&mmeDerelictScales,object,((Derelict *)object)->derelictID.derelictNumber,scale);
+    else if (object->objtype == OBJ_AsteroidType) ((Asteroid *)object)->scaling = scale;
     else if (object->objtype == OBJ_DustType) ((DustCloud *)object)->scaling = scale;
     else if (object->objtype == OBJ_GasType) ((GasCloud *)object)->scaling = scale;
     else if (object->objtype == OBJ_NebulaType) ((Nebula *)object)->scaling = scale;
@@ -1260,6 +1302,24 @@ static bool32 mmeUpdateGizmoDrag(sdword mouseX, sdword mouseY)
     return TRUE;
 }
 
+static Derelict *mmeCreateDerelict(DerelictType type, const vector *position)
+{
+    DerelictStaticInfo *stat;
+    if((sdword)type<0 || type>=NUM_DERELICTTYPES)return NULL;
+    stat=&derelictStaticInfos[type];
+    if(!bitTest(stat->staticheader.infoFlags,IF_InfoLoaded))
+    {
+        char path[128];
+        snprintf(path,sizeof(path),"Derelicts/%s.shp",DerelictTypeToStr(type));
+        if(type!=HyperspaceGate && !fileExists(path,0))return NULL;
+        InitStatDerelictInfo(stat,type);
+        if(type!=HyperspaceGate && stat->staticheader.LOD==NULL)return NULL;
+        bitSet(stat->staticheader.infoFlags,IF_InfoNeeded|IF_InfoLoaded);
+        trRegistryRefresh();
+    }
+    return univAddDerelict(type,(vector *)position);
+}
+
 static SpaceObj *mmeCreateFromAsset(const MMEAsset *asset, const vector *position)
 {
     if (asset == NULL || position == NULL) return NULL;
@@ -1269,7 +1329,7 @@ static SpaceObj *mmeCreateFromAsset(const MMEAsset *asset, const vector *positio
             return (SpaceObj *)univAddShip((ShipType)asset->subtype, asset->race,
                                           (vector *)position, universe.curPlayerPtr, 0);
         case MME_ASSET_DERELICT:
-            return (SpaceObj *)univAddDerelict((DerelictType)asset->subtype, (vector *)position);
+            return (SpaceObj *)mmeCreateDerelict((DerelictType)asset->subtype, position);
         case MME_ASSET_ASTEROID:
             return (SpaceObj *)univAddAsteroid((AsteroidType)asset->subtype, (vector *)position);
         case MME_ASSET_DUST:
@@ -1367,7 +1427,8 @@ static bool32 mmePlaceCurrentAsset(void)
         track = mmeTrackObject(object, FALSE);
         if (track >= 0)
         {
-            mme.tab = MME_TAB_SCENE;
+            mme.tab = MME_TAB_OBJECTS;
+            mme.objectScroll = max(0,mmeObjectRowCount(TRUE)-MME_VISIBLE_ROWS);
             mmeSelectTrack(track);
             mmeStatus("OBJECT PLACED / UNSAVED");
             return TRUE;
@@ -1458,7 +1519,7 @@ static bool32 mmeDuplicateSelection(void)
             created = (SpaceObj *)univAddShip((ShipType)track->subtype, track->race,
                                               &position, universe.curPlayerPtr, 0);
         else if (track->objtype == OBJ_DerelictType)
-            created = (SpaceObj *)univAddDerelict((DerelictType)track->subtype, &position);
+            created = (SpaceObj *)mmeCreateDerelict((DerelictType)track->subtype, &position);
         else if (track->objtype == OBJ_AsteroidType)
             created = (SpaceObj *)univAddAsteroid((AsteroidType)track->subtype, &position);
         else if (track->objtype == OBJ_DustType)
@@ -1470,6 +1531,7 @@ static bool32 mmeDuplicateSelection(void)
             sdword newTrack = mmeTrackObject(created, FALSE);
             if (newTrack >= 0)
             {
+                mme.tab = MME_TAB_OBJECTS;
                 mmeSelectTrack(newTrack);
                 mmeStatus("OBJECT DUPLICATED / UNSAVED");
                 return TRUE;
@@ -1654,6 +1716,8 @@ static void mmeOpenColor(void)
         (mmeColorTarget.rope?mmeRopeStyle.color:mmeSelectedVolume()->data.color),8.0f,mmeApplyColor,NULL);
 }
 
+#include "MapEditorObjectInspector.inc"
+
 static bool32 mmeAdjustSelection(sdword direction)
 {
     MMETrackedObject *track = mmeSelectedTrack();
@@ -1801,39 +1865,7 @@ static bool32 mmeAdjustSelection(sdword direction)
         mmeStatus("VOLUME MATERIAL/TRANSFORM LIVE / UNSAVED");
         return TRUE;
     }
-    if (track == NULL || track->object == NULL) return FALSE;
-    if (mme.transformMode == MME_TRANSFORM_MOVE)
-    {
-        vector *position = mmeObjectPosition(track->object);
-        real32 step = 100.0f * coarse * fine * (real32)direction;
-        if (position == NULL) return FALSE;
-        if (mme.axis == MME_AXIS_X) position->x += step;
-        else if (mme.axis == MME_AXIS_Y) position->y += step;
-        else position->z += step;
-        mmeStopObjectMotion(track->object);
-        univUpdateObjRotInfo((SpaceObjRot *)track->object);
-        track->dirty = TRUE;
-    }
-    else if (mme.transformMode == MME_TRANSFORM_ROTATE)
-    {
-        mmeRotateTrack(track, mme.axis, 5.0f * fine * (real32)direction);
-    }
-    else
-    {
-        real32 scale = mmeObjectScale(track->object);
-        if (track->objtype != OBJ_AsteroidType && track->objtype != OBJ_DustType &&
-            track->objtype != OBJ_GasType && track->objtype != OBJ_NebulaType)
-        {
-            mmeStatus("INSTANCE SCALE IS ONLY SAFE FOR RESOURCES/VOLUMES");
-            return FALSE;
-        }
-        scale = mmeClampF(scale + 0.1f * fine * (real32)direction, 0.05f, 50.0f);
-        mmeSetObjectScale(track->object, scale);
-        track->scale = scale;
-        track->dirty = TRUE;
-    }
-    mmeStatus("OBJECT TRANSFORM LIVE / UNSAVED");
-    return TRUE;
+    return mmeAdjustObjectInspector(track,mme.inspectorRow,direction,fine,coarse);
 }
 
 static bool32 mmeControlHeld(void);
@@ -1922,7 +1954,7 @@ static bool32 mmeNumericValue(double *number,bool32 apply)
     if(mme.tab!=MME_TAB_FIELDS&&mme.tab!=MME_TAB_ROPES&&mme.tab!=MME_TAB_DUST&&!volume&&track&&track->object&&row>=0&&row<=6){
         if(row<3){vector *p=mmeObjectPosition(track->object);if(!p)return FALSE;target=row==0?&p->x:row==1?&p->y:&p->z;minimum=-100000000;maximum=100000000;}
         else if(row<6){if(!apply){*number=track->rotationDegrees[row-3];return TRUE;}if(!isfinite(*number)||fabs(*number)>360000)return FALSE;mmeRotateTrack(track,row-3,(real32)*number-track->rotationDegrees[row-3]);return TRUE;}
-        else {if(track->objtype!=OBJ_AsteroidType&&track->objtype!=OBJ_DustType&&track->objtype!=OBJ_GasType&&track->objtype!=OBJ_NebulaType)return FALSE;if(!apply){*number=mmeObjectScale(track->object);return TRUE;}if(!isfinite(*number)||*number<.05||*number>50)return FALSE;mmeSetObjectScale(track->object,(real32)*number);track->scale=(real32)*number;track->dirty=TRUE;return TRUE;}
+        else {if(track->objtype!=OBJ_DerelictType&&track->objtype!=OBJ_AsteroidType&&track->objtype!=OBJ_DustType&&track->objtype!=OBJ_GasType&&track->objtype!=OBJ_NebulaType)return FALSE;if(!apply){*number=mmeObjectScale(track->object);return TRUE;}if(!isfinite(*number)||*number<.05||*number>50)return FALSE;mmeSetObjectScale(track->object,(real32)*number);track->scale=(real32)*number;track->dirty=TRUE;return TRUE;}
         if(!apply){*number=*target;return TRUE;}if(!isfinite(*number)||*number<minimum||*number>maximum)return FALSE;
         *target=(real32)*number;mmeStopObjectMotion(track->object);univUpdateObjRotInfo((SpaceObjRot *)track->object);track->dirty=TRUE;return TRUE;
     }
@@ -2202,7 +2234,9 @@ static const char *mmeAxisName(void)
 static bool32 mmeExportPath(char *out, sdword outBytes, sdword mission)
 {
     const char *exportPrefix = getenv("HW_LOOSE_DATA") ? "Dev/RTXExports" : "RTXExports";
+    char name[64];
     char *base = SDL_GetBasePath();
+    hwBackdropMapName(name,sizeof(name),mission);
     char root[1024];
     char maps[1024];
     int rootLength;
@@ -2216,11 +2250,11 @@ static bool32 mmeExportPath(char *out, sdword outBytes, sdword mission)
 #ifdef _WIN32
     rootLength = snprintf(root, sizeof(root), "%s%s", base, exportPrefix);
     mapsLength = snprintf(maps, sizeof(maps), "%s%s\\Maps", base, exportPrefix);
-    pathLength = snprintf(out, (size_t)outBytes, "%s%s\\Maps\\Mission%02d.rtxmap", base, exportPrefix, mission);
+    pathLength = snprintf(out, (size_t)outBytes, "%s%s\\Maps\\%s", base, exportPrefix, name);
 #else
     rootLength = snprintf(root, sizeof(root), "%s%s", base, exportPrefix);
     mapsLength = snprintf(maps, sizeof(maps), "%s%s/Maps", base, exportPrefix);
-    pathLength = snprintf(out, (size_t)outBytes, "%s%s/Maps/Mission%02d.rtxmap", base, exportPrefix, mission);
+    pathLength = snprintf(out, (size_t)outBytes, "%s%s/Maps/%s", base, exportPrefix, name);
 #endif
     SDL_free(base);
     if (rootLength < 0 || (size_t)rootLength >= sizeof(root) ||
@@ -2243,7 +2277,9 @@ static bool32 mmeExportPath(char *out, sdword outBytes, sdword mission)
 
 static bool32 mmePackagedMapPath(char *out, sdword outBytes, sdword mission)
 {
+    char name[64];
     char *base = SDL_GetBasePath();
+    hwBackdropMapName(name,sizeof(name),mission);
     int pathLength;
     if (base == NULL || out == NULL || outBytes <= 0)
     {
@@ -2252,10 +2288,10 @@ static bool32 mmePackagedMapPath(char *out, sdword outBytes, sdword mission)
     }
 #ifdef _WIN32
     pathLength = snprintf(out, (size_t)outBytes,
-                          "%sData\\Missions\\Mission%02d.rtxmap", base, mission);
+                          "%sData\\Missions\\%s", base, name);
 #else
     pathLength = snprintf(out, (size_t)outBytes,
-                          "%sData/Missions/Mission%02d.rtxmap", base, mission);
+                          "%sData/Missions/%s", base, name);
 #endif
     SDL_free(base);
     if (pathLength < 0 || pathLength >= outBytes)
@@ -2654,7 +2690,7 @@ static bool32 mmeSaveMap(void)
     char path[768];
     FILE *fp;
     sdword i;
-    sdword mission = spGetCurrentMission();
+    sdword mission = modernMissionBackdropEnvironmentId();
     if (!mmeExportPath(path, sizeof(path), mission))
     {
         mmeStatus("MAP EXPORT PATH FAILED");
@@ -2796,7 +2832,7 @@ static bool32 mmeLoadMapOverlay(void)
     char line[1024];
     FILE *fp;
     bool32 loadedPackaged = FALSE;
-    sdword mission = spGetCurrentMission();
+    sdword mission = modernMissionBackdropEnvironmentId();
     hwModernGraphicsResetCloudRenderSettings();
     modernParticleFieldsResetStyles();
     modernOriginalRopeReset();
@@ -2904,7 +2940,7 @@ static bool32 mmeLoadMapOverlay(void)
                     {
                         DerelictType t = StrToDerelictType(typeName);
                         if ((sdword)t >= 0 && (sdword)t < NUM_DERELICTTYPES)
-                            object = (SpaceObj *)univAddDerelict(t, &pos);
+                            object = (SpaceObj *)mmeCreateDerelict(t, &pos);
                     }
                     else if (strcasecmp(kind, "ASTEROID") == 0)
                     {
@@ -3119,7 +3155,7 @@ static void mmeOpenInternal(bool32 fromBoot)
     }
     mme.tab = MME_TAB_ASSETS;
     mme.assetScroll = mme.sceneScroll = mme.volumeScroll = 0;
-    mme.selectedAsset = 0;
+    mme.selectedAsset = -1;
     mme.selectedTracked = -1;
     mme.selectedVolume = -1;
     mme.inspectorRow = 0;
@@ -3191,7 +3227,7 @@ static void mmeDrawLeft(regionhandle region)
     (void)region;
     primRectSolid2(&panel, mmeInk);
     primRectOutline2(&panel, 1, mmeLine);
-    snprintf(header, sizeof(header), "RTX MAP EDITOR / MISSION %02d", spGetCurrentMission());
+    snprintf(header, sizeof(header), singlePlayerGame ? "RTX MAP EDITOR / MISSION %02d" : "RTX MAP EDITOR / MULTIPLAYER", spGetCurrentMission());
     mmeDrawText(panel.x0 + uiScaleSize(10), panel.y0 + uiScaleSize(8), mmePaper, header);
     mmeLayoutTabs(&panel, tabs, &list, &footer);
     mmeDrawButton(&tabs[0], "ASSETS", mme.tab == MME_TAB_ASSETS, mmePointIn(&tabs[0], mouseX, mouseY));
@@ -3201,6 +3237,7 @@ static void mmeDrawLeft(regionhandle region)
     mmeDrawButton(&tabs[4], "RM DUST", mme.tab == MME_TAB_DUST, mmePointIn(&tabs[4], mouseX, mouseY));
     mmeDrawButton(&tabs[5], "FIELDS", mme.tab == MME_TAB_FIELDS, mmePointIn(&tabs[5], mouseX, mouseY));
     mmeDrawButton(&tabs[6], "CLOUDS", mme.tab == MME_TAB_CLOUDS, mmePointIn(&tabs[6], mouseX, mouseY));
+    mmeDrawButton(&tabs[MME_TAB_OBJECTS], "OBJECTS", mme.tab == MME_TAB_OBJECTS, mmePointIn(&tabs[MME_TAB_OBJECTS], mouseX, mouseY));
     maxRows = (list.y1 - list.y0) / rowH;
     if (maxRows > MME_VISIBLE_ROWS) maxRows = MME_VISIBLE_ROWS;
     for (i = 0; i < maxRows; ++i)
@@ -3211,15 +3248,24 @@ static void mmeDrawLeft(regionhandle region)
         row.y0 = list.y0 + i * rowH; row.y1 = row.y0 + rowH - uiScaleSize(2);
         if (mme.tab == MME_TAB_ASSETS)
         {
-            index = mme.assetScroll + i;
-            if (index >= mmeAssetCount) break;
-            mmeDrawListRow(&row, mmeAssets[index].label, mmeAssets[index].archive,
-                           index == mme.selectedAsset, mmePointIn(&row, mouseX, mouseY));
+            index = mmeAssetRowAt(mme.assetScroll + i);
+            if(index==-1)break;
+            if(index==-2)
+            {
+                const char *selected="CHOOSE A TYPE / THEN P TO PLACE";
+                if(mme.selectedAsset>=0 && mme.selectedAsset<mmeAssetCount &&
+                   mmeAssets[mme.selectedAsset].kind==MME_ASSET_DERELICT)
+                    selected=mmeAssets[mme.selectedAsset].label;
+                mmeDrawListRow(&row,mme.derelictDropdownOpen ? "DERELICTS  v" : "DERELICTS  >",
+                    selected,mme.derelictDropdownOpen,mmePointIn(&row,mouseX,mouseY));
+            }
+            else mmeDrawListRow(&row,mmeAssets[index].label,mmeAssets[index].archive,
+                index==mme.selectedAsset,mmePointIn(&row,mouseX,mouseY));
         }
-        else if (mme.tab == MME_TAB_SCENE)
+        else if (mme.tab == MME_TAB_SCENE || mme.tab == MME_TAB_OBJECTS)
         {
-            index = mme.sceneScroll + i;
-            if (index >= mmeTrackedCount) break;
+            index = mmeObjectRowAt((mme.tab==MME_TAB_OBJECTS ? mme.objectScroll : mme.sceneScroll)+i, mme.tab==MME_TAB_OBJECTS);
+            if (index < 0) break;
             if (mmeTracked[index].deleted)
                 mmeDrawListRow(&row, mmeTracked[index].label, "DELETED (overlay)",
                                index == mme.selectedTracked, mmePointIn(&row, mouseX, mouseY));
@@ -3289,6 +3335,7 @@ static void mmeDrawLeft(regionhandle region)
     mmeDrawTiny(footer.x0 + uiScaleSize(6), footer.y0 + uiScaleSize(5), mmePaper,
                 mme.tab == MME_TAB_CLOUDS ? "CLOUD RENDERER / SETTINGS SAVED PER MAP" :
                 mme.tab == MME_TAB_ASSETS ? "P = PLACE SELECTED BIG/RTX ASSET" :
+                mme.tab == MME_TAB_OBJECTS ? "PLACED OBJECTS / P MOVE / DEL DELETE / SAVE MAP" :
                 (mme.tab == MME_TAB_SCENE ? "CLICK WORLD OR LIST / P = MOVE TO CURSOR" :
                 (mme.tab == MME_TAB_VOLUMES ? "RTX VOLUMES / PRESETS + COPY/PASTE ON RIGHT" :
                 (mme.tab == MME_TAB_DUST ? "RM DUST / APPEARANCE SAVED PER MAP" :
@@ -3989,6 +4036,8 @@ static udword mmeLeftProcess(regionhandle region, smemsize ID, udword event, udw
             if(mmePointIn(&tabs[index],x,y))
             {
                 mme.tab=index;
+                if(index==MME_TAB_OBJECTS){mme.selectedVolume=-1;if(mmeSelectedTrack() && !mmeSelectedTrack()->created)mme.selectedTracked=-1;}
+                else if(index==MME_TAB_SCENE && mmeSelectedTrack() && mmeSelectedTrack()->created)mme.selectedTracked=-1;
                 if (index == MME_TAB_ROPES || index == MME_TAB_DUST || index == MME_TAB_FIELDS || index == MME_TAB_CLOUDS)
                 {
                     if(index==MME_TAB_ROPES || index==MME_TAB_FIELDS || index==MME_TAB_CLOUDS || !mmeSelectedDustTrack()) mme.selectedTracked = -1;
@@ -4001,12 +4050,17 @@ static udword mmeLeftProcess(regionhandle region, smemsize ID, udword event, udw
         {
             if(mme.tab==MME_TAB_ASSETS)
             {
-                index=mmeListIndexAt(&list,mme.assetScroll,y);
-                if(index>=0&&index<mmeAssetCount)mme.selectedAsset=index;
+                index=mmeAssetRowAt(mmeListIndexAt(&list,mme.assetScroll,y));
+                if(index==-2){mme.derelictDropdownOpen=!mme.derelictDropdownOpen;mme.assetScroll=0;}
+                else if(index>=0&&index<mmeAssetCount)
+                {
+                    mme.selectedAsset=index;mme.selectedTracked=-1;mme.selectedVolume=-1;
+                    if(mmeAssets[index].kind==MME_ASSET_DERELICT){mme.derelictDropdownOpen=FALSE;mme.assetScroll=0;}
+                }
             }
-            else if(mme.tab==MME_TAB_SCENE)
+            else if(mme.tab==MME_TAB_SCENE || mme.tab==MME_TAB_OBJECTS)
             {
-                index=mmeListIndexAt(&list,mme.sceneScroll,y);
+                index=mmeObjectRowAt(mmeListIndexAt(&list,mme.tab==MME_TAB_OBJECTS ? mme.objectScroll : mme.sceneScroll,y),mme.tab==MME_TAB_OBJECTS);
                 if(index>=0&&index<mmeTrackedCount&&!mmeTracked[index].deleted)mmeSelectTrack(index);
             }
             else if (mme.tab==MME_TAB_VOLUMES)
@@ -4032,8 +4086,9 @@ static udword mmeLeftProcess(regionhandle region, smemsize ID, udword event, udw
     else
     {
         sdword delta=event==RPE_WheelUp?-1:1;
-        if(mme.tab==MME_TAB_ASSETS)mme.assetScroll=mmeClamp(mme.assetScroll+delta,0,mmeAssetCount>1?mmeAssetCount-1:0);
-        else if(mme.tab==MME_TAB_SCENE)mme.sceneScroll=mmeClamp(mme.sceneScroll+delta,0,mmeTrackedCount>1?mmeTrackedCount-1:0);
+        if(mme.tab==MME_TAB_ASSETS)mme.assetScroll=mmeClamp(mme.assetScroll+delta,0,max(0,mmeAssetRowCount()-1));
+        else if(mme.tab==MME_TAB_SCENE)mme.sceneScroll=mmeClamp(mme.sceneScroll+delta,0,max(0,mmeObjectRowCount(FALSE)-1));
+        else if(mme.tab==MME_TAB_OBJECTS)mme.objectScroll=mmeClamp(mme.objectScroll+delta,0,max(0,mmeObjectRowCount(TRUE)-1));
         else if(mme.tab==MME_TAB_VOLUMES)mme.volumeScroll=mmeClamp(mme.volumeScroll+delta,0,mmeVolumeCount>1?mmeVolumeCount-1:0);
         else if(mme.tab==MME_TAB_DUST)mme.dustScroll=mmeClamp(mme.dustScroll+delta,0,mmeDustListCount()-1);
         else if(mme.tab==MME_TAB_FIELDS)mmeFieldScroll=mmeClamp(mmeFieldScroll+delta,0,modernParticleFieldsCount());
@@ -4219,6 +4274,10 @@ static udword mmeRightProcess(regionhandle region, smemsize ID, udword event, ud
     }
     if(event==RPE_WheelUp||event==RPE_WheelDown)
     {
+        if(!mmePointIn(&inner,mouseCursorX(),mouseCursorY()) || rowH<=0)return RPR_Redraw;
+        row=(mouseCursorY()-inner.y0)/rowH;
+        if(row<0 || row>=mmeInspectorCount())return RPR_Redraw;
+        mme.inspectorRow=row;
         mmeAdjustSelection(event==RPE_WheelUp?1:-1);
         regRecursiveSetDirty(region);return RPR_Redraw;
     }
@@ -4317,7 +4376,7 @@ bool32 modernMapEditorHandleWorldEvent(udword event, udword data)
     {
         sdword index=mmeFindTracked(clicked);
         if(index<0)index=mmeTrackObject(clicked,TRUE);
-        mme.tab=MME_TAB_SCENE;
+        mme.tab=index>=0 && mmeTracked[index].created ? MME_TAB_OBJECTS : MME_TAB_SCENE;
         mmeSelectTrack(index); mmeStatus("WORLD OBJECT SELECTED / DRAG GIZMO TO TRANSFORM");
     }
     else
@@ -4360,7 +4419,7 @@ bool32 modernMapEditorHandleKey(sdword key)
         if(mme.tab==MME_TAB_ASSETS)mmePlaceCurrentAsset();else mmeMoveSelectionToCursor();return TRUE;
     }
     if(key==EKEY){mme.transformMode=MME_TRANSFORM_ROTATE;mmeStatus("TRANSFORM MODE: ROTATE");return TRUE;}
-    if(key==RKEY){mme.transformMode=MME_TRANSFORM_SCALE;mmeStatus("TRANSFORM MODE: SCALE (resources/volumes)");return TRUE;}
+    if(key==RKEY){mme.transformMode=MME_TRANSFORM_SCALE;mmeStatus("TRANSFORM MODE: SCALE / SELECT INSTANCE SCALE ROW");return TRUE;}
     if(key==XKEY){mme.axis=MME_AXIS_X;mmeStatus("ACTIVE AXIS: X");return TRUE;}
     if(key==YKEY){mme.axis=MME_AXIS_Y;mmeStatus("ACTIVE AXIS: Y");return TRUE;}
     if(key==ZKEY){mme.axis=MME_AXIS_Z;mmeStatus("ACTIVE AXIS: Z");return TRUE;}
@@ -4430,6 +4489,7 @@ void modernMapEditorMissionReset(void)
 {
     /* The mission number alone cannot identify the lifetime of a loaded
        universe. Save loading resets particle styles even for the same level. */
+    editorInstanceScaleReset(&mmeDerelictScales);
     mmeVolumeMission = -1;
     mmeVolumeCount = 0;
     memset(mmeVolumes, 0, sizeof(mmeVolumes));
@@ -4451,9 +4511,9 @@ void modernMapEditorUpdateEnvironment(void)
        ordinary campaign startup. Previously mmeLoadMapOverlay() was reached
        only through the editor's explicit Load Overlay action, so a fresh game
        started Mission 1 with an empty renderer until Shift+F11 loaded it. */
-    if (gameIsRunning && mmeVolumeMission != spGetCurrentMission())
+    if (gameIsRunning && mmeVolumeMission != modernMissionBackdropEnvironmentId())
     {
-        sdword mission = spGetCurrentMission();
+        sdword mission = modernMissionBackdropEnvironmentId();
         hwModernGraphicsResetCloudRenderSettings();
         memset(mmeVolumes, 0, sizeof(mmeVolumes));
         mmeVolumeCount = 0;

@@ -879,6 +879,7 @@ scriptEntry utyOptionsList[] =
     {"MissionStartLaunch",             scriptSetUdwordCB, &opMissionStartLaunch},
     {"ResourceMultiplier",             scriptSetUdwordCB, &opResourceMultiplier},
     {"UnlimitedRUs",                   scriptSetUdwordCB, &opUnlimitedRUs},
+    {"RestoreFogOfWar",                scriptSetUdwordCB, &opRestoreFogOfWar},
     {"DisableSPResourceScaling",       scriptSetUdwordCB, &opDisableSPResourceScaling},
     {"showFPS",                        scriptSetUdwordCB, &mainShowFPS},
     {"PlayIntros",                     scriptSetUdwordCB, &aviPlayIntros},

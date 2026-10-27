@@ -2,7 +2,9 @@
 #define OPENHW_SHIP_PILOT_H
 #include "SpaceObj.h"
 #include "Camera.h"
-/* Transient local-player control; never serialized into ships or saves. */
+#include "ShipPilotFrame.h"
+/* Local camera/input plus replicated lockstep pilot sessions. Transient state
+   never changes the ship/save binary layout. */
 bool32 shipPilotActive(void);
 bool32 shipPilotOwns(const Ship *ship);
 bool32 shipPilotControls(const Ship *ship);
@@ -29,6 +31,9 @@ bool32 shipPilotMouse(udword event, udword data);
 void shipPilotMouseMotion(sdword dx, sdword dy);
 bool32 shipPilotCamera(Camera *camera);
 void shipPilotUpdate(void);
+void shipPilotReset(void);
+void shipPilotReceiveFrame(sdword player,const ShipPilotFrame *frame);
+Ship *shipPilotTargetFor(const Ship *ship);
 real32 shipPilotThrottle(void);
 bool32 shipPilotFireAll(void);
 void shipPilotReticle(sdword *x, sdword *y);

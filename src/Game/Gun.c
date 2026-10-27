@@ -886,7 +886,7 @@ void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
         ((Ship *)target)->firingAtUs = ship;
         ((Ship *)target)->recentlyFiredUpon = RECENT_ATTACK_DURATION;
     }
-    if(target && target==(SpaceObjRotImpTarg *)shipPilotTarget() && shipPilotControls(ship))
+    if(target && target==(SpaceObjRotImpTarg *)shipPilotTargetFor(ship) && shipPilotControls(ship))
     {
         vector delta;real32 distance;sdword side=-1;
         vecSub(delta,target->collInfo.collPosition,missile->posinfo.position);
@@ -1154,7 +1154,7 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
         }
     }
     bullet->SpecialEffectFlag = 0;
-    if(target && target==(SpaceObjRotImpTarg *)shipPilotTarget() && shipPilotControls(ship))
+    if(target && target==(SpaceObjRotImpTarg *)shipPilotTargetFor(ship) && shipPilotControls(ship))
         bullet->SpecialEffectFlag |= PILOT_HITSCAN_BULLET;
     bullet->DFGFieldEntryTime = 0.0f;
 

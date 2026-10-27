@@ -101,6 +101,8 @@ extern udword opResourceMultiplier;
 extern udword opDisableSPResourceScaling;
 /* Single-player spending override; does not inflate the saved RU balance. */
 extern udword opUnlimitedRUs;
+/* Local presentation preference: restore original render-list distance limits. */
+extern udword opRestoreFogOfWar;
 
 void opOptionsSaveCustomEffectsSettings(void);
 

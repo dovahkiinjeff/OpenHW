@@ -19,13 +19,16 @@ The shipped fallback files are physical `Data/Missions/MissionNN.rtxmap` and `.r
 | Tab | Use |
 | --- | --- |
 | Assets | Browse/place available ships, derelicts, resources and supported scene assets |
-| Scene | Select and transform original or added objects; overlay deletions |
+| Scene | Select and transform original map objects; overlay deletions |
+| Objects | Select, transform, duplicate or remove newly placed objects |
 | Volumes | Place and style bounded volumetric clouds |
 | Ropes | Configure volumetric ropes and original rope visibility/color/opacity presentation |
 | RM Dust | Configure supported Remastered dust presentation |
 | Fields | Configure clouds derived from connected particle distributions |
 
 The toolbar provides mission selection/loading, Load Paused, independent simulation/KAS pause, view/camera modes, Save Map, Load Map, Lighting, Textures and Done. Keep a saved copy before changing missions. Imported assets are read-only templates; authoring overlays contain your changes.
+
+Assets includes a **Derelicts** dropdown below the RTX dust-volume entry. Select a type, then press **P** to place it; the placed object appears in **Objects**. Wheel adjustments follow the hovered position/rotation/scale row, and double-clicking an editable numeric field allows direct entry. Derelict instance scale changes that instance visually and is saved in its map overlay; shared meshes remain unchanged.
 
 Right-drag aims the editor camera and the wheel moves it forward/back. F focuses selection. Use axis handles to translate/rotate and the inspector for numerical values. Direct-entry fields allow precise typed values instead of relying solely on slider/button increments. Ctrl provides fine adjustments where supported. Delete hides/removes through the overlay. Ctrl+S saves; Ctrl+C/V copies/pastes supported cloud volumes. Read each panel's live labels for the active selection and supported fields.
 

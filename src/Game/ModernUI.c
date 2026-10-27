@@ -66,7 +66,7 @@ extern real32 btgFieldOfView;
 #define MUI_COLOR_TAB_COUNT 6
 #define MUI_ROW_COUNT 5
 #define MUI_VIDEO_ROW_COUNT 7
-#define MUI_GAMEPLAY_ROW_COUNT 11
+#define MUI_GAMEPLAY_ROW_COUNT 12
 #define MUI_ART_COUNT 19
 
 typedef struct ModernUIVideoState
@@ -100,6 +100,7 @@ typedef struct ModernUIGameplayState
     udword savedMissionStartLaunch;
     udword savedResourceMultiplier;
     udword savedUnlimitedRUs;
+    udword savedRestoreFogOfWar;
     udword savedDisableSPResourceScaling;
     bool32 savedShowFPS;
 } ModernUIGameplayState;
@@ -651,27 +652,18 @@ static bool32 muiInGameScreen(const char *name)
     return FALSE;
 }
 
+#include "MultiplayerMenuLayout.inc"
+
 static bool32 muiMultiplayerScreen(const char *name)
 {
-    static const char *screens[] = {
-        "Internet_Login", "LAN_Login", "LLAN_Login", "Channel_Chat",
-        "LChannel_Chat", "Available_Channels", "Create_Channel",
-        "Available_Games", "LAvailable_Games", "Player_Options",
-        "Player_Wait", "LPlayer_Wait", "Captain_Wait", "LCaptain_Wait",
-        "Basic_Options", "Advanced_Options", "Resource_Options",
-        "Skirmish_Basic", "Skirmish_Advanced", "Skirmish_Resource",
-        "Game_Password", "LGame_Password"
-    };
-    sdword index;
-    for (index = 0; index < (sdword)(sizeof(screens) / sizeof(screens[0])); ++index)
-        if (muiNameIs(name, screens[index])) return TRUE;
-    return FALSE;
+    return muiNetworkPage(name) != NULL;
 }
 
 static ModernUIScreenKind muiScreenKind(const fescreen *screen)
 {
     if (screen == NULL || muiGameplayScreen(screen->name))
         return MUI_SCREEN_GAMEPLAY;
+    if (muiMultiplayerScreen(screen->name)) return MUI_SCREEN_MULTIPLAYER;
     if (muiPopupScreen(screen)) return MUI_SCREEN_POPUP;
     if (muiInGameScreen(screen->name)) return MUI_SCREEN_INGAME;
     if (muiMultiplayerScreen(screen->name)) return MUI_SCREEN_MULTIPLAYER;
@@ -4789,7 +4781,8 @@ static void muiDrawLightingEditor(regionhandle region)
     {
         if (missionAvailable)
             snprintf(subtitle, sizeof(subtitle),
-                     "MISSION %02d / P place key / S save+export / L reload / I solo / E export visuals",
+                     singlePlayerGame ? "MISSION %02d / P place key / S save+export / L reload / I solo / E export visuals" :
+                     "MULTIPLAYER MAP / P place key / S save+export / L reload / I solo / E export visuals",
                      missionState.mission);
         else
             snprintf(subtitle, sizeof(subtitle),
@@ -5545,6 +5538,7 @@ void modernUIToggleLightingEditor(void)
     muiLighting.page = MUI_LIGHTING_PAGE_MISSION;
     muiLighting.soloKey = FALSE;
     muiLightingSetStatus("");
+    modernMissionBackdropPrepare();
     {
         ModernMissionLightingAuthoringState beforeState;
         sdword beforeCount = -1;
@@ -5657,6 +5651,11 @@ void modernUIPrepareScreen(fescreen *screen)
 
     if (kind == MUI_SCREEN_GAMEPLAY && !muiManagerScreen(screen->name)) return;
     layout = muiScreenLayout(kind);
+    if (kind == MUI_SCREEN_MULTIPLAYER)
+    {
+        muiNetworkPrepare(screen, layout.content);
+        return;
+    }
     base = &screen->atoms[0];
     if (base->loadedWidth <= 0 || base->loadedHeight <= 0) return;
 
@@ -6409,17 +6408,17 @@ static udword muiMainProcess(regionhandle region, smemsize ID,
     return 0;
 }
 
+#define MUI_CONNECTION_COUNT 6
 static rectangle muiConnectionItemRect(sdword index)
 {
     sdword margin = uiScaleSize(34);
     sdword left = muiClamp(MAIN_WindowWidth * 35 / 100,
-                           uiScaleSize(330), MAIN_WindowWidth / 2);
+                           uiScaleSize(300), MAIN_WindowWidth / 2);
     sdword right = MAIN_WindowWidth - margin;
-    sdword top = muiClamp(MAIN_WindowHeight * 25 / 100,
-                          uiScaleSize(150), MAIN_WindowHeight - uiScaleSize(430));
-    sdword height = muiClamp(MAIN_WindowHeight / 8,
-                             uiScaleSize(78), uiScaleSize(126));
-    sdword gap = uiScaleSize(14);
+    sdword top = uiScaleSize(132);
+    sdword gap = uiScaleSize(10);
+    sdword height = (MAIN_WindowHeight - margin - top -
+                     gap * (MUI_CONNECTION_COUNT - 1)) / MUI_CONNECTION_COUNT;
     return muiRect(left, top + index * (height + gap),
                    right, top + index * (height + gap) + height);
 }
@@ -6427,9 +6426,11 @@ static rectangle muiConnectionItemRect(sdword index)
 static featom *muiConnectionActionAtom(fescreen *screen, sdword index)
 {
     static const char *actions[] = {
-        "MG_Skirmish", "MG_LANIPX", "MG_InternetWON", "MG_ConnectionBack"
+        "MG_Skirmish", "Connection_Method-TO-Skirmish_Load",
+        "MG_LANIPX", "MG_InternetWON",
+        "Connection_Method-TO-Recorded_Game", "MG_ConnectionBack"
     };
-    if (screen == NULL || index < 0 || index >= 4) return NULL;
+    if (screen == NULL || index < 0 || index >= MUI_CONNECTION_COUNT) return NULL;
     return feAtomFindInScreen(screen, (char *)actions[index]);
 }
 
@@ -6437,19 +6438,29 @@ static void muiActivateConnection(sdword index)
 {
     featom *atom = muiConnectionActionAtom(muiConnectionScreen, index);
     if (atom != NULL)
-        feFunctionExecute(atom->name, atom, FALSE);
+    {
+        if (bitTest(atom->flags, FAF_Link))
+        {
+            felink *link = feLinkFindInScreen(muiConnectionScreen, atom->name);
+            if (link != NULL) feScreenStart(ghMainRegion, link->linkToName);
+        }
+        else feFunctionExecute(atom->name, atom, FALSE);
+    }
 }
 
 static void muiDrawConnection(regionhandle region)
 {
     static const char *titles[] = {
-        "SKIRMISH", "LOCAL NETWORK", "ONLINE SERVICES", "RETURN"
+        "NEW SKIRMISH", "LOAD SKIRMISH", "LOCAL NETWORK",
+        "ONLINE SERVICES", "BATTLE REPLAYS", "RETURN"
     };
     static const char *descriptions[] = {
-        "Command a private battle against computer fleets",
-        "Discover and join games on your local IP network",
-        "Connect through the configured Internet service",
-        "Return to fleet command"
+        "Set up a battle against computer fleets",
+        "Continue a saved battle",
+        "Browse battles on your local network",
+        "Open online connection settings",
+        "Watch a recorded battle",
+        "Return to the main menu"
     };
     rectangle whole = muiRect(0, 0, MAIN_WindowWidth, MAIN_WindowHeight);
     rectangle rail;
@@ -6478,9 +6489,9 @@ static void muiDrawConnection(regionhandle region)
     muiText(uiScaleSize(38), MAIN_WindowHeight - uiScaleSize(92), muiMuted,
             "SELECT A COMMAND CHANNEL", muiBodyFont);
     muiText(uiScaleSize(38), MAIN_WindowHeight - uiScaleSize(62), muiDisabled,
-            "ALL LEGACY NETWORK CALLBACKS PRESERVED", muiBodyFont);
+            "SKIRMISH / SAVES / NETWORK", muiBodyFont);
 
-    for (index = 0; index < 4; ++index)
+    for (index = 0; index < MUI_CONNECTION_COUNT; ++index)
     {
         bool32 hovered;
         char number[8];
@@ -6501,11 +6512,15 @@ static void muiDrawConnection(regionhandle region)
         muiText(item.x0 + uiScaleSize(20), item.y0 + uiScaleSize(18),
                 index == muiConnectionSelection ? muiSignal : muiDisabled,
                 number, muiBodyFont);
-        muiText(item.x0 + uiScaleSize(72), item.y0 + uiScaleSize(16),
-                index == muiConnectionSelection ? muiPaper : muiMuted,
-                titles[index], muiHeadingFont);
-        muiText(item.x0 + uiScaleSize(72), item.y0 + uiScaleSize(48),
-                muiMuted, descriptions[index], muiBodyFont);
+        {
+            rectangle label = muiRect(item.x0 + uiScaleSize(66), item.y0 + uiScaleSize(8),
+                item.x1 - uiScaleSize(14), item.y0 + (item.y1 - item.y0) / 2);
+            rectangle detail = muiRect(label.x0, label.y1, label.x1, item.y1 - uiScaleSize(6));
+            muiTextLeftAdaptiveFull(&label, index == muiConnectionSelection ? muiPaper : muiMuted,
+                titles[index], muiHeadingFont, muiBodyFont, muiCompactFont, 0);
+            muiTextLeftAdaptiveFull(&detail, muiMuted, descriptions[index],
+                muiBodyFont, muiCompactFont, muiTinyFont, 0);
+        }
     }
 }
 
@@ -6516,16 +6531,16 @@ static udword muiConnectionProcess(regionhandle region, smemsize ID,
     (void)data;
     if (event == RPE_KeyDown)
     {
-        if (ID == ARRUP) muiConnectionSelection = (muiConnectionSelection + 3) % 4;
-        else if (ID == ARRDOWN) muiConnectionSelection = (muiConnectionSelection + 1) % 4;
+        if (ID == ARRUP) muiConnectionSelection = (muiConnectionSelection + MUI_CONNECTION_COUNT - 1) % MUI_CONNECTION_COUNT;
+        else if (ID == ARRDOWN) muiConnectionSelection = (muiConnectionSelection + 1) % MUI_CONNECTION_COUNT;
         else if (ID == RETURNKEY) muiActivateConnection(muiConnectionSelection);
-        else if (ID == ESCKEY) muiActivateConnection(3);
+        else if (ID == ESCKEY) muiActivateConnection(MUI_CONNECTION_COUNT - 1);
         regRecursiveSetDirty(region);
         return RPR_Redraw;
     }
     if (event == RPE_PressLeft || event == RPE_ReleaseLeft)
     {
-        for (index = 0; index < 4; ++index)
+        for (index = 0; index < MUI_CONNECTION_COUNT; ++index)
         {
             rectangle item = muiConnectionItemRect(index);
             if (muiPointIn(&item, mouseCursorX(), mouseCursorY()))
@@ -7349,13 +7364,14 @@ static const char *muiGameplayValue(sdword row, char *buffer, size_t count)
         case 8: return mainShowFPS ? "ON" : "OFF";
         case 9: return opDisableSPResourceScaling ? "ON" : "OFF";
         case 10: return opUnlimitedRUs ? "ON" : "OFF";
+        case 11: return opRestoreFogOfWar ? "ON" : "OFF";
         default: return "";
     }
 }
 
 static void muiGameplayFitLayout(ModernUILayout *layout)
 {
-    sdword rowTop = layout->content.y0 + uiScaleSize(132);
+    sdword rowTop = layout->content.y0 + uiScaleSize(116);
     sdword bottom = layout->apply.y0 - uiScaleSize(8);
     sdword gap = uiScaleSize(4);
     sdword specialTarget = uiScaleSize(52);
@@ -7491,6 +7507,7 @@ static void muiAdjustGameplay(sdword row, sdword direction)
         case 8: mainShowFPS = !mainShowFPS; break;
         case 9: opDisableSPResourceScaling = !opDisableSPResourceScaling; break;
         case 10: opUnlimitedRUs = !opUnlimitedRUs; break;
+        case 11: opRestoreFogOfWar = !opRestoreFogOfWar; break;
         default: return;
     }
     muiGameplayApplyLive();
@@ -7518,6 +7535,7 @@ static void muiExitGameplay(bool32 apply)
         opMissionStartLaunch = muiGameplay.savedMissionStartLaunch;
         opResourceMultiplier = muiGameplay.savedResourceMultiplier;
         opUnlimitedRUs = muiGameplay.savedUnlimitedRUs;
+        opRestoreFogOfWar = muiGameplay.savedRestoreFogOfWar;
         opDisableSPResourceScaling = muiGameplay.savedDisableSPResourceScaling;
         mainShowFPS = muiGameplay.savedShowFPS;
         muiGameplayApplyLive();
@@ -7532,7 +7550,7 @@ static void muiDrawGameplay(regionhandle region)
         "CAMERA SENSITIVITY", "UNLIMITED STRIKE-CRAFT FUEL",
         "ISSUE ORDERS WHILE PAUSED", "SHIP WEAPON RECOIL",
         "CURSOR SCALE", "RESOURCE MULTIPLIER", "RANK SYSTEM", "MISSION START LAUNCH", "SHOW FPS",
-        "DISABLE SP RESOURCE SCALING", "UNLIMITED RUs"
+        "DISABLE SP RESOURCE SCALING", "UNLIMITED RUs", "RESTORE FOG OF WAR"
     };
     static const char *descriptions[MUI_GAMEPLAY_ROW_COUNT] = {
         "Continuous camera response; five-percent steps",
@@ -7545,7 +7563,8 @@ static void muiDrawGameplay(regionhandle region)
         "Campaign arrival: vanilla / hold combat craft / hold all carried ships",
         "Yellow frame-rate counter in the top-right corner",
         "Full authored resource counts on new mission starts; single-player only",
-        "Build, buy technology and hyperspace without spending RUs; single-player only"
+        "Build, buy technology and hyperspace without spending RUs; single-player only",
+        "Original Homeworld visibility ranges instead of unlimited distant objects; applies immediately"
     };
     ModernUILayout layout;
     rectangle marker;
@@ -9370,6 +9389,7 @@ regionhandle modernUICreateOwnedScreen(regionhandle parent, fescreen *screen)
         muiGameplay.savedMissionStartLaunch = opMissionStartLaunch;
         muiGameplay.savedResourceMultiplier = opResourceMultiplier;
         muiGameplay.savedUnlimitedRUs = opUnlimitedRUs;
+        muiGameplay.savedRestoreFogOfWar = opRestoreFogOfWar;
         muiGameplay.savedDisableSPResourceScaling = opDisableSPResourceScaling;
         muiGameplay.savedShowFPS = mainShowFPS;
         base = regChildAlloc(parent, (smemsize)screen, 0, 0,
@@ -9481,7 +9501,32 @@ void modernUIDrawBase(regionhandle region)
         return;
     }
 
-    if (kind == MUI_SCREEN_FRONTEND || kind == MUI_SCREEN_MULTIPLAYER)
+    if (kind == MUI_SCREEN_MULTIPLAYER)
+    {
+        const MuiNetworkPage *page = muiNetworkPage(screen->name);
+        rectangle rail;
+        layout = muiScreenLayout(kind);
+        canvas = muiRect(0, 0, MAIN_WindowWidth, MAIN_WindowHeight);
+        muiDrawBackdrop(MUI_ART_MOTHERSHIP);
+        muiFill(&canvas, colRGBA(3, 6, 9, 150));
+        rail = muiRect(0, 0, layout.content.x0 - uiScaleSize(18), MAIN_WindowHeight);
+        muiFill(&rail, colRGBA(10, 18, 24, 244));
+        primLine2(rail.x1, 0, rail.x1, MAIN_WindowHeight, muiLineSoft);
+        muiText(uiScaleSize(24), uiScaleSize(34), muiSignal, "OPENHW", muiHeadingFont);
+        muiText(uiScaleSize(24), uiScaleSize(70), muiMuted, "FLEET OPERATIONS", muiBodyFont);
+        muiText(uiScaleSize(24), MAIN_WindowHeight - uiScaleSize(54), muiDisabled,
+                muiNetworkTab(screen->name) >= 0 ? "LOCAL / VS COMPUTER" : "NETWORK / BATTLE SETUP", muiCompactFont);
+        muiFill(&layout.content, colRGBA(12, 20, 26, 238));
+        primRectOutline2(&layout.content, 1, muiLineSoft);
+        accent = layout.content; accent.x1 = accent.x0 + uiScaleSize(3);
+        muiFill(&accent, muiSignal);
+        muiText(layout.content.x0, layout.content.y0 - uiScaleSize(50), muiPaper,
+                page->title, muiHeadingFont);
+        muiText(layout.content.x0, layout.content.y0 - uiScaleSize(24), muiMuted,
+                page->description, muiBodyFont);
+        return;
+    }
+    if (kind == MUI_SCREEN_FRONTEND)
     {
         layout = muiScreenLayout(kind);
         canvas = muiRect(0, 0, MAIN_WindowWidth, MAIN_WindowHeight);
@@ -9601,9 +9646,33 @@ void modernUIDrawButton(regionhandle region, bool32 checked, bool32 roundControl
     color outline;
     bool32 disabled;
     bool32 active;
+    const char *networkLabel = NULL;
+    bool32 networkSelected = FALSE;
+    bool32 networkControl = FALSE;
     if (region == NULL) return;
+    if (region->atom != NULL)
+    {
+        regionhandle walk;
+        fescreen *owner = NULL;
+        featom *a = (featom *)region->atom;
+        for (walk = region; walk != NULL && owner == NULL; walk = walk->parent)
+            owner = muiScreenForRegion(walk);
+        networkControl = owner != NULL && muiMultiplayerScreen(owner->name);
+        if (owner != NULL && muiNetworkTab(owner->name) >= 0)
+        {
+            static const char *tabs[] = {"BATTLE", "FLEET RULES", "RESOURCES", "FLEET COLOURS"};
+            int slot = muiNetworkTabAtom(a);
+            if (slot >= 0 && slot < 4)
+            {
+                networkLabel = tabs[slot];
+                networkSelected = slot == muiNetworkTab(owner->name);
+            }
+            else if (a->type == FA_Button && a->loadedY >= 430)
+                networkLabel = a->loadedX < 200 ? "BACK" : "START BATTLE";
+        }
+    }
     disabled = bitTest(region->status, RSF_RegionDisabled);
-    active = checked || bitTest(region->status, RSF_LeftPressed) ||
+    active = networkSelected || checked || bitTest(region->status, RSF_LeftPressed) ||
              bitTest(region->status, RSF_CurrentSelected);
     fill = active ? muiSignalSoft :
            (bitTest(region->status, RSF_MouseInside) ? muiSurfaceRaised : muiSurface);
@@ -9619,16 +9688,17 @@ void modernUIDrawButton(regionhandle region, bool32 checked, bool32 roundControl
     else if (checked)
     {
         sdword radius = (region->rect.y1 - region->rect.y0) / 5;
-        primCircleSolid2((region->rect.x0 + region->rect.x1) / 2,
+        primCircleSolid2(networkControl ? region->rect.x0 +
+                         (region->rect.y1 - region->rect.y0) / 2 :
+                         (region->rect.x0 + region->rect.x1) / 2,
                          (region->rect.y0 + region->rect.y1) / 2,
                          radius > 2 ? radius : 2, 12, muiSignal);
     }
     if (region->atom != NULL)
     {
         featom *buttonAtom = (featom *)region->atom;
-        const char *label = NULL;
-        const char *name = buttonAtom->name;
-        if (name == NULL) return;
+        const char *label = networkLabel;
+        const char *name = buttonAtom->name != NULL ? buttonAtom->name : "";
         if (strcmp(name, "CM_BuildShips") == 0) label = "BUILD";
         else if (strcmp(name, "CM_PauseJobs") == 0) label = "PAUSE BATCH";
         else if (strcmp(name, "CM_CancelJobs") == 0) label = "CANCEL BATCH";
@@ -9657,32 +9727,74 @@ void modernUIDrawButton(regionhandle region, bool32 checked, bool32 roundControl
     }
 }
 
+void modernUIDrawStepperButton(regionhandle region, bool32 decrease, bool32 enabled)
+{
+    rectangle mark;
+    sdword cx, cy, half, thickness;
+    bool32 hover, pressed;
+    if (region == NULL) return;
+    muiEnsureFonts();
+    hover = enabled && bitTest(region->status, RSF_MouseInside);
+    pressed = enabled && bitTest(region->status, RSF_LeftPressed);
+    muiFill(&region->rect, pressed ? muiSignalSoft : hover ? muiSurfaceRaised : muiSurface);
+    primRectOutline2(&region->rect, 1, hover || pressed ? muiSignal : muiLineSoft);
+    cx = (region->rect.x0 + region->rect.x1) / 2;
+    cy = (region->rect.y0 + region->rect.y1) / 2;
+    half = uiScaleSize(5); thickness = uiScaleSize(2);
+    if (thickness < 1) thickness = 1;
+    mark = muiRect(cx - half, cy - thickness / 2, cx + half, cy + (thickness + 1) / 2);
+    muiFill(&mark, enabled ? muiPaper : muiDisabled);
+    if (!decrease)
+    {
+        mark = muiRect(cx - thickness / 2, cy - half, cx + (thickness + 1) / 2, cy + half);
+        muiFill(&mark, enabled ? muiPaper : muiDisabled);
+    }
+}
+
+void modernUIDrawStepperValue(regionhandle region, sdword value)
+{
+    char text[16];
+    if (region == NULL) return;
+    muiEnsureFonts();
+    snprintf(text, sizeof(text), "%d", value);
+    muiFill(&region->rect, muiSurfaceRaised);
+    primRectOutline2(&region->rect, 1, muiLineSoft);
+    muiTextCenteredAdaptiveFull(&region->rect, muiPaper, text,
+        muiHeadingFont, muiBodyFont, muiCompactFont, uiScaleSize(3));
+}
+
 void modernUIDrawSlider(regionhandle region, bool32 vertical)
 {
     sliderhandle slider = (sliderhandle)region;
-    rectangle track = region->rect;
-    rectangle value = region->rect;
+    rectangle track = region->rect, value, thumb;
     sdword range = slider->maxvalue > 1 ? slider->maxvalue - 1 : 1;
+    sdword thickness = uiScaleSize(3), grip = uiScaleSize(8), inset = grip / 2;
+    bool32 disabled = bitTest(region->status, RSF_RegionDisabled);
     real32 t = (real32)slider->value / (real32)range;
     if (t < 0.0f) t = 0.0f;
     if (t > 1.0f) t = 1.0f;
+    if (thickness < 1) thickness = 1;
     if (vertical)
     {
-        track.x0 = (track.x0 + track.x1) / 2 - 1;
-        track.x1 = track.x0 + 2;
-        value.y0 = value.y1 - (sdword)((real32)(value.y1 - value.y0) * t);
+        sdword center = (track.x0 + track.x1) / 2, position;
+        track.x0 = center - thickness / 2; track.x1 = track.x0 + thickness;
+        track.y0 += inset; track.y1 -= inset;
+        position = track.y1 - (sdword)((track.y1 - track.y0) * t);
+        value = track; value.y0 = position;
+        thumb = muiRect(region->rect.x0, position - grip / 2, region->rect.x1, position + (grip + 1) / 2);
     }
     else
     {
-        track.y0 = (track.y0 + track.y1) / 2 - 1;
-        track.y1 = track.y0 + 2;
-        value.x1 = value.x0 + (sdword)((real32)(value.x1 - value.x0) * t);
+        sdword center = (track.y0 + track.y1) / 2, position;
+        track.y0 = center - thickness / 2; track.y1 = track.y0 + thickness;
+        track.x0 += inset; track.x1 -= inset;
+        position = track.x0 + (sdword)((track.x1 - track.x0) * t);
+        value = track; value.x1 = position;
+        thumb = muiRect(position - grip / 2, region->rect.y0, position + (grip + 1) / 2, region->rect.y1);
     }
     muiFill(&track, muiLineSoft);
-    muiFill(&value, bitTest(region->status, RSF_RegionDisabled) ?
-                       colRGBA(74, 82, 84, 90) : colRGBA(222, 162, 62, 80));
-    primRectOutline2(&region->rect, 1,
-        bitTest(region->status, RSF_MouseInside) ? muiSignal : muiLine);
+    muiFill(&value, disabled ? muiDisabled : muiSignalSoft);
+    muiFill(&thumb, disabled ? muiDisabled : muiSignal);
 }
 
 void modernUIDrawScrollBar(regionhandle region)
