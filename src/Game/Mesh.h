@@ -401,6 +401,7 @@ void meshFree(meshdata *mesh);
 void *meshRemasteredDeathHullCreate(const void *ship);
 void meshRemasteredDeathHullDraw(void *hull,void *instance,const matrix *rotation,const vector *position);
 void meshRemasteredDeathHullFree(void *hull);
+bool32 meshRemasteredDockEndpoint(const void *ship,const char *name,vector *position);
 void meshRecolorize(meshdata *mesh);
 void meshFixupUV(meshdata* mesh);
 bool32 meshPagedVersionExists(char* fileName);

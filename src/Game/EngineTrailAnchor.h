@@ -9,6 +9,8 @@ static float engineGlowRadius(float radius, float authoredRadius, float velocity
 }
 static float engineGlowOriginOffset(float spriteOffset, float xAdjust, float radius)
 {
-    return .6f*xAdjust + spriteOffset + fmaxf(.35f,radius*.38f);
+    /* The sprite/ribbon emitter stays clear of the nozzle, but the old full
+       displacement left a detached glow well behind small native hulls. */
+    return .5f*(.6f*xAdjust + spriteOffset + fmaxf(.35f,radius*.38f));
 }
 #endif

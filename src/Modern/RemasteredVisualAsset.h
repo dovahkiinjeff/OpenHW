@@ -119,6 +119,10 @@ int hwRmVisualInstanceAimGuns(HwRmVisualInstance *instance,
     const HwRmGunAim *guns, unsigned int count, char *error, size_t errorSize);
 int hwRmVisualInstanceGunMuzzle(HwRmVisualInstance *instance, unsigned int gun,
     float scale, float *matrix, char *error, size_t errorSize);
+/* Named hull-local DOCK endpoint in HW1 coordinates. Read-only; eligibility,
+   reservations and docking state remain owned by the original simulation. */
+int hwRmVisualInstanceDockEndpoint(const HwRmVisualInstance *instance,
+    const char *pathName, float scale, float position[3]);
 /* Explicit old engine/dock/repair/salvage semantic -> native joint. Aliases
    are immutable definitions, queried through the same animated gun hierarchy. */
 int hwRmVisualAssetBindMarker(HwRmVisualAsset *asset, const char *semantic,

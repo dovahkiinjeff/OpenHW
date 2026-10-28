@@ -2176,6 +2176,11 @@ void *meshRemasteredInstance(const void *ship,float *modelScale)
     }
     return NULL;
 }
+bool32 meshRemasteredDockEndpoint(const void *ship,const char *name,vector *position)
+{
+    float scale;HwRmVisualInstance *instance=meshRemasteredInstance(ship,&scale);
+    return instance&&position?hwRmVisualInstanceDockEndpoint(instance,name,scale,(float *)position):FALSE;
+}
 bool32 meshRemasteredGunHasSound(const void *ship,unsigned int gun){
     float scale;HwRmVisualInstance *instance=meshRemasteredInstance(ship,&scale);
     return instance?hwRmVisualInstanceGunHasSound(instance,gun):FALSE;

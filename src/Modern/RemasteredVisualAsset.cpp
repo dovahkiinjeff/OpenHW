@@ -541,6 +541,20 @@ extern "C" int hwRmVisualInstanceGunMuzzle(HwRmVisualInstance *instance,unsigned
             scale,nullptr,nullptr,matrix,error,errorSize);
     detail(error,errorSize,"unbound native gun muzzle");return 0;
 }
+extern "C" int hwRmVisualInstanceDockEndpoint(const HwRmVisualInstance *instance,
+    const char *name,float scale,float position[3]) {
+    if(!instance || !name || !position || !std::isfinite(scale) || scale<=0 || scale>100000) return 0;
+    const auto *hull=instance->asset->hull.get();
+    for(unsigned i=0;i<hwRmHodSceneDockPathCount(hull);++i) {
+        const auto *path=hwRmHodSceneDockPath(hull,i);
+        if(!path || std::strcmp(path->name,name) || std::strcmp(path->parent,"world") || !path->pointCount) continue;
+        const auto& point=path->points[path->pointCount-1];
+        const float result[3]={point.position[1]*scale,-point.position[0]*scale,point.position[2]*scale};
+        for(float value:result) if(!std::isfinite(value) || std::abs(value)>1000000) return 0;
+        std::copy(result,result+3,position);return 1;
+    }
+    return 0;
+}
 extern "C" int hwRmVisualInstanceAimGuns(HwRmVisualInstance *instance,
     const HwRmGunAim *guns,unsigned gunCount,char *error,size_t errorSize) {
     try {

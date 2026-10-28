@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "version": "1.0.2",
-  "snapshot": "Published OpenHW 1.0.2 source: skirmish, map editor, multiplayer pilot input and classic visibility option",
+  "version": "1.0.3",
+  "snapshot": "Complete OpenHW 1.0.3 source, cumulative from 1.0 through 1.0.3",
   "excluded": [
     "generated out/ and .deps/",
     "personal logs/saves and originating Git worktree metadata",
@@ -23035,8 +23035,8 @@
     },
     {
       "path": "docs/USER_GUIDE.md",
-      "size": 9136,
-      "sha256": "24eafbdffd8d7b2d92066e1b0eaa87b8fc225ab3a6fce55700d508ed10273eab"
+      "size": 9171,
+      "sha256": "b78d5bab52bb4b074e8509a26745d6c2dd2feaf8f2df46bf5658be19ec672300"
     },
     {
       "path": "docs/WEAPON_FX_UPSCALING.md",
@@ -23100,8 +23100,8 @@
     },
     {
       "path": "README.md",
-      "size": 19490,
-      "sha256": "23a1e541a77e16d826490252c0f117c70e1ea7d4a39ad680fcd032c438f1ec6b"
+      "size": 20834,
+      "sha256": "3dce9ea50d43e03876bb5c5df6b81ace177dcafa058e763d24bd21290c706c2a"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -23112,6 +23112,11 @@
       "path": "RELEASE_NOTES_1.0.2.md",
       "size": 5139,
       "sha256": "2a5cf3949840922de3295465a99ada4b04b3fc74b2c40e28a8fa3a537f44325f"
+    },
+    {
+      "path": "RELEASE_NOTES_1.0.3.md",
+      "size": 2272,
+      "sha256": "89d0f09916d5a8a28cd84f6352e87a1df1ac39a44d93ed4a2b1c66fcba3cf044"
     },
     {
       "path": "RELEASE_NOTES_1.0.md",
@@ -23560,8 +23565,8 @@
     },
     {
       "path": "src/Game/ConsMgr.c",
-      "size": 166740,
-      "sha256": "56019dec10d19544599f56e06a5557dc2e58eaa7c7a2ce0433ea9ef6ba30d5da"
+      "size": 167117,
+      "sha256": "16916398ff37b057ae4a92cc4b19ad6da342f987a5e2e399c3d7fe4debb6df2f"
     },
     {
       "path": "src/Game/ConsMgr.h",
@@ -23615,8 +23620,8 @@
     },
     {
       "path": "src/Game/Dock.c",
-      "size": 259680,
-      "sha256": "108b3b2bc936b5f03f5ad91d2719411664ebbfe2c8f382eda71d4d1b83ae8fd8"
+      "size": 260709,
+      "sha256": "9cb3500e030392fdddbb88b74c9c4e6ddfafe758256fab9daa3accd37378f1b8"
     },
     {
       "path": "src/Game/Dock.h",
@@ -23645,8 +23650,8 @@
     },
     {
       "path": "src/Game/EngineTrailAnchor.h",
-      "size": 562,
-      "sha256": "1666764b92c2777f98da5c60c6dad63eceee24839d9e37350530d450637a4689"
+      "size": 721,
+      "sha256": "0593933a1c8d54a5762dcc72a3c1815b52956d4dbd2070053f8ed7a7f7b9a98c"
     },
     {
       "path": "src/Game/ETG.c",
@@ -23680,8 +23685,8 @@
     },
     {
       "path": "src/Game/FEFlow.c",
-      "size": 126586,
-      "sha256": "847984b0b54d7c166e9055a067b3f311dc5ee5d93de12a5e817980dddcd89c3e"
+      "size": 126686,
+      "sha256": "a9302776742e61d840aeed4806e3f7ccf5d76e6d79853239fa367144cac267ca"
     },
     {
       "path": "src/Game/FEFlow.h",
@@ -24050,13 +24055,13 @@
     },
     {
       "path": "src/Game/Mesh.c",
-      "size": 205033,
-      "sha256": "48202a7089ee98496bf27568c25f495420aa613b1f1aba020c5a06dc720c4d2d"
+      "size": 205311,
+      "sha256": "0ae4199d16b2307bc6c31afdc578c797ac3d76ef54a29ad9021ab551afed8202"
     },
     {
       "path": "src/Game/Mesh.h",
-      "size": 21941,
-      "sha256": "00bd0dd0fdc79deb103b0227f42ec5eaa9bf95ef1aedb3605244c0a0deb115ba"
+      "size": 22029,
+      "sha256": "884c55d67292ea82ee6ebe73cf20fc96b2440ea2d79293cdee9066924d6c4b85"
     },
     {
       "path": "src/Game/MeshAnim.c",
@@ -24250,8 +24255,8 @@
     },
     {
       "path": "src/Game/NativeVisualRegistry.c",
-      "size": 10557,
-      "sha256": "3390241c27f46d0b2835b511eb20428e9ef884d272231614d187ffc6a1abf724"
+      "size": 12031,
+      "sha256": "5a9d69173b65b42b426311601a835f97d531c03beb33c77a300477fbaccb04ed"
     },
     {
       "path": "src/Game/NativeVisualRegistry.h",
@@ -24470,8 +24475,8 @@
     },
     {
       "path": "src/Game/RemasteredPresentation.c",
-      "size": 42192,
-      "sha256": "5557742285b293e17ba970f6d4d11d3aca829d52eba128c7dc6f49d87ac5460e"
+      "size": 42762,
+      "sha256": "19a877c35e89ef3c8324d4a44b49b8bb472456c76aa257ccb37de8d34e731ff7"
     },
     {
       "path": "src/Game/RemasteredPresentation.h",
@@ -24842,6 +24847,11 @@
       "path": "src/Game/Subtitle.h",
       "size": 8033,
       "sha256": "2379500eaf12744980be4748d06ab65f1fb8162932c54f2229489c706d5ef81d"
+    },
+    {
+      "path": "src/Game/SupportDockBinding.h",
+      "size": 1073,
+      "sha256": "7b030f240e5d00e992256486700e2716237ae849be902b87cbeba98e1dc6b7d8"
     },
     {
       "path": "src/Game/Switches.h",
@@ -25600,13 +25610,13 @@
     },
     {
       "path": "src/Modern/RemasteredVisualAsset.cpp",
-      "size": 48927,
-      "sha256": "2e2dbfe3b91a4baa5f7ba4931c338c256113cb2363ae9e372dae03fe755ef596"
+      "size": 49788,
+      "sha256": "042169b7238a4ceb0ff642bf85a93e21e4acc2975c669b4c2dddde5656ba74f6"
     },
     {
       "path": "src/Modern/RemasteredVisualAsset.h",
-      "size": 9544,
-      "sha256": "d1172776d05a3d7c64f123f9969be4d49962caba8737288e746fc709ace5bafd"
+      "size": 9830,
+      "sha256": "03d79050c6dcbe5e8657a36865b8f1afe62b9142e91309b35b99e701c792dc3a"
     },
     {
       "path": "src/Modern/RemasteredVisualPackage.cpp",
@@ -25810,8 +25820,8 @@
     },
     {
       "path": "src/SDL/mainrgn.c",
-      "size": 238811,
-      "sha256": "2ac930ac65a07f21e6dba1f3cad69d2b8ba6f0bf1f73a0d3e9d38b3ac84a223e"
+      "size": 236908,
+      "sha256": "34811e59f8ed883e345b1399e303a1c0f16934bd6248e7507b10a053e5a4aa90"
     },
     {
       "path": "src/SDL/mainrgn.h",
@@ -25952,6 +25962,11 @@
       "path": "src/SDL/rinit.h",
       "size": 884,
       "sha256": "dee6cdd499834e6dd15d16fa2c2ae14e75d84ef9882efb97ec8c1a4551ba8cf2"
+    },
+    {
+      "path": "src/SDL/SameTypeSelection.inc",
+      "size": 2116,
+      "sha256": "07180f809421022446ebc1b656f2aa2e5f147685c9f453ee037bb6190d88a906"
     },
     {
       "path": "src/SDL/screenshot.c",
@@ -26670,8 +26685,8 @@
     },
     {
       "path": "tests/EngineTrailAnchorTests.cpp",
-      "size": 1242,
-      "sha256": "399461d74a93b661ce2210efa2aabf3cea5df247d3a47e6e66634a1ad7c05cfe"
+      "size": 2039,
+      "sha256": "5d933ba0cc5a940f64420d89c54eb8a054f9d7b865e38ec54b8a8fb64cdc7c5b"
     },
     {
       "path": "tests/FGEffectGuidesTests.cpp",
@@ -26805,8 +26820,8 @@
     },
     {
       "path": "tests/NativeShipHodTests.cpp",
-      "size": 128592,
-      "sha256": "0b2c8f4d343d77d6e43d0e32686d4833b3f06c22227a4fa71fac7850cc72226c"
+      "size": 131221,
+      "sha256": "930b9a128a3c308155e394761e0fbf9e0b5c37a06773de5a6e0745d1c4274659"
     },
     {
       "path": "tests/NativeShipMadTests.cpp",
@@ -26992,6 +27007,11 @@
       "path": "tests/test_benchmark_contract.py",
       "size": 1652,
       "sha256": "e173ee71ecb290fcaea1baca774dd0a7364b9c4d7cdd7655ee7cc90b1a562e0b"
+    },
+    {
+      "path": "tests/test_build_manager_reopen.py",
+      "size": 3007,
+      "sha256": "ca6c63160a1d6bb49c5eece3e78885303844cd3b8a4c0f5a319286c368fcb454"
     },
     {
       "path": "tests/test_capture_effect_cleanup.py",
@@ -27701,7 +27721,7 @@
     {
       "path": "tools/package_release_patch.py",
       "size": 5313,
-      "sha256": "9d8c5bc3a51b617834ac381cb6b879b936bc02e15ee87841f0001704c9ac1132"
+      "sha256": "0be276b443eb0645692eaf6a9d86b3d395739cc65de71d8f3a7b9d75f6de285e"
     },
     {
       "path": "tools/package_ship_document_update.py",
@@ -27730,8 +27750,8 @@
     },
     {
       "path": "tools/release_bootstrap.cpp",
-      "size": 11546,
-      "sha256": "7b8bfa42f313039bc5ba90ed5af791e1af47bfe149e7dfef93afc14e285abb29"
+      "size": 11721,
+      "sha256": "52c64ac78a505d3317ef40647739510bdb205386c566b1d1a50e57aca4712ff8"
     },
     {
       "path": "tools/release_compact.py",
@@ -27766,7 +27786,7 @@
     {
       "path": "tools/release_patch.py",
       "size": 3768,
-      "sha256": "f99c33e2eab1bb1600eb1b57e2d825f74f69e5767736ba021e875ddbc7ab1ee8"
+      "sha256": "c173613d8719c8cab4ad758b3477f985b1bf81fd0973a7d6c66ac56bc0b9f88e"
     },
     {
       "path": "tools/release_setup.py",

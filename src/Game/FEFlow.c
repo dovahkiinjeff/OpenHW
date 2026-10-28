@@ -3017,7 +3017,8 @@ void feCurrentScreenDelete(void)
 
             if (atom->type==FA_UserRegion)
             {
-                feUserRegionDraw((regionhandle)atom->region);
+                if (atom->region != NULL)
+                    feUserRegionDraw((regionhandle)atom->region);
             }
             else
             {
@@ -3085,7 +3086,8 @@ foundTheEntry:;
 
                     if (atom->type==FA_UserRegion)
                     {
-                        feUserRegionDraw((regionhandle)atom->region);
+                        if (atom->region != NULL)
+                            feUserRegionDraw((regionhandle)atom->region);
                     }
                     else
                     {

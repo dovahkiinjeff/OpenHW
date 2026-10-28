@@ -4052,6 +4052,16 @@ sdword cmConstructionBegin(regionhandle region, smemsize ID, udword event, udwor
         return(status);
     }
 
+    /* A second click on an already selected factory may request this manager
+       again while its regions are live. Reuse the open manager instead of
+       resetting its atoms and asking the front end to delete the same screen. */
+    if (cmActive)
+    {
+        if (mdManagerDockEnabled())
+            cmShowSelectedFactory((Ship *)ID);
+        return 1;
+    }
+
     cmFillInCarrierXs();
 
     bship = (Ship *)ID;

@@ -1,6 +1,7 @@
 #include "NativeVisualRegistry.h"
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 
 typedef struct nativeMeshOwner {
     const void *mesh;
@@ -19,6 +20,15 @@ typedef struct nativeShipVisual {
 } nativeShipVisual;
 static nativeMeshOwner *nativeOwners;
 static nativeShipVisual *nativeShips;
+/* A classic MAD can finish while the ship is offscreen. Retain its last pose
+   independently of render instances so newly acquired LODs do not unfold. */
+typedef struct nativeShipPose {
+    const void *ship;
+    char *event;
+    double phase;
+    struct nativeShipPose *next;
+} nativeShipPose;
+static nativeShipPose *nativePoses;
 static MeshNativePresentationVisit presentationEvents;
 static MeshNativeWeaponVisit presentationWeapons;
 static void *presentationUser;
@@ -56,11 +66,25 @@ HwRmVisualInstance *meshNativeVisualAcquire(const void *mesh,const void *ship)
     visual->ship=ship;visual->owner=owner;visual->next=nativeShips;nativeShips=visual;
     visual->presentationOwner=0;
     visual->token=nextNativeToken++;
+    {
+        nativeShipPose *pose;
+        for(pose=nativePoses;pose;pose=pose->next) if(pose->ship==ship) {
+            char error[256];
+            hwRmVisualInstanceSampleEvent(visual->instance,pose->event,pose->phase,error,sizeof(error));
+            break;
+        }
+    }
     return visual->instance;
 }
 void meshNativeVisualReleaseShip(const void *ship)
 {
     nativeShipVisual **link=&nativeShips;
+    nativeShipPose **poseLink=&nativePoses;
+    while(*poseLink) {
+        nativeShipPose *pose=*poseLink;
+        if(pose->ship==ship) {*poseLink=pose->next;free(pose->event);free(pose);}
+        else poseLink=&pose->next;
+    }
     while (*link) {
         nativeShipVisual *visual=*link;
         if (visual->ship==ship) {
@@ -99,6 +123,21 @@ int meshNativeVisualSampleShipEvent(const void *ship,const char *event,double ph
 {
     nativeShipVisual *visual;int updated=0;
     if (!ship || !event || !isfinite(phase) || phase<0 || phase>1) return 0;
+    {
+        nativeShipPose *pose;
+        for(pose=nativePoses;pose;pose=pose->next) if(pose->ship==ship) break;
+        if(!pose) {
+            pose=(nativeShipPose *)calloc(1,sizeof(*pose));
+            if(pose) {pose->ship=ship;pose->next=nativePoses;nativePoses=pose;}
+        }
+        if(pose) {
+            if(!pose->event || strcmp(pose->event,event)) {
+                char *copy=(char *)malloc(strlen(event)+1);
+                if(copy) {strcpy(copy,event);free(pose->event);pose->event=copy;}
+            }
+            if(pose->event && !strcmp(pose->event,event)) pose->phase=phase;
+        }
+    }
     for (visual=nativeShips;visual;visual=visual->next)
         if (visual->ship==ship && hwRmVisualInstanceAnimation(visual->instance))
         {

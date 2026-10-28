@@ -3680,53 +3680,7 @@ gotselection:
 #endif //MR_GUI_SINGLECLICK
 }
 
-/* Select every currently visible friendly ship matching a double click;
-   Shift adds that type to the current selection. Keeping this at the world input boundary avoids
-   changing generic selection helpers used by sensors, scripts and the map
-   editor. */
-static bool32 mrSelectVisibleShipsOfSameType(Ship *clicked)
-{
-    Node *node;
-    bool32 additive = keyIsHit(SHIFTKEY);
-
-    if (clicked == NULL || clicked->objtype != OBJ_ShipType ||
-        clicked->playerowner != universe.curPlayerPtr ||
-        clicked->shiptype == Drone || !(clicked->flags & SOF_Selectable) ||
-        (clicked->flags & SOF_Dead) ||
-        (!additive && (selSelected.numShips < 1 ||
-         !selShipInSelection(selSelected.ShipPtr, selSelected.numShips, clicked))) ||
-        keyIsHit(CONTROLKEY) || keyIsHit(ALTKEY) || keyIsHit(RALTKEY))
-        return FALSE;
-
-    if (!additive) selSelected.numShips = 0;
-    for (node = universe.RenderList.head; node != NULL; node = node->next)
-    {
-        Ship *candidate = (Ship *)listGetStructOfNode(node);
-        sdword centerX, centerY, radius;
-        if (candidate->objtype != OBJ_ShipType ||
-            candidate->playerowner != clicked->playerowner ||
-            candidate->shiptype != clicked->shiptype ||
-            candidate->shiptype == Drone ||
-            !(candidate->flags & SOF_Selectable) ||
-            (candidate->flags & SOF_Dead))
-            continue;
-        if (bitTest(candidate->flags, SOF_Slaveable) &&
-            !bitTest(candidate->slaveinfo->flags, SF_MASTER))
-            continue;
-        if (candidate->collInfo.selCircleRadius <= 0.0f) continue;
-
-        centerX = primGLToScreenX(candidate->collInfo.selCircleX);
-        centerY = primGLToScreenY(candidate->collInfo.selCircleY);
-        radius = ABS(primGLToScreenScaleX(candidate->collInfo.selCircleRadius));
-        if (centerX + radius < 0 || centerX - radius >= MAIN_WindowWidth ||
-            centerY + radius < 0 || centerY - radius >= MAIN_WindowHeight)
-            continue;
-        selSelectionAddSingleShip(&selSelected, candidate);
-    }
-    ioUpdateShipTotals();
-    tutGameMessage("Game_DoubleClickSelect");
-    return TRUE;
-}
+#include "SameTypeSelection.inc"
 
 /*-----------------------------------------------------------------------------
     Name        : mrObjectClick
@@ -3744,6 +3698,11 @@ void mrObjectClick(Ship *ship)
     bool32 bForceAttackEnemies = FALSE;
 
 //    dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
+    /* The first click of the selection chord must not issue a support,
+       guard or attack order before its double-click arrives. */
+    if(mrSameTypeSelectionChord() && ship->objtype==OBJ_ShipType &&
+       ship->playerowner==universe.curPlayerPtr)return;
+
     if (guardKeyIsHit() && ship->objtype == OBJ_ShipType) {
         if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
         {

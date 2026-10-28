@@ -14,7 +14,7 @@ First boot detects resolution and refresh rate rather than imposing the author's
 
 ## Patch installation order
 
-Install the original OpenHW base game, apply **1.0.1**, then apply **1.0.2** to the same folder. Close both game executables before patching. See the [1.0.2 notes](../RELEASE_NOTES_1.0.2.md) for downloads and the complete changes.
+Install the original OpenHW base game, then apply **1.0.1**, **1.0.2**, and **1.0.3** to the same folder. Close both game executables before patching. See the [1.0.3 notes](../RELEASE_NOTES_1.0.3.md) for downloads and the complete changes.
 
 ## Recommended graphics settings
 
@@ -35,7 +35,7 @@ Brightness/gamma and post-processing controls are available alongside display an
 
 ## Fleet and formation controls
 
-Double-click a ship to select visible ships of that type. Shift-double-click another type to add its visible peers. Press B with a build-capable carrier/mothership selected to open that ship's Build menu. Launch Manager lists eligible holds; drone frigates are not treated as carriers. Captured ships keep their identity and appropriate build/docking behavior. Player-controlled strike craft and corvettes can explicitly dock with the Karos Graveyard mission relay.
+Shift+Ctrl+double-click a ship to add visible ships of that type to the selection. Ordinary double-click retains the original docking and support actions. Press B with a build-capable carrier/mothership selected to open that ship's Build menu. Launch Manager lists eligible holds; drone frigates are not treated as carriers. Captured ships keep their identity and appropriate build/docking behavior. Player-controlled strike craft and corvettes can explicitly dock with the Karos Graveyard mission relay.
 
 Select ships of **one type in a formation** to display Formation Spread. It changes spacing immediately, without requiring another move order. Center is the default layout, the tight end brings ships close, and the wide end doubles the default spread. Mixed-type selections do not show the slider. Main-view move orders no longer use the former short-range clamp, although the game still has a finite playable world.
 
@@ -45,7 +45,7 @@ Fleet Identity offers hull base/stripe color, engine-emission override and playe
 
 ## Ship control
 
-This is primarily a fun feature and a foundation for future unusual game modes. Select one eligible player ship and click **COMMAND** or **PILOT**. Eligibility and available cockpit controls depend on ship class. Normal fleet command resumes on Esc. In 1.0.2 these controls also work in local skirmish, with ownership-checked shared input for network sessions. All network participants need the same rebuilt 1.0.2 patch; multi-computer gameplay still needs player testing.
+This is primarily a fun feature and a foundation for future unusual game modes. Select one eligible player ship and click **COMMAND** or **PILOT**. Eligibility and available cockpit controls depend on ship class. Normal fleet command resumes on Esc. These controls also work in local skirmish, with ownership-checked shared input for network sessions. All network participants need the same patched version; multi-computer gameplay still needs player testing.
 
 ### EVE Online-style command controls
 

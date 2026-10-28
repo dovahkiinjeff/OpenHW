@@ -57,7 +57,7 @@ static int ionGun(const void *owner,unsigned index){
 }
 enum {PROJECTILE_CUES=8192};
 typedef struct CapturedCue {const char *fx,*sound;float clampMinimum,clampMaximum;unsigned options;} CapturedCue;
-typedef struct ProjectileCue {const void *key;float scale,frame[16],velocity[3],length,impactFrame[16],impactVelocity[3];uint64_t token;unsigned random;int hit,started,visual,beam,impactVisual,defaultIonFire;CapturedCue slots[HW_RM_WEAPON_SLOT_COUNT];} ProjectileCue;
+typedef struct ProjectileCue {const void *key;float scale,frame[16],velocity[3],length,impactFrame[16],impactVelocity[3];uint64_t token,impactAnchor;unsigned random;int hit,started,visual,beam,impactVisual,defaultIonFire;CapturedCue slots[HW_RM_WEAPON_SLOT_COUNT];} ProjectileCue;
 static ProjectileCue projectileCues[PROJECTILE_CUES];
 static uint64_t nextProjectileToken=1;
 enum {DEATH_PRESENTATIONS=512};
@@ -491,23 +491,30 @@ static int worldCue(ProjectileCue *entry,unsigned slot,const float position[3],c
     const CapturedCue *cue=&entry->slots[slot];float matrix[16]={0},norm,right[3],up[3];char error[256];int visual=0;uint64_t anchor=0;
     if(!position||!heading||!velocity||!isfinite(magnitude))return 0;
     if(cue->options&HW_RM_WEAPON_HAS_CLAMP)magnitude=fmaxf(cue->clampMinimum,fminf(cue->clampMaximum,magnitude));
-    /* Native FX forward is +Z. Preserve HW1's actual shot/contact heading. */
+    /* Contact rings/sprays extend along +Z. A shot's heading points INTO
+       the hull; orient contact FX outward so their authored offsets are not
+       hidden inside the victim. Other world cues keep the travel heading. */
     norm=sqrtf(heading[0]*heading[0]+heading[1]*heading[1]+heading[2]*heading[2]);if(norm<=.000001f)return 0;
+    if(slot==HW_RM_WEAPON_HIT || slot==HW_RM_WEAPON_NOPENETRATE)norm=-norm;
     matrix[8]=heading[0]/norm;matrix[9]=heading[1]/norm;matrix[10]=heading[2]/norm;
     if(fabsf(matrix[10])<.99f){right[0]=-matrix[9];right[1]=matrix[8];right[2]=0;}
     else {right[0]=matrix[10];right[1]=0;right[2]=-matrix[8];}
     norm=sqrtf(right[0]*right[0]+right[1]*right[1]+right[2]*right[2]);right[0]/=norm;right[1]/=norm;right[2]/=norm;
     up[0]=matrix[9]*right[2]-matrix[10]*right[1];up[1]=matrix[10]*right[0]-matrix[8]*right[2];up[2]=matrix[8]*right[1]-matrix[9]*right[0];
     memcpy(matrix,right,3*sizeof(float));memcpy(matrix+4,up,3*sizeof(float));memcpy(matrix+12,position,3*sizeof(float));matrix[15]=1;
-    if(entry->beam&&slot==HW_RM_WEAPON_HIT){
+    if(entry->beam&&(slot==HW_RM_WEAPON_HIT||slot==HW_RM_WEAPON_NOPENETRATE)){
         memcpy(entry->impactFrame,matrix,sizeof(matrix));memcpy(entry->impactVelocity,velocity,3*sizeof(float));
-        if(entry->hit)return entry->impactVisual;
+        /* A beam outlives its one-second hit burst. Keep its anchor moving,
+           then restart only after the previous complete effect has expired. */
+        if(anchorByHandle(entry->impactAnchor))return entry->impactVisual;
         if(cue->fx&&fxPlayback){anchor=projectileAnchor(entry,1);if(!anchor){diagnostic(cue->fx,"beam contact attachment capacity exhausted");return 0;}}
     }
     if(cue->fx&&fxPlayback){visual=hwRmFxPlaybackSpawn(fxPlayback,cue->fx,entry->random+slot,universe.totaltimeelapsed,matrix,velocity,entry->scale*magnitude,0,anchor);
         if(!visual&&anchor)releaseAnchor(NULL,anchor);}
-    if(entry->beam&&slot==HW_RM_WEAPON_HIT)entry->impactVisual=visual;
-    if(cue->sound&&soundPlayback&&!hwRmSoundPlaybackPlay(soundPlayback,cue->sound,entry->random+slot,position,0,error,sizeof(error)))diagnostic(cue->sound,error);
+    if(entry->beam&&(slot==HW_RM_WEAPON_HIT||slot==HW_RM_WEAPON_NOPENETRATE)){
+        entry->impactVisual=visual;entry->impactAnchor=visual?anchor:0;
+    }
+    if((!entry->beam||!entry->hit)&&cue->sound&&soundPlayback&&!hwRmSoundPlaybackPlay(soundPlayback,cue->sound,entry->random+slot,position,0,error,sizeof(error)))diagnostic(cue->sound,error);
     return visual;
 }
 bool32 rmPresentationProjectileImpact(const void *projectile,const float position[3],const float heading[3],const float velocity[3],float damage){

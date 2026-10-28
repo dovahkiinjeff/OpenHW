@@ -29,7 +29,7 @@ static void createProgress(){
     INITCOMMONCONTROLSEX controls={sizeof(controls),ICC_PROGRESS_CLASS};InitCommonControlsEx(&controls);
     windowHandle=CreateWindowExW(WS_EX_DLGMODALFRAME,L"STATIC",
 #ifdef OPENHW_PATCH_INSTALLER
-        L"OpenHW 1.0.2 patch",
+        L"OpenHW 1.0.3 patch",
 #else
         L"OpenHW 1.0 setup",
 #endif
@@ -76,6 +76,8 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         check(std::filesystem::is_regular_file(root/L"setup-complete.json") &&
               std::filesystem::is_regular_file(root/L"Development/Installer/Development/python312.dll"),
               "Select an installed OpenHW 1.0 folder, not the original Collection.");
+        check(std::filesystem::is_regular_file(root/L"Development/Patches/1.0.2/applied.json"),
+              "Install OpenHW 1.0.1 and 1.0.2 before applying this patch.");
         HANDLE snapshot=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
         check(snapshot!=INVALID_HANDLE_VALUE,"Cannot check whether OpenHW is running.");
         PROCESSENTRY32W entry={};entry.dwSize=sizeof(entry);bool running=false;
@@ -83,7 +85,7 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
             if(!_wcsicmp(entry.szExeFile,L"OpenHW.exe") || !_wcsicmp(entry.szExeFile,L"OpenHW-Daignostics.exe"))running=true;
         }while(Process32NextW(snapshot,&entry));CloseHandle(snapshot);
         check(!running,"Close OpenHW and OpenHW-Daignostics before applying this patch.");
-        const auto backup=root/L"Development/Patches/1.0.2/Backup";
+        const auto backup=root/L"Development/Patches/1.0.3/Backup";
         std::filesystem::create_directories(backup);
         for(const wchar_t* name:{L"OpenHW.exe",L"OpenHW-Daignostics.exe",L"version.json"})
             if(std::filesystem::is_regular_file(root/name) && !std::filesystem::exists(backup/name))

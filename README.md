@@ -1,16 +1,27 @@
-# OpenHW 1.0.2
+# OpenHW 1.0.3
 
 **The best of both worlds: high-fidelity Homeworld Remastered assets and original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets with modern rendering and in-game creation tools to build the ultimate classic Homeworld experience.
 
 [![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-[Base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe)  [1.0.1 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.1/OpenHW-Patch-1.0.1.exe)  [1.0.2 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.2/OpenHW-Patch-1.0.2.exe)   [Installation and controls](docs/USER_GUIDE.md)   [Editors](docs/EDITING_GUIDE.md)   [Modding](docs/MODDING.md)   [Build the installer](BUILD_INSTALLER.md)
+[Base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe)  [1.0.1 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.1/OpenHW-Patch-1.0.1.exe)  [1.0.2 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.2/OpenHW-Patch-1.0.2.exe)  [1.0.3 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.3/OpenHW-Patch-1.0.3.exe)   [Installation and controls](docs/USER_GUIDE.md)   [Editors](docs/EDITING_GUIDE.md)   [Modding](docs/MODDING.md)   [Build the installer](BUILD_INSTALLER.md)
 
 > [!IMPORTANT]
 > **Use AMD technology for 1.0. AMD FSR upscaling and AMD FSR frame generation are the recommended, working options.** DLSS currently has known visual issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.** Bundled vendor libraries or development code do not imply supported release features.
 
 > [!WARNING]
 > **Disk space:** allow approximately **120 GB free during conversion** as a conservative planning estimate; the exact peak of this compact installer has not been measured. The download is about 473 MB and the main generated game archive is about 34 GB, plus loose resources and user data. Setup reads the original Collection archives directly, stages selected HW1 resources and removes intermediate conversion caches. The original Collection and source-build dependencies occupy separate space.
+
+## 1.0.3 patch — docking, selection and effects
+
+[Download OpenHW-Patch-1.0.3.exe](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.3/OpenHW-Patch-1.0.3.exe) — approximately **40 MB**. [Patch notes](RELEASE_NOTES_1.0.3.md) · [Complete cumulative source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.3/OpenHW-1.0.3-Source.zip).
+
+**Required order: original OpenHW installer → 1.0.1 → 1.0.2 → 1.0.3.** Close both game executables before applying a patch, and install each into the same OpenHW folder.
+
+- Restored the original double-click docking/support action and moved additive selection of visible ships of the same type to **Shift+Ctrl+double-click**.
+- Adjusted support-frigate docking positions using Remastered hull markers and repaired missed docking animation cues, including animation state when a ship comes into view.
+- Fixed a crash when the build manager was requested again while already open.
+- Moved non-capital engine glow and trail origins closer to their hulls, and improved ion-beam impact positioning and sustained effects.
 
 ## 1.0.2 patch — skirmish, controls and editing
 
@@ -32,7 +43,7 @@
 2. Download the [**OpenHW-Setup.exe** base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe). Put it in the writable folder where you want OpenHW installed, for example `D:\Games\OpenHW`.
 3. Run it and select the Collection installation. The Collection root, `HomeworldRM`, or its `Data` directory can be selected; setup also locates the Collection's Classic data.
 4. Let extraction, conversion, package building and validation finish. Setup installs **beside itself** and leaves the original Collection untouched. There is no manual music/voice-copy step.
-5. Apply **1.0.1**, then **1.0.2**, after setup completes, then start **OpenHW.exe**. Setup does not automatically start the game. The first launch detects your display resolution and refresh rate.
+5. Apply **1.0.1**, then **1.0.2**, then **1.0.3**, after setup completes, then start **OpenHW.exe**. Setup does not automatically start the game. The first launch detects your display resolution and refresh rate.
 
 All application-owned settings, saves, mods, exports and working files stay inside the OpenHW folder. `Development` contains setup work, diagnostics, logs, caches and receipts. Successful setup removes its temporary `SetupSources` and `SetupWork` conversion copies; a failed setup keeps work for recovery. Windows and graphics-driver system caches remain under those components' control.
 
@@ -65,7 +76,7 @@ The Fleet Identity menu provides hull base/stripe colors, an independent engine-
 ## Formations, fleet controls and gameplay
 
 - **Live Formation Spread:** select a same-type group in a formation to adjust its spacing immediately. The center is the normal layout, the left is tight spacing, and the right is twice the default spread. Mixed-type selections do not display this control.
-- Double-click a ship to select its visible peers. **Shift-double-click** another type to add its visible peers to the selection.
+- **Shift+Ctrl+double-click** a ship to add visible ships of that type to the selection. Ordinary double-click retains the original docking and support actions.
 - Main-view move placement no longer has the former short-range command clamp; use it like the Sensors Manager within the playable world.
 - Revised Launch Manager with improved hold selection, spacing and access to available holds. Drone frigates are excluded from carrier-style hold selection.
 - Camera-inside-ship handling hides the obstructing hull instead of drawing the expensive wireframe view.
@@ -128,7 +139,7 @@ Read the [editing guide](docs/EDITING_GUIDE.md), [modding guide](docs/MODDING.md
 | Shift+F11 | Live map/cloud editor |
 | Shift+F12 | Lighting and shadow editor |
 | B with a build-capable ship selected | That ship's build menu |
-| Double-click / Shift-double-click | Select visible type / add visible type |
+| Shift+Ctrl+double-click | Add visible ships of the same type to the selection |
 | Formation Spread slider | Immediately change same-type formation spacing |
 | COMMAND / PILOT | Ship command control / direct piloting |
 | Esc during ship control | Return to normal fleet control |
@@ -142,13 +153,14 @@ Read the [editing guide](docs/EDITING_GUIDE.md), [modding guide](docs/MODDING.md
 - [Ship control and formation reference](docs/USER_GUIDE.md#ship-control)
 - [Military parade layouts](docs/MILITARY_PARADE_EDITOR.md)
 - [Known limitations and reporting](docs/LIMITATIONS.md)
+- [1.0.3 patch notes](RELEASE_NOTES_1.0.3.md)
 - [1.0.2 patch notes](RELEASE_NOTES_1.0.2.md)
 - [1.0.1 patch notes](RELEASE_NOTES_1.0.1.md)
 - [1.0 release notes](RELEASE_NOTES_1.0.md)
 - [Build OpenHW-Setup.exe from the complete source](BUILD_INSTALLER.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 
-Download **OpenHW-1.0.2-Source.zip** for the full working source, shaders, importers, tools, tests, reviewed release content and installer factory. Generated build caches and your retail data are not part of the source download. The build guide specifies the compiler, SDK and pinned dependencies.
+Download **OpenHW-1.0.3-Source.zip** for the full cumulative working source from 1.0 through 1.0.3, including shaders, importers, tools, tests, reviewed release content and installer factory. Generated build caches and your retail data are not part of the source download. The build guide specifies the compiler, SDK and pinned dependencies.
 
 ## Immediate future updates
 

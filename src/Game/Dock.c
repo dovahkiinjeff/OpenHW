@@ -30,6 +30,8 @@
 #include "MadLinkIn.h"
 #include "MadLinkInDefs.h"
 #include "Memory.h"
+#include "Mesh.h"
+#include "SupportDockBinding.h"
 #include "Mothership.h"
 #include "ObjTypes.h"
 #include "Options.h"
@@ -1425,6 +1427,13 @@ bool32 dockFlyToConeOrigin(Ship *ship,Ship *dockwith,real32 tolerance,real32 min
     }
 }
 
+static bool32 dockNativeSupportPosition(Ship *host,const DockStaticPoint *point,vector *position)
+{
+    char path[16];
+    if(host->shiptype!=AdvanceSupportFrigate || (host->shiprace!=R1 && host->shiprace!=R2) ||
+       !supportDockPathName(host->shiprace==R2,point->name,path)) return FALSE;
+    return meshRemasteredDockEndpoint(host,path,position);
+}
 bool32 dockFlyToConeOriginLatchIfWithin(Ship *ship,Ship *dockwith,real32 withindistsqr)
 {
     vector conepositionInWorldCoordSys,tmpvec;
@@ -1434,10 +1443,15 @@ bool32 dockFlyToConeOriginLatchIfWithin(Ship *ship,Ship *dockwith,real32 withind
     vector lefttogo;
     real32 distsqr;
     sdword overide;
+    bool32 nativeSupport=dockNativeSupportPosition(dockwith,dockstaticpoint,&tmpvec);
 
     dbgAssertOrIgnore(dockstaticpoint->type == LatchPoint);
 
-    if((overide = dockNeedOffsetOveride(dockwith,ship,dockstaticpoint)) != -1)
+    if(nativeSupport)
+    {
+        matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotinfo.coordsys,&tmpvec);
+    }
+    else if((overide = dockNeedOffsetOveride(dockwith,ship,dockstaticpoint)) != -1)
     {
         //matMultiplyMatByVec(&coneheadingInWorldCoordSys,&dockwith->rotinfo.coordsys,&dockstaticpoint->conenormal);
         //vecScalarMultiply(coneheadingInWorldCoordSys,coneheadingInWorldCoordSys,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].offset);
@@ -1472,8 +1486,9 @@ bool32 dockFlyToConeOriginLatchIfWithin(Ship *ship,Ship *dockwith,real32 withind
     else
     {
 latchimmediately:
-        if (MoveReachedDestinationVariable(ship,&conepositionInWorldCoordSys,LATCH_TOLERANCE))
+        if (MoveReachedDestinationVariable(ship,&conepositionInWorldCoordSys,nativeSupport?1.0f:LATCH_TOLERANCE))
         {
+            if(nativeSupport) ship->posinfo.position=conepositionInWorldCoordSys;
             ship->posinfo.velocity = dockwith->posinfo.velocity;
             return TRUE;
         }
@@ -3423,12 +3438,18 @@ bool32 ShipDocksAtASF(struct CommandToDo *docktodo,struct Ship *ship,struct Ship
             coneToShipMag = fsqrt(coneToShipMagSqr);
             dotprod = vecDotProduct(coneheadingInWorldCoordSys,coneToShip);  // 1.0*coneToShipMag*cos(theta)
 
+            /* Every approach route, including ships already in the cone,
+               must fold the docking ship's wings before the final latch. */
+            madLinkInPreDockingShip(ship);
+
             if (docktodo->dock.dockType & DOCK_INSTANTANEOUSLY)
             {
                 vector desiredHeading,desiredUp,desiredRight;
                 vector conepositionInWorldCoordSys;
 
-                matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotinfo.coordsys,&dockstaticpoint->position);
+                vector latchPosition=dockstaticpoint->position;
+                dockNativeSupportPosition(dockwith,dockstaticpoint,&latchPosition);
+                matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotinfo.coordsys,&latchPosition);
                 vecAddTo(conepositionInWorldCoordSys,dockwith->posinfo.position);
 
                 GetDirectionVectorOfShip(&desiredHeading,dockstaticpoint->headingdirection,dockwith);
@@ -3465,7 +3486,6 @@ bool32 ShipDocksAtASF(struct CommandToDo *docktodo,struct Ship *ship,struct Ship
             customdockinfo = ship->dockvars.customdockinfo;
             if (dockFlyToConeInside(ship,dockwith,customdockinfo->dockmisc))
             {
-                madLinkInPreDockingShip(ship);
                 ship->dockvars.dockstate2 = ASF_FLYTOCONEORIGIN;
                 ship->dockingship = dockwith;
             }

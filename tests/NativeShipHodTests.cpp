@@ -841,6 +841,24 @@ int main(int argc,char**argv) {
             require(!hwRmVisualAssetBindPresentation(asset,"Hull",events.data(),events.size(),error,sizeof(error)),"live event definition mutated");
             int meshKey=0,shipA=0,shipB=0;
             require(meshNativeVisualRegister(&meshKey,asset,2,0)!=0,"event registry registration failed");
+            {
+                int lateShip=0;float actual[16],expected[16],rest[16];
+                auto *reference=hwRmVisualInstanceCreate(asset);
+                require(reference!=nullptr,"pose reference missing");
+                require(hwRmSubsystemJointTransform(hwRmVisualInstanceSubsystem(reference),0,"Root",2,nullptr,nullptr,rest,error,sizeof(error)),error);
+                require(hwRmVisualInstanceSampleEvent(reference,"OpenMount",1,error,sizeof(error)),error);
+                require(hwRmSubsystemJointTransform(hwRmVisualInstanceSubsystem(reference),0,"Root",2,nullptr,nullptr,expected,error,sizeof(error)),error);
+                require(std::memcmp(rest,expected,sizeof(rest))!=0,"fixture does not animate");
+                meshNativeVisualSampleShipEvent(&lateShip,"OpenMount",1);
+                auto *late=meshNativeVisualAcquire(&meshKey,&lateShip);
+                require(late && hwRmSubsystemJointTransform(hwRmVisualInstanceSubsystem(late),0,"Root",2,nullptr,nullptr,actual,error,sizeof(error)),"late pose unavailable");
+                require(!std::memcmp(actual,expected,sizeof(actual)),"late visual lost finished animation");
+                meshNativeVisualReleaseShip(&lateShip);
+                late=meshNativeVisualAcquire(&meshKey,&lateShip);
+                require(late && hwRmSubsystemJointTransform(hwRmVisualInstanceSubsystem(late),0,"Root",2,nullptr,nullptr,actual,error,sizeof(error)),"reused ship unavailable");
+                require(!std::memcmp(actual,rest,sizeof(actual)),"reused ship inherited old pose");
+                meshNativeVisualReleaseShip(&lateShip);hwRmVisualInstanceFree(reference);
+            }
             std::vector<RegistryCue> registryCues;
             require(meshNativeVisualFirePresentation(&meshKey,&shipA,1,20,captureRegistryPresentation,&registryCues)!=0,"registry fire failed");
             int lowerMesh=0;
@@ -1061,6 +1079,17 @@ int main(int argc,char**argv) {
                 std::strcmp(path->linkedPath,"FighterOut")==0 && path->flags[1]==10 &&
                 path->points[0].position[1]==34 && path->points[0].flags[1]==8,
                 "docking metadata lost or transformed");
+            {
+                auto fixture=sample(false,false,false,false,0xffffffff,&dock);
+                auto *asset=hwRmVisualAssetCreate(fixture.data(),fixture.size(),nullptr,0,error,sizeof(error));
+                require(asset!=nullptr,error);
+                auto *instance=hwRmVisualInstanceCreate(asset);float position[3]={};
+                require(instance && hwRmVisualInstanceDockEndpoint(instance,"FighterIn",2,position),"native docking endpoint unavailable");
+                require(position[0]==68 && position[1]==-24 && position[2]==112,"native endpoint basis/scale incorrect");
+                require(!hwRmVisualInstanceDockEndpoint(instance,"FighterOut",2,position),"exit path accepted as latch");
+                require(!hwRmVisualInstanceDockEndpoint(instance,"FighterIn",-1,position),"invalid native scale accepted");
+                hwRmVisualInstanceFree(instance);hwRmVisualAssetFree(asset);
+            }
             require(!hwRmHodSceneDockPath(docking,1) && !hwRmHodSceneDockPath(nullptr,0),"dock lookup bounds");
             hwRmHodSceneFree(docking);docking=nullptr;
             for(size_t length=0;length<dock.size();++length) {
