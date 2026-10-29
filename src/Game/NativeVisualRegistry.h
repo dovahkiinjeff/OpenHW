@@ -15,6 +15,7 @@ void meshNativeVisualReleaseShip(const void *ship);
 void meshNativeVisualReleaseMesh(const void *mesh);
 int meshNativeVisualParameters(const void *mesh, float *scale, unsigned int *lod);
 int meshNativeVisualRestGun(const void *mesh,unsigned gun,float *matrix);
+int meshNativeVisualRestMarker(const void *mesh,const char *semantic,float *matrix);
 /* Called by the existing HW1 MAD clock. No native animation scheduler exists. */
 int meshNativeVisualSampleShipEvent(const void *ship, const char *event, double phase);
 /* Presentation uses one explicitly selected mesh per ship, independent of the

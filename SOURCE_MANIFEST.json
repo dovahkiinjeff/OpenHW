@@ -23100,8 +23100,8 @@
     },
     {
       "path": "README.md",
-      "size": 22161,
-      "sha256": "76d1bb649ae1b79943d88cbf8dc6a5a61baef4232a5349545568665b75687324"
+      "size": 22330,
+      "sha256": "53fd2e913c06df1de94807d9af5baf06e9ed33ecdf32abc0ae9fc9f6e7fc54e9"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -23120,8 +23120,8 @@
     },
     {
       "path": "RELEASE_NOTES_1.0.4.md",
-      "size": 2196,
-      "sha256": "c744056a33a6502854f720c352389ebaf0b0e0c70339be5c246ee107e085e519"
+      "size": 2807,
+      "sha256": "a45adc782eaabd2b389ed811ca6505ff850690103ef5aaff1d5cfb1c318012f7"
     },
     {
       "path": "RELEASE_NOTES_1.0.md",
@@ -24265,13 +24265,13 @@
     },
     {
       "path": "src/Game/NativeVisualRegistry.c",
-      "size": 12031,
-      "sha256": "5a9d69173b65b42b426311601a835f97d531c03beb33c77a300477fbaccb04ed"
+      "size": 12973,
+      "sha256": "6f869cebfa9c8074d1fb5421b54991fa9f269dbaf38e51f08b9ebc3709224d62"
     },
     {
       "path": "src/Game/NativeVisualRegistry.h",
-      "size": 3191,
-      "sha256": "7aab14fca825c2b95e7fe67f6f56f02759d02c87fe9e35add089b35c17908beb"
+      "size": 3330,
+      "sha256": "e46f716bc5f08487a3d143a18617f0d14759caceacbdb03af1efd5e1a142970e"
     },
     {
       "path": "src/Game/NavLights.c",
@@ -24960,8 +24960,8 @@
     },
     {
       "path": "src/Game/TradeMgr.c",
-      "size": 48249,
-      "sha256": "ef670814afe7ac7041f1ee9a1dbd4269f3752cf699de5c7566e14ed07f4cc9da"
+      "size": 49273,
+      "sha256": "afd49ad8c5f11259c72590ad917365c69e4b4ba353a5ca5b1daa9b0eb1b0c460"
     },
     {
       "path": "src/Game/TradeMgr.h",
@@ -26445,8 +26445,8 @@
     },
     {
       "path": "src/Ships/SalCapCorvette.c",
-      "size": 136526,
-      "sha256": "ffdebbc593b62a2b1efc2d0c1b5794798f581887c5e639094e49fdd2a8bd175a"
+      "size": 142020,
+      "sha256": "fa1220d5f07a0e567305c6cdea46908f0d9ff3d1edf1579218c53f77d993267e"
     },
     {
       "path": "src/Ships/SalCapCorvette.h",

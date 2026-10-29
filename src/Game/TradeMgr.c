@@ -17,6 +17,7 @@
 #include "FastMath.h"
 #include "FEFlow.h"
 #include "FEReg.h"
+#include "File.h"
 #include "font.h"
 #include "FontReg.h"
 #include "glinc.h"
@@ -953,6 +954,10 @@ void tmReset(void)
     tmCostListRegion  = NULL;
 
     tmTechSelected = -1;
+    tmtechinfo = -1;
+    tmCurTechTexture = -1;
+    tmCurIndex = -1;
+    tmCurTechImage = NULL;
 }
 
 /*-----------------------------------------------------------------------------
@@ -1075,9 +1080,16 @@ void tmTechImageDraw(featom *atom, regionhandle region)
 
     feStaticRectangleDraw(region); //draw standard rectangle
 
-    if (tmtechinfo != -1)
+    if (tmtechinfo >= 0 && tmtechinfo < TM_NUM_TECHS &&
+        universe.curPlayerPtr != NULL && universe.curPlayerPtr->race >= R1 &&
+        universe.curPlayerPtr->race < MAX_RACES)
     {
-        if (tmtechinfo != tmCurTechTexture)
+        /* The research manager shares and can reset or reuse this cache. */
+        if (tmtechinfo != tmCurTechTexture || tmCurIndex < 0 ||
+            tmCurIndex >= TM_TOTALPICS || pictures[tmCurIndex].techImage == NULL ||
+            pictures[tmCurIndex].tech != tmtechinfo ||
+            pictures[tmCurIndex].race != universe.curPlayerPtr->race ||
+            pictures[tmCurIndex].techTexture == TR_InvalidInternalHandle)
         {
             for (index=0;index<TM_TOTALPICS;index++) // RM_TOTALPICS is the size of the cache
             {
@@ -1089,11 +1101,12 @@ void tmTechImageDraw(featom *atom, regionhandle region)
                 }
                 // If already cached, use it and exit this routine
                 if ( (pictures[index].tech==tmtechinfo) &&
-                     (pictures[index].race==universe.curPlayerPtr->race) )
+                     (pictures[index].race==universe.curPlayerPtr->race) &&
+                     pictures[index].techImage != NULL )
                 {
                     tmTechTexturePrepare(index);
                     tmCurTechTexture = tmtechinfo;
-                    tmCurTechImage = pictures[lru].techImage;
+                    tmCurTechImage = pictures[index].techImage;
                     tmCurIndex = index;
                     pictures[index].timestamp = universe.totaltimeelapsed;
 
@@ -1117,6 +1130,15 @@ void tmTechImageDraw(featom *atom, regionhandle region)
             strcpy(filename, TechImagePaths[universe.curPlayerPtr->race]);
             strcat(filename, TechTypeToString(tmtechinfo));
             strcat(filename,".lif");
+
+            /* A missing optional illustration must not crash the trade screen. */
+            if (!fileExists(filename, 0))
+            {
+                tmCurTechTexture = -1;
+                tmCurIndex = -1;
+                tmCurTechImage = NULL;
+                return;
+            }
 
             // Remove oldest (least recently used) texture from memory
             if (pictures[lru].techImage != NULL)

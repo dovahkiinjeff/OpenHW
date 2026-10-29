@@ -25,6 +25,8 @@
 #include "MadLinkIn.h"
 #include "MadLinkInDefs.h"
 #include "Mothership.h"
+#include "Mesh.h"
+#include "NativeVisualRegistry.h"
 #include "MultiplayerGame.h"
 #include "NIS.h"
 #include "Options.h"
@@ -1047,12 +1049,52 @@ void salCapHarvestTarget(SpaceObjRotImpTargGuidanceShipDerelict *target,Ship *do
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+/* The Khar-Selim uses a Remastered wreck with differently positioned hull
+   geometry. Its native HOD contains five authored salvage joints; use them
+   only when the native mesh is actually loaded, keeping classic fallback. */
+static void salCapAlignKharSelimPoints(SpaceObjRotImpTargGuidanceShipDerelict *target)
+{
+    Derelict *wreck;
+    lodinfo *levels;
+    SalvageStaticPoint *points[5];
+    hmatrix markers[5];
+    sdword i, level;
+    if (!target || target->objtype != OBJ_DerelictType || !target->salvageInfo ||
+        target->salvageInfo->numSalvagePoints != 5) return;
+    wreck = (Derelict *)target;
+    if (!wreck->staticinfo || wreck->staticinfo->derelicttype != Shipwreck) return;
+    levels = wreck->staticinfo->staticheader.LOD;
+    for (level=0; levels && level<levels->nLevels; ++level)
+    {
+        float scale; unsigned nativeLOD;
+        void *mesh=levels->level[level].pData;
+        if ((levels->level[level].flags & LM_LODType) != LT_Mesh ||
+            !meshNativeVisualParameters(mesh,&scale,&nativeLOD)) continue;
+        for (i=0; i<5; ++i)
+        {
+            char name[32];
+            points[i]=target->salvageInfo->salvagePoints[i].salvageStaticPoint;
+            if (!points[i]) return;
+            sprintf(name,"SalvagePoint%d",(int)i);
+            if (!meshNativeVisualRestMarker(mesh,name,(float *)&markers[i])) return;
+        }
+        for (i=0; i<5; ++i)
+        {
+            hmatGetVectFromHMatrixCol4(points[i]->position,markers[i]);
+            hmatGetVectFromHMatrixCol3(points[i]->conenormal,markers[i]);
+            vecNormalize(&points[i]->conenormal);
+        }
+        return;
+    }
+}
+
 sdword salCapGetAndBusySalvageIndex(Ship *ship,SpaceObjRotImpTargGuidanceShipDerelict *target)
 {
     sdword i;
     SalvagePoint *salvagePoint;
     if(target->salvageInfo != NULL)
     {
+        salCapAlignKharSelimPoints(target);
         if (salCapSuperShipIntercept(ship,target))
         {
             sdword bestIndex = NO_INDEX;

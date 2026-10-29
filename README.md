@@ -23,6 +23,7 @@
 - Ship and custom asteroid detail levels now follow distance bands, independent of display resolution and field of view.
 - The Ghost Ship uses its textured Remastered model at every distance, with a texture fallback for missing color schemes.
 - Aligned the Kadeshi fuel pod's engine glow with its Remastered hull.
+- Uses the Remastered Khar-Selim wreck's salvage markers and hardens the Bentusi trade image cache. A reported trade crash has not yet been traced without a crash log.
 
 ## 1.0.3 patch — docking, selection and effects
 

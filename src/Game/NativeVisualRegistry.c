@@ -43,6 +43,20 @@ int meshNativeVisualRestGun(const void* mesh,unsigned gun,float* matrix)
     hwRmVisualInstanceFree(instance);return result;
 }
 
+/* Query a static marker without keeping a per-object rendering instance alive. */
+int meshNativeVisualRestMarker(const void *mesh,const char *semantic,float *matrix)
+{
+    nativeMeshOwner *owner; char error[256]; int result; HwRmVisualInstance *instance;
+    if (!mesh || !semantic || !matrix) return 0;
+    for (owner=nativeOwners;owner;owner=owner->next) if (owner->mesh==mesh) break;
+    if (!owner) return 0;
+    instance=hwRmVisualInstanceCreate(owner->asset);
+    if (!instance) return 0;
+    result=hwRmVisualInstanceMarker(instance,semantic,owner->scale,matrix,error,sizeof(error));
+    hwRmVisualInstanceFree(instance);
+    return result;
+}
+
 int meshNativeVisualRegister(const void *mesh,HwRmVisualAsset *asset,float scale,unsigned int lod)
 {
     nativeMeshOwner *owner;
