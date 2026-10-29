@@ -7,8 +7,8 @@ Install the original OpenHW base game, followed in order by **1.0.1**, **1.0.2**
 - Ship detail selection uses each model's authored distance bands, and custom asteroids use fixed world-distance bands. Display resolution, field of view, frame-rate scaling and previous selection do not affect either choice. The texture quality setting remains independent of display resolution.
 - Addresses a report of the Ghost Ship appearing white at distance: its Remastered hull uses the same textured native mesh at every distance, with a neutral native texture fallback when a requested color scheme is unavailable.
 - Aligns the Kadeshi fuel pod's engine glow with the aft end of its Remastered hull.
-- Uses the Remastered Khar-Selim wreck’s salvage points for Mission 2 when its native model is loaded, with the original points retained as a fallback.
-- Hardens the Bentusi trade screen’s shared technology-image cache against stale or missing entries. A reported trade crash could not be conclusively traced without a crash log.
+- Uses the Remastered Khar-Selim wreckâ€™s salvage points for Mission 2 when its native model is loaded, with the original points retained as a fallback.
+- Hardens the Bentusi trade screenâ€™s shared technology-image cache against stale or missing entries. A reported trade crash could not be conclusively traced without a crash log.
 
 The patch has been built and checked offline, including its actual Remastered Ghost Ship package at each requested detail level. The reported in-game appearance still needs player verification. Changes in distance thresholds can alter when other ships switch detail levels.
 
