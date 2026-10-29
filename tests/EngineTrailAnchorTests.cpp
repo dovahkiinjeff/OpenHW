@@ -18,6 +18,7 @@ int main()
     head[2]-=offset;history[2]-=offset;
     near(head[2],-59.0264f);near(head[2],history[2]);near(head[0],nozzle[0]);near(head[1],nozzle[1]);
     near(engineGlowRadius(100,10,1,1,.82f,.2f),radius);
+    near(engineFuelPodNozzleZ(-100.6593628f,2.89153451f),-75.83929f);
     near(engineGlowOriginOffset(0,8,0),2.575f);
     for(float ratio:{0.f,.02f,.5f,1.f,2.f})for(float pulse:{.95f,1.f})
     {

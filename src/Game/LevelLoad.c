@@ -654,7 +654,7 @@ static void scriptSetResourcesCB(char *directory,char *field,void *dataToFillIn)
     }
 
     numAsteroids = resourceCountForFleet(numAsteroids, singlePlayerGame,
-        attributes, spFleetModifier, opDisableSPResourceScaling);
+        attributes, spFleetModifier, opDisableSPResourceScaling, opSPResourcePopulationPercent);
 
     if (strcmp(layoutstr,"Sphere") == 0)
     {

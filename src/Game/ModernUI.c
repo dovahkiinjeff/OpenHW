@@ -34,6 +34,7 @@
 #include "NIS.h"
 #include "ObjTypes.h"
 #include "Options.h"
+#include "ResourceScalingPolicy.h"
 #include "Select.h"
 #include "ControlGroupTabPolicy.h"
 #include "Sensors.h"
@@ -102,6 +103,7 @@ typedef struct ModernUIGameplayState
     udword savedUnlimitedRUs;
     udword savedRestoreFogOfWar;
     udword savedDisableSPResourceScaling;
+    udword savedSPResourcePopulationPercent;
     bool32 savedShowFPS;
 } ModernUIGameplayState;
 
@@ -7362,7 +7364,9 @@ static const char *muiGameplayValue(sdword row, char *buffer, size_t count)
                 default: return "OFF / VANILLA";
             }
         case 8: return mainShowFPS ? "ON" : "OFF";
-        case 9: return opDisableSPResourceScaling ? "ON" : "OFF";
+        case 9:
+            snprintf(buffer,count,"%u%%",resourceScalingPercent(opSPResourcePopulationPercent,opDisableSPResourceScaling));
+            return buffer;
         case 10: return opUnlimitedRUs ? "ON" : "OFF";
         case 11: return opRestoreFogOfWar ? "ON" : "OFF";
         default: return "";
@@ -7374,12 +7378,12 @@ static void muiGameplayFitLayout(ModernUILayout *layout)
     sdword rowTop = layout->content.y0 + uiScaleSize(116);
     sdword bottom = layout->apply.y0 - uiScaleSize(8);
     sdword gap = uiScaleSize(4);
-    sdword specialTarget = uiScaleSize(52);
+    sdword specialTarget = uiScaleSize(30);
     sdword available = bottom - rowTop;
     sdword rowStep = (available - specialTarget * 3 - gap * 2) / MUI_GAMEPLAY_ROW_COUNT;
     sdword index;
 
-    rowStep = muiClamp(rowStep, uiScaleSize(32), uiScaleSize(68));
+    rowStep = muiClamp(rowStep, uiScaleSize(20), uiScaleSize(68));
     for (index = 0; index < MUI_GAMEPLAY_ROW_COUNT; ++index)
     {
         layout->rows[index] = muiRect(
@@ -7473,6 +7477,27 @@ static void muiGameplaySetCursorScaleFromX(const rectangle *row, sdword mouseX)
     mouseCursorScalePercent = muiClamp(value, 25, 100);
 }
 
+static void muiGameplayDrawResourceSlider(const rectangle *row, bool32 hovered)
+{
+    rectangle hit=muiGameplayCursorSliderRect(row),track=hit,fill,thumb;
+    sdword width=hit.x1-hit.x0;
+    sdword percent=(sdword)resourceScalingPercent(opSPResourcePopulationPercent,opDisableSPResourceScaling);
+    sdword x=hit.x0+width*percent/100;
+    track.y0=(hit.y0+hit.y1)/2-uiScaleSize(1);track.y1=track.y0+uiScaleSize(2);
+    muiFill(&track,muiLineSoft);fill=track;fill.x1=x;
+    if(fill.x1>fill.x0)muiFill(&fill,hovered?muiSignal:muiCool);
+    thumb=muiRect(x-uiScaleSize(4),hit.y0,x+uiScaleSize(4),hit.y1);
+    muiFill(&thumb,hovered?muiSignal:muiPaper);primRectOutline2(&thumb,1,hovered?muiPaper:muiLine);
+}
+static void muiGameplaySetResourceFromX(const rectangle *row,sdword mouseX)
+{
+    rectangle slider=muiGameplayCursorSliderRect(row);sdword width=slider.x1-slider.x0;
+    if(width<=0)return;
+    mouseX=muiClamp(mouseX,slider.x0,slider.x1);
+    opSPResourcePopulationPercent=(udword)((mouseX-slider.x0)*100/width);
+    opDisableSPResourceScaling=opSPResourcePopulationPercent==100;
+}
+
 static void muiGameplayApplyLive(void)
 {
     cameraSensitivitySet(opMouseSens);
@@ -7505,7 +7530,10 @@ static void muiAdjustGameplay(sdword row, sdword direction)
             opMissionStartLaunch = (udword)((muiClamp((sdword)opMissionStartLaunch, 0, 2) + direction + 3) % 3);
             break;
         case 8: mainShowFPS = !mainShowFPS; break;
-        case 9: opDisableSPResourceScaling = !opDisableSPResourceScaling; break;
+        case 9:
+            opSPResourcePopulationPercent=(udword)muiClamp((sdword)resourceScalingPercent(opSPResourcePopulationPercent,opDisableSPResourceScaling)+direction*5,0,100);
+            opDisableSPResourceScaling=opSPResourcePopulationPercent==100;
+            break;
         case 10: opUnlimitedRUs = !opUnlimitedRUs; break;
         case 11: opRestoreFogOfWar = !opRestoreFogOfWar; break;
         default: return;
@@ -7537,6 +7565,7 @@ static void muiExitGameplay(bool32 apply)
         opUnlimitedRUs = muiGameplay.savedUnlimitedRUs;
         opRestoreFogOfWar = muiGameplay.savedRestoreFogOfWar;
         opDisableSPResourceScaling = muiGameplay.savedDisableSPResourceScaling;
+        opSPResourcePopulationPercent = muiGameplay.savedSPResourcePopulationPercent;
         mainShowFPS = muiGameplay.savedShowFPS;
         muiGameplayApplyLive();
     }
@@ -7550,7 +7579,7 @@ static void muiDrawGameplay(regionhandle region)
         "CAMERA SENSITIVITY", "UNLIMITED STRIKE-CRAFT FUEL",
         "ISSUE ORDERS WHILE PAUSED", "SHIP WEAPON RECOIL",
         "CURSOR SCALE", "RESOURCE MULTIPLIER", "RANK SYSTEM", "MISSION START LAUNCH", "SHOW FPS",
-        "DISABLE SP RESOURCE SCALING", "UNLIMITED RUs", "RESTORE FOG OF WAR"
+        "MISSION RESOURCE SCALING", "UNLIMITED RUs", "RESTORE FOG OF WAR"
     };
     static const char *descriptions[MUI_GAMEPLAY_ROW_COUNT] = {
         "Continuous camera response; five-percent steps",
@@ -7562,7 +7591,7 @@ static void muiDrawGameplay(regionhandle region)
         "Earn ranks from combat; purple stars and damage / speed bonuses",
         "Campaign arrival: vanilla / hold combat craft / hold all carried ships",
         "Yellow frame-rate counter in the top-right corner",
-        "Full authored resource counts on new mission starts; single-player only",
+        "0% vanilla scaling / 100% full authored resources; single-player",
         "Build, buy technology and hyperspace without spending RUs; single-player only",
         "Original Homeworld visibility ranges instead of unlimited distant objects; applies immediately"
     };
@@ -7628,15 +7657,17 @@ static void muiDrawGameplay(regionhandle region)
         muiDrawVideoRow(&layout.rows[index], labels[index],
                         descriptions[index],
                         muiGameplayValue(index, value, sizeof(value)),
-                        hovered, index != 4);
+                        hovered, index != 4 && index != 9);
         if (index == 4)
             muiGameplayDrawCursorSlider(&layout.rows[index], hovered);
+        if (index == 9)
+            muiGameplayDrawResourceSlider(&layout.rows[index], hovered);
     }
 
     superRow = muiGameplaySuperSalvagersRect(&layout);
     superHovered = muiPointIn(&superRow, mouseX, mouseY);
     muiDrawVideoRow(&superRow, "SUPER SALVAGERS",
-                    "2x mobility / agility / speed / braking; 3x effective health",
+                    "2x mobility; 3x effective health; no collision damage",
                     opSuperSalvagers ? "ON" : "OFF",
                     superHovered, TRUE);
 
@@ -7670,9 +7701,9 @@ static void muiDrawGameplay(regionhandle region)
             muiText(x, y + uiScaleSize(38), muiPaper,
                     "SP RESOURCE SCALING", muiHeadingFont);
             muiText(x, y + uiScaleSize(70), muiMuted,
-                    "ON keeps each mission's full resource counts.", muiBodyFont);
+                    "0%: vanilla fleet-strength scaling.", muiBodyFont);
             muiText(x, y + uiScaleSize(98), muiMuted,
-                    "Fleet strength no longer reduces or removes them.", muiBodyFont);
+                    "100%: all authored resources appear.", muiBodyFont);
             muiText(x, y + uiScaleSize(142), muiCool,
                     "Start a fresh mission after changing this setting.", muiBodyFont);
             muiText(x, y + uiScaleSize(168), muiCool,
@@ -7790,6 +7821,17 @@ static udword muiGameplayProcess(regionhandle region, smemsize ID,
     (void)data;
     muiBuildLayout(&layout);
     muiGameplayFitLayout(&layout);
+    if ((event == RPE_PressLeft || event == RPE_HoldLeft || event == RPE_ReleaseLeft) &&
+        muiPointIn(&layout.rows[9], mouseX, mouseY))
+    {
+        rectangle slider=muiGameplayCursorSliderRect(&layout.rows[9]);
+        rectangle generous=slider;generous.y0=layout.rows[9].y0;generous.y1=layout.rows[9].y1;
+        if(muiPointIn(&generous,mouseX,mouseY))
+        {
+            muiGameplaySetResourceFromX(&layout.rows[9],mouseX);
+            regRecursiveSetDirty(region);return RPR_Redraw;
+        }
+    }
     if ((event == RPE_PressLeft || event == RPE_HoldLeft ||
          event == RPE_ReleaseLeft) &&
         muiPointIn(&layout.rows[4], mouseX, mouseY))
@@ -9391,6 +9433,7 @@ regionhandle modernUICreateOwnedScreen(regionhandle parent, fescreen *screen)
         muiGameplay.savedUnlimitedRUs = opUnlimitedRUs;
         muiGameplay.savedRestoreFogOfWar = opRestoreFogOfWar;
         muiGameplay.savedDisableSPResourceScaling = opDisableSPResourceScaling;
+        muiGameplay.savedSPResourcePopulationPercent = opSPResourcePopulationPercent;
         muiGameplay.savedShowFPS = mainShowFPS;
         base = regChildAlloc(parent, (smemsize)screen, 0, 0,
                              MAIN_WindowWidth, MAIN_WindowHeight, 0,

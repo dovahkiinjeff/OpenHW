@@ -99,6 +99,7 @@ extern udword opMissionStartLaunch;
 extern udword opResourceMultiplier;
 /* Use full authored resource populations when starting single-player missions. */
 extern udword opDisableSPResourceScaling;
+extern udword opSPResourcePopulationPercent;
 /* Single-player spending override; does not inflate the saved RU balance. */
 extern udword opUnlimitedRUs;
 /* Local presentation preference: restore original render-list distance limits. */

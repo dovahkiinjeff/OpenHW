@@ -58,15 +58,15 @@ def main():
     payload=a.work/'patch.zip'
     with zipfile.ZipFile(payload,'w',zipfile.ZIP_DEFLATED,compresslevel=6,allowZip64=True) as z:
         for name,path in files.items():z.write(path,name)
-        z.writestr('Development/Patches/1.0.3/patch.json',json.dumps(dict(version='1.0.3',files=rows),indent=2))
+        z.writestr('Development/Patches/1.0.4/patch.json',json.dumps(dict(version='1.0.4',files=rows),indent=2))
     with payload.open('rb') as f:digest=hashlib.file_digest(f,'sha256').digest()
-    pending=a.work/'OpenHW-Patch-1.0.3.exe'
+    pending=a.work/'OpenHW-Patch-1.0.4.exe'
     with pending.open('wb') as out,a.bootstrap.open('rb') as bootstrap,payload.open('rb') as archive:
         shutil.copyfileobj(bootstrap,out);offset=out.tell();shutil.copyfileobj(archive,out)
         out.write(struct.pack('<16sQQ32s',b'OPENHW1SETUPZIP\0',offset,payload.stat().st_size,digest))
     shutil.copyfile(pending,a.output)
     with a.output.open('rb') as f:checksum=hashlib.file_digest(f,'sha256').hexdigest()
-    report=dict(file=str(a.output),bytes=a.output.stat().st_size,sha256=checksum,version='1.0.3',files=rows,gameLaunched=False,patchExecuted=False)
+    report=dict(file=str(a.output),bytes=a.output.stat().st_size,sha256=checksum,version='1.0.4',files=rows,gameLaunched=False,patchExecuted=False)
     (a.work/'build-receipt.json').write_text(json.dumps(report,indent=2));print(json.dumps(report,indent=2))
 
 if __name__=='__main__':main()

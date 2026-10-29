@@ -530,6 +530,12 @@ void trailGetNozzleOffset(real32* vec, shiptrail* trail)
         sprintf(semantic,"engine_%d",trail->trailNum);
         if (meshRemasteredMarkerPosition(ship,semantic,&nativePosition))
         {
+            if (ship->shiprace == P2 && ship->shiptype == P2FuelPod && trail->trailNum == 0)
+            {
+                float modelScale;
+                if (meshRemasteredInstance(ship,&modelScale) && isfinite(modelScale) && modelScale>0)
+                    nativePosition.z=engineFuelPodNozzleZ(nativePosition.z,modelScale);
+            }
             VECCOPY(vec,&nativePosition);
             return;
         }

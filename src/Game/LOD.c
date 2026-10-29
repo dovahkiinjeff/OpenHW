@@ -23,6 +23,7 @@
 #include "Universe.h"
 #include "main.h"
 #include "ModernShipLOD.h"
+#include "NativeVisualRegistry.h"
 
 extern meshdata *defaultmesh;          // hack for now.  remove later when defaults no longer needed
 
@@ -288,6 +289,8 @@ sdword lodDiscoveryLevelGet(void *spaceObj)
 static lod *lodModernShipLevelGet(SpaceObj *obj, lodinfo *info)
 {
     sdword available = 0;
+    float boundaries[4];
+    sdword index;
     // Some capital ships only supply LOD0-3; missing/point entries must never
     // resolve to a dummy mesh or make an otherwise visible ship disappear.
     while (available < info->nLevels && available < 5 &&
@@ -295,10 +298,21 @@ static lod *lodModernShipLevelGet(SpaceObj *obj, lodinfo *info)
            info->level[available].pData != NULL &&
            info->level[available].pData != defaultmesh)
         available++;
-    obj->currentLOD = (ubyte)hwModernShipLODSelect(
-        obj->cameraDistanceSquared, obj->staticinfo->staticheader.staticCollInfo.collspheresize,
-        universe.mainCameraCommand.actualcamera.fieldofview, MAIN_WindowHeight,
-        obj->currentLOD, available);
+    /* The RM Ghost Ship has one textured source mesh. Reuse the exact native
+       LOD0 instance and its materials at all distances, rather than switching
+       between independently registered copies or falling back to Classic. */
+    if (available > 0 && ((Ship *)obj)->shiptype == Ghostship)
+    {
+        float scale; unsigned int nativeLOD;
+        if (meshNativeVisualParameters(info->level[0].pData, &scale, &nativeLOD))
+        {
+            obj->currentLOD = 0;
+            return &info->level[0];
+        }
+    }
+    for (index=0;index<4 && index+1<available;++index)
+        boundaries[index]=info->level[index].bOff;
+    obj->currentLOD = (ubyte)hwModernShipLODSelect(obj->cameraDistanceSquared,boundaries,available);
     return &info->level[obj->currentLOD];
 }
 

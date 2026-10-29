@@ -68,7 +68,9 @@ static ModernUIGameplayState muiGameplay;
 static sdword opMouseSens,mouseCursorScalePercent;
 static udword opUnlimitedFuel,opPauseOrders,opShipRecoil,opSuperSalvagers;
 static udword opCaptureBuildAll,opDisableUnitCaps,opRankSystem;
-static udword opMissionStartLaunch,opResourceMultiplier,opDisableSPResourceScaling,opUnlimitedRUs;
+static udword opMissionStartLaunch,opResourceMultiplier,opDisableSPResourceScaling,opUnlimitedRUs,opRestoreFogOfWar;
+static udword opSPResourcePopulationPercent=101;
+static unsigned resourceScalingPercent(unsigned slider,unsigned legacy){return slider<=100?slider:(legacy?100:0);}
 static int mainShowFPS,MAIN_WindowWidth=1280,MAIN_WindowHeight=720;
 static int primModeEnabled,ghMainRegion,closed,saves,savedShowFPS;
 static int begins,ends,vertices,colors,reads,badColor;
@@ -97,6 +99,8 @@ static void feScreenDisappear(void*a,void*b){(void)a;(void)b;++closed;}
 static void feScreenStart(int a,const char*b){(void)a;(void)b;}
 '''
         for signature in ('static rectangle muiRect(',
+                          'static rectangle muiGameplayCursorSliderRect(',
+                          'static void muiGameplaySetResourceFromX(',
                           'static void muiFPSFormat(',
                           'void modernUIDrawFPS(void)',
                           'static const char *muiGameplayValue(',
@@ -133,16 +137,21 @@ int main(void){
         special=muiGameplaySpecialRect(&l,2);
         CHECK(special.y1<=l.apply.y0-uiScaleSize(8));
     }
-    muiGameplay.savedShowFPS=0;muiGameplay.savedDisableSPResourceScaling=0;muiGameplay.savedUnlimitedRUs=0;
+    muiGameplay.savedShowFPS=0;muiGameplay.savedDisableSPResourceScaling=0;muiGameplay.savedSPResourcePopulationPercent=101;muiGameplay.savedUnlimitedRUs=0;
+    {rectangle row=muiRect(0,0,800,60),slider=muiGameplayCursorSliderRect(&row);
+     muiGameplaySetResourceFromX(&row,slider.x0);CHECK(opSPResourcePopulationPercent==0);
+     muiGameplaySetResourceFromX(&row,(slider.x0+slider.x1)/2);CHECK(opSPResourcePopulationPercent>=49 && opSPResourcePopulationPercent<=50);
+     muiGameplaySetResourceFromX(&row,slider.x1);CHECK(opSPResourcePopulationPercent==100 && opDisableSPResourceScaling);
+     opSPResourcePopulationPercent=101;opDisableSPResourceScaling=0;}
     muiAdjustGameplay(10,1);CHECK(opUnlimitedRUs);
     CHECK(!strcmp(muiGameplayValue(10,value,sizeof(value)),"ON"));
-    muiAdjustGameplay(9,1);CHECK(opDisableSPResourceScaling);
-    CHECK(!strcmp(muiGameplayValue(9,value,sizeof(value)),"ON"));
-    muiExitGameplay(FALSE);CHECK(!opDisableSPResourceScaling && !opUnlimitedRUs);
+    muiAdjustGameplay(9,1);CHECK(opSPResourcePopulationPercent==5 && !opDisableSPResourceScaling);
+    CHECK(!strcmp(muiGameplayValue(9,value,sizeof(value)),"5%"));
+    muiExitGameplay(FALSE);CHECK(!opDisableSPResourceScaling && opSPResourcePopulationPercent==101 && !opUnlimitedRUs);
     CHECK(!mainShowFPS&&!saves&&closed==1);
     CHECK(!strcmp(muiGameplayValue(8,value,sizeof(value)),"OFF"));
-    muiAdjustGameplay(8,-1);muiAdjustGameplay(9,-1);muiAdjustGameplay(10,-1);muiExitGameplay(TRUE);
-    CHECK(opDisableSPResourceScaling && opUnlimitedRUs);
+    muiAdjustGameplay(8,-1);muiAdjustGameplay(9,1);muiAdjustGameplay(10,-1);muiExitGameplay(TRUE);
+    CHECK(opSPResourcePopulationPercent==5 && !opDisableSPResourceScaling && opUnlimitedRUs);
     CHECK(mainShowFPS&&saves==1&&savedShowFPS&&closed==2);
     puts("PASS: production FPS formatting, two-color batches, resolution scaling, gameplay row fit and resource scaling toggle, toggle/apply/cancel");
     return 0;

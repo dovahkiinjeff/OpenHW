@@ -881,6 +881,7 @@ scriptEntry utyOptionsList[] =
     {"UnlimitedRUs",                   scriptSetUdwordCB, &opUnlimitedRUs},
     {"RestoreFogOfWar",                scriptSetUdwordCB, &opRestoreFogOfWar},
     {"DisableSPResourceScaling",       scriptSetUdwordCB, &opDisableSPResourceScaling},
+    {"SPResourcePopulationPercent",    scriptSetUdwordCB, &opSPResourcePopulationPercent},
     {"showFPS",                        scriptSetUdwordCB, &mainShowFPS},
     {"PlayIntros",                     scriptSetUdwordCB, &aviPlayIntros},
     {"ShipRecoil",                     scriptSetUdwordCB, &opShipRecoil},

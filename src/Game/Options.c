@@ -496,6 +496,8 @@ static udword opSaveRestoreFogOfWar = 0;
 static udword opSaveUnlimitedRUs = 0;
 udword opDisableSPResourceScaling = 0;
 static udword opSaveDisableSPResourceScaling = 0;
+udword opSPResourcePopulationPercent = 101;
+static udword opSaveSPResourcePopulationPercent = 101;
 static udword opSaveUnlimitedFuel = 0;
 static bool32 opSaveShowFPS = FALSE;
 
@@ -1601,6 +1603,7 @@ void opRestoreSavedSettings(void)
     opUnlimitedRUs = opSaveUnlimitedRUs;
     opRestoreFogOfWar = opSaveRestoreFogOfWar;
     opDisableSPResourceScaling = opSaveDisableSPResourceScaling;
+    opSPResourcePopulationPercent = opSaveSPResourcePopulationPercent;
     mainShowFPS = opSaveShowFPS;
     if (opInfoOverlayVar)
         ioEnable();
@@ -1914,6 +1917,7 @@ void opOptionsSaveSettings(void)
     opSaveUnlimitedRUs = opUnlimitedRUs;
     opSaveRestoreFogOfWar = opRestoreFogOfWar;
     opSaveDisableSPResourceScaling = opDisableSPResourceScaling;
+    opSaveSPResourcePopulationPercent = opSPResourcePopulationPercent;
     opSaveShowFPS = mainShowFPS;
 
     opOptionsSaveCustomEffectsSettings();
