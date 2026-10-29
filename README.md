@@ -62,6 +62,18 @@ All application-owned settings, saves, mods, exports and working files stay insi
 
 Two game executables are supplied: **OpenHW.exe** has diagnostic logging compiled out; **OpenHW-Daignostics.exe** enables full diagnostics and writes under **Development**. The spelling of the diagnostic filename is intentional. Source is a separate download for developers, not required to play.
 
+## Microsoft Defender report for 1.0.4
+
+A player reported a Microsoft Defender Bearfoos detection involving the 1.0.4 patch. The released patch and its extracted executables were scanned with Defender on the developer's computer without a detection; Microsoft has not yet confirmed the report as a false positive. The patch is unsigned. Download only from the official release and compare its SHA-256 before deciding how to proceed:
+
+`OpenHW-Patch-1.0.4.exe`: `14edadf7d192380137368fe26cea3e2440f0bb96e9e66047b73551c6bd2c0dff`
+
+In PowerShell, run `Get-FileHash -Algorithm SHA256 -LiteralPath "D:\\Games\\OpenHW\\OpenHW-Patch-1.0.4.exe"`, replacing the path with your downloaded patch's actual location. If the hash differs, do not run it. A matching hash identifies the released file; it does not establish that a detection is a false positive.
+
+If you choose to proceed and Defender blocks the patch, you can add the **specific OpenHW installation folder** as a folder exclusion: open **Windows Security → Virus & threat protection → Manage settings → Add or remove exclusions → Add an exclusion → Folder**, and select your OpenHW folder. Keep the patch in that folder if it is the file being blocked. A folder exclusion reduces protection for all files inside that folder; remove it after use. See [Microsoft's exclusion instructions](https://support.microsoft.com/en-us/windows/security/threat-malware-protection/virus-and-threat-protection-in-the-windows-security-app).
+
+Please report the exact detected filename, threat name, Defender security-intelligence version and file hash, and consider [submitting the flagged file to Microsoft for analysis](https://www.microsoft.com/en-us/wdsi/filesubmission).
+
 ## Watch the project
 
 [![OpenHW project showcase](https://img.youtube.com/vi/R4PvuIpeAaA/maxresdefault.jpg)](https://www.youtube.com/watch?v=R4PvuIpeAaA)
