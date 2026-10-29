@@ -19,7 +19,7 @@
 **Required order: original OpenHW installer → 1.0.1 → 1.0.2 → 1.0.3 → 1.0.4.** Close both game executables before patching and install into the same OpenHW folder.
 
 - Super Salvagers now protects your salvage corvettes against collision and kamikaze-impact damage in single-player.
-- Ship detail levels now follow their authored distance bands, independent of display resolution and field of view.
+- Ship and custom asteroid detail levels now follow distance bands, independent of display resolution and field of view.
 - The Ghost Ship uses its textured Remastered model at every distance, with a texture fallback for missing color schemes.
 
 ## 1.0.3 patch — docking, selection and effects

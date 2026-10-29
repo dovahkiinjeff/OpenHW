@@ -23100,8 +23100,8 @@
     },
     {
       "path": "README.md",
-      "size": 21908,
-      "sha256": "755c9b479a9629d28cf19f1581a2c20903af9349a31b6119132abcf0600033d3"
+      "size": 21913,
+      "sha256": "ee5ab2b91096236ced8cef403d7e1fe15515411d2a7bf1240daf4faee5fffb6c"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -23120,8 +23120,8 @@
     },
     {
       "path": "RELEASE_NOTES_1.0.4.md",
-      "size": 1732,
-      "sha256": "f097bcb7a9f1f92352766835629df0a8c951f0af302bc15e1390915f7126e48b"
+      "size": 1786,
+      "sha256": "3c45e7e360c1efe7bb98109061f7326e3750b7b6fe0eb230767ef8f103656730"
     },
     {
       "path": "RELEASE_NOTES_1.0.md",
@@ -24120,13 +24120,18 @@
     },
     {
       "path": "src/Game/ModernAsteroid.c",
-      "size": 45286,
-      "sha256": "8e4fbf7608fa6b6512d64028b31283005783243b09953190693c6ec82117a6b7"
+      "size": 44944,
+      "sha256": "f786ae570529d513406dbdacf48f3c8f7f3d50998d4b27cfaf4feeff3861de5d"
     },
     {
       "path": "src/Game/ModernAsteroid.h",
       "size": 521,
       "sha256": "b3981080a8928f3582b7f36257c1964d4d4e60485baa8de940c4c964d8119ec4"
+    },
+    {
+      "path": "src/Game/ModernAsteroidLOD.h",
+      "size": 510,
+      "sha256": "0377d72d8e9b8736c08fca703a8a91a02f7d0adf14a06312104049cc9137f39e"
     },
     {
       "path": "src/Game/ModernDustCloud.c",
@@ -27180,8 +27185,8 @@
     },
     {
       "path": "tests/test_modern_ship_lod.py",
-      "size": 5073,
-      "sha256": "f4ccb367e2e9ff13b3954392a9b24f4ffea78506fc1a1346ade329c5674d3553"
+      "size": 5791,
+      "sha256": "d15d54f71c43f2ec7267d1ed1586a01e0983bc645e660a6f058a3c8a18bd14ed"
     },
     {
       "path": "tests/test_native_cursor.py",

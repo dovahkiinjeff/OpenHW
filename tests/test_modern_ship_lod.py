@@ -54,6 +54,7 @@ int main(void){
 
     def test_authored_distance_bands(self):
         header = (ROOT / 'src/Game/ModernShipLOD.h').read_text()
+        header += (ROOT / 'src/Game/ModernAsteroidLOD.h').read_text()
         cases = r'''
 #include <assert.h>
 int main(void) {
@@ -69,6 +70,11 @@ int main(void) {
     assert(hwModernShipLODSelect(1601.f,bounds,1)==0);
     assert(hwModernShipLODSelect(NAN,bounds,5)==0);
     assert(hwModernShipLODSelect(1000.f,0,5)==0);
+    assert(hwModernAsteroidLODSelect(4000000.f)==0);
+    assert(hwModernAsteroidLODSelect(4000001.f)==1);
+    assert(hwModernAsteroidLODSelect(36000004.f)==2);
+    assert(hwModernAsteroidLODSelect(225000032.f)==3);
+    assert(hwModernAsteroidLODSelect(NAN)==0);
     return 0;
 }
 '''
@@ -100,6 +106,11 @@ int main(void) {
         self.assertIn('info->level[index].bOff', helper)
         self.assertIn('shiptype == Ghostship', helper)
         self.assertIn('meshNativeVisualParameters(info->level[0].pData', helper)
+        asteroid = (ROOT / 'src/Game/ModernAsteroid.c').read_text()
+        asteroid_lod = asteroid[asteroid.index('static sdword modernAsteroidChooseLod'):asteroid.index('static sdword modernAsteroidVariantIndex')]
+        self.assertIn('asteroid->cameraDistanceSquared', asteroid_lod)
+        self.assertNotIn('radius', asteroid_lod)
+        self.assertNotIn('scaling', asteroid_lod)
         panic = source[source.index('lod* lodPanicLevelGet('):]
         self.assertIn('return lodLevelGet(spaceObj, camera, ship);', panic)
 
