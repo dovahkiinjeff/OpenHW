@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "version": "1.0.4",
-  "snapshot": "Complete OpenHW 1.0.4 source, cumulative from 1.0 through 1.0.4",
+  "version": "1.0.3",
+  "snapshot": "Complete OpenHW 1.0.3 source, cumulative from 1.0 through 1.0.3",
   "excluded": [
     "generated out/ and .deps/",
     "personal logs/saves and originating Git worktree metadata",
@@ -23035,8 +23035,8 @@
     },
     {
       "path": "docs/USER_GUIDE.md",
-      "size": 9342,
-      "sha256": "00d2763a4f3eb805136c6d8809115b759e5d5425e04275cd3d82fc8f8e7806e9"
+      "size": 9171,
+      "sha256": "b78d5bab52bb4b074e8509a26745d6c2dd2feaf8f2df46bf5658be19ec672300"
     },
     {
       "path": "docs/WEAPON_FX_UPSCALING.md",
@@ -23100,8 +23100,8 @@
     },
     {
       "path": "README.md",
-      "size": 21913,
-      "sha256": "ee5ab2b91096236ced8cef403d7e1fe15515411d2a7bf1240daf4faee5fffb6c"
+      "size": 20834,
+      "sha256": "3dce9ea50d43e03876bb5c5df6b81ace177dcafa058e763d24bd21290c706c2a"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -23117,11 +23117,6 @@
       "path": "RELEASE_NOTES_1.0.3.md",
       "size": 2272,
       "sha256": "89d0f09916d5a8a28cd84f6352e87a1df1ac39a44d93ed4a2b1c66fcba3cf044"
-    },
-    {
-      "path": "RELEASE_NOTES_1.0.4.md",
-      "size": 1786,
-      "sha256": "3c45e7e360c1efe7bb98109061f7326e3750b7b6fe0eb230767ef8f103656730"
     },
     {
       "path": "RELEASE_NOTES_1.0.md",
@@ -23990,8 +23985,8 @@
     },
     {
       "path": "src/Game/LOD.c",
-      "size": 23083,
-      "sha256": "ac138ef0fdbbcb31517bec1f350e5b2135c005a7ff871068f75c1600b362d92c"
+      "size": 22539,
+      "sha256": "6d1d669c1ec1f616e69db12d0dd1f7aa929f206bfefbd9c01a8d4752da74517d"
     },
     {
       "path": "src/Game/LOD.h",
@@ -24060,8 +24055,8 @@
     },
     {
       "path": "src/Game/Mesh.c",
-      "size": 205710,
-      "sha256": "4ed52e5aebdf15d99645de81779eded00daff233228873b6b8954b384ecabb98"
+      "size": 205311,
+      "sha256": "0ae4199d16b2307bc6c31afdc578c797ac3d76ef54a29ad9021ab551afed8202"
     },
     {
       "path": "src/Game/Mesh.h",
@@ -24120,18 +24115,13 @@
     },
     {
       "path": "src/Game/ModernAsteroid.c",
-      "size": 44944,
-      "sha256": "f786ae570529d513406dbdacf48f3c8f7f3d50998d4b27cfaf4feeff3861de5d"
+      "size": 45286,
+      "sha256": "8e4fbf7608fa6b6512d64028b31283005783243b09953190693c6ec82117a6b7"
     },
     {
       "path": "src/Game/ModernAsteroid.h",
       "size": 521,
       "sha256": "b3981080a8928f3582b7f36257c1964d4d4e60485baa8de940c4c964d8119ec4"
-    },
-    {
-      "path": "src/Game/ModernAsteroidLOD.h",
-      "size": 510,
-      "sha256": "0377d72d8e9b8736c08fca703a8a91a02f7d0adf14a06312104049cc9137f39e"
     },
     {
       "path": "src/Game/ModernDustCloud.c",
@@ -24195,8 +24185,8 @@
     },
     {
       "path": "src/Game/ModernShipLOD.h",
-      "size": 662,
-      "sha256": "fbcb77683488f0458555d47cb63d268cfdae5e9f305148bd55021d62fb80be5f"
+      "size": 1206,
+      "sha256": "648193301a852086f768606712a7118630584715676a4f93fb7634622a0d05a1"
     },
     {
       "path": "src/Game/ModernText.c",
@@ -24210,8 +24200,8 @@
     },
     {
       "path": "src/Game/ModernUI.c",
-      "size": 410071,
-      "sha256": "c4cacaae2237e6f47a3fc760179a1358b542fea9c5b267651f119435827ed01c"
+      "size": 410078,
+      "sha256": "fdfff6f30905f72e4ac63092bea6c6aa28edc28c7b727c29dca01eb46c8af2ff"
     },
     {
       "path": "src/Game/ModernUI.h",
@@ -25065,8 +25055,8 @@
     },
     {
       "path": "src/Game/UnivUpdate.c",
-      "size": 290786,
-      "sha256": "045f89f71b5f8755c0f1c4ce78fd6407e9fceff89f9cc5b633216c7bde32a81a"
+      "size": 290497,
+      "sha256": "eb2cfc4d9e7ba669eb8f42efc94f331bab9c541dcdf668bc3d570a2c67b76420"
     },
     {
       "path": "src/Game/UnivUpdate.h",
@@ -26830,8 +26820,8 @@
     },
     {
       "path": "tests/NativeShipHodTests.cpp",
-      "size": 131686,
-      "sha256": "78a61d7399e1696eb7669a996384ccf0474c5571cd8716f3870e19954909dd8b"
+      "size": 131221,
+      "sha256": "930b9a128a3c308155e394761e0fbf9e0b5c37a06773de5a6e0745d1c4274659"
     },
     {
       "path": "tests/NativeShipMadTests.cpp",
@@ -27185,8 +27175,8 @@
     },
     {
       "path": "tests/test_modern_ship_lod.py",
-      "size": 5791,
-      "sha256": "d15d54f71c43f2ec7267d1ed1586a01e0983bc645e660a6f058a3c8a18bd14ed"
+      "size": 2892,
+      "sha256": "4e96c1ef44ef72bf79e0b2b98f56a603a1009df6cfec51ced778cff4f7e74a1f"
     },
     {
       "path": "tests/test_native_cursor.py",
@@ -27312,11 +27302,6 @@
       "path": "tests/test_ship_texture_pipeline.py",
       "size": 2527,
       "sha256": "196e386b3a52653211d9cc225f4a855839552937c08b118a8986c1f9baf49430"
-    },
-    {
-      "path": "tests/test_super_salvager_collision.py",
-      "size": 3139,
-      "sha256": "57e11c100337c5896f60fce4a0bdc94ebcceb16ed32ab3806158a200cb948d2c"
     },
     {
       "path": "tests/test_swarm_docking.py",
@@ -27736,7 +27721,7 @@
     {
       "path": "tools/package_release_patch.py",
       "size": 5313,
-      "sha256": "845d2fdf602b46d7509478cb9c0ac83364f037f6514118424d18b70fa0083942"
+      "sha256": "0be276b443eb0645692eaf6a9d86b3d395739cc65de71d8f3a7b9d75f6de285e"
     },
     {
       "path": "tools/package_ship_document_update.py",
@@ -27765,8 +27750,8 @@
     },
     {
       "path": "tools/release_bootstrap.cpp",
-      "size": 11728,
-      "sha256": "8fa9e3148931821938f0821e357a9df083f427ab9441e37879e35159fc13e655"
+      "size": 11721,
+      "sha256": "52c64ac78a505d3317ef40647739510bdb205386c566b1d1a50e57aca4712ff8"
     },
     {
       "path": "tools/release_compact.py",
@@ -27801,7 +27786,7 @@
     {
       "path": "tools/release_patch.py",
       "size": 3768,
-      "sha256": "3985201c7e2c2c2dc446a7fd5462b50183bf71ba398d783fc1c57fc3131293c2"
+      "sha256": "c173613d8719c8cab4ad758b3477f985b1bf81fd0973a7d6c66ac56bc0b9f88e"
     },
     {
       "path": "tools/release_setup.py",

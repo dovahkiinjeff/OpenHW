@@ -860,10 +860,19 @@ static sdword modernAsteroidTypeIndex(const Asteroid *asteroid)
 }
 
 
-#include "ModernAsteroidLOD.h"
-static sdword modernAsteroidChooseLod(const Asteroid *asteroid)
+static sdword modernAsteroidChooseLod(const Asteroid *asteroid, real32 radius)
 {
-    return asteroid ? hwModernAsteroidLODSelect(asteroid->cameraDistanceSquared) : MASTEROID_LODS-1;
+    real32 distance;
+    real32 apparentRadius;
+
+    if (asteroid == NULL || radius <= 0.0f) return MASTEROID_LODS - 1;
+    distance = (real32)sqrt((double)asteroid->cameraDistanceSquared);
+    if (distance <= radius * 1.25f) return 0;
+    apparentRadius = (radius * asteroid->scaling) / distance;
+    if (apparentRadius >= 0.035f) return 0;
+    if (apparentRadius >= 0.015f) return 1;
+    if (apparentRadius >= 0.006f) return 2;
+    return 3;
 }
 
 static sdword modernAsteroidVariantIndex(const Asteroid *asteroid)
@@ -896,7 +905,7 @@ bool32 modernAsteroidSubmitShadow(const Asteroid *asteroid)
     /* Match the exact authored modern LOD that this asteroid would draw at
        the present camera distance. Crossing the frustum edge must not swap
        its shadow silhouette to the unrelated retail GEO. */
-    lod = modernAsteroidChooseLod(asteroid);
+    lod = modernAsteroidChooseLod(asteroid, radius);
     if (!modernAsteroidEnsureTexture(typeIndex) ||
         !modernAsteroidEnsureImportedMesh(typeIndex, lod))
         return FALSE;
@@ -953,8 +962,8 @@ bool32 modernAsteroidRender(const Asteroid *asteroid, sdword lod)
 
     /* The project globally forces legacy LOD0, but doing that for a dense
        asteroid field would waste millions of triangles. Pick a modern mesh
-       LOD from camera distance while keeping every resource as real geometry. */
-    lod = modernAsteroidChooseLod(asteroid);
+       LOD from projected size while keeping every resource as real geometry. */
+    lod = modernAsteroidChooseLod(asteroid, radius);
     /* Every level is derived from the corresponding user-authored replacement
        OBJ.  Distance reduction must never substitute an unrelated sphere. */
     variant = 0;
@@ -977,7 +986,7 @@ bool32 modernAsteroidRender(const Asteroid *asteroid, sdword lod)
         {
             loggedDeterministicMaterial = TRUE;
             HW_DIAG_FPRINTF(stderr,
-                "[ModernAsteroid] distance-based LOD active: every level is a decimated "
+                "[ModernAsteroid] projected-size LOD active: every level is a decimated "
                 "user-authored OBJ with preserved UVs and gameplay radius.\n");
         }
     }
