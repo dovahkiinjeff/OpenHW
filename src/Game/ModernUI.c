@@ -7636,7 +7636,7 @@ static void muiDrawGameplay(regionhandle region)
     superRow = muiGameplaySuperSalvagersRect(&layout);
     superHovered = muiPointIn(&superRow, mouseX, mouseY);
     muiDrawVideoRow(&superRow, "SUPER SALVAGERS",
-                    "2x mobility / agility / speed / braking; 3x effective health",
+                    "2x mobility; 3x effective health; no collision damage",
                     opSuperSalvagers ? "ON" : "OFF",
                     superHovered, TRUE);
 

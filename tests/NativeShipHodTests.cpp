@@ -625,6 +625,11 @@ int main(int argc,char**argv) {
                 std::printf("%s LOD%u: %zu visible draws, %u triangles\n",type,lod,draws.size(),triangles);
                 for(const auto& draw:draws) for(float value:draw.matrix)
                     require(std::isfinite(value),"invalid native station transform");
+                if(ghost) for(const auto& draw:draws) {
+                    require(draw.mesh->lod==0,"Ghost Ship switched away from its textured Remastered source mesh");
+                    require(std::strcmp(draw.material->shader,"default")!=0,"Ghost Ship selected an untextured material");
+                    require(hwRmVisualPackageMaterial(package,draw.component,draw.part->material)!=nullptr,"Ghost Ship material binding missing");
+                }
                 require(triangles>=((station||ghost||office||generator||council)?1u:2500u),"native package selected empty/reduced source geometry");
             }
             hwRmVisualInstanceFree(instance);hwRmVisualAssetFree(asset);hwRmVisualPackageFree(package);

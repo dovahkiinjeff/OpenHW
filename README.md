@@ -1,16 +1,26 @@
-# OpenHW 1.0.3
+# OpenHW 1.0.4
 
 **The best of both worlds: high-fidelity Homeworld Remastered assets and original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets with modern rendering and in-game creation tools to build the ultimate classic Homeworld experience.
 
 [![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-[Base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe)  [1.0.1 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.1/OpenHW-Patch-1.0.1.exe)  [1.0.2 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.2/OpenHW-Patch-1.0.2.exe)  [1.0.3 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.3/OpenHW-Patch-1.0.3.exe)   [Installation and controls](docs/USER_GUIDE.md)   [Editors](docs/EDITING_GUIDE.md)   [Modding](docs/MODDING.md)   [Build the installer](BUILD_INSTALLER.md)
+[Base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe)  [1.0.1 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.1/OpenHW-Patch-1.0.1.exe)  [1.0.2 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.2/OpenHW-Patch-1.0.2.exe)  [1.0.3 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.3/OpenHW-Patch-1.0.3.exe)  [1.0.4 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4/OpenHW-Patch-1.0.4.exe)   [Installation and controls](docs/USER_GUIDE.md)   [Editors](docs/EDITING_GUIDE.md)   [Modding](docs/MODDING.md)   [Build the installer](BUILD_INSTALLER.md)
 
 > [!IMPORTANT]
 > **Use AMD technology for 1.0. AMD FSR upscaling and AMD FSR frame generation are the recommended, working options.** DLSS currently has known visual issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.** Bundled vendor libraries or development code do not imply supported release features.
 
 > [!WARNING]
 > **Disk space:** allow approximately **120 GB free during conversion** as a conservative planning estimate; the exact peak of this compact installer has not been measured. The download is about 473 MB and the main generated game archive is about 34 GB, plus loose resources and user data. Setup reads the original Collection archives directly, stages selected HW1 resources and removes intermediate conversion caches. The original Collection and source-build dependencies occupy separate space.
+
+## 1.0.4 patch — Super Salvagers and ship detail
+
+[Download OpenHW-Patch-1.0.4.exe](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4/OpenHW-Patch-1.0.4.exe) — approximately **40 MB**. [Patch notes](RELEASE_NOTES_1.0.4.md) · [Complete cumulative source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4/OpenHW-1.0.4-Source.zip).
+
+**Required order: original OpenHW installer → 1.0.1 → 1.0.2 → 1.0.3 → 1.0.4.** Close both game executables before patching and install into the same OpenHW folder.
+
+- Super Salvagers now protects your salvage corvettes against collision and kamikaze-impact damage in single-player.
+- Ship detail levels now follow their authored distance bands, independent of display resolution and field of view.
+- The Ghost Ship uses its textured Remastered model at every distance, with a texture fallback for missing color schemes.
 
 ## 1.0.3 patch — docking, selection and effects
 
@@ -43,7 +53,7 @@
 2. Download the [**OpenHW-Setup.exe** base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe). Put it in the writable folder where you want OpenHW installed, for example `D:\Games\OpenHW`.
 3. Run it and select the Collection installation. The Collection root, `HomeworldRM`, or its `Data` directory can be selected; setup also locates the Collection's Classic data.
 4. Let extraction, conversion, package building and validation finish. Setup installs **beside itself** and leaves the original Collection untouched. There is no manual music/voice-copy step.
-5. Apply **1.0.1**, then **1.0.2**, then **1.0.3**, after setup completes, then start **OpenHW.exe**. Setup does not automatically start the game. The first launch detects your display resolution and refresh rate.
+5. Apply **1.0.1**, **1.0.2**, **1.0.3**, and **1.0.4** in that order after setup completes, then start **OpenHW.exe**. Setup does not automatically start the game. The first launch detects your display resolution and refresh rate.
 
 All application-owned settings, saves, mods, exports and working files stay inside the OpenHW folder. `Development` contains setup work, diagnostics, logs, caches and receipts. Successful setup removes its temporary `SetupSources` and `SetupWork` conversion copies; a failed setup keeps work for recovery. Windows and graphics-driver system caches remain under those components' control.
 
@@ -153,6 +163,7 @@ Read the [editing guide](docs/EDITING_GUIDE.md), [modding guide](docs/MODDING.md
 - [Ship control and formation reference](docs/USER_GUIDE.md#ship-control)
 - [Military parade layouts](docs/MILITARY_PARADE_EDITOR.md)
 - [Known limitations and reporting](docs/LIMITATIONS.md)
+- [1.0.4 patch notes](RELEASE_NOTES_1.0.4.md)
 - [1.0.3 patch notes](RELEASE_NOTES_1.0.3.md)
 - [1.0.2 patch notes](RELEASE_NOTES_1.0.2.md)
 - [1.0.1 patch notes](RELEASE_NOTES_1.0.1.md)
@@ -160,7 +171,7 @@ Read the [editing guide](docs/EDITING_GUIDE.md), [modding guide](docs/MODDING.md
 - [Build OpenHW-Setup.exe from the complete source](BUILD_INSTALLER.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 
-Download **OpenHW-1.0.3-Source.zip** for the full cumulative working source from 1.0 through 1.0.3, including shaders, importers, tools, tests, reviewed release content and installer factory. Generated build caches and your retail data are not part of the source download. The build guide specifies the compiler, SDK and pinned dependencies.
+Download **OpenHW-1.0.4-Source.zip** for the full cumulative working source from 1.0 through 1.0.4, including shaders, importers, tools, tests, reviewed release content and installer factory. Generated build caches and your retail data are not part of the source download. The build guide specifies the compiler, SDK and pinned dependencies.
 
 ## Immediate future updates
 

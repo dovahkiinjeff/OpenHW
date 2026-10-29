@@ -14,7 +14,7 @@ First boot detects resolution and refresh rate rather than imposing the author's
 
 ## Patch installation order
 
-Install the original OpenHW base game, then apply **1.0.1**, **1.0.2**, and **1.0.3** to the same folder. Close both game executables before patching. See the [1.0.3 notes](../RELEASE_NOTES_1.0.3.md) for downloads and the complete changes.
+Install the original OpenHW base game, then apply **1.0.1**, **1.0.2**, **1.0.3**, and **1.0.4** to the same folder. Close both game executables before patching. See the [1.0.4 notes](../RELEASE_NOTES_1.0.4.md) for downloads and the complete changes.
 
 ## Recommended graphics settings
 
@@ -41,7 +41,7 @@ Select ships of **one type in a formation** to display Formation Spread. It chan
 
 Gameplay options include camera sensitivity, cursor scale, unlimited strike-craft fuel, orders while paused, ship weapon recoil, resource multiplier, ranks, mission-start launch behavior, FPS display, Disable SP Resource Scaling, Unlimited RUs and Restore Fog of War. Restore Fog of War restores original object visibility ranges instead of unlimited distant rendering; it is a saved local preference, defaults OFF and does not reset Sensor Manager exploration. Resource/fuel cheats are single-player options. Disable SP Resource Scaling keeps the authored maximum resource population instead of reducing it according to adaptive campaign scaling; it is separate from resource yield and unlimited currency.
 
-Fleet Identity offers hull base/stripe color, engine-emission override and player navigation-light controls. Fleet Control also contains Capture / Build All, Super Salvagers and Disable Unit Caps. Use these optional gameplay changes deliberately when playing the campaign.
+Fleet Identity offers hull base/stripe color, engine-emission override and player navigation-light controls. Fleet Control also contains Capture / Build All, Super Salvagers and Disable Unit Caps. In single-player, Super Salvagers prevents collision and kamikaze-impact damage to your salvage corvettes; they still take reduced weapon and explosion damage. Use these optional gameplay changes deliberately when playing the campaign.
 
 ## Ship control
 

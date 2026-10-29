@@ -3053,6 +3053,11 @@ bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoun
         ((Ship *)target)->playerowner == universe.curPlayerPtr &&
         ((Ship *)target)->shiptype == SalCapCorvette)
     {
+        /* Suppress all collision-origin damage, including a kamikaze impact.
+           Collision response and damage to the other object still run. */
+        if (damageHow == DEATH_Killed_By_Collision ||
+            damageHow == DEATH_Killed_By_Kamikaze)
+            return FALSE;
         /* Keep the canonical health bar / repair ceiling intact while making
            the craft survive exactly three times as much incoming damage. */
         damagetaken *= (1.0f / 3.0f);

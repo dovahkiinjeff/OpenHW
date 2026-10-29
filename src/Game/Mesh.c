@@ -3375,6 +3375,12 @@ void meshCurrentMaterialDefault(materialentry *material, sdword iColorScheme)
                     ? trStructureGet(neutral)->fileName : NULL;
                 if (source != NULL && strncmp(source, "DERELICTS\\", 10) == 0)
                     selected = neutral;
+                /* A Ghost Ship can draw under a mission or captured-player
+                   scheme that was not registered at mesh load. Its native
+                   neutral material is preferable to an untextured hull. */
+                else if (source != NULL &&
+                         strncasecmp(source, "TRADERS\\GHOSTSHIP\\RMNATIVE\\", 27) == 0)
+                    selected = neutral;
             }
             trMakeCurrent(selected);
         }
