@@ -411,6 +411,11 @@ int main(void)
         keyScanCode[CONTROLKEY].keypressed=1;shipPilotKey(SPACEKEY);
         CHECK(pilot.navigation==0 && pilot.throttle==0);
         keyScanCode[CONTROLKEY].keypressed=0;shipPilotExit();
+        stats.shipclass=CLASS_Corvette;CHECK(shipPilotCommandAvailable());
+        pilotEnter();CHECK(shipPilotActive() && !shipPilotCommandMode());
+        shipPilotKey(MKEY);CHECK(shipPilotCommandMode());shipPilotExit();
+        mousePositionSet(MAIN_WindowWidth-40,140);shipPilotMouse(RPE_ReleaseLeft,0);
+        CHECK(shipPilotCommandMode());shipPilotExit();
         stats.shipclass=CLASS_Fighter;CHECK(!shipPilotCommandAvailable());
     }
     /* Local skirmish uses both controls, just like campaign play. */
@@ -478,7 +483,8 @@ int main(void)
         shipPilotReceiveFrame(1,&frame);CHECK(networkPilots[1].ship==NULL); /* never steals new orders */
         /* Command navigation and per-gun toggles are also replicated. */
         remote.command=remote.formationcommand=NULL;remote.gunInfo=&guns;
-        remoteStats.shipclass=CLASS_Frigate;
+        remoteStats.shipclass=CLASS_Corvette;
+        tacticsInfo.BulletRangeBonus[Tactics_Corvette][remote.tacticstype]=1.0f;
         ship.flags=SOF_Targetable;ship.collInfo.collPosition.z=2000;
         frame.sequence=3;frame.action=PILOT_FRAME_BEGIN;frame.squad=FALSE;
         frame.commandMode=TRUE;frame.navigation=1;frame.navHeading.z=1;

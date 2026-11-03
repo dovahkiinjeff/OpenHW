@@ -54,7 +54,7 @@ void shipPilotReceiveFrame(sdword from,const ShipPilotFrame *frame)
     if(!s || s->playerowner->playerIndex!=from ||
        (s->flags&(SOF_Dead|SOF_Hide|SOF_Disabled|SOF_Hyperspace|SOF_NISShip|SOF_Crazy|SOF_Clamped)) || s->dockingship)return;
     if((frame->cockpit && s->staticinfo->shipclass!=CLASS_Fighter) ||
-       (frame->commandMode && s->staticinfo->shipclass>CLASS_Frigate))return;
+       (frame->commandMode && !pilotSupportsCommand(s)))return;
     if(!state->ship || state->id!=frame->ship) {
         SelectCommand one;
         CommandToDo *formation=frame->squad?pilotFormation(s):NULL;

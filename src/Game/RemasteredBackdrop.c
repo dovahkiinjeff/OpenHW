@@ -4,6 +4,7 @@
 #include "ModernGraphics.h"
 #include "MissionEnum.h"
 #include "BTG.h"
+#include "NIS.h"
 #include "BackdropMapPolicy.h"
 #include "glinc.h"
 #include "texreg.h"
@@ -48,9 +49,8 @@ void remasteredBackdropShutdown(void)
 
 static sdword backdropAssetMission(void)
 {
-    sdword mission = (sdword)spGetCurrentMission();
-    if (singlePlayerGame) return mission >= 1 && mission <= 16 ? mission : 0;
-    return hwBackdropAssetForName(btgLastBackground);
+    return hwBackdropRenderAsset(singlePlayerGame, (int)spGetCurrentMission(),
+        btgLastBackground, nisEnvironmentOverrideActive());
 }
 
 static bool32 loadBackdrop(sdword mission)
@@ -120,6 +120,20 @@ static bool32 loadBackdrop(sdword mission)
     loadedMission = mission;
     HW_DIAG_FPRINTF(stderr, "[RemasteredBackdrop] Mission %02d native sky + %u RM stars; BTG visuals bypassed.\n", mission, starCount);
     return TRUE;
+}
+
+bool32 remasteredBackdropPrepare(void)
+{
+    sdword mission = backdropAssetMission();
+#if HW_ENABLE_DIAGNOSTICS
+    Uint64 started = SDL_GetTicks64();
+    bool32 ready = mission != 0 && loadBackdrop(mission);
+    HW_DIAG_FPRINTF(stderr, "[MissionLoad] Remastered background %02d: %s in %llu ms.\n",
+        mission, ready ? "ready" : "fallback", (unsigned long long)(SDL_GetTicks64()-started));
+    return ready;
+#else
+    return mission != 0 && loadBackdrop(mission);
+#endif
 }
 
 bool32 remasteredBackdropRender(real32 fade)

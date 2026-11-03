@@ -9,6 +9,7 @@
 
 #include "MissionEnum.h"
 #include "BTG.h"
+#include "NIS.h"
 #include "BackdropMapPolicy.h"
 #include "MultiplayerGame.h"
 #include "File.h"
@@ -1625,7 +1626,9 @@ bool32 modernMissionBackdropRender(real32 fade)
        generated dual-paraboloid assets currently contain world-fixed radial
        lobes which cannot be repaired by widening the runtime hemisphere blend;
        returning FALSE here selects btgRender's normal compatibility path. */
-    if (mission == 0 || !mmbEnsureTexture(mission))
+    /* If a cinematic's Remastered sky is unavailable, let BTG draw the
+       requested scripted environment, not the unrelated mission atlas. */
+    if (nisEnvironmentOverrideActive() || mission == 0 || !mmbEnsureTexture(mission))
     {
         return FALSE;
     }

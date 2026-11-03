@@ -467,7 +467,7 @@ bool32 animAviPlay(sdword a, sdword b)
 
 #ifdef HW_ENABLE_MOVIES
 
-    char filename[1024], scriptname[1024];
+    char filename[1024], scriptname[1024], hdname[1024] = {0};
 //    void animBinkEnd(void);
     extern sdword trLitPaletteBits;
 
@@ -498,9 +498,11 @@ bool32 animAviPlay(sdword a, sdword b)
 #ifdef _WIN32
         sprintf(filename, "Movies\\%s.bik", animlisting[a].filename);
         sprintf(scriptname, "Movies\\%s.script", animlisting[a].filename);
+        snprintf(hdname, sizeof(hdname), "Movies\\HD\\%s.mp4", animlisting[a].filename);
 #else
         sprintf(filename, "Movies/%s.bik", animlisting[a].filename);
         sprintf(scriptname, "Movies/%s.script", animlisting[a].filename);
+        snprintf(hdname, sizeof(hdname), "Movies/HD/%s.mp4", animlisting[a].filename);
 #endif
         animScriptHeader = animLoadNISScript(scriptname);
     }
@@ -521,13 +523,28 @@ bool32 animAviPlay(sdword a, sdword b)
     universe.totaltimeelapsed = 0.0f;
 
     soundEventGetVolume(&animPreviousSFXVolume, &animPreviousSpeechVolume, &animPreviousMusicVolume);
-    rval = aviPlay(filename);
+    /* Remastered movies use the original frame-timed dialogue script. If an
+       optional HD movie is absent or cannot open, retain the retail movie. */
+    rval = FALSE;
+    if (hdname[0] && fileExists(hdname, FF_HomeworldDataPath | FF_IgnoreBIG))
+    {
+        rval = aviPlay(hdname);
+    }
+    if (!rval)
+    {
+        rval = aviPlay(filename);
+    }
 //                    animBinkDisplay,
 //                    animBinkDecode,
 //                    (trLitPaletteBits == 15) ? S_RGB555 : S_RGB565,
 //                    FALSE, -1);
 
     animAviEnd();
+
+    if (rval && b == MISSION_1_KHARAK_SYSTEM)
+    {
+        nisRevealOpeningAfterMovie();
+    }
 
 #endif   // HW_ENABLE_MOVIES
 

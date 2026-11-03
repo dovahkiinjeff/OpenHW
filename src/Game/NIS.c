@@ -8,6 +8,7 @@
 =============================================================================*/
 
 #include "NIS.h"
+#include "NisFadePolicy.h"
 
 #include <ctype.h>
 #include <float.h>
@@ -253,6 +254,7 @@ real32 nisBlackFade = 0.0f;                     //the current fade level (0 = no
 real32 nisBlackFadeDest = 0.0f;                 //what we're fading to
 real32 nisBlackFadeRate = 0.0f;                 //at what speed
 bool32 nisFullyScissored = FALSE;                 //is scissor fully opaque?
+static nisplaying *nisOpeningMovieFadeOwner = NULL;
 bool32 bCameraFocussed;                           //set to TRUE if the camera was focussed on command of the script file
 bool32 bPerfectFocusComputed;                     //set to TRUE when nisBlendCameraEndPoint called
 bool32 nisSeeking = FALSE;                        //set to TRUE during seeks
@@ -270,6 +272,12 @@ real32 nisUnivStartTime;
 //for changing environment zones
 char *nisPreviousLighting;
 char *nisPreviousBackground;
+
+bool32 nisEnvironmentOverrideActive(void)
+{
+    return nisIsRunning && nisPreviousBackground != NULL;
+}
+
 real32 nisPreviousTheta;
 real32 nisPreviousPhi;
 
@@ -455,15 +463,9 @@ DEFINE_TASK(nisUpdateTask)
         //fade to/from black
         if (nisBlackFade != nisBlackFadeDest)
         {
-            if (ABS(nisBlackFade - nisBlackFadeDest) <= UNIVERSE_UPDATE_PERIOD)
-            {                                           //if the end of the fade
-                nisBlackFade = nisBlackFadeDest;
-                nisBlackFadeRate = 0.0f;
-            }
-            else
-            {
-                nisBlackFade += nisBlackFadeRate * UNIVERSE_UPDATE_PERIOD;
-            }
+            nisBlackFade = hwNisFadeAdvance(nisBlackFade, nisBlackFadeDest,
+                nisBlackFadeRate, UNIVERSE_UPDATE_PERIOD);
+            if (nisBlackFade == nisBlackFadeDest) nisBlackFadeRate = 0.0f;
 
 #if NIS_VERBOSE_LEVEL >= 1
             dbgMessagef("fade level = %.2f", nisBlackFade);
@@ -867,9 +869,23 @@ Ship *nisNewObjectCreate(nisplaying *NIS, sdword index, nisheader *header, space
 ----------------------------------------------------------------------------*/
 void nisScissorBarsReset(void)
 {
+    nisOpeningMovieFadeOwner = NULL;
     nisBlackFade = nisBlackFadeDest = 0.0f;                 //no fade is the default
     nisFullyScissored = FALSE;
     nisScissorFadeIn = nisScissorFadeOut = nisScissorFadeTime = nisScissorFade = 0.0f;
+}
+
+/* Mission 1's opening NIS starts behind the history movie and asks for a
+   five/six second black hold. Reveal its already-loaded scene after the movie
+   instead, without advancing the NIS timeline or dispatching events early. */
+void nisRevealOpeningAfterMovie(void)
+{
+    if (thisNisPlaying == NULL || thisNisPlaying->timeElapsed > 0.1f ||
+        nisBlackFade < 0.99f)
+        return;
+    nisOpeningMovieFadeOwner = thisNisPlaying;
+    nisBlackFadeDest = 0.0f;
+    nisBlackFadeRate = -2.0f;
 }
 
 /*-----------------------------------------------------------------------------
@@ -1178,6 +1194,8 @@ void nisStop(nisplaying *NIS)
     Derelict *derelict = NULL;
     real32 currentSFXVolume, currentSpeechVolume, currentMusicVolume;
 
+    if (nisOpeningMovieFadeOwner == NIS)
+        nisOpeningMovieFadeOwner = NULL;
     dbgAssertOrIgnore(NIS != NULL);
     for (index = 0; index < NIS->nObjects; index++)
     {                                                       //for each ship
@@ -1398,6 +1416,7 @@ void nisStop(nisplaying *NIS)
         {
             lightParseHSF(nisPreviousLighting);
             memFree(nisPreviousLighting);
+            nisPreviousLighting = NULL;
         }
         if (nisPreviousBackground != NULL)
         {
@@ -1405,6 +1424,7 @@ void nisStop(nisplaying *NIS)
             btgSetPhi(nisPreviousPhi);
             btgLoad(nisPreviousBackground);
             memFree(nisPreviousBackground);
+            nisPreviousBackground = NULL;
         }
 
         nisBlackFade = nisBlackFadeDest = 0.0f;             //no fade is the default
@@ -2918,6 +2938,11 @@ void nisBlackFadeSet(nisplaying *NIS, nisevent *event)
 #if NIS_VERBOSE_LEVEL >= 1
     dbgMessagef("Setting fade level to %.2f", SdwordToReal32(event->param[0]));
 #endif
+    /* Some opening scripts repeat fadeSet at frame 1. Do not restart the
+       post-movie reveal; later and unrelated fades keep their authored rules. */
+    if (NIS == nisOpeningMovieFadeOwner && event->time <= 0.1f &&
+        SdwordToReal32(event->param[0]) >= 0.99f)
+        return;
     nisBlackFade = nisBlackFadeDest = SdwordToReal32(event->param[0]);
 }
 void nisBlackFadeTo(nisplaying *NIS, nisevent *event)
@@ -2925,8 +2950,14 @@ void nisBlackFadeTo(nisplaying *NIS, nisevent *event)
 #if NIS_VERBOSE_LEVEL >= 1
     dbgMessagef("Fading to level %.2f over %.2f seconds", SdwordToReal32(event->param[0]), SdwordToReal32(event->param[1]));
 #endif
+    real32 duration = SdwordToReal32(event->param[1]);
     nisBlackFadeDest = SdwordToReal32(event->param[0]);
-    nisBlackFadeRate = (SdwordToReal32(event->param[0]) - nisBlackFade) / SdwordToReal32(event->param[1]);
+    if (duration <= 0.0f)
+    {
+        nisBlackFade = nisBlackFadeDest;
+        nisBlackFadeRate = 0.0f;
+    }
+    else nisBlackFadeRate = (nisBlackFadeDest - nisBlackFade) / duration;
 }
 void nisColorScheme(nisplaying *NIS, nisevent *event)
 {
@@ -3239,6 +3270,8 @@ void nisNewEnvironment(nisplaying *NIS, nisevent *event)
     if (nisPreviousBackground == NULL)
     {
         nisPreviousBackground = memStringDupeNV(btgLastBackground);
+        nisPreviousTheta = btgGetTheta();
+        nisPreviousPhi = btgGetPhi();
     }
     if (nisPreviousLighting == NULL)
     {
@@ -3249,8 +3282,6 @@ void nisNewEnvironment(nisplaying *NIS, nisevent *event)
 #else
     sprintf(path, "BTG/%s.btg", env->name);                //load the background
 #endif
-    nisPreviousTheta = btgGetTheta();
-    nisPreviousPhi = btgGetPhi();
     btgSetTheta(env->theta);
     btgSetPhi(env->phi);
     btgLoad(path);

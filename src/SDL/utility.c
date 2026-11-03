@@ -45,6 +45,8 @@
 #include "Globals.h"
 #include "Gun.h"
 #include "HorseRace.h"
+#include "ModernMissionBackdrop.h"
+#include "RemasteredBackdrop.h"
 #include "HS.h"
 #include "InfoOverlay.h"
 #include "Key.h"
@@ -2128,6 +2130,12 @@ void gameStart(char *loadfilename)
     }
     HorseRaceLoadingPhaseBegin(HR_LOAD_FINALIZE, "Finalizing textures and mission handoff");
     HorseRaceLoadingRefresh();
+    HorseRaceLoadingTask("Preparing mission sky and lighting");
+    HorseRaceLoadingRefreshNow();
+    modernMissionBackdropPrepare();
+    HorseRaceLoadingTask("Loading Remastered background scene");
+    HorseRaceLoadingRefreshNow();
+    remasteredBackdropPrepare();
     etgFixupUV();
     utySet(SSA_RegistryRefreshed);
 
@@ -2172,6 +2180,8 @@ abortloading:
     cameraJoystickReset();
 
     gameIsRunning = TRUE;
+    if (!hrAbortLoadingGame)
+        HorseRaceWarmupScene();
     if (!hrAbortLoadingGame)
         HorseRaceLoadingPhaseComplete(HR_LOAD_FINALIZE);
 }
@@ -3694,8 +3704,8 @@ void utyGrowthHeapFree(void *heap)
 char *utyMissingCDMessages[] =
 {
     "Invalid or missing Homeworld CD. Please insert valid CD.",
-    "CD Homeworld non valide. Veuillez insérer un CD valide.",
-    "Ungültige oder fehlende Homeworld-CD. Bitte gültige CD einlegen.",
+    "CD Homeworld non valide. Veuillez insÃ©rer un CD valide.",
+    "UngÃ¼ltige oder fehlende Homeworld-CD. Bitte gÃ¼ltige CD einlegen.",
     "El CD de Homeworld no es correcto o no se encuentra en la unidad. Introduce el CD correcto.",
     "CD di Homeworld mancante o non valido. Inserisci un CD valido.",
 };
@@ -3703,15 +3713,15 @@ char *utyInvalidCDMessages[] =
 {
     "Invalid Homeworld CD.",
     "CD Homeworld invalide.",
-    "Ungültige Homeworld-CD.",
+    "UngÃ¼ltige Homeworld-CD.",
     "CD de Homeworld incorrecto.",
     "CD di Homeworld non valido.",
 };
 char *utyCannotOpenFileMessages[] =
 {
     "Unable to open file: %s",
-    "Impossible d’ouvrir le fichier: %s",
-    "Datei kann nicht geöffnet werden: %s",
+    "Impossible dâ€™ouvrir le fichier: %s",
+    "Datei kann nicht geÃ¶ffnet werden: %s",
     "Imposible abrir archivo: %s",
     "Impossibile aprire il file: %s",
 };

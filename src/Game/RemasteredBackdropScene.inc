@@ -165,7 +165,8 @@ static int loadScene(sdword mission, const char *root)
     SDL_free(bytes);trClearCurrent();
     if(r.failed || r.left || !loadFlares(mission,root))
     { HW_DIAG_FPRINTF(stderr,"[RemasteredScene] Mission %02d scene/material/flare validation failed: %s (remaining=%llu).\n",mission,path,(unsigned long long)r.left);releaseScene();return 0; }
-    sceneStartTicks=SDL_GetTicks64();
+    /* Loading can happen before gameplay; start animation on the first draw. */
+    sceneStartTicks=0;
     HW_DIAG_FPRINTF(stderr,"[RemasteredScene] Mission %02d: %u material draws, %u textures, %u programs.\n",
         mission,draws,textures,programs);
     return 1;
@@ -173,7 +174,10 @@ static int loadScene(sdword mission, const char *root)
 
 static void renderScene(float fade)
 {
-    unsigned int i,j;double elapsed=(SDL_GetTicks64()-sceneStartTicks)*.001;
+    unsigned int i,j;double elapsed;
+    Uint64 now=SDL_GetTicks64();
+    if (!sceneStartTicks) sceneStartTicks=now ? now : 1;
+    elapsed=now >= sceneStartTicks ? (now-sceneStartTicks)*.001 : 0;
     if(sceneDrawCount)glClear(GL_DEPTH_BUFFER_BIT);
     for(i=0;i<sceneDrawCount;++i)
     {

@@ -8186,6 +8186,7 @@ extern "C" void hwModernGraphicsEndFrame(void)
             gpuQueryBase + 0u);
 
     ID3D12Resource *rayEnvironmentResource = presenter.backgroundTexture.Get();
+    bool deferRayUntilSkyReady = false;
 #ifdef HW_ENABLE_D3D12_NATIVE_RASTER
     /* Bind DXR environment lighting to the same world-space BC6H mission sky
        used by the visible native backdrop. This removes the old camera-screen
@@ -8229,6 +8230,10 @@ extern "C" void hwModernGraphicsEndFrame(void)
     }
     if (!rayEnvironmentIsDualParaboloid)
     {
+        /* The native sky texture is uploaded during raster replay, after this
+           point. On its first frame the fallback background has not been
+           populated yet; do not trace against that uninitialized texture. */
+        deferRayUntilSkyReady = presenter.missionSkyTextureName != 0;
         D3D12_SHADER_RESOURCE_VIEW_DESC environmentSrv = {};
         environmentSrv.Shader4ComponentMapping =
             D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -8276,7 +8281,7 @@ extern "C" void hwModernGraphicsEndFrame(void)
     hwmodern::FrameJob rayJob(rayPreparationWorker,[&] {
         rayWorkerId=GetCurrentThreadId();
 #if defined(HW_ENABLE_D3D12_BACKEND)
-        if (presenter.worldFrameCaptured) {
+        if (presenter.worldFrameCaptured && !deferRayUntilSkyReady) {
             const auto started=performanceClockNow();
             rayReconstructionEligibleThisFrame=requestedRayReconstruction &&
                 requestedAntiAliasingMode>=HW_MODERN_AA_DLSS_QUALITY &&

@@ -91,6 +91,38 @@ HWWindowsSplashSnapshot example()
     return snapshot;
 }
 
+void releasedArtworkLayoutTests()
+{
+    wchar_t temp[MAX_PATH] = {}, name[MAX_PATH] = {};
+    require(GetTempPathW(MAX_PATH, temp) != 0 && GetTempFileNameW(temp, L"hws", 0, name) != 0,
+        "create isolated artwork fixture path");
+    require(DeleteFileW(name) && CreateDirectoryW(name, nullptr), "create artwork fixture directory");
+    const std::wstring base(name), ui = base + L"\\ui", data = base + L"\\Data", dataUi = data + L"\\UI";
+    require(CreateDirectoryW(ui.c_str(), nullptr) && CreateDirectoryW(data.c_str(), nullptr) &&
+        CreateDirectoryW(dataUi.c_str(), nullptr), "create release and legacy folders");
+    auto write = [](const std::wstring &path, char value) {
+        HANDLE h = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
+        if (h == INVALID_HANDLE_VALUE) return false;
+        DWORD written = 0;
+        const bool ok = WriteFile(h, &value, 1, &written, nullptr) && written == 1;
+        CloseHandle(h); return ok;
+    };
+    const auto rootFile = base + L"\\startup_splash.png";
+    const auto uiFile = ui + L"\\startup_splash.png";
+    const auto legacyFile = dataUi + L"\\startup_splash.png";
+    std::vector<unsigned char> bytes;
+    require(!readArtworkFile(base, bytes), "missing artwork falls back safely");
+    require(write(legacyFile, 'd') && readArtworkFile(base, bytes) && bytes[0] == 'd',
+        "legacy Data/UI artwork loads");
+    require(write(rootFile, 'r') && readArtworkFile(base, bytes) && bytes[0] == 'r',
+        "root artwork loads before legacy fallback");
+    require(write(uiFile, 'u') && readArtworkFile(base, bytes) && bytes[0] == 'u',
+        "released ui artwork takes precedence");
+    require(DeleteFileW(uiFile.c_str()) && DeleteFileW(rootFile.c_str()) && DeleteFileW(legacyFile.c_str()) &&
+        RemoveDirectoryW(ui.c_str()) && RemoveDirectoryW(dataUi.c_str()) &&
+        RemoveDirectoryW(data.c_str()) && RemoveDirectoryW(base.c_str()), "remove artwork fixture");
+}
+
 void drawingTests(const char *directory)
 {
     SplashState state;
@@ -193,6 +225,7 @@ extern "C" void hwWindowsSplashGetSnapshot(HWWindowsSplashSnapshot *snapshot)
 int main(int argc, char **argv)
 {
     require(argc == 2, "artifact output argument");
+    releasedArtworkLayoutTests();
     drawingTests(argv[1]);
     lifecycleCycle(true); // Warm the process-local font/window-class caches.
     const DWORD baselineGdi = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);

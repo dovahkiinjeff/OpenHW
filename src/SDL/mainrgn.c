@@ -5788,6 +5788,9 @@ void mrRegionDraw(regionhandle reg)
 
     if ((!mrRenderMainScreen) || nisBlackFade == 1.0f)
     {
+        /* A fully faded cinematic must be black, not the level's clear color. */
+        if (nisBlackFade == 1.0f)
+            rndClearToBlack();
         if (nisIsRunning && nisFullyScissored && rndScissorEnabled)
         {
             glEnable(GL_SCISSOR_TEST);

@@ -26,6 +26,14 @@ static int hwBackdropAssetForName(const char *path)
     return mission>=1 && mission<=16 ? mission : 0;
 }
 
+/* A scripted cinematic environment must override the mission backdrop. Unknown
+   environments return zero so the original BTG remains the safe fallback. */
+static int hwBackdropRenderAsset(int story, int mission, const char *background, int cinematicEnvironment)
+{
+    if (cinematicEnvironment || !story) return hwBackdropAssetForName(background);
+    return mission >= 1 && mission <= 16 ? mission : 0;
+}
+
 static int hwBackdropContext(int story, int mission, const char *map, const char *background)
 {
     unsigned int hash=2166136261u;

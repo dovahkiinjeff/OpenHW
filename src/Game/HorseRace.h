@@ -94,5 +94,9 @@ void HorseRaceLoadingTask(const char *task);
 void HorseRaceLoadingProgress(unsigned int completed, unsigned int total, const char *task);
 /* Render-thread-only, safe loader boundaries. Throttled and reentry guarded. */
 void HorseRaceLoadingRefresh(void);
+/* Show a new loading task immediately before blocking work begins. */
+void HorseRaceLoadingRefreshNow(void);
+/* Prepare the first rendered campaign view while the loading screen is up. */
+void HorseRaceWarmupScene(void);
 
 #endif

@@ -80,11 +80,20 @@ bool readFile(const std::wstring &path, std::vector<unsigned char> &bytes)
     return ok;
 }
 
+bool readArtworkFile(const std::wstring &base, std::vector<unsigned char> &file)
+{
+    /* Release installs put UI artwork beside the executable under ui/.
+       Keep the root and older loose-data locations as compatible fallbacks. */
+    return readFile(base + L"\\ui\\startup_splash.png", file) ||
+           readFile(base + L"\\startup_splash.png", file) ||
+           readFile(base + L"\\Data\\UI\\startup_splash.png", file);
+}
+
 bool loadArtwork(SplashState &state)
 {
     const std::wstring base = executableDirectory();
     std::vector<unsigned char> file;
-    if (!readFile(base + L"\\Data\\UI\\startup_splash.png", file) &&
+    if (!readArtworkFile(base, file) &&
         !readFile(base + L"\\..\\..\\..\\..\\assets\\UI\\startup_splash.png", file))
         return false;
     int channels = 0;

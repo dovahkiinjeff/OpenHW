@@ -186,9 +186,10 @@ static int speRings(int draw,int x,int y){int axis,segment,bestAxis=-1;float bes
 #include "ShipEditorFile.inc"
 #include "ShipEditorSubsystem.inc"
 #include "ShipEditorEvents.inc"
+#define SPE_MIN_ZOOM_DISTANCE 0.000001f /* Avoid division by zero without a practical close-up limit. */
 static void speDraw(void){static const char*buttons[]={"BACK","SAVE","LOAD","UNDO","REDO","MOVE / ROTATE","FRAME","ADD POINT","REMOVE","IMPORT OBJ","NEW / SAVE AS","SHIP FILE","SUBSYSTEM","EVENT FILE","SAVE MOD","APPEND TO MOD"};static const char*fields[]={"POSITION X","POSITION Y","POSITION Z","ROTATION X","ROTATION Y","ROTATION Z","RED","GREEN","BLUE","SIZE"};
  rectangle whole=muiRect(0,0,MAIN_WindowWidth,MAIN_WindowHeight),row;char text[180];int i;ShipAuthorPoint*p=spePoint();
- {Uint32 now=SDL_GetTicks();float dt=fminf((now-mpe.cameraTick)*.001f,.25f),distance=1/mpe.zoom;mpe.cameraTick=now;distance+=(mpe.zoomTarget-distance)*(1-expf(-fmaxf(1,CAMERA_WHEEL_ZOOM_RESPONSE)*dt));mpe.zoom=1/muiClampF(distance,.25f,1000);if(mpe.cameraCaptured&&!mouseRightButton())mpeReleaseCamera();}
+ {Uint32 now=SDL_GetTicks();float dt=fminf((now-mpe.cameraTick)*.001f,.25f),distance=1/mpe.zoom;mpe.cameraTick=now;distance+=(mpe.zoomTarget-distance)*(1-expf(-fmaxf(1,CAMERA_WHEEL_ZOOM_RESPONSE)*dt));mpe.zoom=1/muiClampF(distance,SPE_MIN_ZOOM_DISTANCE,1000);if(mpe.cameraCaptured&&!mouseRightButton())mpeReleaseCamera();}
  speLayout();muiFill(&whole,colRGB(5,12,18));muiText(uiScaleSize(20),uiScaleSize(20),muiPaper,"MODDING / SHIP EDITOR / AUTHORING PREVIEW",muiHeadingFont);for(i=0;i<16;i++)muiDrawButtonRect(&speButtons[i],i==5?(mpe.rotateMode?"ROTATE (R)":"MOVE (G)"):buttons[i],i==5&&mpe.rotateMode,muiPointIn(&speButtons[i],mouseCursorX(),mouseCursorY()));
  muiFill(&mpeList,muiSurface);muiFill(&mpeView,colRGB(9,15,24));muiFill(&mpeInspector,muiSurface);speRender();
  snprintf(text,sizeof(text),"SHIP: %s / %s v",ShipRaceToStr(spe.doc.race),ShipTypeToNiceStr(spe.doc.type));muiDrawButtonRect(&speSource,text,spe.dropdown,muiPointIn(&speSource,mouseCursorX(),mouseCursorY()));
@@ -269,7 +270,7 @@ static udword speProcess(smemsize ID,udword event){int x=mouseCursorX(),y=mouseC
   if(ID==ESCKEY){if((spe.dirty||speFilePending())&&!spe.discard){spe.discard=1;speStatus("ESC AGAIN TO DISCARD PROJECT AND SHIP FILE / OR SAVE");return RPR_Redraw;}speClose();mpeFreeMeshes();mpe.stage=1;return RPR_Redraw;}
   if(keyIsHit(CONTROLKEY)){if(ID==SKEY)speAction(1);if(ID==ZKEY)speAction(3);if(ID==YKEY)speAction(4);if(ID==CKEY)speAction(11);if(ID==VKEY)speAction(12);if(ID==DKEY&&spe.selected>=0){speAction(11);speAction(12);}}else if(ID==GKEY)mpe.rotateMode=0;else if(ID==TKEY||ID==RKEY)mpe.rotateMode=1;else if(ID==FKEY)speFrame();else if(ID==SPACEKEY&&p){p->enabled=!p->enabled;speCheckpoint();}return RPR_Redraw;
  }
- if(event==RPE_WheelUp||event==RPE_WheelDown){int d=event==RPE_WheelUp?-1:1;if(spe.dropdown)spe.dropScroll=muiClamp(spe.dropScroll+d,0,spe.sourceCount>12?spe.sourceCount-12:0);else if(muiPointIn(&mpeList,x,y))spe.scroll=muiClamp(spe.scroll+d,0,speTree.count?speTree.count-1:0);else if(muiPointIn(&mpeView,x,y))mpe.zoomTarget=muiClampF(mpe.zoomTarget*cameraWheelZoomFactor(d<0),.25f,1000);return RPR_Redraw;}
+ if(event==RPE_WheelUp||event==RPE_WheelDown){int d=event==RPE_WheelUp?-1:1;if(spe.dropdown)spe.dropScroll=muiClamp(spe.dropScroll+d,0,spe.sourceCount>12?spe.sourceCount-12:0);else if(muiPointIn(&mpeList,x,y))spe.scroll=muiClamp(spe.scroll+d,0,speTree.count?speTree.count-1:0);else if(muiPointIn(&mpeView,x,y))mpe.zoomTarget=muiClampF(mpe.zoomTarget*cameraWheelZoomFactor(d<0),SPE_MIN_ZOOM_DISTANCE,1000);return RPR_Redraw;}
  if(event==RPE_PressRight||event==RPE_PressCentre){if(muiPointIn(&mpeView,x,y)){speCommit();if(event==RPE_PressRight){mpe.drag=3;mpe.cameraCaptured=1;mpe.cursorX=x;mpe.cursorY=y;mouseCursorHide();mouseClipToRect(&mpeView);x=(mpeView.x0+mpeView.x1)/2;y=(mpeView.y0+mpeView.y1)/2;mousePositionSet(x,y);}else mpe.drag=2;mpe.lastX=x;mpe.lastY=y;}return RPR_Redraw;}
  if(mpe.cameraCaptured&&(event==RPE_PressLeft||event==RPE_ReleaseLeft))return RPR_Redraw;
  if(event==RPE_PressLeft){speCommit();
@@ -288,7 +289,7 @@ static udword speProcess(smemsize ID,udword event){int x=mouseCursorX(),y=mouseC
  }
  if(mpe.drag&&(event==RPE_HoldLeft||event==RPE_HoldRight||event==RPE_HoldCentre)){
   if(mpe.drag==2){mpe.panX+=dx;mpe.panY+=dy;}
-  if(mpe.drag==3){Camera camera={0};int cx=(mpeView.x0+mpeView.x1)/2,cy=(mpeView.y0+mpeView.y1)/2;camera.angle=(-90-mpe.yaw)*.01745329252f;camera.declination=(-90-mpe.pitch)*.01745329252f;camera.distance=1/mpe.zoom;camera.closestZoom=.25f;camera.farthestZoom=1000;cameraMouseDrag(&camera,cx-x,cy-y,mouseLeftButton(),FALSE);mpe.yaw=-90-camera.angle*57.29577951f;mpe.pitch=-90-camera.declination*57.29577951f;if(mouseLeftButton()){mpe.zoom=1/camera.distance;mpe.zoomTarget=camera.distance;}mousePositionSet(cx,cy);x=cx;y=cy;}
+  if(mpe.drag==3){Camera camera={0};int cx=(mpeView.x0+mpeView.x1)/2,cy=(mpeView.y0+mpeView.y1)/2;camera.angle=(-90-mpe.yaw)*.01745329252f;camera.declination=(-90-mpe.pitch)*.01745329252f;camera.distance=1/mpe.zoom;camera.closestZoom=SPE_MIN_ZOOM_DISTANCE;camera.farthestZoom=1000;cameraMouseDrag(&camera,cx-x,cy-y,mouseLeftButton(),FALSE);mpe.yaw=-90-camera.angle*57.29577951f;mpe.pitch=-90-camera.declination*57.29577951f;if(mouseLeftButton()){mpe.zoom=1/camera.distance;mpe.zoomTarget=camera.distance;}mousePositionSet(cx,cy);x=cx;y=cy;}
   if(p&&mpe.drag==4){float a[3],v[3],denom;speAxis(spe.selected,mpe.axis,1,a);mpeViewRotate(a,v);denom=v[0]*v[0]+v[1]*v[1];if(denom>.0001f)p->position[mpe.axis]=muiClampF(p->position[mpe.axis]+(dx*v[0]-dy*v[1])/(mpe.zoom*denom),-1000000,1000000);spe.dirty=1;}
   if(p&&mpe.drag==5){shipAuthorRotateLocal(&spe.doc,spe.selected,mpe.axis,(dx*spe.rotateTangentX+dy*spe.rotateTangentY)*57.29577951f/spe.rotatePixels);spe.dirty=1;}
  }

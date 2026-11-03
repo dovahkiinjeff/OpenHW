@@ -31,6 +31,8 @@
 #include "LinkedList.h"
 #include "main.h"
 #include "Memory.h"
+#include "mainrgn.h"
+#include "ModernMapEditor.h"
 #include "mouse.h"
 #include "MultiplayerGame.h"
 #include "NIS.h"
@@ -48,6 +50,7 @@
 #include "UIControls.h"
 #include "uiscale.h"
 #include "Universe.h"
+#include "UnivUpdate.h"
 #include "utility.h"
 #include "MissionLoadProgress.h"
 
@@ -101,6 +104,7 @@ static fonthandle hrModernBodyFont;
 static sdword JustInit;
 static sdword localbar;
 static bool32 hrLoadingDrawInProgress = FALSE;
+static bool32 hrWarmupNextRender = FALSE;
 static Uint64 hrLoadingLastDraw = 0;
 
 // Pixels and info about the background image chosen
@@ -172,6 +176,13 @@ static double hrLoadingSeconds(void)
 }
 
 #include "LoadingProgressBridge.inc"
+
+void HorseRaceLoadingRefreshNow(void)
+{
+    if (!hrRunning || hrLoadingDrawInProgress) return;
+    hrDirtyProgressBar();
+    horseRaceRender();
+}
 
 void HorseRaceLoadingRefresh(void)
 {
@@ -383,7 +394,9 @@ static void hrDrawLoadingPanel(void)
             loading.currentPhase < HW_MISSION_LOAD_PHASE_COUNT ? stages[loading.currentPhase] : "PREPARING MISSION");
         hrLoadingPrintFit(x, y, textWidth, colRGB(105, 184, 196), line);
         y += lineHeight;
-        hrLoadingPrintFit(x, y, textWidth, colRGB(225, 222, 206), loading.task);
+        hrLoadingPrintFit(x, y, textWidth, colRGB(225, 222, 206),
+            loading.phasesComplete == loading.totalPhases ?
+            "Mission data ready; preparing the first game frame" : loading.task);
         y += lineHeight;
         hrLoadingElapsed(hrLoadingSeconds() - loading.startedSeconds, elapsed, sizeof(elapsed));
         hrLoadingElapsed(hrLoadingSeconds() - loading.taskStartedSeconds, taskElapsed, sizeof(taskElapsed));
@@ -417,9 +430,12 @@ static void hrDrawLoadingPanel(void)
             hrLoadingPrintFit(x, y, textWidth, colRGB(143, 157, 157), loading.history[row]);
             y += lineHeight;
         }
-        snprintf(line, sizeof(line), "%u.%02u%% WORK COMPLETED  /  %u OF %u PHASES COMPLETE",
-            loading.percentHundredths / 100, loading.percentHundredths % 100,
-            loading.phasesComplete, loading.totalPhases);
+        if (loading.phasesComplete == loading.totalPhases)
+            snprintf(line, sizeof(line), "MISSION DATA READY / PRESENTING FIRST FRAME");
+        else
+            snprintf(line, sizeof(line), "%u.%02u%% TRACKED LOADING WORK / %u OF %u PHASES COMPLETE",
+                loading.percentHundredths / 100, loading.percentHundredths % 100,
+                loading.phasesComplete, loading.totalPhases);
         hrLoadingPrintFit(x, y, textWidth, colRGB(225, 222, 206), line);
         bar.x0 = x;
         bar.x1 = panel.x1 - padding;
@@ -1245,6 +1261,20 @@ void horseRaceRender(void)
        window (Alt-Tab). */
     hwModernGraphicsBeginFrame((unsigned int)MAIN_WindowWidth,
                                (unsigned int)MAIN_WindowHeight);
+
+    if (hrWarmupNextRender)
+    {
+        Camera *savedCamera = mrCamera;
+        Camera *sourceCamera = (nisCaptureCamera && nisCamera) ? nisCamera :
+            &universe.mainCameraCommand.actualcamera;
+        Camera warmCamera = *sourceCamera;
+        hrWarmupNextRender = FALSE;
+        modernMapEditorUpdateEnvironment();
+        univUpdateRenderList();
+        mrCamera = &warmCamera;
+        rndMainViewRenderFunction(&warmCamera);
+        mrCamera = savedCamera;
+    }
 #endif
 
     regRenderEventIndex = 0;
@@ -1439,6 +1469,35 @@ void horseRaceRender(void)
 #endif
     primErrorMessagePrint();
     hrLoadingDrawInProgress = FALSE;
+}
+
+void HorseRaceWarmupScene(void)
+{
+#ifdef HW_ENABLE_D3D12_BACKEND
+#if HW_ENABLE_DIAGNOSTICS
+    Uint64 startTicks;
+#endif
+    if (!hrRunning || hrLoadingDrawInProgress || hrAbortLoadingGame ||
+        !gameIsRunning || !singlePlayerGame)
+        return;
+#if HW_ENABLE_DIAGNOSTICS
+    startTicks = SDL_GetTicks64();
+    dbgMessagef("[MissionLoad] Preparing first mission scene behind loading screen.");
+#endif
+    HorseRaceLoadingTask("Preparing mission graphics");
+    HorseRaceLoadingRefreshNow();
+    hrWarmupNextRender = TRUE;
+    horseRaceRender();
+    /* The first replay uploads the sky; the second can safely prepare the
+       path-traced scene with that sky resident. */
+    hrWarmupNextRender = TRUE;
+    horseRaceRender();
+    hrWarmupNextRender = FALSE;
+#if HW_ENABLE_DIAGNOSTICS
+    dbgMessagef("[MissionLoad] First mission scene preparation complete in %llu ms.",
+        (unsigned long long)(SDL_GetTicks64() - startTicks));
+#endif
+#endif
 }
 
 //function that returns the doctored percentage for conversion of

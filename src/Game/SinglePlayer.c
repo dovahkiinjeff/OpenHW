@@ -28,6 +28,8 @@
 #include "GravWellGenerator.h"
 #include "Globals.h"
 #include "HorseRace.h"
+#include "ModernMissionBackdrop.h"
+#include "RemasteredBackdrop.h"
 #include "HS.h"
 #include "InfoOverlay.h"
 #include "LaunchMgr.h"
@@ -2204,7 +2206,7 @@ void spHyperspaceButtonPushed(void)
                 if (resourcesLeft > 0) {
                     char *resources_collected_strings[] = {
                         "Resources collected",
-                        "Ressources collect�es",
+                        "Ressources collectï¿½es",
                         "Ressourcen gesammelt",
                         "Los recursos recaudados",
                         "Le risorse raccolte",
@@ -3253,12 +3255,20 @@ void singlePlayerLoadNewLevel(void)
     {
         HorseRaceLoadingPhaseBegin(HR_LOAD_FINALIZE, "Completing the mission loading handoff");
         HorseRaceLoadingRefresh();
+        HorseRaceLoadingTask("Preparing mission sky and lighting");
+        HorseRaceLoadingRefreshNow();
+        modernMissionBackdropPrepare();
+        HorseRaceLoadingTask("Loading Remastered background scene");
+        HorseRaceLoadingRefreshNow();
+        remasteredBackdropPrepare();
     }
 
 abortload:
     //start the sound engine playing again
     soundEventPause(FALSE);
 
+    if (!hrAbortLoadingGame)
+        HorseRaceWarmupScene();
     if (!hrAbortLoadingGame)
         HorseRaceLoadingPhaseComplete(HR_LOAD_FINALIZE);
 

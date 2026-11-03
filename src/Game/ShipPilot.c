@@ -75,6 +75,8 @@ static void pilotSendInput(ubyte action);
 static void pilotUpdateSimulation(void);
 static bool32 pilotSessionValid(const ShipPilotState *state);
 static bool32 pilotStateControls(const ShipPilotState *state,const Ship *ship);
+static bool32 pilotSupportsCommand(const Ship *ship)
+{ return ship && ship->staticinfo && ship->staticinfo->shipclass<=CLASS_Corvette; }
 static uword pilotInputBit(sdword key)
 {
     switch(key) {
@@ -183,7 +185,7 @@ static void pilotCeaseFire(void) { if(pilot.weapons) memset(pilot.weapons,0,pilo
 bool32 shipPilotWeaponActive(sdword index)
 { return !pilot.commandMode || (index>=0 && index<pilot.weaponCount && pilot.weapons[index]); }
 bool32 shipPilotCommandAvailable(void)
-{ return shipPilotCanEnter() && selSelected.ShipPtr[0]->staticinfo->shipclass<=CLASS_Frigate; }
+{ return shipPilotCanEnter() && pilotSupportsCommand(selSelected.ShipPtr[0]); }
 bool32 shipPilotCockpitAvailable(void) { return pilot.ship && pilot.ship->staticinfo->shipclass==CLASS_Fighter; }
 static CommandToDo *pilotFormation(Ship *s)
 {
@@ -379,7 +381,7 @@ bool32 shipPilotKey(sdword key)
     if(!shipPilotActive()) return FALSE;
     pilotThrottleUpdate();
     if(key==PAUSEKEY || key==PKEY) return FALSE;
-    if(key==MKEY && !pilot.modeDown && pilot.ship->staticinfo->shipclass<=CLASS_Frigate)
+    if(key==MKEY && !pilot.modeDown && pilotSupportsCommand(pilot.ship))
     { pilot.modeDown=TRUE;pilot.commandMode=!pilot.commandMode;pilot.navigation=0;pilot.throttle=0;pilotCeaseFire(); }
     if(pilot.commandMode)
     {

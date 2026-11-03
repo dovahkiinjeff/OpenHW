@@ -38,6 +38,7 @@ class BackgroundAlwaysOn(unittest.TestCase):
     def test_production_background_and_metadata_lifecycle(self):
         backdrop = (ROOT / 'src/Game/ModernMissionBackdrop.c').read_text()
         render = (ROOT / 'src/SDL/render.c').read_text()
+        remastered = (ROOT / 'src/Game/RemasteredBackdrop.c').read_text()
         header = (ROOT / 'src/Game/ModernMissionBackdrop.h').read_text()
         header = header.replace('#include "Types.h"', '')
         globals_start = backdrop.index('static GLuint mmbTexture;')
@@ -74,6 +75,11 @@ typedef float real32;
         harness += header + '\n' + backdrop[globals_start:globals_end]
         harness += r'''
 static int currentMission, gameIsRunning, showBackgrounds;
+static int cinematicEnvironment;
+static int nisEnvironmentOverrideActive(void) { return cinematicEnvironment; }
+static int prewarmMission, prewarmCalls, prewarmSuccess;
+static int backdropAssetMission(void) { return prewarmMission; }
+static int loadBackdrop(int mission) { ++prewarmCalls; return prewarmSuccess && mission != 0; }
 static int singlePlayerGame = TRUE;
 static char btgLastBackground[128];
 static int loads, metadataLoads, uploads, btgDraws, modernDraws, starDraws;
@@ -178,6 +184,12 @@ int main(void) {
     currentMission=1;mmbPackedSkyVisualsEnabled=TRUE;before=modernDraws;
     rndBackgroundRender(1,&camera,TRUE);
     CHECK(modernDraws==before+1 && modernMissionBackdropLightingAuthoringGet(&authoring));
+    /* When the native cinematic sky cannot render, use its BTG, never the
+       unrelated campaign atlas, while retaining gameplay authoring data. */
+    currentMission=11;cinematicEnvironment=1;before=btgDraws;
+    rndBackgroundRender(1,&camera,TRUE);
+    CHECK(btgDraws==before+1);
+    cinematicEnvironment=0;
     /* First-use failures retain the authentic BTG; preparation is not retried
        every frame and never falsely advertises authoring readiness. */
     for(mission=2;mission<=5;++mission) {
@@ -218,6 +230,23 @@ int main(void) {
     return 0;
 }
 '''
+        # Exercise the actual prewarm entry point and confirm both loader paths
+        # perform it before closing the loading screen.
+        prepare = function(remastered, 'bool32 remasteredBackdropPrepare(void)')
+        harness = harness.replace("/* BTG's graphics boundary", prepare + "\n/* BTG's graphics boundary", 1)
+        harness = harness.replace('    gameIsRunning=TRUE;',
+            '    prewarmMission=1;prewarmSuccess=1;CHECK(remasteredBackdropPrepare() && prewarmCalls==1);\n'
+            '    prewarmMission=0;CHECK(!remasteredBackdropPrepare() && prewarmCalls==1);\n'
+            '    prewarmMission=1;prewarmSuccess=0;CHECK(!remasteredBackdropPrepare() && prewarmCalls==2);\n'
+            '    gameIsRunning=TRUE;', 1)
+        for path in ('src/SDL/utility.c', 'src/Game/SinglePlayer.c'):
+            source = (ROOT / path).read_text()
+            marker = 'Loading Remastered background scene'
+            position = source.index(marker)
+            self.assertLess(position, source.index('remasteredBackdropPrepare();', position))
+            self.assertLess(source.index('remasteredBackdropPrepare();', position),
+                            source.index('HorseRaceLoadingPhaseComplete(HR_LOAD_FINALIZE)', position))
+
         # Keep the mock BTG boundary tied to the actual initialization order.
         btg = function((ROOT / 'src/Game/BTG.c').read_text(), 'void btgRender(void)')
         self.assertLess(btg.index('modernMissionBackdropPrepare();'),

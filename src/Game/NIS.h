@@ -67,13 +67,9 @@
 #define NIS_FirstKeyFrame           2
 #define NIS_FrameRate               30.0f
 
-// Use 1.85:1 aspect ratio for screens with aspect ratio below 1.5:1, e.g. 4:3. This is what the original game does.
-// For anything higher, e.g. typical 16:9 screens, use 2.39:1 aspect ratio.
-// And in case someone has a very wide monitor, e.g. 21:9, use a minimal letter boxing height of 1/15 of the screen height.
-#define NIS_LetterHeight            max( (((float)MAIN_WindowWidth/(float)MAIN_WindowHeight) < 1.5f) ? \
-                                         ((MAIN_WindowHeight - MAIN_WindowWidth * 20 / 37) / 2) : \
-                                         ((MAIN_WindowHeight - MAIN_WindowWidth * 100 / 239) / 2), \
-                                         MAIN_WindowHeight / 15)
+// Render in-engine cinematics over the entire viewport.  Keep the scripted
+// scissor/fade state machine intact so cutscene and subtitle timing is unchanged.
+#define NIS_LetterHeight            0
 
 #define NIS_HeaderExtra             64          //extra amount of RAM at the end of a header
 #define NIS_LookScalar              10000.0f
@@ -429,6 +425,8 @@ typedef spaceobjpath_disk lightpath_disk;
     Data:
 =============================================================================*/
 extern bool32 nisIsRunning;
+/* True only while an NIS explicitly overrides the mission environment. */
+bool32 nisEnvironmentOverrideActive(void);
 extern bool32 nisCaptureCamera;
 extern Camera *nisCamera;
 extern taskhandle nisTaskHandle;
@@ -513,6 +511,7 @@ void nisTaskPauseOrResume(void);
 void nisObjectDied(SpaceObj *obj);
 
 void nisScissorBarsReset(void);
+void nisRevealOpeningAfterMovie(void);
 
 #if NIS_TEST
 void nisTest(vector *position, matrix *mat);
