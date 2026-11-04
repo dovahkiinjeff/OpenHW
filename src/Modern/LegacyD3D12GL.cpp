@@ -767,6 +767,16 @@ void configureDrawCommand(RasterCommand &command,
         std::fabs(g.projection.m[15]) < 0.00001f &&
         std::fabs(g.projection.m[3]) < 0.00001f &&
         std::fabs(g.projection.m[7]) < 0.00001f;
+    // A self-lit trail still belongs in the 3D scene. Do not inherit a
+    // preceding sprite/overlay's disabled or ALWAYS depth test, and never let
+    // its translucent ribbon/core write opaque scene depth. Both ship and
+    // missile trail tags use this policy; glow materials remain unchanged.
+    if (command.engineTrail && command.effectGuidePerspective)
+    {
+        command.state.depthTest = true;
+        command.state.depthWrite = false;
+        command.state.depthFunc = GL_LEQUAL;
+    }
     command.gpuFixedFunctionEnabled =
         (!verticesArePretransformed && gpuFixedFunctionRuntimeEnabled()) ? 1u : 0u;
     if (command.gpuFixedFunctionEnabled != 0)
@@ -2362,6 +2372,45 @@ struct DrawConstants
 };
 static_assert(sizeof(DrawConstants) == 64, "legacy draw constant size");
 
+struct RasterReplayBindingStats { unsigned issued=0, suppressed=0; };
+RasterReplayBindingStats rasterReplayLastBindings;
+// Keep this cache local to one replay/list. Snapshot copies and FX MRT switches
+// change only render targets, while custom background/sky commands invalidate
+// it explicitly. Resource uploads still execute before any binding decision.
+struct RasterReplayBindings {
+    ID3D12GraphicsCommandList *list;
+    bool enabled;
+    unsigned valid=0;
+    RasterReplayBindingStats stats;
+    ID3D12PipelineState *pipeline=nullptr;
+    D3D12_VIEWPORT viewport={}; D3D12_RECT scissor={};
+    D3D12_GPU_DESCRIPTOR_HANDLE tables[5]={};
+    DrawConstants constants={};
+    D3D12_GPU_VIRTUAL_ADDRESS fixedState=0;
+    std::array<unsigned,2> selection={};
+    D3D12_PRIMITIVE_TOPOLOGY topology=D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+    D3D12_VERTEX_BUFFER_VIEW vertices={}; D3D12_INDEX_BUFFER_VIEW indices={};
+    explicit RasterReplayBindings(ID3D12GraphicsCommandList *commands):list(commands) {
+        const char *baseline=std::getenv("HW_RASTER_STATE_CACHE");
+        enabled=!baseline || std::strcmp(baseline,"0")!=0;
+    }
+    template<class T> bool changed(unsigned bit,T& previous,const T& next) {
+        if(enabled && (valid&bit) && std::memcmp(&previous,&next,sizeof(T))==0){++stats.suppressed;return false;}
+        previous=next;valid|=bit;++stats.issued;return true;
+    }
+    void invalidate(){valid=0;}
+    void setPipeline(ID3D12PipelineState *next){if(changed(1u,pipeline,next))list->SetPipelineState(next);}
+    void setViewport(const D3D12_VIEWPORT& next){if(changed(2u,viewport,next))list->RSSetViewports(1,&next);}
+    void setScissor(const D3D12_RECT& next){if(changed(4u,scissor,next))list->RSSetScissorRects(1,&next);}
+    void setTable(unsigned root,D3D12_GPU_DESCRIPTOR_HANDLE next){if(changed(1u<<(3+root),tables[root],next))list->SetGraphicsRootDescriptorTable(root,next);}
+    void setConstants(const DrawConstants& next){if(changed(1u<<8,constants,next))list->SetGraphicsRoot32BitConstants(2,16,&next,0);}
+    void setFixedState(D3D12_GPU_VIRTUAL_ADDRESS next){if(changed(1u<<9,fixedState,next))list->SetGraphicsRootConstantBufferView(3,next);}
+    void setSelection(const std::array<unsigned,2>& next){if(changed(1u<<10,selection,next))list->SetGraphicsRoot32BitConstants(8,2,next.data(),0);}
+    void setTopology(D3D12_PRIMITIVE_TOPOLOGY next){if(changed(1u<<11,topology,next))list->IASetPrimitiveTopology(next);}
+    void setVertices(const D3D12_VERTEX_BUFFER_VIEW& next){if(changed(1u<<12,vertices,next))list->IASetVertexBuffers(0,1,&next);}
+    void setIndices(const D3D12_INDEX_BUFFER_VIEW& next){if(changed(1u<<13,indices,next))list->IASetIndexBuffer(next.BufferLocation?&next:nullptr);}
+};
+
 } // namespace
 
 namespace hwlegacyd3d12
@@ -2745,6 +2794,7 @@ bool renderFrameSnapshots(ID3D12Device *device,
     if(!missionJob.wait() || !ensureTextureGpu(device,list,texture(0)))return false;
     prepareMissionEmissionResidency(device,finalCommandCount);
     if(!prepareMissionLighting(device,list,finalCommandCount,rtv,dsv))return false;
+    RasterReplayBindings replayBindings(list);
     auto copySnapshotsAt = [&](size_t processedCommands)
     {
         bool needsCopy = false;
@@ -2793,7 +2843,10 @@ bool renderFrameSnapshots(ID3D12Device *device,
     {
         const RasterCommand &command = gCommands[index];
         // Custom sky/background PSOs and UI use their original single target.
-        if (command.type != RasterCommand::Draw) bindEffectTarget(false);
+        if (command.type != RasterCommand::Draw) {
+            bindEffectTarget(false);
+            replayBindings.invalidate();
+        }
         if (command.type == RasterCommand::Clear)
         {
             D3D12_RECT rect = {0, 0, static_cast<LONG>(width), static_cast<LONG>(height)};
@@ -2877,7 +2930,7 @@ bool renderFrameSnapshots(ID3D12Device *device,
             if (pso)
             {
                 bindEffectTarget(effectGuide);
-                list->SetPipelineState(pso);
+                replayBindings.setPipeline(pso);
 
                 D3D12_VIEWPORT viewport = {};
                 viewport.TopLeftX = static_cast<float>(command.state.viewport[0]);
@@ -2886,7 +2939,7 @@ bool renderFrameSnapshots(ID3D12Device *device,
                 viewport.Height = static_cast<float>(std::max(1, command.state.viewport[3]));
                 viewport.MinDepth = 0.0f;
                 viewport.MaxDepth = 1.0f;
-                list->RSSetViewports(1, &viewport);
+                replayBindings.setViewport(viewport);
                 D3D12_RECT scissor = {0, 0, static_cast<LONG>(width), static_cast<LONG>(height)};
                 if (command.state.scissor)
                 {
@@ -2895,7 +2948,7 @@ bool renderFrameSnapshots(ID3D12Device *device,
                     scissor.top = std::max<LONG>(0, command.state.scissorBox[1]);
                     scissor.bottom = std::min<LONG>(static_cast<LONG>(height), command.state.scissorBox[1] + command.state.scissorBox[3]);
                 }
-                list->RSSetScissorRects(1, &scissor);
+                replayBindings.setScissor(scissor);
 
                 TextureRecord *texPtr = &texture(command.state.texture2D ? command.state.texture : 0);
                 if (texPtr->width == 0 || texPtr->height == 0 ||
@@ -2909,15 +2962,15 @@ bool renderFrameSnapshots(ID3D12Device *device,
                     srv.ptr += static_cast<UINT64>(tex.descriptorSlot) * r.srvStride;
                     D3D12_GPU_DESCRIPTOR_HANDLE sampler = r.samplerHeap->GetGPUDescriptorHandleForHeapStart();
                     sampler.ptr += static_cast<UINT64>(samplerIndex(tex)) * r.samplerStride;
-                    list->SetGraphicsRootDescriptorTable(0, srv);
-                    list->SetGraphicsRootDescriptorTable(1, sampler);
+                    replayBindings.setTable(0,srv);
+                    replayBindings.setTable(1,sampler);
                     DrawConstants constants = {};
                     constants.engineBlend=-1.0f;
                     TextureRecord &idle=texture(command.state.engineBlend>=0 ? command.state.engineIdleTexture : 0);
                     if(ensureTextureGpu(device,list,idle)) {
                         auto idleSrv=r.srvHeap->GetGPUDescriptorHandleForHeapStart();
                         idleSrv.ptr+=static_cast<UINT64>(idle.descriptorSlot)*r.srvStride;
-                        list->SetGraphicsRootDescriptorTable(4,idleSrv);
+                        replayBindings.setTable(4,idleSrv);
                         constants.engineBlend=command.state.engineBlend;
                     }
                     constants.textureEnabled = command.state.texture2D ? 1u : 0u;
@@ -2929,22 +2982,20 @@ bool renderFrameSnapshots(ID3D12Device *device,
                     constants.padding[0] = command.state.blend ? 1.0f : 0.0f;
                     constants.padding[1] = missionLightingEnabled && missionCaster(command) ? 1.0f : 0.0f;
                     bindMissionEmission(device,list,command,missionDraw);
-                    if(missionDraw)list->SetGraphicsRoot32BitConstants(8,2,missionSelections[index].data(),0);
+                    if(missionDraw)replayBindings.setSelection(missionSelections[index]);
                     constants.padding1[0] = command.state.blendSrc == GL_ONE ? 1.0f : 0.0f;
                     constants.padding1[1] = command.engineTrail ? 1.0f : 0.0f;
                     std::memcpy(constants.fogColor, command.state.fogColor, sizeof(constants.fogColor));
                     constants.gpuFixedFunctionEnabled =
                         command.gpuFixedFunctionEnabled;
-                    list->SetGraphicsRoot32BitConstants(2, 16, &constants, 0);
+                    replayBindings.setConstants(constants);
                     if (fixedStateUpload.resource)
                     {
                         const size_t safeStateIndex =
                             command.gpuFixedFunctionEnabled != 0 ?
                                 command.fixedStateIndex : 0u;
-                        list->SetGraphicsRootConstantBufferView(
-                            3, fixedStateUpload.resource->GetGPUVirtualAddress() +
-                               static_cast<UINT64>(safeStateIndex) *
-                                   fixedStateStride);
+                        replayBindings.setFixedState(fixedStateUpload.resource->GetGPUVirtualAddress() +
+                               static_cast<UINT64>(safeStateIndex) * fixedStateStride);
                     }
 
                     const UINT64 bytes = static_cast<UINT64>(command.vertexCount) * sizeof(RasterVertex);
@@ -2956,8 +3007,8 @@ bool renderFrameSnapshots(ID3D12Device *device,
                         view.SizeInBytes=static_cast<UINT>(bytes);view.StrideInBytes=sizeof(RasterVertex);
                         D3D12_INDEX_BUFFER_VIEW indices={};indices.BufferLocation=entry->indices->GetGPUVirtualAddress();
                         indices.SizeInBytes=static_cast<UINT>(entry->indexCount*sizeof(unsigned));indices.Format=DXGI_FORMAT_R32_UINT;
-                        list->IASetVertexBuffers(0,1,&view);list->IASetIndexBuffer(&indices);
-                        list->IASetPrimitiveTopology(command.topology);
+                        replayBindings.setVertices(view);replayBindings.setIndices(indices);
+                        replayBindings.setTopology(command.topology);
                         list->DrawIndexedInstanced(static_cast<UINT>(entry->indexCount),1,0,0,0);
                     }
                     else if (vertexUpload.resource && bytes > 0)
@@ -2967,8 +3018,8 @@ bool renderFrameSnapshots(ID3D12Device *device,
                             static_cast<UINT64>(command.firstVertex) * sizeof(RasterVertex);
                         view.SizeInBytes = static_cast<UINT>(bytes);
                         view.StrideInBytes = sizeof(RasterVertex);
-                        list->IASetVertexBuffers(0, 1, &view);
-                        list->IASetPrimitiveTopology(command.topology);
+                        replayBindings.setVertices(view);
+                        replayBindings.setTopology(command.topology);
                         if (command.indexCount != 0 && indexUpload.resource)
                         {
                             D3D12_INDEX_BUFFER_VIEW indexView = {};
@@ -2979,13 +3030,13 @@ bool renderFrameSnapshots(ID3D12Device *device,
                             indexView.SizeInBytes = static_cast<UINT>(
                                 command.indexCount * sizeof(uint32_t));
                             indexView.Format = DXGI_FORMAT_R32_UINT;
-                            list->IASetIndexBuffer(&indexView);
+                            replayBindings.setIndices(indexView);
                             list->DrawIndexedInstanced(
                                 static_cast<UINT>(command.indexCount), 1, 0, 0, 0);
                         }
                         else
                         {
-                            list->IASetIndexBuffer(nullptr);
+                            replayBindings.setIndices({});
                             list->DrawInstanced(
                                 static_cast<UINT>(command.vertexCount), 1, 0, 0);
                         }
@@ -3011,6 +3062,7 @@ bool renderFrameSnapshots(ID3D12Device *device,
     }
     resourceBarrier(list, finalTarget,
                     D3D12_RESOURCE_STATE_RENDER_TARGET, finalAfterState);
+    rasterReplayLastBindings=replayBindings.stats;
 
 #if HW_ENABLE_DIAGNOSTICS
     static unsigned int telemetryFrames = 0;
@@ -3949,7 +4001,7 @@ extern "C" void hwglGetFloatv(GLenum pname, GLfloat *p)
 }
 extern "C" void hwglGetIntegerv(GLenum pname, GLint *p)
 {
-    if(!p)return;if(pname==GL_VIEWPORT)std::memcpy(p,g.draw.viewport,sizeof(GLint)*4);else if(pname==GL_SCISSOR_BOX)std::memcpy(p,g.draw.scissorBox,sizeof(GLint)*4);else if(pname==GL_MATRIX_MODE)*p=g.matrixMode;else if(pname==GL_TEXTURE_BINDING_2D)*p=static_cast<GLint>(g.draw.texture);else if(pname==GL_MAX_TEXTURE_SIZE)*p=16384;else if(pname==GL_SHADE_MODEL)*p=g.shadeModel;else if(pname==GL_POLYGON_MODE){p[0]=p[1]=g.draw.polygonMode;}else *p=0;
+    if(!p)return;if(pname==GL_VIEWPORT)std::memcpy(p,g.draw.viewport,sizeof(GLint)*4);else if(pname==GL_SCISSOR_BOX)std::memcpy(p,g.draw.scissorBox,sizeof(GLint)*4);else if(pname==GL_MATRIX_MODE)*p=g.matrixMode;else if(pname==GL_TEXTURE_BINDING_2D)*p=static_cast<GLint>(g.draw.texture);else if(pname==GL_DEPTH_FUNC)*p=static_cast<GLint>(g.draw.depthFunc);else if(pname==GL_MAX_TEXTURE_SIZE)*p=16384;else if(pname==GL_SHADE_MODEL)*p=g.shadeModel;else if(pname==GL_POLYGON_MODE){p[0]=p[1]=g.draw.polygonMode;}else *p=0;
 }
 extern "C" GLenum hwglGetError(void) { GLenum e=g.error;g.error=GL_NO_ERROR;return e; }
 extern "C" const GLubyte *hwglGetString(GLenum name)

@@ -520,13 +520,25 @@ extern "C" int hwRmSubsystemVisitHierarchy(HwRmSubsystemInstance *instance,unsig
         if(!instance || !visit || !maxNodes || maxNodes>65536 || lod>15 ||
             !std::isfinite(scale) || scale<=0 || scale>100000)
             throw std::runtime_error("invalid subsystem hierarchy request");
-        std::vector<HwRmSubsystemNode> nodes;
+        // The gameplay bridge is bounded to 255 nodes. Its frequent pose visits
+        // must not allocate/grow a temporary vector per visible ship. Larger
+        // tooling requests retain dynamic storage. All nodes are validated
+        // before invoking a callback, including overflow failures.
+        std::array<HwRmSubsystemNode,255> smallNodes;
+        std::vector<HwRmSubsystemNode> largeNodes;
+        unsigned nodeCount=0;
+        const bool small=maxNodes<=smallNodes.size();
+        auto append=[&](const HwRmSubsystemNode& node) {
+            if(nodeCount>=maxNodes) throw std::runtime_error("native hierarchy exceeds renderer object limit");
+            if(small) smallNodes[nodeCount]=node;else largeNodes.push_back(node);
+            ++nodeCount;
+        };
         for(unsigned ci=0;ci<instance->layer->components.size();++ci) {
             const auto& c=instance->layer->components[ci];
-            const unsigned base=unsigned(nodes.size()),count=hwRmHodSceneJointCount(c.scene);
+            const unsigned base=nodeCount,count=hwRmHodSceneJointCount(c.scene);
             for(unsigned ji=0;ji<count;++ji) {
                 const auto *joint=hwRmHodSceneJoint(c.scene,ji);
-                HwRmSubsystemNode node{};node.index=unsigned(nodes.size());node.component=ci;node.role=c.role;
+                HwRmSubsystemNode node{};node.index=nodeCount;node.component=ci;node.role=c.role;
                 node.slot=c.slot.c_str();node.jointName=joint->name;
                 node.parent=c.parents[ji]<0?(ci?int(c.anchor):-1):int(base)+c.parents[ji];
                 const auto animated=instance->animation[ci].find(ji);
@@ -537,7 +549,7 @@ extern "C" int hwRmSubsystemVisitHierarchy(HwRmSubsystemInstance *instance,unsig
                 if(control!=instance->controls[ci].end()) matrix=controlledLocal(matrix,control->second);
                 if(c.parents[ji]<0) {Matrix mount=c.authoredMount;for(unsigned i=12;i<15;i++)mount[i]*=scale;matrix=multiply(mount,authored!=c.authoredJoints.end()?matrix:multiply(c.mountFrame,matrix));}
                 validate(matrix);std::copy(matrix.begin(),matrix.end(),node.localMatrix);
-                const Matrix vertex=identity();std::copy(vertex.begin(),vertex.end(),node.vertexMatrix);nodes.push_back(node);
+                const Matrix vertex=identity();std::copy(vertex.begin(),vertex.end(),node.vertexMatrix);append(node);
             }
             if(!instance->visible[ci]) continue;
             for(const auto *mesh:c.meshesForLod[lod]) {
@@ -545,17 +557,16 @@ extern "C" int hwRmSubsystemVisitHierarchy(HwRmSubsystemInstance *instance,unsig
                     const auto *part=&mesh->parts[pi];if(!part->indexCount) continue;
                     const auto *material=hwRmHodSceneMaterial(c.scene,part->material);
                     if(!visibleSurface(material)) continue;
-                    HwRmSubsystemNode node{};node.index=unsigned(nodes.size());node.component=ci;node.role=c.role;
+                    HwRmSubsystemNode node{};node.index=nodeCount;node.component=ci;node.role=c.role;
                     node.parent=int(base+c.joints.at(mesh->parent));node.slot=c.slot.c_str();node.jointName=mesh->name;
                     node.part=part;node.material=material;
                     const Matrix matrix=identity(),vertex=basis(scale);
                     std::copy(matrix.begin(),matrix.end(),node.localMatrix);std::copy(vertex.begin(),vertex.end(),node.vertexMatrix);
-                    nodes.push_back(node);
+                    append(node);
                 }
             }
-            if(nodes.size()>maxNodes) throw std::runtime_error("native hierarchy exceeds renderer object limit");
         }
-        for(const auto& node:nodes) visit(user,&node);
+        for(unsigned i=0;i<nodeCount;++i) visit(user,small?&smallNodes[i]:&largeNodes[i]);
         message(error,size,"");return 1;
     } catch(const std::exception& e) {message(error,size,e.what());return 0;}
 }

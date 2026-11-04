@@ -1,16 +1,35 @@
-# OpenHW 1.0.4.5
+# OpenHW 1.0.5
 
 **The best of both worlds: high-fidelity Homeworld Remastered assets and original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets with modern rendering and in-game creation tools to build the ultimate classic Homeworld experience.
 
 [![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-[Base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe)  [1.0.1 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.1/OpenHW-Patch-1.0.1.exe)  [1.0.2 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.2/OpenHW-Patch-1.0.2.exe)  [1.0.3 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.3/OpenHW-Patch-1.0.3.exe)  [1.0.4 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4/OpenHW-Patch-1.0.4.exe)  [1.0.4.5 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4.5/OpenHW-Patch-1.0.4.5.exe)   [Installation and controls](docs/USER_GUIDE.md)   [Editors](docs/EDITING_GUIDE.md)   [Modding](docs/MODDING.md)   [Build the installer](BUILD_INSTALLER.md)
+[Base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe)  [1.0.1 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.1/OpenHW-Patch-1.0.1.exe)  [1.0.2 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.2/OpenHW-Patch-1.0.2.exe)  [1.0.3 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.3/OpenHW-Patch-1.0.3.exe)  [1.0.4 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4/OpenHW-Patch-1.0.4.exe)  [1.0.4.5 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4.5/OpenHW-Patch-1.0.4.5.exe)  [1.0.5 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.5/OpenHW-Patch-1.0.5.exe)   [Installation and controls](docs/USER_GUIDE.md)   [Editors](docs/EDITING_GUIDE.md)   [Modding](docs/MODDING.md)   [Build the installer](BUILD_INSTALLER.md)
 
 > [!IMPORTANT]
 > **Use AMD technology for 1.0. AMD FSR upscaling and AMD FSR frame generation are the recommended, working options.** DLSS currently has known visual issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.** Bundled vendor libraries or development code do not imply supported release features.
 
 > [!WARNING]
 > **Disk space:** allow approximately **120 GB free during conversion** as a conservative planning estimate; the exact peak of this compact installer has not been measured. The download is about 473 MB and the main generated game archive is about 34 GB, plus loose resources and user data. Setup reads the original Collection archives directly, stages selected HW1 resources and removes intermediate conversion caches. The original Collection and source-build dependencies occupy separate space.
+
+## 1.0.5 patch — performance update
+
+[Download OpenHW-Patch-1.0.5.exe](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.5/OpenHW-Patch-1.0.5.exe) · [Patch notes](RELEASE_NOTES_1.0.5.md) · [Complete cumulative source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.5/OpenHW-1.0.5-Source.zip)
+
+**Required order: OpenHW 1.0 → 1.0.1 → 1.0.2 → 1.0.3 → 1.0.4 → 1.0.4.5 → 1.0.5.** Close both game executables before patching and install into the same OpenHW folder.
+
+The project owner reports a **200–300% frame-rate increase** in their test. This is an owner-reported result, not a controlled measurement across other systems; gains depend on scene, hardware and settings.
+
+- Faster fleet/LOD lookups and ship-animation preparation, with fewer temporary allocations.
+- Fewer redundant rendering commands and faster GPU density reads for converted dust fields.
+- Frame generation reuses the completed scene instead of repeating full scene/cloud/effects composition.
+- Includes the local test build's cloud-binding repair. Existing resolution, LOD thresholds, cloud sampling, material quality and authored mission settings are retained.
+- God rays now use one reduced-resolution pass with depth-aware upsampling, replacing repeated integration in clouds and full-resolution composition. This altered D3D12/HLSL adaptation of [three-good-godrays](https://github.com/Ameobea/three-good-godrays) retains mission-authored shaft color and strength.
+- **Graphics → Post Effects → God Ray Quality** adds **Low, Medium (default), High and Ultra**, independent of the God Rays switch and other cloud/lighting controls. All four presets passed offline GPU and settings checks; no additional whole-game FPS gain is claimed for this addition.
+- Corrects Mission 2 Khar-Selim salvage contacts to match the Remastered wreck, including contacts and already-clamped salvage corvettes restored from existing saves. Actual HOD joint positions passed offline checks; in-game placement still needs player verification.
+- Engine and missile trails enforce scene depth testing so they no longer inherit state that draws them through foreground hulls. Glow appearance and tail transparency are preserved; the correction passed actual D3D12 offscreen checks with frame-generation guides on and off.
+
+The [optional 1080p cutscene pack](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4.5/OpenHW-Optional-1080p-Cutscenes.zip) remains a separate download. DLSS and Intel work is deferred; AMD FSR upscaling and frame generation remain recommended.
 
 ## 1.0.4.5 patch — cinematics, splash and ship control
 
@@ -64,7 +83,7 @@ This patch corrects the startup splash artwork path, removes in-engine cinematic
 2. Download the [**OpenHW-Setup.exe** base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe). Put it in the writable folder where you want OpenHW installed, for example `D:\Games\OpenHW`.
 3. Run it and select the Collection installation. The Collection root, `HomeworldRM`, or its `Data` directory can be selected; setup also locates the Collection's Classic data.
 4. Let extraction, conversion, package building and validation finish. Setup installs **beside itself** and leaves the original Collection untouched. There is no manual music/voice-copy step.
-5. Apply **1.0.1**, **1.0.2**, **1.0.3**, **1.0.4**, and **1.0.4.5** in that order after setup completes, then start **OpenHW.exe**. Setup does not automatically start the game. The first launch detects your display resolution and refresh rate.
+5. Apply **1.0.1**, **1.0.2**, **1.0.3**, **1.0.4**, **1.0.4.5**, and **1.0.5** in that order after setup completes, then start **OpenHW.exe**. Setup does not automatically start the game. The first launch detects your display resolution and refresh rate.
 
 All application-owned settings, saves, mods, exports and working files stay inside the OpenHW folder. `Development` contains setup work, diagnostics, logs, caches and receipts. Successful setup removes its temporary `SetupSources` and `SetupWork` conversion copies; a failed setup keeps work for recovery. Windows and graphics-driver system caches remain under those components' control.
 
@@ -194,7 +213,7 @@ Read the [editing guide](docs/EDITING_GUIDE.md), [modding guide](docs/MODDING.md
 - [Build OpenHW-Setup.exe from the complete source](BUILD_INSTALLER.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 
-Download **OpenHW-1.0.4-Source.zip** for the full cumulative working source from 1.0 through 1.0.4, including shaders, importers, tools, tests, reviewed release content and installer factory. Generated build caches and your retail data are not part of the source download. The build guide specifies the compiler, SDK and pinned dependencies.
+Download **OpenHW-1.0.5-Source.zip** for the full cumulative working source from 1.0 through 1.0.5, including shaders, importers, tools, tests, reviewed release content and installer factory. Generated build caches and your retail data are not part of the source download. The build guide specifies the compiler, SDK and pinned dependencies.
 
 ## Immediate future updates
 

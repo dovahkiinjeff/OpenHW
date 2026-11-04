@@ -58,6 +58,8 @@ void salCapHarvestTarget(SpaceObjRotImpTargGuidanceShipDerelict *target,Ship *do
 sdword salCapNeedBig(Ship *ship,SpaceObjRotImpTargGuidanceShipDerelict *target);
 void SalCapOrderChangedCleanUp(Ship *ship);
 void salCapRemoveDerelictReferences(Ship *ship,Derelict *d);
+bool32 salCapAlignKharSelimPoints(SpaceObjRotImpTargGuidanceShipDerelict *target);
+void salCapRestoreKharSelimContact(Ship *ship);
 
 #if RND_VISUALIZATION
 void dockDrawSalvageInfo(SpaceObjRotImpTargGuidanceShipDerelict *obj);

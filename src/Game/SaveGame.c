@@ -1211,6 +1211,14 @@ void FixAllSpaceObjs(void)
     {
         FixSpaceObj((SpaceObj *)SpaceObjRegistry.selection->ShipPtr[i]);
     }
+    // Clamp hosts, salvage indices and static-point pointers must all be fixed
+    // before replacing an old saved Khar-Selim contact offset.
+    for (i=0;i<numObjs;i++)
+    {
+        SpaceObj *obj = (SpaceObj *)SpaceObjRegistry.selection->ShipPtr[i];
+        if (obj->objtype == OBJ_ShipType)
+            salCapRestoreKharSelimContact((Ship *)obj);
+    }
 }
 
 void SaveAttackTargets(AttackTargets *multipleAttackTargets)
@@ -1440,6 +1448,7 @@ void FixSalvageInfo(SpaceObjRotImpTargGuidanceShipDerelict *ship)
             salvagePoint->salvageStaticPoint = &ship->staticinfo->salvageStaticInfo->salvageStaticPoints[(sdword)salvagePoint->salvageStaticPoint];
         }
     }
+    salCapAlignKharSelimPoints(ship);
 }
 
 void SaveShipSinglePlayerGameInfo(Ship *ship)

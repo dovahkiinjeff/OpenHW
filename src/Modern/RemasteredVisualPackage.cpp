@@ -262,6 +262,19 @@ extern "C" HwRmVisualPackage *hwRmVisualPackageRead(const char *type,const void 
                 jointApplied[i]=true;--remaining;++progress;
             }if(!progress)throw std::runtime_error("cyclic authored joint declarations");
         }
+        // Released Khar-Selim packages omitted these semantic declarations.
+        // The salvage adapter queries semantics, not arbitrary HOD joint names,
+        // so its earlier native-point correction silently kept the HW1 points.
+        // Supply exact known joints for that identity; explicit mod mappings
+        // retain precedence and model scale/basis remain owned by the HOD layer.
+        if(std::strcmp(type,"Derelict_Shipwreck")==0) {
+            for(unsigned i=0;i<5;++i) {
+                const auto name="SalvagePoint"+std::to_string(i);
+                const bool bound=std::any_of(markers.begin(),markers.end(),
+                    [&](const Marker& marker){return marker.semantic==name;});
+                if(!bound) markers.push_back({name,"Hull",name});
+            }
+        }
         for(const auto& m:markers) if(!hwRmVisualAssetBindMarker(package->asset.get(),m.semantic.c_str(),m.slot.c_str(),m.joint.c_str(),error,errorSize)) return nullptr;
         if(definition) {
             for(const auto& gun:guns)if(!hwRmVisualAssetBindGun(package->asset.get(),gun.index,gun.slot.c_str(),

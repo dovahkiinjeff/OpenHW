@@ -233,6 +233,7 @@ sdword mainChromaticAberrationPercent = 0;
 sdword mainMotionBlurPercent = 0;
 sdword mainFilmGrainPercent = 0;
 sdword mainGodRaysPercent = 0;
+sdword mainGodRayQuality = 1;
 sdword mainBloomPercent = 100;
 sdword mainLensFlares = 1;
 
@@ -829,6 +830,11 @@ bool32 SetGodRaysPercent(char *string)
     return ParseDisplayInteger(string, &mainGodRaysPercent, 0, 100);
 }
 
+bool32 SetGodRayQuality(char *string)
+{
+    return ParseDisplayInteger(string, &mainGodRayQuality, 0, 3);
+}
+
 bool32 SetBloomPercent(char *string)
 {
     return ParseDisplayInteger(string, &mainBloomPercent, 0, 400);
@@ -1063,6 +1069,7 @@ commandoption commandOptions[] =
     entryFnParam("/motionBlur",      SetMotionBlurPercent,               " <0-100> - motion-vector scene blur; 0 disables it."),
     entryFnParam("/filmGrain",       SetFilmGrainPercent,                " <0-100> - intentional final-scene film grain; 0 disables it."),
     entryFnParam("/godRays",         SetGodRaysPercent,                  " <0-100> - mission-background driven volumetric shafts."),
+    entryFnParam("/godRayQuality",   SetGodRayQuality,                   " <0-3> - god-ray quality: Low, Medium (default), High, Ultra."),
     entryFnParam("/bloom",           SetBloomPercent,                    " <0-400> - bright-scene bloom strength; 100 is the default."),
     entryVr("/vsync",              mainVSync, 1,                       " - enable vertical synchronization."),
     entryVr("/adaptiveVsync",      mainVSync, (udword)-1,              " - request adaptive vertical synchronization."),

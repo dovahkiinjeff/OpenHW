@@ -13,15 +13,19 @@
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
+#include <algorithm>
+#include "../src/Modern/DustScreenBindings.h"
+#include "PresenterShaderSource.h"
 using Microsoft::WRL::ComPtr;
 static void require(bool ok,const char *message){if(!ok)throw std::runtime_error(message);}
 static void check(HRESULT hr,const char *message){require(SUCCEEDED(hr),message);}
 int main(int argc,char **argv){try{
     require(argc==2,"presenter source path required");
-    std::ifstream file(argv[1]);std::stringstream text;text<<file.rdbuf();std::string source=text.str();
-    std::string marker="const char presenterShader[] = R\"(";
-    auto start=source.find(marker);require(start!=std::string::npos,"presenter shader missing");start+=marker.size();
-    auto end=source.find(")\";",start);require(end!=std::string::npos,"shader terminator missing");source=source.substr(start,end-start);
+    auto source=readProductionPresenterShader(argv[1]);
+    auto gridReferencePath=std::filesystem::path(argv[1]).parent_path().parent_path().parent_path()/"tests/ParticleGridReference.hlsl";
+    std::ifstream gridReferenceFile(gridReferencePath);std::stringstream gridReferenceText;gridReferenceText<<gridReferenceFile.rdbuf();
+    require(!gridReferenceText.str().empty(),"baseline particle grid fixture missing");
+    source += gridReferenceText.str();
     // Execute the production candidate-selection block with two bricks whose
     // buffer order is opposite their actual ray entry order.
     auto orderStart=source.find("    uint remaining[8];");
@@ -98,9 +102,9 @@ bool TestTraversalInterval(inout uint calls,DustVolume v,DustRotationContext rot
     float3 p=float3((float(id.x)+0.37)/128.0,
         (float((id.x*7u)%16u)+0.23)/16.0,
         (float((id.x*11u)%16u)+0.41)/16.0)*32000.0;
-    TestOutput[id.x]=ParticleDensityAt(v,p);
-    if(id.x==0u)TestOutput[128]=ParticleDensityAt(v,float3(-1,5000,5000));
-    if(id.x==1u){v.density=4.0;TestOutput[129]=ParticleDensityAt(v,float3(16000,16000,16000));}
+    TestOutput[id.x]=ParticleGridDensityAt(v,p);
+    if(id.x==0u)TestOutput[128]=ParticleGridDensityAt(v,float3(-1,5000,5000));
+    if(id.x==1u){v.density=4.0;TestOutput[129]=ParticleGridDensityAt(v,float3(16000,16000,16000));}
     if(id.x==2u){
         v.rotationXSinCos=v.rotationYSinCos=v.rotationZSinCos=float2(0,1);
         float entry,exit;
@@ -122,13 +126,36 @@ bool TestTraversalInterval(inout uint calls,DustVolume v,DustRotationContext rot
     if(id.x>=16u)return;uint calls;float4 value=TestTraversal1(id.x,calls);uint base=137u+id.x*10u;
     [unroll]for(uint k=0u;k<4u;++k)TestOutput[base+4u+k]=value[k];TestOutput[base+9u]=float(calls);
 }
+[numthreads(64,1,1)] void GridReadParityCS(uint3 id:SV_DispatchThreadID){
+    if(id.x>=4913u)return;
+    TestOutput[297u+id.x*2u]=ReferenceParticleGridValue(id.x);
+    TestOutput[298u+id.x*2u]=ParticleGridValue(id.x);
+}
+[numthreads(64,1,1)] void PackedGridPerformanceCS(uint3 id:SV_DispatchThreadID){
+    if(id.x>=4913u)return;
+    float sum=0;
+    [loop]for(uint tap=0;tap<64u;++tap)sum+=ReferenceParticleGridValue((id.x+tap*37u)%4913u);
+    TestOutput[297u+id.x*2u]=sum;
+}
+[numthreads(64,1,1)] void ScalarGridPerformanceCS(uint3 id:SV_DispatchThreadID){
+    if(id.x>=4913u)return;
+    float sum=0;
+    [loop]for(uint tap=0;tap<64u;++tap)sum+=ParticleGridValue((id.x+tap*37u)%4913u);
+    TestOutput[298u+id.x*2u]=sum;
+}
+[numthreads(1,1,1)] void DescriptorLifecycleCS(uint3 id:SV_DispatchThreadID){
+    TestOutput[10123]=DustScreenField.Load(int3(0,0,0)).r;
+    TestOutput[10124]=ParticleDensityGrid[4912];
+}
 )";
     ComPtr<ID3DBlob> shader,errors;
     HRESULT compiled=D3DCompile(source.data(),source.size(),"ProductionParticleDensity",nullptr,nullptr,"ParticleDensityTestCS","cs_5_0",D3DCOMPILE_ENABLE_STRICTNESS|D3DCOMPILE_OPTIMIZATION_LEVEL3,0,&shader,&errors);
     if(FAILED(compiled)&&errors)std::cerr<<(const char *)errors->GetBufferPointer();check(compiled,"density shader compile");
     ComPtr<ID3D12Debug> debug;if(SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug))))debug->EnableDebugLayer();
     ComPtr<ID3D12Device> device;check(D3D12CreateDevice(nullptr,D3D_FEATURE_LEVEL_11_0,IID_PPV_ARGS(&device)),"D3D12 device");
-    D3D12_ROOT_PARAMETER roots[2]={};roots[0].ParameterType=D3D12_ROOT_PARAMETER_TYPE_SRV;roots[0].Descriptor.ShaderRegister=9;
+    D3D12_DESCRIPTOR_RANGE dustTable={};dustTable.RangeType=D3D12_DESCRIPTOR_RANGE_TYPE_SRV;dustTable.BaseShaderRegister=9;dustTable.NumDescriptors=10;
+    D3D12_ROOT_PARAMETER roots[2]={};roots[0].ParameterType=D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    roots[0].DescriptorTable.NumDescriptorRanges=1;roots[0].DescriptorTable.pDescriptorRanges=&dustTable;
     roots[1].ParameterType=D3D12_ROOT_PARAMETER_TYPE_UAV;
     D3D12_ROOT_SIGNATURE_DESC desc={};desc.NumParameters=2;desc.pParameters=roots;
     ComPtr<ID3DBlob> signature;check(D3D12SerializeRootSignature(&desc,D3D_ROOT_SIGNATURE_VERSION_1,&signature,&errors),"root serialize");
@@ -153,19 +180,23 @@ bool TestTraversalInterval(inout uint calls,DustVolume v,DustRotationContext rot
         check(device->CreateComputePipelineState(&desc,IID_PPV_ARGS(&result)),entry);return result;
     };
     auto referencePso=traversalPipeline("TraversalReferenceCS"),candidatePso=traversalPipeline("TraversalCandidateCS");
+    auto gridReadPso=traversalPipeline("GridReadParityCS");
+    auto packedGridPso=traversalPipeline("PackedGridPerformanceCS"),scalarGridPso=traversalPipeline("ScalarGridPerformanceCS");
+    auto descriptorPso=traversalPipeline("DescriptorLifecycleCS");
 
     auto buffer=[&](UINT64 bytes,D3D12_HEAP_TYPE heapType,D3D12_RESOURCE_STATES state,D3D12_RESOURCE_FLAGS flags){
         D3D12_HEAP_PROPERTIES heap={};heap.Type=heapType;
         D3D12_RESOURCE_DESC d={};d.Dimension=D3D12_RESOURCE_DIMENSION_BUFFER;d.Width=bytes;d.Height=1;d.DepthOrArraySize=1;d.MipLevels=1;d.SampleDesc.Count=1;d.Layout=D3D12_TEXTURE_LAYOUT_ROW_MAJOR;d.Flags=flags;
         ComPtr<ID3D12Resource> r;check(device->CreateCommittedResource(&heap,D3D12_HEAP_FLAG_NONE,&d,state,nullptr,IID_PPV_ARGS(&r)),"buffer create");return r;
     };
-    constexpr size_t stride=144,gridValues=17*17*17;
-    auto input=buffer(stride*(256+(gridValues+35)/36),D3D12_HEAP_TYPE_UPLOAD,D3D12_RESOURCE_STATE_GENERIC_READ,D3D12_RESOURCE_FLAG_NONE);
-    auto output=buffer(297*sizeof(float),D3D12_HEAP_TYPE_DEFAULT,D3D12_RESOURCE_STATE_UNORDERED_ACCESS,D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-    auto readback=buffer(297*sizeof(float),D3D12_HEAP_TYPE_READBACK,D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_FLAG_NONE);
+    constexpr size_t stride=176,gridValues=17*17*17,outputValues=299+gridValues*2;
+    auto input=buffer(stride*(256+(gridValues+43)/44),D3D12_HEAP_TYPE_UPLOAD,D3D12_RESOURCE_STATE_GENERIC_READ,D3D12_RESOURCE_FLAG_NONE);
+    auto localGrid=buffer(gridValues*sizeof(float),D3D12_HEAP_TYPE_DEFAULT,D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_FLAG_NONE);
+    auto output=buffer(outputValues*sizeof(float),D3D12_HEAP_TYPE_DEFAULT,D3D12_RESOURCE_STATE_UNORDERED_ACCESS,D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+    auto readback=buffer(outputValues*sizeof(float),D3D12_HEAP_TYPE_READBACK,D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_FLAG_NONE);
     void *mapped=nullptr;check(input->Map(0,nullptr,&mapped),"map upload");
     std::memset(mapped,0,(size_t)input->GetDesc().Width);
-    float metadata[36]={};unsigned enabled=1,shape=4;std::memcpy(metadata,&enabled,4);std::memcpy(metadata+1,&shape,4);
+    float metadata[44]={};unsigned enabled=1,shape=4;std::memcpy(metadata,&enabled,4);std::memcpy(metadata+1,&shape,4);
     metadata[4]=metadata[5]=metadata[6]=16000;metadata[7]=2;metadata[8]=metadata[9]=metadata[10]=32000;metadata[18]=.00012f;
     metadata[25]=metadata[27]=metadata[29]=1;
     std::memcpy(mapped,metadata,sizeof(metadata));
@@ -173,16 +204,41 @@ bool TestTraversalInterval(inout uint calls,DustVolume v,DustRotationContext rot
     std::vector<float> grid(gridValues);
     for(size_t i=0;i<grid.size();i++)grid[i]=(float)(i%17)/16.0f;
     std::memcpy((unsigned char *)mapped+256*stride,grid.data(),grid.size()*sizeof(float));input->Unmap(0,nullptr);
+    D3D12_DESCRIPTOR_HEAP_DESC tableDesc={};tableDesc.Type=D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    tableDesc.NumDescriptors=12;tableDesc.Flags=D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    ComPtr<ID3D12DescriptorHeap> table;check(device->CreateDescriptorHeap(&tableDesc,IID_PPV_ARGS(&table)),"actual dust table");
+    const UINT tableStride=device->GetDescriptorHandleIncrementSize(tableDesc.Type),tableBase=2;
+    auto tableCpu=table->GetCPUDescriptorHandleForHeapStart();
+    auto volumeHandle=tableCpu;volumeHandle.ptr+=SIZE_T(tableBase)*tableStride;
+    D3D12_SHADER_RESOURCE_VIEW_DESC volumeView={};volumeView.Shader4ComponentMapping=D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    volumeView.ViewDimension=D3D12_SRV_DIMENSION_BUFFER;volumeView.Buffer.NumElements=UINT(input->GetDesc().Width/stride);
+    volumeView.Buffer.StructureByteStride=UINT(stride);device->CreateShaderResourceView(input.Get(),&volumeView,volumeHandle);
+    auto gridHandle=volumeHandle;gridHandle.ptr+=hwmodern::particleDensityGridSlot*tableStride;
+    auto gridView=volumeView;gridView.Buffer.NumElements=gridValues;gridView.Buffer.StructureByteStride=sizeof(float);
+    device->CreateShaderResourceView(localGrid.Get(),&gridView,gridHandle);
+    // Reproduce initialization followed by both dust field swaps using the
+    // production writer. The adjacent scalar buffer must survive every write.
+    hwmodern::writeDustScreenFieldSrv(device.Get(),tableCpu,tableStride,tableBase,nullptr);
+    auto tableGpu=table->GetGPUDescriptorHandleForHeapStart();tableGpu.ptr+=UINT64(tableBase)*tableStride;
     D3D12_COMMAND_QUEUE_DESC qd={};ComPtr<ID3D12CommandQueue> queue;check(device->CreateCommandQueue(&qd,IID_PPV_ARGS(&queue)),"queue");
     ComPtr<ID3D12CommandAllocator> allocator;check(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,IID_PPV_ARGS(&allocator)),"allocator");
     ComPtr<ID3D12GraphicsCommandList> command;check(device->CreateCommandList(0,D3D12_COMMAND_LIST_TYPE_DIRECT,allocator.Get(),pso.Get(),IID_PPV_ARGS(&command)),"command list");
-    command->SetComputeRootSignature(root.Get());command->SetComputeRootShaderResourceView(0,input->GetGPUVirtualAddress());command->SetComputeRootUnorderedAccessView(1,output->GetGPUVirtualAddress());command->Dispatch(2,1,1);
+    command->CopyBufferRegion(localGrid.Get(),0,input.Get(),256*stride,gridValues*sizeof(float));
+    D3D12_RESOURCE_BARRIER gridBarrier={};gridBarrier.Type=D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    gridBarrier.Transition.pResource=localGrid.Get();gridBarrier.Transition.StateBefore=D3D12_RESOURCE_STATE_COPY_DEST;
+    gridBarrier.Transition.StateAfter=D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;gridBarrier.Transition.Subresource=D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    command->ResourceBarrier(1,&gridBarrier);
+    ID3D12DescriptorHeap* heaps[]={table.Get()};command->SetDescriptorHeaps(1,heaps);
+    command->SetComputeRootSignature(root.Get());command->SetComputeRootDescriptorTable(0,tableGpu);command->SetComputeRootUnorderedAccessView(1,output->GetGPUVirtualAddress());
+    command->Dispatch(2,1,1);
     D3D12_RESOURCE_BARRIER uav={};uav.Type=D3D12_RESOURCE_BARRIER_TYPE_UAV;uav.UAV.pResource=output.Get();
     command->ResourceBarrier(1,&uav);command->SetPipelineState(referencePso.Get());command->Dispatch(1,1,1);
     command->ResourceBarrier(1,&uav);command->SetPipelineState(candidatePso.Get());command->Dispatch(1,1,1);
+    command->ResourceBarrier(1,&uav);command->SetPipelineState(gridReadPso.Get());command->Dispatch((gridValues+63)/64,1,1);
+    command->ResourceBarrier(1,&uav);command->SetPipelineState(descriptorPso.Get());command->Dispatch(1,1,1);
 
     D3D12_RESOURCE_BARRIER barrier={};barrier.Type=D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;barrier.Transition.pResource=output.Get();barrier.Transition.StateBefore=D3D12_RESOURCE_STATE_UNORDERED_ACCESS;barrier.Transition.StateAfter=D3D12_RESOURCE_STATE_COPY_SOURCE;barrier.Transition.Subresource=D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    command->ResourceBarrier(1,&barrier);command->CopyBufferRegion(readback.Get(),0,output.Get(),0,297*sizeof(float));check(command->Close(),"command close");
+    command->ResourceBarrier(1,&barrier);command->CopyBufferRegion(readback.Get(),0,output.Get(),0,outputValues*sizeof(float));check(command->Close(),"command close");
     ID3D12CommandList *lists[]={command.Get()};queue->ExecuteCommandLists(1,lists);
     ComPtr<ID3D12Fence> fence;check(device->CreateFence(0,D3D12_FENCE_FLAG_NONE,IID_PPV_ARGS(&fence)),"fence");check(queue->Signal(fence.Get(),1),"signal");
     HANDLE event=CreateEventW(nullptr,FALSE,FALSE,nullptr);require(event!=nullptr,"event");check(fence->SetEventOnCompletion(1,event),"fence event");require(WaitForSingleObject(event,30000)==WAIT_OBJECT_0,"GPU completion");CloseHandle(event);
@@ -199,6 +255,86 @@ bool TestTraversalInterval(inout uint calls,DustVolume v,DustRotationContext rot
         std::cout<<"Traversal scenario "<<scenario<<": "<<values[base+8]<<" -> "<<values[base+9]<<" interval tests; RGBA bit-identical.\n";
     }
     require(values[146]<values[145]/100,"opaque prefix did not eliminate remaining traversal");
+    for(unsigned index=0;index<gridValues;++index){
+        require(std::memcmp(values+297+index*2,values+298+index*2,sizeof(float))==0,"scalar grid view changed packed density");
+        require(values[298+index*2]==grid[index],"grid view offset or final cell mismatch");
+    }
+    std::cout<<"All 4913 scalar grid reads match packed-record decoding bit-for-bit.\n";
+    require(values[10123]==0 && values[10124]==1,"startup dust descriptor overwrote adjacent scalar grid");
     readback->Unmap(0,nullptr);
+    D3D12_QUERY_HEAP_DESC timestampDesc={};timestampDesc.Type=D3D12_QUERY_HEAP_TYPE_TIMESTAMP;timestampDesc.Count=4;
+    ComPtr<ID3D12QueryHeap> timestamps;check(device->CreateQueryHeap(&timestampDesc,IID_PPV_ARGS(&timestamps)),"grid timestamps");
+    auto timestampReadback=buffer(4*sizeof(UINT64),D3D12_HEAP_TYPE_READBACK,D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_FLAG_NONE);
+    UINT64 frequency=0;check(queue->GetTimestampFrequency(&frequency),"timestamp frequency");
+    std::vector<double> packedTimes,scalarTimes;
+    UINT64 signal=1;
+    for(unsigned run=0;run<9;++run){
+        check(allocator->Reset(),"benchmark allocator reset");check(command->Reset(allocator.Get(),nullptr),"benchmark command reset");
+        if(run==0){std::swap(barrier.Transition.StateBefore,barrier.Transition.StateAfter);command->ResourceBarrier(1,&barrier);}
+        command->SetDescriptorHeaps(1,heaps);command->SetComputeRootSignature(root.Get());command->SetComputeRootDescriptorTable(0,tableGpu);
+        command->SetComputeRootUnorderedAccessView(1,output->GetGPUVirtualAddress());
+        for(unsigned order=0;order<2;++order){
+            unsigned version=(order+run)%2;
+            command->SetPipelineState(version?scalarGridPso.Get():packedGridPso.Get());
+            command->EndQuery(timestamps.Get(),D3D12_QUERY_TYPE_TIMESTAMP,version*2);
+            for(unsigned batch=0;batch<8;++batch){command->Dispatch((gridValues+63)/64,1,1);command->ResourceBarrier(1,&uav);}
+            command->EndQuery(timestamps.Get(),D3D12_QUERY_TYPE_TIMESTAMP,version*2+1);
+        }
+        command->ResolveQueryData(timestamps.Get(),D3D12_QUERY_TYPE_TIMESTAMP,0,4,timestampReadback.Get(),0);
+        if(run==8){std::swap(barrier.Transition.StateBefore,barrier.Transition.StateAfter);command->ResourceBarrier(1,&barrier);command->CopyResource(readback.Get(),output.Get());}
+        check(command->Close(),"grid benchmark close");queue->ExecuteCommandLists(1,lists);check(queue->Signal(fence.Get(),++signal),"grid benchmark signal");
+        HANDLE done=CreateEventW(nullptr,FALSE,FALSE,nullptr);require(done!=nullptr,"benchmark event");check(fence->SetEventOnCompletion(signal,done),"benchmark wait");require(WaitForSingleObject(done,30000)==WAIT_OBJECT_0,"benchmark completion");CloseHandle(done);
+        check(timestampReadback->Map(0,nullptr,&mapped),"timestamp map");auto ticks=static_cast<const UINT64*>(mapped);
+        if(run>1){packedTimes.push_back(double(ticks[1]-ticks[0])*1000.0/double(frequency));scalarTimes.push_back(double(ticks[3]-ticks[2])*1000.0/double(frequency));}
+        timestampReadback->Unmap(0,nullptr);
+    }
+    check(readback->Map(0,nullptr,&mapped),"grid benchmark parity map");values=static_cast<const float*>(mapped);
+    for(unsigned index=0;index<gridValues;++index)require(std::memcmp(values+297+index*2,values+298+index*2,sizeof(float))==0,"density tap accumulation changed");
+    readback->Unmap(0,nullptr);
+    std::sort(packedTimes.begin(),packedTimes.end());std::sort(scalarTimes.begin(),scalarTimes.end());
+    std::cout<<"Grid-only GPU median for 2,515,456 density loads: packed="<<packedTimes[packedTimes.size()/2]<<" ms scalar="<<scalarTimes[scalarTimes.size()/2]<<" ms (not whole-frame FPS).\n";
+    D3D12_DESCRIPTOR_HEAP_DESC rtvDesc={};rtvDesc.Type=D3D12_DESCRIPTOR_HEAP_TYPE_RTV;rtvDesc.NumDescriptors=2;
+    ComPtr<ID3D12DescriptorHeap> rtvs;check(device->CreateDescriptorHeap(&rtvDesc,IID_PPV_ARGS(&rtvs)),"field RTV heap");
+    const UINT rtvStride=device->GetDescriptorHandleIncrementSize(rtvDesc.Type);
+    ComPtr<ID3D12Resource> fields[2];
+    for(unsigned index=0;index<2;++index){
+        D3D12_HEAP_PROPERTIES heap={};heap.Type=D3D12_HEAP_TYPE_DEFAULT;
+        D3D12_RESOURCE_DESC texture={};texture.Dimension=D3D12_RESOURCE_DIMENSION_TEXTURE2D;texture.Width=texture.Height=1;
+        texture.DepthOrArraySize=texture.MipLevels=1;texture.SampleDesc.Count=1;texture.Format=DXGI_FORMAT_R16G16B16A16_FLOAT;
+        texture.Flags=D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+        check(device->CreateCommittedResource(&heap,D3D12_HEAP_FLAG_NONE,&texture,D3D12_RESOURCE_STATE_RENDER_TARGET,nullptr,IID_PPV_ARGS(&fields[index])),"field texture");
+        auto handle=rtvs->GetCPUDescriptorHandleForHeapStart();handle.ptr+=index*rtvStride;
+        device->CreateRenderTargetView(fields[index].Get(),nullptr,handle);
+    }
+    for(unsigned swap=0;swap<3;++swap){
+        check(allocator->Reset(),"descriptor allocator reset");check(command->Reset(allocator.Get(),descriptorPso.Get()),"descriptor commands reset");
+        if(swap==0)for(unsigned index=0;index<2;++index){
+            auto handle=rtvs->GetCPUDescriptorHandleForHeapStart();handle.ptr+=index*rtvStride;
+            const float value[4]={index?.75f:.25f,0,0,1};command->ClearRenderTargetView(handle,value,0,nullptr);
+            D3D12_RESOURCE_BARRIER ready={};ready.Type=D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            ready.Transition.pResource=fields[index].Get();ready.Transition.StateBefore=D3D12_RESOURCE_STATE_RENDER_TARGET;
+            ready.Transition.StateAfter=D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;ready.Transition.Subresource=D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            command->ResourceBarrier(1,&ready);
+        }
+        hwmodern::writeDustScreenFieldSrv(device.Get(),tableCpu,tableStride,tableBase,swap<2?fields[swap].Get():nullptr);
+        std::swap(barrier.Transition.StateBefore,barrier.Transition.StateAfter);command->ResourceBarrier(1,&barrier);
+        command->SetDescriptorHeaps(1,heaps);command->SetComputeRootSignature(root.Get());command->SetComputeRootDescriptorTable(0,tableGpu);
+        command->SetComputeRootUnorderedAccessView(1,output->GetGPUVirtualAddress());
+        command->SetPipelineState(gridReadPso.Get());command->Dispatch((gridValues+63)/64,1,1);
+        command->ResourceBarrier(1,&uav);command->SetPipelineState(descriptorPso.Get());command->Dispatch(1,1,1);
+        std::swap(barrier.Transition.StateBefore,barrier.Transition.StateAfter);command->ResourceBarrier(1,&barrier);command->CopyResource(readback.Get(),output.Get());
+        check(command->Close(),"descriptor commands close");queue->ExecuteCommandLists(1,lists);check(queue->Signal(fence.Get(),++signal),"descriptor signal");
+        HANDLE done=CreateEventW(nullptr,FALSE,FALSE,nullptr);require(done!=nullptr,"descriptor event");
+        check(fence->SetEventOnCompletion(signal,done),"descriptor wait");require(WaitForSingleObject(done,30000)==WAIT_OBJECT_0,"descriptor completion");CloseHandle(done);
+        check(readback->Map(0,nullptr,&mapped),"descriptor map");values=static_cast<const float*>(mapped);
+        require(values[10123]==(swap==0?.25f:swap==1?.75f:0.f) && values[10124]==1,
+            "dust texture swap overwrote scalar grid or addressed wrong field slot");
+        for(unsigned index=0;index<gridValues;++index)require(values[298+index*2]==grid[index],"dust field swap corrupted a scalar grid cell");
+        readback->Unmap(0,nullptr);
+    }
+    ComPtr<ID3D12InfoQueue> info;if(SUCCEEDED(device.As(&info)))for(UINT64 i=0;i<info->GetNumStoredMessages();++i){
+        SIZE_T n=0;info->GetMessage(i,nullptr,&n);std::vector<unsigned char> storage(n);auto* message=reinterpret_cast<D3D12_MESSAGE*>(storage.data());
+        info->GetMessage(i,message,&n);if(message->Severity<=D3D12_MESSAGE_SEVERITY_ERROR){std::cerr<<message->pDescription<<'\n';require(false,"descriptor GPU validation");}}
+    std::cout<<"PASS: real t9-table startup, two RGBA16F field swaps and reset retain all t16 scalar grid values; GPU descriptor validation clean.\n";
     std::cout<<"Production GPU checks passed: density sampling, exact brick support, peak-independent extinction, ray-entry ordering and grid sampling cadence.\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

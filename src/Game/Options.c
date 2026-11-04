@@ -433,6 +433,7 @@ static sdword opSaveChromaticAberrationPercent;
 static sdword opSaveMotionBlurPercent;
 static sdword opSaveFilmGrainPercent;
 static sdword opSaveGodRaysPercent;
+static sdword opSaveGodRayQuality;
 static sdword opSaveLensFlares;
 static sdword opSaveBloomPercent;
 
@@ -625,6 +626,7 @@ void opOptionsInit(void)
     mainMotionBlurPercent = min(max(mainMotionBlurPercent, 0), 100);
     mainFilmGrainPercent = min(max(mainFilmGrainPercent, 0), 100);
     mainGodRaysPercent = mainGodRaysPercent > 0 ? 100 : 0;
+    mainGodRayQuality = min(max(mainGodRayQuality, 0), 3);
     mainLensFlares = mainLensFlares != 0;
     mainBloomPercent = min(max(mainBloomPercent, 0), 400);
     mainShadowStrengthPercent = min(max(mainShadowStrengthPercent, 0), 200);
@@ -1546,6 +1548,7 @@ void opRestoreSavedSettings(void)
     mainMotionBlurPercent = opSaveMotionBlurPercent;
     mainFilmGrainPercent = opSaveFilmGrainPercent;
     mainGodRaysPercent = opSaveGodRaysPercent;
+    mainGodRayQuality = opSaveGodRayQuality;
     mainLensFlares = opSaveLensFlares;
     mainBloomPercent = opSaveBloomPercent;
     opNoLODVal = mainRaytracing;
@@ -1586,6 +1589,7 @@ void opRestoreSavedSettings(void)
         (float)mainFilmGrainPercent / 100.0f,
         (float)mainGodRaysPercent / 100.0f,
         (float)mainBloomPercent / 100.0f);
+    hwModernGraphicsSetGodRayQuality(mainGodRayQuality);
     hwModernGraphicsSetLensFlaresEnabled(mainLensFlares);
     hwModernGraphicsSetRasterGlowBrightness(mainRasterGlowBrightnessPercent / 100.0f);
     hwModernGraphicsSetOutputDitherStrength(
@@ -1899,6 +1903,7 @@ void opOptionsSaveSettings(void)
     opSaveMotionBlurPercent = mainMotionBlurPercent;
     opSaveFilmGrainPercent = mainFilmGrainPercent;
     opSaveGodRaysPercent = mainGodRaysPercent;
+    opSaveGodRayQuality = mainGodRayQuality;
     opSaveLensFlares = mainLensFlares;
     opSaveBloomPercent = mainBloomPercent;
     opSaveNumEffects = opNumEffects;
@@ -2516,6 +2521,7 @@ void opUpdateVideoSettings(void)
         (float)mainFilmGrainPercent / 100.0f,
         (float)mainGodRaysPercent / 100.0f,
         (float)mainBloomPercent / 100.0f);
+    hwModernGraphicsSetGodRayQuality(mainGodRayQuality);
     hwModernGraphicsSetLensFlaresEnabled(mainLensFlares);
     hwModernGraphicsSetRasterGlowBrightness(mainRasterGlowBrightnessPercent / 100.0f);
     hwModernGraphicsSetOutputDitherStrength(

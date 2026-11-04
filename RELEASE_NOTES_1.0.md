@@ -1,12 +1,12 @@
 # OpenHW 1.0
 
-**The best of both worlds: high-fidelity Homeworld Remastered assets with original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets, modern rendering, a revised interface and extensive in-game authoring/modding tools.
+**The best of both worlds: high-fidelity Homeworld Remastered assets with original Homeworld 1 gameplay.** Formerly Homeworld RTX, OpenHW combines RM and HW1 assets, modern rendering, a revised interface and extensive in-game authoring/modding tools.
 
 > [!IMPORTANT]
 > **For 1.0, use AMD FSR upscaling and AMD FSR frame generation. Both fully work and are the recommended options.** DLSS currently has issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.**
 
 > [!WARNING]
-> **Disk space:** allow approximately **120 GB free during conversion** as a conservative planning estimate; the exact peak of this compact installer has not been measured. The download is about 473 MB and the main generated game archive is about 34 GB, plus loose resources and user data. Setup reads the original Collection archives directly, stages selected HW1 resources and removes intermediate conversion caches. The original Collection and source-build dependencies occupy separate space.
+> **Installation has exceeded 200 GB of temporary disk usage. At least 250 GB free on the destination drive is recommended before starting.** This is working headroom, not a guaranteed maximum. The approximately 473 MB installer locally converts your Collection assets into a roughly 34 GB main game archive, plus loose resources, caches and user data. Your original Collection remains separate.
 
 ## Modern rendering and environments
 
@@ -57,7 +57,7 @@ Setup produces **OpenHW.exe** (diagnostic logging compiled out) and **OpenHW-Dai
 ## Verification
 
 - Both source-built game variants passed 68/68 compiled tests in the release build.
-- Release packaging tests and earlier offline installer self-checks passed. The final installer received a content/hash audit; installation and gameplay testing are performed by the project owner.
+- Release packaging tests and offline installer self-checks passed.
 - Installer audit checks the two executables' logging separation, first-boot display detection, global 29% non-PT glow default, content inventory, disabled developer mods and authored mission hashes.
 - All 16 maps and 15 available lighting overrides are verified against the effective working-build authoring and physical loader paths.
 - These are build/offline checks, not a claim that every GPU, mission interaction or mod combination is bug-free.
@@ -72,7 +72,7 @@ Setup produces **OpenHW.exe** (diagnostic logging compiled out) and **OpenHW-Dai
 
 All application-owned settings, saves, mods, exports and working files remain inside the installation folder. `Development` holds diagnostics and setup/cache data. Successful setup removes its temporary conversion copies; failed setup retains work for recovery. Windows/driver system caches remain controlled by those components. Setup does not auto-launch the game.
 
-**Disk space:** allow approximately **120 GB free during conversion** as a conservative planning estimate; the exact peak of this compact installer has not been measured. The download is about 473 MB and the main generated game archive is about 34 GB, plus loose resources and user data. Setup reads the original Collection archives directly, stages selected HW1 resources and removes intermediate conversion caches. The original Collection and source-build dependencies occupy separate space.
+**Allow at least 250 GB free during installation; over 200 GB temporary use has been observed.** Do not confuse download size with conversion space or final installed size.
 
 ## Documentation
 

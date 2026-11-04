@@ -48,14 +48,8 @@ public static class PresenterShaderValidation {
 }
 '@
 if ($Legacy) { $Source = "$PSScriptRoot\..\src\Modern\LegacyD3D12GL.cpp" }
-$text = [IO.File]::ReadAllText((Resolve-Path -LiteralPath $Source))
-$marker = 'const char presenterShader[] = R"('
-if ($Legacy) { $marker = 'const char *legacyShader = R"(' }
-$start = $text.IndexOf($marker) + $marker.Length
-if ($start -lt $marker.Length) { throw 'Presenter source block not found' }
-$end = $text.IndexOf(')";', $start)
-$shader = $text.Substring($start, $end - $start)
-$shader = $shader.Replace("`r`n", "`n")
+. "$PSScriptRoot\presenter_shader_source.ps1"
+$shader = Get-PresenterShaderSource -Source $Source -Legacy:$Legacy
 [PresenterShaderValidation]::CacheDirectory = $CacheDirectory
 if ($Legacy) {
     [PresenterShaderValidation]::Compile($shader, 'LegacyVS', 'vs_5_0')
@@ -65,4 +59,5 @@ if ($Legacy) {
 [PresenterShaderValidation]::Compile($shader, 'PresentVS', 'vs_5_0')
 [PresenterShaderValidation]::Compile($shader, 'PresentPS', 'ps_5_0')
 [PresenterShaderValidation]::Compile($shader, 'DustScreenPS', 'ps_5_0')
+[PresenterShaderValidation]::Compile($shader, 'GoodGodRaysPS', 'ps_5_0')
 [PresenterShaderValidation]::Compile("#define DUST_FROXEL_COMPUTE 1`n$shader", 'BuildDustFroxelCS', 'cs_5_0')

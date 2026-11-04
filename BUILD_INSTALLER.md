@@ -83,10 +83,4 @@ inferred merely from a repository being publicly accessible. Publication does no
 
 ## Installation disk budget
 
-**Disk space:** allow approximately **120 GB free during conversion** as a conservative planning estimate; the exact peak of this compact installer has not been measured. The download is about 473 MB and the main generated game archive is about 34 GB, plus loose resources and user data. Setup reads the original Collection archives directly, stages selected HW1 resources and removes intermediate conversion caches. The original Collection and source-build dependencies occupy separate space.
-
-The compact importer reads the original Collection archives without copying them. It keeps a single main conversion tree, removes each faction material/package cache after merging, and converts backgrounds one mission at a time. Original HOD bytes are preserved; immutable scratch assets use hardlinks when supported, while editable definitions remain independent. The installer rejects Hiigaran/Vaygr faction assets except the approved shared Taiidan VgrBeam dependency.
-
-## Building the patch installer
-
-Build both game variants and the `OpenHWPatchBootstrap` target. Run `tools/package_release_patch.py --help` for its required paths. It reuses the installed 1.0 helper dependencies, includes both game executables and matching symbols, and packages original conversion code rather than retail sky resources. The complete source for sky repair is `tools/release_sky_lighting.py`.
+Running the generated installer has exceeded 200 GB of temporary destination-drive usage. Recommend at least 250 GB free, with additional margin; this is not a guaranteed maximum. The approximately 473 MB download locally builds a roughly 34 GB main archive plus loose data and caches. Build dependencies and source compilation require separate space. See docs/USER_GUIDE.md.

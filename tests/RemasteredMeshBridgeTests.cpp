@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iterator>
 #include <sstream>
+#include <chrono>
 extern "C" {
 #include "Memory.h"
 #include "Vector.h"
@@ -144,6 +145,53 @@ static HwRmHodScene *loadScene(const std::filesystem::path& path) {
     Bytes bytes((std::istreambuf_iterator<char>(file)),{});HwRmHodScene *scene=nullptr;char error[512];
     require(hwRmHodSceneRead(bytes.data(),bytes.size(),&scene,error,sizeof(error))!=0,error);return scene;
 }
+static void captureNode(void *user,const HwRmSubsystemNode *node) {
+    static_cast<std::vector<HwRmSubsystemNode>*>(user)->push_back(*node);
+}
+static void hierarchyStorageTest() {
+    const auto bytes=sample();char error[512];HwRmHodScene *scene=nullptr;
+    require(hwRmHodSceneRead(bytes.data(),bytes.size(),&scene,error,sizeof(error))!=0,error);
+    auto *layer=hwRmSubsystemLayerCreate(scene,error,sizeof(error));require(layer!=nullptr,error);
+    for(unsigned i=0;i<50;++i) {
+        const auto slot="part"+std::to_string(i);
+        require(hwRmSubsystemLayerAdd(layer,slot.c_str(),"HeavyInterceptor",HW_RM_TURRET,scene,error,sizeof(error))!=0,error);
+    }
+    auto *instance=hwRmSubsystemInstanceCreate(layer);require(instance!=nullptr,"bounded hierarchy instance");
+    std::vector<HwRmSubsystemNode> first,second,failed;
+    require(hwRmSubsystemVisitHierarchy(instance,0,2,255,captureNode,&first,error,sizeof(error))!=0,error);
+    require(first.size()==255,"maximum legacy hierarchy count changed");
+    require(hwRmSubsystemVisitHierarchy(instance,0,2,256,captureNode,&second,error,sizeof(error))!=0,error);
+    require(first.size()==second.size(),"hierarchy storage paths differ");
+    for(size_t i=0;i<first.size();++i) {
+        const auto &a=first[i],&b=second[i];
+        require(a.index==b.index && a.component==b.component && a.role==b.role && a.parent==b.parent &&
+            a.part==b.part && a.material==b.material && !std::strcmp(a.slot,b.slot) &&
+            !std::strcmp(a.jointName,b.jointName) && !std::memcmp(a.localMatrix,b.localMatrix,sizeof(a.localMatrix)) &&
+            !std::memcmp(a.vertexMatrix,b.vertexMatrix,sizeof(a.vertexMatrix)),"bounded hierarchy changed node data");
+    }
+    require(!hwRmSubsystemVisitHierarchy(instance,0,2,254,captureNode,&failed,error,sizeof(error)) && failed.empty(),
+        "overflow published partial hierarchy callbacks");
+    auto *mesh=meshCreateRemasteredHierarchy(instance,0,2,"maximum.geo",material,nullptr,nullptr);
+    require(mesh && mesh->nPolygonObjects==255,"maximum bridge mesh rejected");
+    std::vector<mhlocalbinding> bindings(255);
+    require(meshApplyRemasteredHierarchyPose(instance,0,2,mesh,bindings.data(),255)!=0,"maximum bridge pose rejected");
+    verify(mesh);hwRmSubsystemInstanceFree(instance);hwRmSubsystemLayerFree(layer);hwRmHodSceneFree(scene);
+}
+static void poseBenchmark(const std::filesystem::path& path) {
+    char error[512];auto *scene=loadScene(path);
+    auto *layer=hwRmSubsystemLayerCreate(scene,error,sizeof(error));require(layer!=nullptr,error);
+    auto *instance=hwRmSubsystemInstanceCreate(layer);require(instance!=nullptr,"benchmark instance");
+    auto *mesh=meshCreateRemasteredHierarchy(instance,0,2.5f,"benchmark.geo",material,nullptr,nullptr);
+    require(mesh!=nullptr,"benchmark bridge mesh");std::vector<mhlocalbinding> bindings(mesh->nPolygonObjects);
+    constexpr unsigned iterations=20000;
+    const auto start=std::chrono::steady_clock::now();
+    for(unsigned i=0;i<iterations;++i)
+        require(meshApplyRemasteredHierarchyPose(instance,0,2.5f,mesh,bindings.data(),unsigned(bindings.size()))!=0,"benchmark pose failed");
+    const auto end=std::chrono::steady_clock::now();
+    std::printf("POSE %s nodes=%u iterations=%u usPerCall=%.4f\n",path.string().c_str(),unsigned(bindings.size()),iterations,
+        std::chrono::duration<double,std::micro>(end-start).count()/iterations);
+    verify(mesh);hwRmSubsystemInstanceFree(instance);hwRmSubsystemLayerFree(layer);hwRmHodSceneFree(scene);
+}
 static void auditFleet(const std::filesystem::path& root,const char *manifest,unsigned expected=32) {
     std::ifstream file(manifest);require(bool(file),"hierarchy audit input missing");
     HwRmSubsystemLayer *layer=nullptr;HwRmHodScene *hull=nullptr;
@@ -176,6 +224,9 @@ static void auditFleet(const std::filesystem::path& root,const char *manifest,un
 }
 #include "RemasteredEmission.h"
 int main(int argc,char **argv) {
+    if(argc==3 && !std::strcmp(argv[1],"--pose-benchmark")) {
+        try {poseBenchmark(argv[2]);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}
+    }
     require(hwTextureResolutionCap(0)==512 && hwTextureResolutionCap(1)==1024 &&
         hwTextureResolutionCap(2)==2048 && hwTextureResolutionCap(3)==0 &&
         hwTextureResolutionCap(-1)==0, "texture resolution caps");
@@ -196,6 +247,7 @@ int main(int argc,char **argv) {
     const unsigned char bright[]={255,200,100,255};
     require(meshRemasteredEmissionCoverage(bright,255)==255,"bright lamp protection lost");
     try {
+        hierarchyStorageTest();
         char error[512];HwRmHodScene *scene=nullptr;auto bytes=sample();
         for(unsigned tint:{0xc8c8c8ffu,0xff0000ffu,0xc8c8c800u}) {
             auto tinted=sample(false,false,false,true,tint);

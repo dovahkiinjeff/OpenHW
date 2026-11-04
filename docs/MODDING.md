@@ -60,5 +60,3 @@ Use Shift+F11/Shift+F12 for maps, clouds, ropes, original dust appearance and li
 [BUILD_INSTALLER.md](../BUILD_INSTALLER.md) builds both game variants and OpenHW-Setup.exe from this complete source snapshot. The source includes tests, conversion tools, shaders and reviewed release content, but not your installed Collection assets or build caches.
 
 NVIDIA/Intel technology completion, player-reported fixes and further performance work are immediate priorities. Cataclysm and multiplayer support are planned later; they are not supported 1.0 modes. Original networking code and multiplayer-related UI/data in the tree are not proof of validated multiplayer compatibility for modern features.
-
-The supplied subsystem library contains HW1 content. Hiigaran/Vaygr factions and subsystem libraries are excluded. VgrBeam and its required shared resources are retained for the Taiidan Defense Fighter. Owner-created asteroid models, textures and every distance LOD install at Data/Asteroids.

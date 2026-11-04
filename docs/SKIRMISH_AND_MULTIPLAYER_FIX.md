@@ -1,6 +1,6 @@
 # Local skirmish and multiplayer menus — patch 1.0.2
 
-Technical implementation and offline validation notes for OpenHW patch 1.0.2.
+Local test build; not published to GitHub.
 
 The 27 October crash dump resolves to `dbgFatalf -> fileSizeGet ->
 fileLoadAlloc -> hrInitBackground`. The optional screenshot selector returned
@@ -56,8 +56,8 @@ deletion so a reused address cannot inherit another object's scale.
 Validation: both game executables compile; optional-artwork regression tests
 pass; layout tests exercise 32 actual local FIB pages at five resolutions and
 four UI scales. No game or installer was launched for these checks. Gameplay
-and the final appearance require the user's test. This does not implement or certify online matchmaking or a complete
-multi-computer compatibility test; pilot synchronisation is described below.
+and the final appearance require the user's test. This does not implement or
+certify online matchmaking or multiplayer synchronisation.
 
 Additional checks cover all loading modes, trail-origin offsets, map/lighting
 identity and the production HDR metadata lifecycle for campaign and MP maps.
@@ -66,7 +66,7 @@ The cumulative patch also retains 1.0.1's authored dust/cloud initialisation
 and mission lighting sky repair. Existing mission authoring, saves and options
 are preserved. Program backups and patch logs stay under Development.
 
-The 1.0.2 follow-up also removes the story-only entry gate for direct
+The local 1.0.2 follow-up also removes the story-only entry gate for direct
 piloting, command navigation and X/Claw wing-leader control. Local skirmish
 uses the same controller as campaign. Network pilot input travels through the
 captain's ordered command stream before changing steering, weapons or squad

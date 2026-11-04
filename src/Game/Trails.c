@@ -2036,6 +2036,8 @@ static void trailModernLayeredSequence(sdword n, vector vectors[],
     vector previousRight = {1.0f, 0.0f, 0.0f};
     real32 baseWidth;
     sdword i, layer, curveCount, oldAdditive, band;
+    GLboolean depthTestWasEnabled, depthWriteWasEnabled;
+    GLint previousDepthFunc;
 
     if (n < 2) return;
 
@@ -2118,6 +2120,14 @@ static void trailModernLayeredSequence(sdword n, vector vectors[],
         }
     }
 
+    /* Self-lit describes the ribbon's colour, not its visibility through
+       solid hulls. Earlier sprites can leave depth disabled or set to ALWAYS;
+       establish scene occlusion explicitly and restore the caller's state. */
+    depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &depthWriteWasEnabled);
+    glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
     glEnable(GL_BLEND);
     oldAdditive = rndAdditiveBlends(FALSE);
 #ifdef HW_ENABLE_D3D12_NATIVE_RASTER
@@ -2183,7 +2193,10 @@ static void trailModernLayeredSequence(sdword n, vector vectors[],
     hwglEngineTrail(FALSE);
 #endif
     rndAdditiveBlends(oldAdditive);
-    glDepthMask(GL_TRUE);
+    glDepthMask(depthWriteWasEnabled);
+    glDepthFunc((GLenum)previousDepthFunc);
+    if (depthTestWasEnabled) glEnable(GL_DEPTH_TEST);
+    else glDisable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glDisable(GL_BLEND);
 }

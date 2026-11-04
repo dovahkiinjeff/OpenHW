@@ -3240,6 +3240,7 @@ static bool32 muiExportVisualSettings(void)
     fprintf(stream, "motionBlurPercent %d\n", mainMotionBlurPercent);
     fprintf(stream, "filmGrainPercent %d\n", mainFilmGrainPercent);
     fprintf(stream, "godRaysPercent %d\n", mainGodRaysPercent);
+    fprintf(stream, "godRayQuality %d\n", mainGodRayQuality);
     fprintf(stream, "lensFlares %d\n", mainLensFlares);
     fprintf(stream, "bloomPercent %d\n\n", mainBloomPercent);
     fprintf(stream, "# Shift+F12 mission tuning is saved in RTXExports/Missions/MissionNN.rtxlight.\n\n");
@@ -6670,6 +6671,7 @@ static void muiApplyRendererLive(void)
         (float)mainFilmGrainPercent / 100.0f,
         (float)mainGodRaysPercent / 100.0f,
         (float)mainBloomPercent / 100.0f);
+    hwModernGraphicsSetGodRayQuality(mainGodRayQuality);
     hwModernGraphicsSetLensFlaresEnabled(mainLensFlares);
     hwModernGraphicsSetRasterGlowBrightness(mainRasterGlowBrightnessPercent / 100.0f);
     hwModernGraphicsSetOutputDitherStrength(
@@ -6798,7 +6800,10 @@ static void muiAdjustPost(sdword row, sdword direction)
         case 3:
             mainGodRaysPercent = mainGodRaysPercent ? 0 : 100;
             break;
-        case 5:
+        case 4:
+            mainGodRayQuality = (muiClamp(mainGodRayQuality, 0, 3) + direction + 4) % 4;
+            break;
+        case 6:
             mainLensFlares = !mainLensFlares;
             break;
         default:
@@ -7024,7 +7029,11 @@ static void muiDrawImageDropdown(const ModernUILayout *layout, sdword row)
 static const char *muiPostValue(sdword row, char *buffer, size_t count)
 {
     if (row==3) return mainGodRaysPercent ? "ON" : "OFF";
-    if (row == 5) return mainLensFlares ? "ON" : "OFF";
+    if (row==4) {
+        static const char *quality[] = {"LOW", "MEDIUM", "HIGH", "ULTRA"};
+        return quality[muiClamp(mainGodRayQuality, 0, 3)];
+    }
+    if (row == 6) return mainLensFlares ? "ON" : "OFF";
     sdword value = 0;
     switch (row)
     {
@@ -7101,13 +7110,13 @@ static void muiDrawVideo(regionhandle region)
         {"DISPLAY MODE", "OUTPUT RESOLUTION", "REFRESH RATE", "FRAME LIMIT", "INTERFACE SCALE"},
         {"PATH TRACING", "LIGHT BOUNCES", "SAMPLES", "NORMAL MAP STRENGTH", "FX EMISSION"},
         {"ANTI-ALIASING / UPSCALING", "BRIGHTNESS", "EFFECT DENSITY", "EFFECT BUDGET", "FRAME GENERATION", "TEXTURE RESOLUTION", "GAMMA"},
-        {"CHROMATIC ABERRATION", "MOTION BLUR", "LUMINANCE FILM GRAIN", "GOD RAYS", "BLOOM", "LENS FLARES"}
+        {"CHROMATIC ABERRATION", "MOTION BLUR", "LUMINANCE FILM GRAIN", "GOD RAYS", "GOD RAY QUALITY", "BLOOM", "LENS FLARES"}
     };
     static const char *descriptions[MUI_VIDEO_TAB_COUNT][MUI_VIDEO_ROW_COUNT] = {
         {"Default: desktop-matched borderless", "Staged for the next launch", "Auto follows the active display", "Zero removes the limiter", "Staged; scales from resolution automatically"},
         {"DXR scene traversal and accumulated lighting", "1-6 bounces; default 3, higher values cost more GPU time", "New stochastic paths each frame", "LIF-derived micro-surface response", "Weapons, engines, beams, blasts and nav lights"},
         {"Auto, native TAA, DLAA/DLSS, FSR or XeSS-SR full-scene reconstruction", "Final image brightness; default 30%", "Trails and impact complexity", "Maximum simultaneous effects", "Additional displayed frames; status reflects the active runtime", "Model DDS textures; long-edge limit, Ultra preserves source. Restart required.", "Midtone visibility; 1.00 neutral, higher brightens shadows"},
-        {"Radial RGB lens separation", "DXR motion-vector blur; default off", "Response-controlled midtone grain; protected blacks/highlights", "On/Off; per-mission strength and color in Shift+F12", "Soft bright-scene glow; 0-400%, default 100%", "Occluded sunlight lens ghosts; independent of god rays"}
+        {"Radial RGB lens separation", "DXR motion-vector blur; default off", "Response-controlled midtone grain; protected blacks/highlights", "On/Off; per-mission strength and color in Shift+F12", "Low / Medium / High / Ultra; Medium is the default", "Soft bright-scene glow; 0-400%, default 100%", "Occluded sunlight lens ghosts; independent of god rays"}
     };
     ModernUILayout layout;
     rectangle marker;
@@ -7170,7 +7179,7 @@ static void muiDrawVideo(regionhandle region)
             layout.content.y0 + uiScaleSize(82), muiMuted,
             subheads[muiVideo.tab], muiBodyFont);
 
-    for (index = 0; index < (muiVideo.tab == 2 ? MUI_VIDEO_ROW_COUNT : (muiVideo.tab == 3 ? 6 : MUI_ROW_COUNT)); ++index)
+    for (index = 0; index < (muiVideo.tab >= 2 ? MUI_VIDEO_ROW_COUNT : MUI_ROW_COUNT); ++index)
     {
         bool32 hovered = muiPointIn(&layout.rows[index], mouseX, mouseY);
         adjustable = TRUE;
@@ -7311,7 +7320,7 @@ static udword muiVideoProcess(regionhandle region, smemsize ID,
     }
 
     direction = (event == RPE_WheelUp) ? 1 : -1;
-    for (index = 0; index < (muiVideo.tab == 2 ? MUI_VIDEO_ROW_COUNT : (muiVideo.tab == 3 ? 6 : MUI_ROW_COUNT)); ++index)
+    for (index = 0; index < (muiVideo.tab >= 2 ? MUI_VIDEO_ROW_COUNT : MUI_ROW_COUNT); ++index)
     {
         if (muiPointIn(&layout.rows[index], mouseX, mouseY))
         {

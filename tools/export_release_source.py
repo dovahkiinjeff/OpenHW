@@ -25,7 +25,7 @@ def export(repo, output, profile=None):
     for directory in ('src','tools','tests','cmake','Windows','docs','documentation','deferred','.github'):
         for path in (repo/directory).rglob('*'):
             if not path.is_file() or '__pycache__' in path.parts or '.texture-tools' in path.parts:continue
-            if path.suffix.lower() in CODE_EXTENSIONS:copy(path)
+            if path.suffix.lower() in CODE_EXTENSIONS or path.name in {'LICENSE','COPYING','NOTICE'}:copy(path)
     for path in repo.iterdir():
         if path.is_file() and path.name not in ('.git','CMakeUserPresets.json') and (
             path.suffix.lower() in {'.md','.txt','.json'} or path.name in {

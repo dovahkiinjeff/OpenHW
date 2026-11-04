@@ -379,6 +379,10 @@ int hwModernGraphicsIsDlaaActive(void);
 void hwModernGraphicsSetPostProcessingSettings(
     float chromaticAberration, float motionBlur, float filmGrain,
     float godRays, float bloom);
+/* Volumetric shaft sampling preset: 0 Low, 1 Medium (default), 2 High, 3 Ultra.
+   Quality is independent of the enabled state and authored strength/color. */
+void hwModernGraphicsSetGodRayQuality(int quality);
+int hwModernGraphicsGetGodRayQuality(void);
 void hwModernGraphicsSetDisplayControls(float brightness, float gamma);
 void hwModernGraphicsSetLensFlaresEnabled(int enabled);
 /* Supplies the projected screen-space position and color of the one

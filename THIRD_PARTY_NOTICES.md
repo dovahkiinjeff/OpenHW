@@ -143,6 +143,21 @@ images. Attribution, unmodified references and hashes are retained in
 was found; this adaptation is a local prototype, and permission to redistribute
 the adapted code and assets remains unresolved before a public release.
 
+## three-good-godrays
+
+The candidate volumetric shaft renderer is an altered Direct3D 12/HLSL adaptation
+of Casey Primozic's three-good-godrays, inspected at revision
+`70ad1c41c78796637064b3bb9246be08e81ee777`. Upstream acknowledges the original
+implementation by n8python. The shadow-visibility integration and depth-aware
+joint bilateral upsampling structure are adapted to OpenHW's finite mission
+bounds, camera/depth conventions and authored lighting. This is not the
+unmodified Three.js package, and no Three.js runtime or demo assets are included.
+
+- Project: https://github.com/Ameobea/three-good-godrays
+- License: zlib; complete unmodified notice in `src/ThirdParty/ThreeGoodGodRays/LICENSE`
+- Pinned upstream license: https://github.com/Ameobea/three-good-godrays/blob/70ad1c41c78796637064b3bb9246be08e81ee777/LICENSE
+- Adaptation/provenance: `src/ThirdParty/ThreeGoodGodRays/PROVENANCE.md`
+
 ## No endorsement
 
 References to companies, products, and APIs identify compatibility only. This

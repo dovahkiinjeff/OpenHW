@@ -241,31 +241,54 @@ static bool32 meshRmCollectTraversal(meshdata *mesh, polygonobject *object,
     return TRUE;
 }
 
+/* Runtime poses need only transform/topology validation, not the two 255x512
+   name buffers used when constructing a mesh. Keep this bounded scratch on the
+   call stack so independent/reentrant instance visits cannot share mutable data. */
+typedef struct meshRmPoseNode {
+    unsigned int index;
+    int parent, vertices, polygons;
+    float localMatrix[16];
+} meshRmPoseNode;
+typedef struct meshRmPoseCapture {
+    meshRmPoseNode nodes[255];
+    unsigned int count;
+} meshRmPoseCapture;
+static void meshRmCapturePoseNode(void *user, const HwRmSubsystemNode *node)
+{
+    meshRmPoseCapture *capture = (meshRmPoseCapture *)user;
+    if (capture->count < 255)
+    {
+        meshRmPoseNode *pose = &capture->nodes[capture->count++];
+        pose->index = node->index; pose->parent = node->parent;
+        pose->vertices = node->part ? (int)node->part->vertexCount : 0;
+        pose->polygons = node->part ? (int)node->part->indexCount / 3 : 0;
+        memcpy(pose->localMatrix, node->localMatrix, sizeof(pose->localMatrix));
+    }
+}
+
 bool32 meshApplyRemasteredHierarchyPose(HwRmSubsystemInstance *instance,
     unsigned int lod, float scale, meshdata *mesh, mhlocalbinding *bindings,
     unsigned int bindingCount)
 {
-    meshRmCapture *capture;
+    meshRmPoseCapture capture;
     unsigned int indices[255], count = 0, i;
     unsigned char seen[255] = {0};
     char error[256];
     if (!instance || !mesh || !bindings || bindingCount == 0 || bindingCount > 255 ||
         bindingCount != (unsigned int)mesh->nPolygonObjects) return FALSE;
-    capture = (meshRmCapture *)calloc(1, sizeof(*capture));
-    if (!capture) return FALSE;
-    if (!hwRmSubsystemVisitHierarchy(instance, lod, scale, 255, meshRmCaptureNode,
-        capture, error, sizeof(error)) || capture->count != bindingCount ||
+    capture.count = 0;
+    if (!hwRmSubsystemVisitHierarchy(instance, lod, scale, 255, meshRmCapturePoseNode,
+        &capture, error, sizeof(error)) || capture.count != bindingCount ||
         !meshRmCollectTraversal(mesh, mesh->object, indices, &count, seen) || count != bindingCount)
         goto failedPose;
     for (i = 0; i < count; ++i)
     {
         const unsigned int index = indices[i];
-        const HwRmSubsystemNode *node = &capture->nodes[index];
+        const meshRmPoseNode *node = &capture.nodes[index];
         const polygonobject *object = &mesh->object[index];
         const int parent = object->pMother ? (int)(object->pMother - mesh->object) : -1;
         if (node->index != index || node->parent != parent ||
-            (node->part ? (int)node->part->vertexCount : 0) != object->nVertices ||
-            (node->part ? (int)node->part->indexCount / 3 : 0) != object->nPolygons ||
+            node->vertices != object->nVertices || node->polygons != object->nPolygons ||
             (bindings[i].object && bindings[i].object != object) ||
             (bindings[i].function && (!(bindings[i].flags & MESH_RM_POSE_BINDING_FLAG) ||
                 bindings[i].function != meshRmKeepInstancePose))) goto failedPose;
@@ -276,13 +299,11 @@ bool32 meshApplyRemasteredHierarchyPose(HwRmSubsystemInstance *instance,
     {
         const unsigned int index = indices[i];
         bindings[i].object = &mesh->object[index];
-        memcpy(&bindings[i].matrix, capture->nodes[index].localMatrix, 16 * sizeof(float));
+        memcpy(&bindings[i].matrix, capture.nodes[index].localMatrix, 16 * sizeof(float));
         bindings[i].function = meshRmKeepInstancePose;
         bindings[i].flags |= MESH_RM_POSE_BINDING_FLAG;
     }
-    free(capture);
     return TRUE;
 failedPose:
-    free(capture);
     return FALSE;
 }

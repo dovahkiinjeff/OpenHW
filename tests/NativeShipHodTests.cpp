@@ -591,6 +591,48 @@ static void auditPose(const char *path) {
     std::printf("TIMING 300 %.6f ms %u draws\n",std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count(),draws);
     hwRmSubsystemInstanceFree(instance);hwRmSubsystemLayerFree(layer);hwRmHodSceneFree(scene);
 }
+static void auditKharSelimContacts(const std::filesystem::path& root) {
+    char error[512];
+    const auto bytes=readBytes(root/"visual.rmnative");
+    std::string legacy(bytes.begin(),bytes.end());
+    // Reproduce the released package with no marker rows: native semantics
+    // must be supplied by runtime compatibility, including OPENHW_SHIP_1.
+    std::istringstream rows(legacy);std::string row,withoutMarkers;
+    while(std::getline(rows,row))if(row.compare(0,7,"marker "))withoutMarkers+=row+"\n";
+    auto source=readBytes(root/"hull.hod");HwRmHodScene *scene=nullptr;
+    require(hwRmHodSceneRead(source.data(),source.size(),&scene,error,sizeof(error))!=0,error);
+    for(unsigned format=0;format<2;++format) {
+        std::string manifest=withoutMarkers;
+        if(format)manifest.replace(0,manifest.find('\n'),"OPENHW_SHIP_1");
+        auto folder=root;
+        auto *package=hwRmVisualPackageRead("Derelict_Shipwreck",manifest.data(),manifest.size(),
+            packageFileRead,packageFileRelease,packageFixtureConfigure,&folder,error,sizeof(error));
+        require(package!=nullptr,error);
+        const float scale=hwRmVisualPackageScale(package);
+        auto *asset=hwRmVisualPackageTakeAsset(package);int key=0;
+        require(meshNativeVisualRegister(&key,asset,scale,0)!=0,"Khar-Selim registry registration failed");
+        for(unsigned point=0;point<5;++point) {
+            const auto name="SalvagePoint"+std::to_string(point);
+            const HwRmHodJoint *joint=nullptr;
+            for(unsigned i=0;i<hwRmHodSceneJointCount(scene);++i)
+                if(!std::strcmp(hwRmHodSceneJoint(scene,i)->name,name.c_str()))joint=hwRmHodSceneJoint(scene,i);
+            require(joint && !std::strcmp(joint->parent,"Root"),"expected source salvage joint missing");
+            float transform[16];
+            require(meshNativeVisualRestMarker(&key,name.c_str(),transform)!=0,"released package salvage semantic remains unbound");
+            const float expected[]={joint->position[1]*scale,-joint->position[0]*scale,joint->position[2]*scale};
+            for(unsigned axis=0;axis<3;++axis)
+                require(std::abs(transform[12+axis]-expected[axis])<.001f,"Khar-Selim point applied incorrect native basis/scale");
+            const float normalLength=transform[8]*transform[8]+transform[9]*transform[9]+transform[10]*transform[10];
+            require(std::isfinite(normalLength) && normalLength>.999f && normalLength<1.001f,"invalid salvage approach normal");
+            if(!format)std::printf("Khar-Selim %s: HW1 local (%g,%g,%g), normal (%g,%g,%g)\n",name.c_str(),
+                transform[12],transform[13],transform[14],transform[8],transform[9],transform[10]);
+        }
+        meshNativeVisualReleaseMesh(&key);hwRmVisualPackageFree(package);
+    }
+    hwRmHodSceneFree(scene);
+    std::puts("Khar-Selim released visual + ship definition: all 5 native salvage contacts, registry basis and scale passed");
+}
+
 int main(int argc,char**argv) {
     documentTests::run();
     try {
@@ -741,6 +783,9 @@ int main(int argc,char**argv) {
             }
             require(ships==5 && guns==25,"Incomplete Kadeshi fleet");
             std::puts("Five Kadeshi native packages, 25 muzzles and LOD0-4 passed");return 0;
+        }
+        if(argc==3 && std::strcmp(argv[1],"--khar-selim")==0) {
+            auditKharSelimContacts(argv[2]);return 0;
         }
         if(argc==3 && std::strcmp(argv[1],"--raiders-derelicts")==0) {
             const auto root=std::filesystem::path(argv[2]);

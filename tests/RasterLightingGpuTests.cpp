@@ -236,6 +236,15 @@ int main(int argc,char**argv)try {
             require(expected==hwlegacyd3d12::missionIndices,"spatial tree changed the brute-force light list");}
         std::cout<<"PASS: 512 spatial queries exactly match all 512 brute-force point/spot/line/global lights\n";
         std::cout<<"PASS: 511 unreachable lights removed with exact pixel parity; tangent, line and infinite support retained\n";
+        lights.assign(2,{});lights[0].type=1;lights[0].direction[0]=.5f;lights[0].direction[2]=1;
+        lights[0].color[0]=1;lights[0].intensity=1.35f;lights[1].type=0;
+        lights[1].color[0]=lights[1].color[1]=lights[1].color[2]=.03f;lights[1].intensity=1;
+        _putenv_s("HW_RASTER_STATE_CACHE","0");const auto uncachedBindings=render(106,1);
+        _putenv_s("HW_RASTER_STATE_CACHE","1");const auto cachedBindings=render(107,1);
+        require(uncachedBindings==cachedBindings && rasterReplayLastBindings.suppressed>0,
+            "raster state cache changed actual mission lighting/shadow pixels");
+        _putenv_s("HW_RASTER_STATE_CACHE","");
+        std::cout<<"PASS: mission sun/shadow/UI pixels are byte-identical against forced uncached bindings\n";
 #endif
         std::cout<<"PASS: production raster sun color/direction, actual shadow, strength, ambient and UI isolation\n";
     }

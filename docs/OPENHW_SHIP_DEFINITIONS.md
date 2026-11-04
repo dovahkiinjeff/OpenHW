@@ -326,13 +326,10 @@ opens the runtime definition first, exposing its joint references rather than
 defaulting to the unrelated original `.shp`. Project save is still not live
 gameplay installation: publish the definition through a mod and reload.
 
-Initial setup generates the HW1 library from the user's Collection. Hiigaran
-and Vaygr subsystem libraries are excluded. The generated retail models and
-textures are local installation outputs, not distributable installer payloads.
-The packaged 1.0 installer does not support the old development
-`--refresh-subsystems` command; successful setup removes its temporary sources.
-Use the ship editor and mod workflow for user changes. Rebuilding the library
-requires the source tools and original Collection assets.
+Initial setup generates the shared library from the user's imported RM sources.
+`OpenHW-Setup.exe --refresh-subsystems` rebuilds only this library from local
+`SetupSources`, not the campaign, skies, fleet or OBIG archive. The library is
+generated locally and must not be included in a redistributable installer.
 
 ## Materials and LOD
 

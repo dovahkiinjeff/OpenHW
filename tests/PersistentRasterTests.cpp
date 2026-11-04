@@ -128,9 +128,10 @@ static std::vector<unsigned char> draw(ID3D12Device *device,ID3D12CommandQueue *
     for(unsigned y=0;y<32;++y)std::memcpy(pixels.data()+y*32*8,static_cast<unsigned char *>(mapped)+layout.Offset+y*layout.Footprint.RowPitch,32*8);
     output->Unmap(0,nullptr);hwglEndFrame();return pixels;
 }
-struct EffectGuideResult { std::vector<unsigned char> color; std::vector<float> depth; };
+struct EffectGuideResult { std::vector<unsigned char> color, snapshot; std::vector<float> depth; };
 static EffectGuideResult drawEffectGuides(ID3D12Device *device, ID3D12CommandQueue *queue,
-                                         bool guides, unsigned size=64, bool cores=false, float background=.1f) {
+                                         bool guides, unsigned size=64, bool cores=false, float background=.1f,
+                                         bool bindingStress=false, unsigned inheritedDepth=0) {
     hwlegacyd3d12::setFrameGenerationGuidesEnabled(guides);
     hwlegacyd3d12::beginFrame(0);hwglBeginFrame(size,size,0);
     check(!hwlegacyd3d12::frameGenerationEffectDepthResource(),"stale FX guide before current replay");
@@ -146,6 +147,13 @@ static EffectGuideResult drawEffectGuides(ID3D12Device *device, ID3D12CommandQue
             hwglVertex3f((xy[0]*2-1)*scale,(xy[1]*2-1)*scale,-z);
         hwglEnd();
     };
+    auto trailDepthState=[&](bool poison){
+        if (poison && inheritedDepth==1) hwglDisable(GL_DEPTH_TEST);
+        else hwglEnable(GL_DEPTH_TEST);
+        hwglDepthFunc(poison && inheritedDepth==2 ? GL_ALWAYS :
+                      poison && inheritedDepth==3 ? GL_GREATER : GL_LESS);
+        hwglDepthMask(poison && inheritedDepth ? GL_TRUE : GL_FALSE);
+    };
     if (cores) {
         red=background; green=1-background; blue=.8f;
         for(float u:{.125f,.375f,.625f}) rect(u,.25f,8,1);
@@ -154,6 +162,7 @@ static EffectGuideResult drawEffectGuides(ID3D12Device *device, ID3D12CommandQue
         red=.6f; green=.4f; blue=.2f;
         hwglEnable(GL_BLEND);hwglDepthMask(GL_FALSE);
         hwglBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+        trailDepthState(true);
         hwglEngineTrail(TRUE);
         rect(.125f,.25f,4,1);rect(.375f,.25f,4,.96f);
         rect(.625f,.25f,6,1);rect(.625f,.25f,4,1);rect(.625f,.25f,7,1);
@@ -161,11 +170,11 @@ static EffectGuideResult drawEffectGuides(ID3D12Device *device, ID3D12CommandQue
         rect(.125f,.75f,4,.5f); // Tail must still reveal background smoothly.
         // Glows keep the original additive/angular appearance; only trails
         // use the covering-core tag and source-over blend.
-        hwglEngineTrail(FALSE);hwglBlendFunc(GL_SRC_ALPHA,GL_ONE);
+        hwglEngineTrail(FALSE);trailDepthState(false);hwglBlendFunc(GL_SRC_ALPHA,GL_ONE);
         hwglNormal3f(0,0,1);hwglEngineGlow(.7f,.3f,.1f,160.f/255.f,1);
         rect(.875f,.75f,4,1); // Real production capital glow fragment shader.
         hwglEngineGlow(0,0,0,0,0);
-        hwglEngineTrail(TRUE);hwglBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+        trailDepthState(true);hwglEngineTrail(TRUE);hwglBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
         // Missiles use the native line PSO, rather than the ship-ribbon triangle
         // PSO. Check its sampled coverage, color and signed view-depth as well.
         auto missileLine=[&](float row,float alpha){
@@ -179,6 +188,7 @@ static EffectGuideResult drawEffectGuides(ID3D12Device *device, ID3D12CommandQue
         hwglVertex3f((.80f*2-1)*5,(15.5f/64*2-1)*5,-5);
         hwglVertex3f((.94f*2-1)*5,(15.5f/64*2-1)*5,-5);hwglEnd(); // Behind z=2.
         hwglEngineTrail(FALSE);
+        trailDepthState(false);
         rect(.375f,.75f,4,1); // Scope ends: generic FX never gets core metadata.
         hwglMarkSnapshot(HW_LEGACY_RASTER_WORLD);
     } else {
@@ -193,6 +203,25 @@ static EffectGuideResult drawEffectGuides(ID3D12Device *device, ID3D12CommandQue
     perspective();hwglMarkSnapshot(HW_LEGACY_RASTER_WORLD);
     rect(.375f,.75f,1,.8f); // Deliberately perspective UI: only the world boundary excludes it.
     }
+    if(bindingStress) {
+        // Exercise consecutive identical bindings, state changes, custom sky
+        // root constants, clears and an actual snapshot boundary in one list.
+        // The reference reissues every binding; both paths keep every draw.
+        const unsigned pixels[]={0xff705030u};
+        const unsigned char skyBlocks[32]={};
+        hwglBindTexture(GL_TEXTURE_2D,793);hwglCompressedTexImage2D(GL_TEXTURE_2D,0,0x8E8Fu,8,4,0,sizeof(skyBlocks),skyBlocks);
+        hwglBindTexture(GL_TEXTURE_2D,792);hwglTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,1,1,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
+        for(unsigned i=0;i<96;++i) {
+            if(i==32)check(hwglRecordMissionSky(793,.4f)!=0,"binding stress sky record");
+            if(i==64)hwglClear(GL_DEPTH_BUFFER_BIT);
+            if(i%16==0)hwglViewport(0,0,i%32?size/2:size,size);
+            if(i%12==0){hwglEnable(GL_SCISSOR_TEST);hwglScissor(i%24?0:size/4,0,size*3/4,size);}
+            if(i%12==6)hwglDisable(GL_SCISSOR_TEST);
+            if(i%8==0)hwglEnable(GL_TEXTURE_2D);
+            if(i%8==4)hwglDisable(GL_TEXTURE_2D);
+            rect(.125f+(i%4)*.2f,.25f+(i%3)*.2f,4,.15f);
+        }
+    }
     hwglMarkSnapshot(HW_LEGACY_RASTER_FINAL);
     ComPtr<ID3D12CommandAllocator> allocator;hr(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,IID_PPV_ARGS(&allocator)),"FX allocator");
     ComPtr<ID3D12GraphicsCommandList> list;hr(device->CreateCommandList(0,D3D12_COMMAND_LIST_TYPE_DIRECT,allocator.Get(),nullptr,IID_PPV_ARGS(&list)),"FX list");
@@ -200,7 +229,10 @@ static EffectGuideResult drawEffectGuides(ID3D12Device *device, ID3D12CommandQue
     D3D12_RESOURCE_DESC desc={};desc.Dimension=D3D12_RESOURCE_DIMENSION_TEXTURE2D;desc.Width=size;desc.Height=size;
     desc.DepthOrArraySize=desc.MipLevels=1;desc.Format=kRasterTargetFormat;desc.SampleDesc.Count=1;desc.Flags=D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
     ComPtr<ID3D12Resource> target;hr(device->CreateCommittedResource(&heap,D3D12_HEAP_FLAG_NONE,&desc,D3D12_RESOURCE_STATE_COMMON,nullptr,IID_PPV_ARGS(&target)),"FX target");
-    check(hwlegacyd3d12::renderFrameSnapshots(device,list.Get(),target.Get(),D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_COPY_SOURCE,size,size,gCommands.size(),nullptr,0),"FX replay");
+    ComPtr<ID3D12Resource> snapshot;
+    if(bindingStress)hr(device->CreateCommittedResource(&heap,D3D12_HEAP_FLAG_NONE,&desc,D3D12_RESOURCE_STATE_COMMON,nullptr,IID_PPV_ARGS(&snapshot)),"binding snapshot target");
+    const hwlegacyd3d12::SnapshotCopyTarget copyTarget={snapshot.Get(),D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_COPY_SOURCE,gSnapshots[HW_LEGACY_RASTER_WORLD]};
+    check(hwlegacyd3d12::renderFrameSnapshots(device,list.Get(),target.Get(),D3D12_RESOURCE_STATE_COMMON,D3D12_RESOURCE_STATE_COPY_SOURCE,size,size,gCommands.size(),bindingStress?&copyTarget:nullptr,bindingStress?1:0),"FX replay");
     auto *effect=hwlegacyd3d12::frameGenerationEffectDepthResource();check(bool(effect)==guides,"FX guide presence");
     struct Readback { ComPtr<ID3D12Resource> buffer; D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout; unsigned bytesPerPixel; };
     auto copy=[&](ID3D12Resource *input,unsigned bpp){
@@ -214,7 +246,8 @@ static EffectGuideResult drawEffectGuides(ID3D12Device *device, ID3D12CommandQue
         dst.pResource=output.buffer.Get();dst.Type=D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;dst.PlacedFootprint=output.layout;
         list->CopyTextureRegion(&dst,0,0,0,&src,nullptr);return output;
     };
-    auto color=copy(target.Get(),8);Readback depth;
+    auto color=copy(target.Get(),8);Readback depth,snapshotPixels;
+    if(snapshot)snapshotPixels=copy(snapshot.Get(),8);
     if(effect){resourceBarrier(list.Get(),effect,r.effectDepthState,D3D12_RESOURCE_STATE_COPY_SOURCE);
         depth=copy(effect,4);resourceBarrier(list.Get(),effect,D3D12_RESOURCE_STATE_COPY_SOURCE,r.effectDepthState);}
     hr(list->Close(),"FX close");ID3D12CommandList *lists[]={list.Get()};queue->ExecuteCommandLists(1,lists);
@@ -226,10 +259,41 @@ static EffectGuideResult drawEffectGuides(ID3D12Device *device, ID3D12CommandQue
             std::memcpy(bytes.data()+size*y*input.bytesPerPixel,static_cast<unsigned char*>(mapped)+input.layout.Offset+y*input.layout.Footprint.RowPitch,size*input.bytesPerPixel);
         input.buffer->Unmap(0,nullptr);return bytes;};
     EffectGuideResult result;result.color=unpack(color);
+    if(snapshot)result.snapshot=unpack(snapshotPixels);
     if(effect){const auto bytes=unpack(depth);result.depth.resize(size*size);std::memcpy(result.depth.data(),bytes.data(),bytes.size());}
     hwglEndFrame();return result;
 }
 static void checkEffectGuides(ID3D12Device *device,ID3D12CommandQueue *queue) {
+    for (bool enabled:{false,true}) for (bool write:{false,true})
+        for (GLenum function:{GL_LESS,GL_LEQUAL,GL_ALWAYS,GL_GREATER}) {
+            if(enabled)hwglEnable(GL_DEPTH_TEST);else hwglDisable(GL_DEPTH_TEST);
+            hwglDepthMask(write?GL_TRUE:GL_FALSE);hwglDepthFunc(function);
+            const GLboolean savedEnabled=hwglIsEnabled(GL_DEPTH_TEST);
+            GLboolean savedWrite=GL_FALSE;GLint savedFunction=0;
+            hwglGetBooleanv(GL_DEPTH_WRITEMASK,&savedWrite);hwglGetIntegerv(GL_DEPTH_FUNC,&savedFunction);
+            check(bool(savedEnabled)==enabled && bool(savedWrite)==write && GLenum(savedFunction)==function,
+                "depth scope did not capture the real inherited state");
+            hwglEnable(GL_DEPTH_TEST);hwglDepthMask(GL_FALSE);hwglDepthFunc(GL_LEQUAL);
+            hwglDepthMask(savedWrite);hwglDepthFunc(GLenum(savedFunction));
+            if(savedEnabled)hwglEnable(GL_DEPTH_TEST);else hwglDisable(GL_DEPTH_TEST);
+            check(g.draw.depthTest==enabled && g.draw.depthWrite==write && g.draw.depthFunc==function,
+                "depth scope failed to restore the caller's exact state");
+        }
+    std::cout<<"PASS: native depth getter/scope roundtrip for enabled/disabled, write/no-write and LESS/LEQUAL/ALWAYS/GREATER.\n";
+    for(bool guides:{false,true}) {
+        _putenv_s("HW_RASTER_STATE_CACHE","0");
+        const auto reference=drawEffectGuides(device,queue,guides,64,false,.1f,true);
+        const auto referenceBindings=rasterReplayLastBindings;
+        _putenv_s("HW_RASTER_STATE_CACHE","1");
+        const auto cached=drawEffectGuides(device,queue,guides,64,false,.1f,true);
+        const auto cachedBindings=rasterReplayLastBindings;
+        check(reference.color==cached.color && reference.snapshot==cached.snapshot && reference.depth==cached.depth,
+            "binding cache changed final color, intermediate snapshot or FX guides");
+        check(referenceBindings.suppressed==0 && cachedBindings.suppressed>500 && cachedBindings.issued<referenceBindings.issued,
+            "binding stress did not suppress redundant calls against forced baseline");
+        std::cout<<"PASS: exact GPU binding-cache parity (FX "<<guides<<"): "<<cachedBindings.issued<<" calls vs "<<referenceBindings.issued<<", "<<cachedBindings.suppressed<<" redundant calls suppressed.\n";
+    }
+    _putenv_s("HW_RASTER_STATE_CACHE","");
     const auto off=drawEffectGuides(device,queue,false),on=drawEffectGuides(device,queue,true);
     check(!hwlegacyd3d12::frameGenerationEffectDepthFailed(),"healthy FX guide latched failure");
     check(off.color==on.color,"FX guidance changed original color pixels");
@@ -249,6 +313,13 @@ static void checkEffectGuides(ID3D12Device *device,ID3D12CommandQueue *queue) {
     const auto coreB=drawEffectGuides(device,queue,true,64,true,.9f);
     const auto coreNoGuide=drawEffectGuides(device,queue,false,64,true,.1f);
     check(coreA.color==coreNoGuide.color,"core color depends on optional guide capture");
+    for (bool guides:{false,true}) for (unsigned inherited=1;inherited<=3;++inherited) {
+        const auto poisoned=drawEffectGuides(device,queue,guides,64,true,.1f,false,inherited);
+        const auto &reference=guides?coreA:coreNoGuide;
+        check(poisoned.color==reference.color && poisoned.depth==reference.depth,
+            "ship/missile trail inherited disabled/ALWAYS/GREATER depth or wrote scene depth");
+    }
+    std::cout<<"PASS: ship ribbons and missile lines preserve exact foreground occlusion, visible front cores, tail fade and glow pixels with inherited disabled/ALWAYS/GREATER depth and writes enabled (FG guides on/off).\n";
     auto index=[](float u,float v){return unsigned(v*64)*64+unsigned(u*64);};
     auto sameColor=[&](float u,float v){unsigned i=index(u,v)*8;
         return std::memcmp(coreA.color.data()+i,coreB.color.data()+i,8)==0;};

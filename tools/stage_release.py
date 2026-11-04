@@ -47,6 +47,7 @@ def stage(repo, profile, destination, normal_build=None, diagnostic_build=None, 
     (runtime/'openhw.portable').write_text('OpenHW 1.0 portable installation\n')
     (runtime/'mods').mkdir();(runtime/'mods/load-order.txt').write_text('# Enabled mods, one per line; no custom mods enabled by default.\n')
     shutil.copytree(profile/'Licenses',runtime/'Licenses',dirs_exist_ok=True)
+    shutil.copyfile(repo/'src/ThirdParty/ThreeGoodGodRays/LICENSE',runtime/'Licenses/ThreeGoodGodRays-LICENSE.txt')
     shutil.copyfile(repo/'LICENSE.txt',runtime/'LICENSE.txt')
     shutil.copyfile(repo/'THIRD_PARTY_NOTICES.md',runtime/'THIRD_PARTY_NOTICES.md')
     (runtime/'version.json').write_text(json.dumps({'version':'1.0','normal':sha(runtime/'OpenHW.exe'),'diagnostic':sha(runtime/'OpenHW-Daignostics.exe')},indent=2))

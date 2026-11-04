@@ -12,6 +12,8 @@
 #include "TextureResolution.h"
 #include "BenchmarkStats.h"
 #include "FrameWorker.h"
+#include "FrameGenerationCompositeShader.h"
+#include "GoodGodRaysShader.h"
 #include "PresentedFrameRate.h"
 #include "WindowsDiagnostics.h"
 #include "WindowsSplash.h"
@@ -32,6 +34,16 @@
 
 static HWModernCloudRenderSettings cloudRenderSettings = hwModernCloudRenderSettingsDefaults();
 static float cloudSimulationTime = 0.0f;
+static int requestedGodRayQuality = 1;
+
+extern "C" void hwModernGraphicsSetGodRayQuality(int quality)
+{
+    requestedGodRayQuality = std::clamp(quality, 0, 3);
+}
+extern "C" int hwModernGraphicsGetGodRayQuality(void)
+{
+    return requestedGodRayQuality;
+}
 
 extern "C" void hwModernGraphicsGetCloudRenderSettings(HWModernCloudRenderSettings *settings)
 {
@@ -90,6 +102,9 @@ extern "C" float hwModernGraphicsGetFramesPerSecond(void)
 #include <shellapi.h>
 #include <shlobj.h>
 #include <d3d12.h>
+#include "DustFroxelRootSignature.h"
+#include "DustScreenBindings.h"
+#include "GoodGodRaysPass.h"
 #include <d3dcompiler.h>
 #include <dxgi1_6.h>
 #include <DirectXTex.h>
@@ -119,7 +134,8 @@ namespace
 {
 void logTextureLoadMetrics();
 constexpr UINT frameBufferCount = 3;
-constexpr UINT gpuTimestampCount = 10;
+// First ten retain the existing benchmark format; the last pair isolates rays.
+constexpr UINT gpuTimestampCount = 12;
 constexpr UINT maximumVolumetricDustVolumes = 256;
 constexpr UINT particleGridValuesPerBrick = 4913;
 constexpr UINT maximumParticleGridValues = maximumVolumetricDustVolumes * particleGridValuesPerBrick;
@@ -128,7 +144,7 @@ constexpr UINT maximumVolumetricDustLights = 12;
 constexpr UINT maximumVolumetricDustWakes = 12;
 constexpr UINT sceneDepthDescriptorIndex = 13;
 constexpr UINT dustDescriptorBase = 14;
-constexpr UINT dustDescriptorsPerFrame = 10;
+constexpr UINT dustDescriptorsPerFrame = hwmodern::godRayFieldSlot + 1u;
 constexpr UINT dustTileColumns = 16, dustTileRows = 9;
 constexpr UINT dustTileWords = 8;
 constexpr UINT dustFroxelNearUavDescriptorIndex =
@@ -257,7 +273,9 @@ Texture3D<float4> DustFroxelField : register(t12);
 Texture2D<float4> PrimaryAlbedoGuide : register(t13);
 Texture3D<float4> DustFarFroxelField : register(t14);
 Texture2D<float4> DustScreenField : register(t15);
-Texture2D<float4> DustScreenHistory : register(t16);
+// Independent scalar view of the packed upload tail. Temporal cloud history
+// is disabled; reuse its descriptor without growing the root signature.
+StructuredBuffer<float> ParticleDensityGrid : register(t16);
 StructuredBuffer<uint> DustTileMasks : register(t17);
 #ifndef DUST_RAY_QUERY
 Texture2D<float> NativeEffectDepthGuide : register(t18);
@@ -1018,22 +1036,7 @@ float DustDistanceFade(DustVolume volume, float3 cameraPosition)
 
 float ParticleGridValue(uint index)
 {
-    DustVolume packed = DustVolumes[256u + index / 44u];
-    uint lane=index%44u;float4 values=0.0;
-    switch(lane/4u) {
-        case 0:values=asfloat(uint4(packed.enabled,packed.shape,packed.shapeSeed,packed.flags));break;
-        case 1:values=float4(packed.position,packed.density);break;
-        case 2:values=float4(packed.size,packed.scattering);break;
-        case 3:values=float4(packed.color,packed.absorption);break;
-        case 4:values=float4(packed.anisotropy,packed.coverage,packed.noiseScale,packed.noiseDetail);break;
-        case 5:values=float4(packed.shapeVariation,packed.rotationDegrees);break;
-        case 6:values=float4(packed.rotationXSinCos,packed.rotationYSinCos);break;
-        case 7:values=float4(packed.rotationZSinCos,packed.precomputedPadding);break;
-        case 8:values=float4(packed.seedOffset,packed.seedPadding);break;
-        case 9:values=packed.openmwControl;break;
-        default:values=packed.openmwTime;break;
-    }
-    return values[lane&3u];
+    return ParticleDensityGrid[index];
 }
 // HLSL adaptation of zesterer/openmw-volumetric-clouds, clouds.omwfx.
 // Pinned upstream: c8830bcd2de0f6e7355f91880308426203eded3c.
@@ -1210,7 +1213,7 @@ float OpenMWVolumePattern(DustVolume volume, float3 worldPosition, float footpri
     return lerp(1.0, min(pattern, 2.0), strength);
 }
 
-float ParticleDensityAt(DustVolume volume, float3 worldPosition, float footprint = 0.0)
+float ParticleGridDensityAt(DustVolume volume, float3 worldPosition)
 {
     float3 q = (worldPosition - volume.position) / max(volume.size,1.0) + 0.5;
     if (any(q < 0.0) || any(q > 1.0)) return 0.0;
@@ -1227,7 +1230,13 @@ float ParticleDensityAt(DustVolume volume, float3 worldPosition, float footprint
     // Preserve the baked support/density field. OpenMW adds texture within it;
     // neither camera motion nor optional animation can move the brick bounds.
     if (density <= 0.0) return 0.0;
-    return volume.density * density * OpenMWVolumePattern(volume,worldPosition,footprint);
+    return volume.density * density;
+}
+float ParticleDensityAt(DustVolume volume, float3 worldPosition, float footprint = 0.0)
+{
+    float density = ParticleGridDensityAt(volume,worldPosition);
+    if (density <= 0.0) return 0.0;
+    return density * OpenMWVolumePattern(volume,worldPosition,footprint);
 }
 float DustDensityAt(DustVolume volume, DustRotationContext rotation,
                     float3 seedOffset, uint wakeMask, float3 worldPosition,
@@ -1989,6 +1998,25 @@ float DustProceduralSunVisibility(float3 worldPosition, bool shafts = false)
     float3 local = float3(dot(offset,u),dot(offset,v),
         dot(offset,normalize(DustSunDirectionValid.xyz)));
     float3 nearUv = local/max(DustGridSizeHeight.xyz,0.0001)+0.5;
+    bool inNear = all(nearUv >= 0.0) && all(nearUv <= 1.0);
+    float nearVisibility = 1.0;
+    float nearBlend = 1.0;
+    if (inNear)
+    {
+        uint width,height,depth;
+        DustFroxelField.GetDimensions(width,height,depth);
+        float3 active = float3(DustGridMinWidth.w,DustGridSizeHeight.w,PresenterPadding.x);
+        float4 visibility = DustFroxelField.SampleLevel(SourceSampler,
+            clamp(nearUv*active,0.5,active-0.5)/float3(width,height,depth),0);
+        float nearEdge = max(abs(nearUv.x-0.5),
+            max(abs(nearUv.y-0.5),abs(nearUv.z-0.5)))*2.0;
+        nearVisibility = saturate(shafts ? visibility.r : visibility.a);
+        nearBlend = smoothstep(0.8,1.0,nearEdge);
+        // The far cascade's interpolation weight is exactly zero throughout
+        // the near core. Preserve the original sample positions and blending,
+        // but do not fetch a 3D texel block that cannot affect the answer.
+        if (nearBlend <= 0.0) return nearVisibility;
+    }
     // Blend coverage at cascade edges; a hard near/far switch changes the
     // filtered silhouette instantly when the camera resizes the light grid.
     float3 farUv = local/(DustGridSizeHeight.xyz*4.0)+0.5;
@@ -2002,19 +2030,7 @@ float DustProceduralSunVisibility(float3 worldPosition, bool shafts = false)
         farVisibility = lerp(saturate(shafts ? farSample.r : farSample.a),
             1.0,smoothstep(0.8,1.0,farEdge));
     }
-    if (all(nearUv >= 0.0) && all(nearUv <= 1.0))
-    {
-        uint width,height,depth;
-        DustFroxelField.GetDimensions(width,height,depth);
-        float3 active = float3(DustGridMinWidth.w,DustGridSizeHeight.w,PresenterPadding.x);
-        float4 visibility = DustFroxelField.SampleLevel(SourceSampler,
-            clamp(nearUv*active,0.5,active-0.5)/float3(width,height,depth),0);
-        float nearEdge = max(abs(nearUv.x-0.5),
-            max(abs(nearUv.y-0.5),abs(nearUv.z-0.5)))*2.0;
-        return lerp(saturate(shafts ? visibility.r : visibility.a),
-            farVisibility,smoothstep(0.8,1.0,nearEdge));
-    }
-    return farVisibility;
+    return inNear ? lerp(nearVisibility,farVisibility,nearBlend) : farVisibility;
 }
 
 // Resolve visibility at the light-grid scale, independently of the much
@@ -2045,7 +2061,9 @@ float DustSegmentSunVisibility(float3 center, float3 rayDirection, float length)
 float3 AtmosphericSunScattering(float3 rayOrigin, float3 rayDirection,
                                 float sceneDistance)
 {
-    if (GodRays <= 0.0001 || DustSunDirectionValid.w < 0.5 ||
+    // A separate bounded field replaces ALL per-cloud/native-edge remarches.
+    // Retain this legacy fallback only if optional field setup failed.
+    if ((GodRaySourceExternal & 32u) != 0u || GodRays <= 0.0001 || DustSunDirectionValid.w < 0.5 ||
         PresenterPadding.y != 3.0) return 0.0;
     // Occlusion is local to each world-space sample. Covering the sun's screen
     // position must not extinguish the illuminated shafts beside a silhouette.
@@ -2476,6 +2494,8 @@ float4 FilteredDustScreen(float2 uv)
     return float4(scattering, transmission);
 }
 
+float3 GoodGodRaysContribution(float2 uv);
+
 float4 PresentPS(VertexOutput input) : SV_Target
 {
     /* The Streamline prepass is HUD-less. The display pass samples SourceFrame
@@ -2596,8 +2616,9 @@ float4 PresentPS(VertexOutput input) : SV_Target
                 }
             }
 
-            /* Screen-space radial shafts removed: sunlight now scatters in
-               the world-space dust grid, with geometry visibility. */
+            // The reduced-resolution field is built once on this frame's
+            // native camera/depth lattice, then composed before SR and FG.
+            float3 shaftLight = GoodGodRaysContribution(RasterSceneUv(input.texcoord));
 
             if (DustRenderEnabled != 0u)
             {
@@ -2609,8 +2630,11 @@ float4 PresentPS(VertexOutput input) : SV_Target
                    interpolation differences that are invisible in the clean
                    sky and makes its triangulation appear through a cloud. */
                 float3 linearScene = DisplayToLinear(scene);
-                scene = LinearToSrgb(max(linearScene * transmission + medium, 0.0));
+                scene = LinearToSrgb(max(linearScene * transmission + medium +
+                    shaftLight * transmission, 0.0));
             }
+            else if (any(shaftLight > 0.0))
+                scene = LinearToSrgb(max(DisplayToLinear(scene) + shaftLight, 0.0));
 
             // Glow remains self-lit, but foreground dust attenuates it along
             // with the hull. Never restore the whole raster pixel after dust.
@@ -2717,10 +2741,12 @@ float4 PresentPS(VertexOutput input) : SV_Target
 }
 )";
 
-// Keep the normal presenter source byte-for-byte stable: these checked edits
-// extend the exact same cloud marcher only for the optional FG MRT shader.
-// Changing dead helper text in presenterShader would otherwise invalidate all
-// four existing warm shader-cache entries and recompile the large presenter.
+const std::string presenterShaderSource =
+    std::string(presenterShader, sizeof(presenterShader) - 1) + hwmodern::goodGodRaysShader;
+
+// These checked edits extend the same assembled cloud marcher only for the
+// optional FG MRT shader. Cache identities include the full source, including
+// the separate god-ray implementation, for both ordinary and guided variants.
 struct CloudGuideShaderEdit { const char *before; const char *after; };
 const CloudGuideShaderEdit cloudGuideShaderEdits[] = {
     {R"(float3 ApplyVolumetricDust(float2 uv, float3 scene, bool forceDirect,
@@ -2783,7 +2809,7 @@ DustScreenGuidedOutput DustScreenGuidedPS(VertexOutput input)
 
 bool makeCloudFrameGenerationShaderSource(std::string &source)
 {
-    source.assign(presenterShader, sizeof(presenterShader) - 1);
+    source = presenterShaderSource;
     for (const auto &edit : cloudGuideShaderEdits)
     {
         const size_t at = source.find(edit.before);
@@ -2891,7 +2917,9 @@ bool beginWorkerCommands(ID3D12Device *device,ComPtr<ID3D12CommandAllocator> &al
 
 struct D3D12FrameContext
 {
+    hwmodern::GodRayFieldResources godRayField;
     ComPtr<ID3D12Resource> frameGenerationHudless;
+    ComPtr<ID3D12DescriptorHeap> frameGenerationCompositeSrvs;
     ComPtr<ID3D12Resource> shaftCapture[2];
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT shaftCaptureFootprint[2] = {};
     UINT64 shaftCaptureBytes[2] = {};
@@ -2920,6 +2948,7 @@ struct D3D12FrameContext
     unsigned long long benchmarkFrameId = 0, submittedFrameId = 0;
     GpuDustVolume *mappedDustVolumes = nullptr;
     std::uint64_t particleGridFingerprint = 0;
+    ComPtr<ID3D12Resource> particleGridLocal;
     GpuDustLight *mappedDustLights = nullptr;
     GpuDustWake *mappedDustWakes = nullptr;
     unsigned char *mappedUpload = nullptr;
@@ -2985,10 +3014,14 @@ struct D3D12Presenter
     ComPtr<ID3D12RootSignature> rootSignature;
     ComPtr<ID3D12RootSignature> dustFroxelRootSignature;
     ComPtr<ID3D12PipelineState> presenterPipeline;
+    ComPtr<ID3D12RootSignature> frameGenerationCompositeRoot;
+    ComPtr<ID3D12PipelineState> frameGenerationCompositePipeline;
+    bool frameGenerationCompositeFailed = false;
     ComPtr<ID3D12PipelineState> scenePrepassPipeline;
     ComPtr<ID3D12PipelineState> dustFroxelPipeline;
     ComPtr<ID3D12PipelineState> dustSunVisibilityPipeline;
     ComPtr<ID3D12PipelineState> dustScreenPipeline;
+    ComPtr<ID3D12PipelineState> godRayPipeline;
     ComPtr<ID3DBlob> presenterVertexShader;
     ComPtr<ID3D12PipelineState> cloudFrameGenerationGuidePipeline;
     ComPtr<ID3D12DescriptorHeap> cloudFrameGenerationGuideRtvHeap;
@@ -3043,6 +3076,7 @@ struct D3D12Presenter
     double gpuReconstructionMilliseconds = 0.0;
     double gpuCloudShadowMilliseconds = 0.0;
     double gpuCloudMarchMilliseconds = 0.0;
+    double gpuGodRayMilliseconds = 0.0;
     double gpuSceneCompositeMilliseconds = 0.0;
     double gpuUpscalerMilliseconds = 0.0;
     double gpuPresenterMilliseconds = 0.0;
@@ -3369,6 +3403,21 @@ bool createVolumetricDustFrameResources()
                     static_cast<size_t>(buffer.Width));
         frame.particleGridFingerprint=0;
 
+        // Baked density is sampled repeatedly. Keep an unchanged grid in
+        // local GPU memory instead of rereading a mapped upload heap. Each
+        // fenced flight slot owns its copy; allocation failure retains the
+        // direct upload view and never removes clouds.
+        D3D12_HEAP_PROPERTIES localHeap = uploadHeap;
+        localHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
+        D3D12_RESOURCE_DESC localGrid = buffer;
+        localGrid.Width = maximumParticleGridValues * sizeof(float);
+        const auto gridReadState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
+            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        if (SUCCEEDED(presenter.device->CreateCommittedResource(
+                &localHeap,D3D12_HEAP_FLAG_NONE,&localGrid,gridReadState,nullptr,
+                IID_PPV_ARGS(&frame.particleGridLocal))))
+            frame.particleGridLocal->SetName(L"OpenHW retained particle density grid");
+
         buffer.Width = sizeof(GpuDustLight) * maximumVolumetricDustLights;
         if (FAILED(result = presenter.device->CreateCommittedResource(
             &uploadHeap, D3D12_HEAP_FLAG_NONE, &buffer,
@@ -3402,6 +3451,20 @@ bool createVolumetricDustFrameResources()
             presenter.srvDescriptorSize;
         presenter.device->CreateShaderResourceView(
             frame.dustVolumeUpload.Get(), &volumeSrv, volumeHandle);
+
+        // The same upload bytes already contain the baked density grid after
+        // the volume records. Read one float directly instead of decoding an
+        // entire 176-byte volume and selecting one of its 44 lanes per tap.
+        D3D12_SHADER_RESOURCE_VIEW_DESC gridSrv = volumeSrv;
+        gridSrv.Buffer.FirstElement = frame.particleGridLocal ? 0 :
+            maximumVolumetricDustVolumes * sizeof(GpuDustVolume) / sizeof(float);
+        gridSrv.Buffer.NumElements = maximumParticleGridValues;
+        gridSrv.Buffer.StructureByteStride = sizeof(float);
+        auto gridHandle = volumeHandle;
+        gridHandle.ptr += hwmodern::particleDensityGridSlot * presenter.srvDescriptorSize;
+        presenter.device->CreateShaderResourceView(
+            frame.particleGridLocal ? frame.particleGridLocal.Get() : frame.dustVolumeUpload.Get(),
+            &gridSrv, gridHandle);
 
         buffer.Width = dustTileColumns * dustTileRows * dustTileWords * sizeof(unsigned int);
         if (FAILED(presenter.device->CreateCommittedResource(
@@ -3488,19 +3551,11 @@ bool createVolumetricDustFrameResources()
         farFroxelHandle.ptr += presenter.srvDescriptorSize;
         presenter.device->CreateShaderResourceView(nullptr, &froxelSrv,
                                                     farFroxelHandle);
-        D3D12_SHADER_RESOURCE_VIEW_DESC screenDustSrv = {};
-        screenDustSrv.Shader4ComponentMapping =
-            D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        screenDustSrv.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-        screenDustSrv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-        screenDustSrv.Texture2D.MipLevels = 1;
-        D3D12_CPU_DESCRIPTOR_HANDLE screenDustHandle = farFroxelHandle;
-        screenDustHandle.ptr += presenter.srvDescriptorSize;
-        presenter.device->CreateShaderResourceView(
-            nullptr, &screenDustSrv, screenDustHandle);
-        screenDustHandle.ptr += presenter.srvDescriptorSize;
-        presenter.device->CreateShaderResourceView(
-            nullptr, &screenDustSrv, screenDustHandle);
+        // t15 is the screen field. The old t16 history slot now holds the
+        // scalar particle grid initialized above; never replace it here.
+        hwmodern::writeDustScreenFieldSrv(presenter.device.Get(),
+            presenter.srvHeap->GetCPUDescriptorHandleForHeapStart(),
+            presenter.srvDescriptorSize,dustDescriptorBase+slot*dustDescriptorsPerFrame,nullptr);
         D3D12_SHADER_RESOURCE_VIEW_DESC trailSrv = {};
         trailSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         trailSrv.Format = DXGI_FORMAT_R32_FLOAT;
@@ -3509,6 +3564,9 @@ bool createVolumetricDustFrameResources()
         auto trailHandle = volumeHandle;
         trailHandle.ptr += 9u * presenter.srvDescriptorSize;
         presenter.device->CreateShaderResourceView(nullptr, &trailSrv, trailHandle);
+        hwmodern::writeGodRayFieldSrv(presenter.device.Get(),
+            presenter.srvHeap->GetCPUDescriptorHandleForHeapStart(),
+            presenter.srvDescriptorSize, dustDescriptorBase+slot*dustDescriptorsPerFrame, nullptr);
     }
     hwWindowsSplashTaskComplete("renderer.resources.frame", "Three flight slots initialized");
     return true;
@@ -3886,10 +3944,14 @@ bool ensureOpenMWCloudNoise()
     return true;
 }
 
+void transition(ID3D12GraphicsCommandList *commands, ID3D12Resource *resource,
+                D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after);
+
 void prepareVolumetricDustFrame(PresenterConstants &constants)
 {
     constants.godRays = requestedGodRays > 0.0f ? missionGodRayStrength : 0.0f;
-    constants.godRaySourceExternal = (constants.godRaySourceExternal & 3u) | missionGodRayTint;
+    constants.godRaySourceExternal = (constants.godRaySourceExternal & 3u) | missionGodRayTint |
+        (static_cast<unsigned int>(requestedGodRayQuality) << 6u);
     if (atmosphereCacheEnabled()) constants.godRaySourceExternal |= 16u;
     const bool atmosphereRequested = requestedGodRays > 0.0001f && dustMissionSunValid;
     constants.dustVolumeCount = 0;
@@ -4182,6 +4244,17 @@ void prepareVolumetricDustFrame(PresenterConstants &constants)
         std::memcpy(destination+static_cast<size_t>(base)*sizeof(float),
             particleFieldDensity.data()+field->shapeSeed,particleGridValuesPerBrick*sizeof(float));
         base+=particleGridValuesPerBrick;
+      }
+      if (frame.particleGridLocal && base != 0) {
+        const auto gridRead = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
+            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        transition(presenter.commandList.Get(),frame.particleGridLocal.Get(),
+            gridRead,D3D12_RESOURCE_STATE_COPY_DEST);
+        presenter.commandList->CopyBufferRegion(frame.particleGridLocal.Get(),0,
+            frame.dustVolumeUpload.Get(),maximumVolumetricDustVolumes*sizeof(GpuDustVolume),
+            static_cast<UINT64>(base)*sizeof(float));
+        transition(presenter.commandList.Get(),frame.particleGridLocal.Get(),
+            D3D12_RESOURCE_STATE_COPY_DEST,gridRead);
       }
       frame.particleGridFingerprint=gridFingerprint;
     }
@@ -4565,7 +4638,7 @@ std::uint64_t presenterShaderHash(const char *entryPoint, const char *target,
         }
     };
     if (sourceOverride) append(sourceOverride, std::strlen(sourceOverride));
-    else append(presenterShader, sizeof(presenterShader) - 1);
+    else append(presenterShaderSource.data(), presenterShaderSource.size());
     append(entryPoint, std::strlen(entryPoint));
     append(target, std::strlen(target));
     static const char cacheVersion[] = "HomeworldModern-0.91.2";
@@ -4880,6 +4953,8 @@ bool releaseSizeDependentResources()
 #endif
     for (auto &frame : presenter.frames) {
         frame.frameGenerationHudless.Reset();
+        frame.frameGenerationCompositeSrvs.Reset();
+        frame.godRayField = {};
     }
     releaseUploadFrames();
     presenter.sourceTexture.Reset();
@@ -4943,10 +5018,14 @@ void releasePresenter()
     hwmodern::upscalerReleaseDevice();
 #endif
     presenter.presenterPipeline.Reset();
+    presenter.frameGenerationCompositePipeline.Reset();
+    presenter.frameGenerationCompositeRoot.Reset();
+    presenter.frameGenerationCompositeFailed = false;
     presenter.scenePrepassPipeline.Reset();
     presenter.dustFroxelPipeline.Reset();
     presenter.dustSunVisibilityPipeline.Reset();
     presenter.dustScreenPipeline.Reset();
+    presenter.godRayPipeline.Reset();
     presenter.presenterVertexShader.Reset();
     presenter.cloudFrameGenerationGuidePipeline.Reset();
     presenter.cloudFrameGenerationGuideRtvHeap.Reset();
@@ -4972,6 +5051,7 @@ void releasePresenter()
         frame.mappedDustLights = nullptr;
         frame.mappedDustWakes = nullptr;
         frame.dustVolumeUpload.Reset();
+        frame.particleGridLocal.Reset();
         if (frame.dustTileUpload && frame.mappedDustTiles)
             frame.dustTileUpload->Unmap(0, nullptr);
         frame.mappedDustTiles = nullptr;
@@ -5073,8 +5153,8 @@ bool compileShader(const char *entryPoint, const char *target,
 
     ComPtr<ID3DBlob> errors;
     hwWindowsSplashUpdate("Compiling shader with D3DCompile; waiting for compiler");
-    const char *shaderSource = sourceOverride ? sourceOverride : presenterShader;
-    const size_t shaderBytes = sourceOverride ? std::strlen(sourceOverride) : sizeof(presenterShader) - 1;
+    const char *shaderSource = sourceOverride ? sourceOverride : presenterShaderSource.data();
+    const size_t shaderBytes = sourceOverride ? std::strlen(sourceOverride) : presenterShaderSource.size();
     HRESULT result = D3DCompile(shaderSource, shaderBytes,
                                 sourceName, macros,
                                 nullptr, entryPoint, target,
@@ -5441,6 +5521,26 @@ bool createPresenterPipeline()
         return false;
     }
     hwWindowsSplashTaskComplete("renderer.pso.dust-screen", "Cloud composite pipeline ready");
+    // Optional independent rays: failure retains the established procedural
+    // fallback rather than preventing startup or silently losing sunlight.
+    ComPtr<ID3DBlob> godRayShader;
+    if (compileShader("GoodGodRaysPS", "ps_5_0", godRayShader,
+            "renderer.shader.god-rays", "Bounded sunlight shaft shader"))
+    {
+        pipeline.PS = {godRayShader->GetBufferPointer(), godRayShader->GetBufferSize()};
+        pipeline.RTVFormats[0] = hwmodern::godRayFieldFormat;
+        hwWindowsSplashTaskBegin("renderer.pso.god-rays", "Sunlight shaft pipeline");
+        result = presenter.device->CreateGraphicsPipelineState(
+            &pipeline, IID_PPV_ARGS(&presenter.godRayPipeline));
+        if (FAILED(result)) {
+            logFailure("CreateGraphicsPipelineState(god rays)", result);
+            hwWindowsSplashTaskSkip("renderer.pso.god-rays", "Using compatible sunlight fallback");
+        } else hwWindowsSplashTaskComplete("renderer.pso.god-rays", "Sunlight shaft pipeline ready");
+    }
+    else {
+        hwWindowsSplashTaskSkip("renderer.shader.god-rays", "Using compatible sunlight fallback");
+        hwWindowsSplashTaskSkip("renderer.pso.god-rays", "Using compatible sunlight fallback");
+    }
     return true;
 }
 
@@ -5451,74 +5551,8 @@ bool createDustFroxelPipeline()
         "[ModernGraphics] Dust sunlight visibility pipeline available; "
         "procedural cloud density remains authoritative.\n");
 
-    D3D12_DESCRIPTOR_RANGE dustSrvRange = {};
-    dustSrvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    dustSrvRange.NumDescriptors = 3;
-    dustSrvRange.BaseShaderRegister = 9;
-    dustSrvRange.OffsetInDescriptorsFromTableStart =
-        D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-    D3D12_DESCRIPTOR_RANGE froxelUavRange = {};
-    froxelUavRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-    froxelUavRange.NumDescriptors = 1;
-    froxelUavRange.BaseShaderRegister = 0;
-    froxelUavRange.OffsetInDescriptorsFromTableStart =
-        D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-    D3D12_DESCRIPTOR_RANGE noiseRange = {};
-    noiseRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    noiseRange.NumDescriptors = 1;
-    noiseRange.BaseShaderRegister = 6;
-    noiseRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-    D3D12_ROOT_PARAMETER parameters[6] = {};
-    parameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    parameters[0].DescriptorTable.NumDescriptorRanges = 1;
-    parameters[0].DescriptorTable.pDescriptorRanges = &dustSrvRange;
-    parameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    parameters[1].Descriptor.ShaderRegister = 0;
-    parameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    parameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    parameters[2].DescriptorTable.NumDescriptorRanges = 1;
-    parameters[2].DescriptorTable.pDescriptorRanges = &froxelUavRange;
-    parameters[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    parameters[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
-    parameters[3].Descriptor.ShaderRegister = 18;
-    parameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    parameters[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    parameters[4].Descriptor.ShaderRegister = 1;
-    parameters[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    parameters[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    parameters[5].DescriptorTable.NumDescriptorRanges = 1;
-    parameters[5].DescriptorTable.pDescriptorRanges = &noiseRange;
-    parameters[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-    D3D12_STATIC_SAMPLER_DESC noiseSampler = {};
-    noiseSampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-    noiseSampler.AddressU = noiseSampler.AddressV = noiseSampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    noiseSampler.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
-    noiseSampler.MaxLOD = D3D12_FLOAT32_MAX;
-    noiseSampler.ShaderRegister = 1;
-    noiseSampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-    D3D12_ROOT_SIGNATURE_DESC signature = {};
-    signature.NumParameters = 6;
-    signature.pParameters = parameters;
-    signature.NumStaticSamplers = 1;
-    signature.pStaticSamplers = &noiseSampler;
-    signature.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
-    ComPtr<ID3DBlob> serialized;
-    ComPtr<ID3DBlob> errors;
-    HRESULT result = D3D12SerializeRootSignature(
-        &signature, D3D_ROOT_SIGNATURE_VERSION_1, &serialized, &errors);
-    if (FAILED(result))
-    {
-        logFailure("D3D12SerializeRootSignature(dust froxel)", result);
-        return false;
-    }
-    result = presenter.device->CreateRootSignature(
-        0, serialized->GetBufferPointer(), serialized->GetBufferSize(),
-        IID_PPV_ARGS(&presenter.dustFroxelRootSignature));
+    HRESULT result = hwmodern::createDustFroxelRootSignature(
+        presenter.device.Get(), presenter.dustFroxelRootSignature.ReleaseAndGetAddressOf());
     if (FAILED(result))
     {
         logFailure("CreateRootSignature(dust froxel)", result);
@@ -6943,8 +6977,10 @@ if (benchmark.recording)
             const double millisecondsPerTick =
                 1000.0 / static_cast<double>(presenter.timestampFrequency);
             bool timestampsOrdered = true;
-            for (unsigned int i = 1; i < gpuTimestampCount; ++i)
+            for (unsigned int i = 1; i < 10u; ++i)
                 timestampsOrdered = timestampsOrdered && ticks[i] >= ticks[i - 1u];
+            timestampsOrdered = timestampsOrdered && ticks[10] >= ticks[5] &&
+                ticks[11] >= ticks[10] && ticks[6] >= ticks[11];
             if (timestampsOrdered)
             {
                 
@@ -6976,7 +7012,10 @@ if (benchmark.recording && frame.benchmarkCaptureId == benchmark.id)
                 presenter.gpuCloudShadowMilliseconds +=
                     static_cast<double>(ticks[5] - ticks[4]) * millisecondsPerTick;
                 presenter.gpuCloudMarchMilliseconds +=
-                    static_cast<double>(ticks[6] - ticks[5]) * millisecondsPerTick;
+                    static_cast<double>((ticks[6] - ticks[5]) -
+                        (ticks[11] - ticks[10])) * millisecondsPerTick;
+                presenter.gpuGodRayMilliseconds +=
+                    static_cast<double>(ticks[11] - ticks[10]) * millisecondsPerTick;
                 presenter.gpuSceneCompositeMilliseconds +=
                     static_cast<double>(ticks[7] - ticks[6]) * millisecondsPerTick;
                 presenter.gpuUpscalerMilliseconds +=
@@ -7824,6 +7863,36 @@ void recordDustFroxelBuild(PresenterConstants &constants)
     constants.presenterPadding[1] = visibilityOnly ? 3.0f : 1.0f;
 }
 
+void recordGodRaysBuild(PresenterConstants &constants)
+{
+    constants.godRaySourceExternal &= ~32u;
+    if (constants.godRays <= 0.0001f || constants.dustSunDirectionValid[3] < 0.5f ||
+        constants.presenterPadding[1] != 3.0f || !presenter.godRayPipeline)
+        return;
+    auto &field = presenter.frames[presenter.activeFrameIndex].godRayField;
+    // Frame preparation already waited for this slot, so quality/size changes
+    // cannot replace a texture or descriptor still read by an earlier frame.
+    const HRESULT result = hwmodern::ensureGodRayField(presenter.device.Get(), field,
+        presenter.width, presenter.height, requestedGodRayQuality);
+    if (FAILED(result)) {
+        static bool reported = false;
+        if (!reported) logFailure("CreateCommittedResource(god ray field; using fallback)", result);
+        reported = true;
+        return;
+    }
+    const UINT base = dustDescriptorBase + presenter.activeFrameIndex*dustDescriptorsPerFrame;
+    hwmodern::writeGodRayFieldSrv(presenter.device.Get(),
+        presenter.srvHeap->GetCPUDescriptorHandleForHeapStart(),
+        presenter.srvDescriptorSize, base, field.texture.Get());
+    hwmodern::recordGodRayField(presenter.commandList.Get(), field,
+        presenter.godRayPipeline.Get(), presenter.rootSignature.Get(),
+        presenter.srvHeap.Get(), presenter.srvDescriptorSize, 9u, base,
+        &constants, sizeof(constants)/sizeof(unsigned int));
+    constants.godRaySourceExternal |= 32u;
+    // No cloud pass is necessary when rays are the only active medium.
+    if (constants.dustVolumeCount == 0u) constants.dustRenderEnabled = 0u;
+}
+
 void recordDustScreenBuild(PresenterConstants &constants)
 {
     presenter.cloudFrameGenerationGuideValidThisFrame = false;
@@ -7836,25 +7905,12 @@ void recordDustScreenBuild(PresenterConstants &constants)
         ensureCloudFrameGenerationGuide();
     const UINT writeIndex = presenter.dustScreenWriteIndex;
     const UINT historyIndex = writeIndex ^ 1u;
-    D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
-    srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srv.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    srv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srv.Texture2D.MipLevels = 1;
-    D3D12_CPU_DESCRIPTOR_HANDLE dustDescriptors =
-        presenter.srvHeap->GetCPUDescriptorHandleForHeapStart();
-    dustDescriptors.ptr += static_cast<SIZE_T>(dustDescriptorBase +
-        presenter.activeFrameIndex * dustDescriptorsPerFrame + 6u) *
-        presenter.srvDescriptorSize;
-    /* t15 is not read by DustScreenPS; keep it on history while the current
-       target is writable. t16 is the actual reprojected prior frame. */
-    presenter.device->CreateShaderResourceView(
-        presenter.dustScreenTextures[historyIndex].Get(), &srv,
-        dustDescriptors);
-    dustDescriptors.ptr += presenter.srvDescriptorSize;
-    presenter.device->CreateShaderResourceView(
-        presenter.dustScreenTextures[historyIndex].Get(), &srv,
-        dustDescriptors);
+    /* t15 is not read by DustScreenPS; keep it on the other target while the
+       current target is writable. t16 holds the immutable scalar grid view. */
+    hwmodern::writeDustScreenFieldSrv(presenter.device.Get(),
+        presenter.srvHeap->GetCPUDescriptorHandleForHeapStart(),presenter.srvDescriptorSize,
+        dustDescriptorBase+presenter.activeFrameIndex*dustDescriptorsPerFrame,
+        presenter.dustScreenTextures[historyIndex].Get());
 
     if (presenter.dustScreenShaderReadable[writeIndex])
     {
@@ -7939,10 +7995,10 @@ void recordDustScreenBuild(PresenterConstants &constants)
     }
 
     /* Final presentation in this frame samples the freshly written field. */
-    dustDescriptors.ptr -= presenter.srvDescriptorSize;
-    presenter.device->CreateShaderResourceView(
-        presenter.dustScreenTextures[writeIndex].Get(), &srv,
-        dustDescriptors);
+    hwmodern::writeDustScreenFieldSrv(presenter.device.Get(),
+        presenter.srvHeap->GetCPUDescriptorHandleForHeapStart(),presenter.srvDescriptorSize,
+        dustDescriptorBase+presenter.activeFrameIndex*dustDescriptorsPerFrame,
+        presenter.dustScreenTextures[writeIndex].Get());
     presenter.dustScreenWriteIndex = historyIndex;
     presenter.dustScreenHistoryValid = true;
 }
@@ -8030,6 +8086,8 @@ bool recordScenePrepass(PresenterConstants &constants, bool cloudProbe = false)
     if (!cloudProbe) presenter.sceneInputTextureShaderReadable = true;
     return true;
 }
+
+#include "FrameGenerationComposite.inc"
 
 bool recordPresenterPass(UINT backBufferIndex,
                          PresenterConstants &constants, bool hudless = false)
@@ -8609,6 +8667,9 @@ if (benchmark.recording) presenter.cpuFrameDxrRecordMilliseconds+=dxrRecordMilli
             writeGpuTimestamp(4u);
             recordDustFroxelBuild(sceneConstants);
             writeGpuTimestamp(5u);
+            writeGpuTimestamp(10u);
+            recordGodRaysBuild(sceneConstants);
+            writeGpuTimestamp(11u);
             recordDustScreenBuild(sceneConstants);
             writeGpuTimestamp(6u);
             // Native colour is sampled on the same lattice as DXR depth and
@@ -8768,6 +8829,9 @@ if (benchmark.recording) presenter.cpuFrameDxrRecordMilliseconds+=dxrRecordMilli
         writeGpuTimestamp(4u);
         recordDustFroxelBuild(constants);
         writeGpuTimestamp(5u);
+        writeGpuTimestamp(10u);
+        recordGodRaysBuild(constants);
+        writeGpuTimestamp(11u);
         recordDustScreenBuild(constants);
         writeGpuTimestamp(6u);
         writeGpuTimestamp(7u);
@@ -8775,6 +8839,7 @@ if (benchmark.recording) presenter.cpuFrameDxrRecordMilliseconds+=dxrRecordMilli
     }
     constants.scenePrepass = 0u;
     constants.streamlineResolvedScene = streamlineActiveThisFrame ? 1u : 0u;
+    bool hudlessSceneRendered = false;
 #if defined(HW_ENABLE_D3D12_BACKEND)
     {
         const int provider = frameGenerationFrameProvider;
@@ -8797,6 +8862,7 @@ if (benchmark.recording) presenter.cpuFrameDxrRecordMilliseconds+=dxrRecordMilli
             // display processing used by mode 0, including resolved SR color.
             hudlessConstants.scenePrepass = 2u;
             if (recordPresenterPass(presenter.activeFrameIndex,hudlessConstants,true)) {
+                hudlessSceneRendered = true;
                 const auto depthDesc = depth->GetDesc();
                 const auto shaderRead = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
                     D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
@@ -8878,7 +8944,9 @@ if (benchmark.recording) presenter.cpuFrameDxrRecordMilliseconds+=dxrRecordMilli
         if (!useFsr || !frameGenerationInputsReady) hwmodern::fsrFrameGenerationSuspend();
     }
 #endif
-    recordPresenterPass(presenter.activeFrameIndex, constants);
+    if (!hudlessSceneRendered ||
+        !recordFrameGenerationComposite(presenter.activeFrameIndex,constants))
+        recordPresenterPass(presenter.activeFrameIndex, constants);
 
     if (gpuTimingActive)
     {
@@ -9118,11 +9186,12 @@ if (benchmark.recording)
             if (optimizationLogging)
                 HW_DIAG_FPRINTF(stderr,
                     "[OptimizationGPU] shadows=%.3f ms cloudMarch=%.3f ms "
-                    "sceneComposite=%.3f ms upscaler=%.3f ms\n",
+                    "sceneComposite=%.3f ms upscaler=%.3f ms godRays=%.3f ms quality=%d\n",
                     presenter.gpuCloudShadowMilliseconds / gpuDivisor,
                     presenter.gpuCloudMarchMilliseconds / gpuDivisor,
                     presenter.gpuSceneCompositeMilliseconds / gpuDivisor,
-                    presenter.gpuUpscalerMilliseconds / gpuDivisor);
+                    presenter.gpuUpscalerMilliseconds / gpuDivisor,
+                    presenter.gpuGodRayMilliseconds / gpuDivisor, requestedGodRayQuality);
         }
         presenter.gpuRasterMilliseconds = 0.0;
         presenter.gpuDxrMilliseconds = 0.0;
@@ -9131,6 +9200,7 @@ if (benchmark.recording)
         presenter.gpuReconstructionMilliseconds = 0.0;
         presenter.gpuCloudShadowMilliseconds = 0.0;
         presenter.gpuCloudMarchMilliseconds = 0.0;
+        presenter.gpuGodRayMilliseconds = 0.0;
         presenter.gpuSceneCompositeMilliseconds = 0.0;
         presenter.gpuUpscalerMilliseconds = 0.0;
         presenter.gpuPresenterMilliseconds = 0.0;

@@ -111,6 +111,11 @@ def stage(reader_path, archive, classic_archive, output, package_only=False):
         for i,joint in enumerate(ENGINES.get(name,())):
             if names.count(joint)!=1:raise ValueError('Missing engine '+joint)
             lines.append(f'marker engine_{i} Hull {joint}')
+        if race=='Derelicts' and name=='Shipwreck':
+            for i in range(5):
+                joint=f'SalvagePoint{i}'
+                if names.count(joint)!=1:raise ValueError('Missing Khar-Selim salvage joint '+joint)
+                lines.append(f'marker {joint} Hull {joint}')
         models=[ship['hull']]
         for a in ship['attachments']:
             ci=len(models);models.append(a['model']);file=f'component{ci}.hod'

@@ -1052,7 +1052,7 @@ void salCapHarvestTarget(SpaceObjRotImpTargGuidanceShipDerelict *target,Ship *do
 /* The Khar-Selim uses a Remastered wreck with differently positioned hull
    geometry. Its native HOD contains five authored salvage joints; use them
    only when the native mesh is actually loaded, keeping classic fallback. */
-static void salCapAlignKharSelimPoints(SpaceObjRotImpTargGuidanceShipDerelict *target)
+bool32 salCapAlignKharSelimPoints(SpaceObjRotImpTargGuidanceShipDerelict *target)
 {
     Derelict *wreck;
     lodinfo *levels;
@@ -1060,9 +1060,9 @@ static void salCapAlignKharSelimPoints(SpaceObjRotImpTargGuidanceShipDerelict *t
     hmatrix markers[5];
     sdword i, level;
     if (!target || target->objtype != OBJ_DerelictType || !target->salvageInfo ||
-        target->salvageInfo->numSalvagePoints != 5) return;
+        target->salvageInfo->numSalvagePoints != 5) return FALSE;
     wreck = (Derelict *)target;
-    if (!wreck->staticinfo || wreck->staticinfo->derelicttype != Shipwreck) return;
+    if (!wreck->staticinfo || wreck->staticinfo->derelicttype != Shipwreck) return FALSE;
     levels = wreck->staticinfo->staticheader.LOD;
     for (level=0; levels && level<levels->nLevels; ++level)
     {
@@ -1074,9 +1074,9 @@ static void salCapAlignKharSelimPoints(SpaceObjRotImpTargGuidanceShipDerelict *t
         {
             char name[32];
             points[i]=target->salvageInfo->salvagePoints[i].salvageStaticPoint;
-            if (!points[i]) return;
+            if (!points[i]) return FALSE;
             sprintf(name,"SalvagePoint%d",(int)i);
-            if (!meshNativeVisualRestMarker(mesh,name,(float *)&markers[i])) return;
+            if (!meshNativeVisualRestMarker(mesh,name,(float *)&markers[i])) return FALSE;
         }
         for (i=0; i<5; ++i)
         {
@@ -1084,8 +1084,33 @@ static void salCapAlignKharSelimPoints(SpaceObjRotImpTargGuidanceShipDerelict *t
             hmatGetVectFromHMatrixCol3(points[i]->conenormal,markers[i]);
             vecNormalize(&points[i]->conenormal);
         }
-        return;
+        return TRUE;
     }
+    return FALSE;
+}
+
+/* Save files retain a clamped object's old relative offset. Refresh it after
+   every object reference has been restored, rather than requiring the player
+   to abandon an in-progress Mission 2 salvage operation and order it again. */
+void salCapRestoreKharSelimContact(Ship *ship)
+{
+    SalCapCorvetteSpec *spec;
+    SpaceObjRotImpTargGuidanceShipDerelict *target;
+    SalvageStaticPoint *point;
+    vector offset;
+    if (!ship || ship->shiptype != SalCapCorvette) return;
+    spec = (SalCapCorvetteSpec *)ship->ShipSpecifics;
+    target = spec->target;
+    if (!salCapAlignKharSelimPoints(target) || !ship->clampInfo ||
+        ship->clampInfo->host != (SpaceObjRotImpTarg *)target ||
+        spec->salvageIndex < 0 ||
+        spec->salvageIndex >= target->salvageInfo->numSalvagePoints) return;
+    point = target->salvageInfo->salvagePoints[spec->salvageIndex].salvageStaticPoint;
+    if (!point) return;
+    ship->clampInfo->clampOffset = point->position;
+    matMultiplyMatByVec(&offset,&target->rotinfo.coordsys,&point->position);
+    vecAdd(ship->posinfo.position,target->posinfo.position,offset);
+    ship->posinfo.velocity = target->posinfo.velocity;
 }
 
 sdword salCapGetAndBusySalvageIndex(Ship *ship,SpaceObjRotImpTargGuidanceShipDerelict *target)

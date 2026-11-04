@@ -682,6 +682,7 @@ scriptEntry utyOptionsList[] =
     {"motionBlur",          scriptSetUdwordCB, &mainMotionBlurPercent},
     {"filmGrain",           scriptSetUdwordCB, &mainFilmGrainPercent},
     {"godRays",             scriptSetUdwordCB, &mainGodRaysPercent},
+    {"godRayQuality",       scriptSetUdwordCB, &mainGodRayQuality},
     {"bloom",               scriptSetUdwordCB, &mainBloomPercent},
     {"lensFlares",          scriptSetUdwordCB, &mainLensFlares},
     {"textureResolution",   scriptSetUdwordCB, &mainTextureResolution},

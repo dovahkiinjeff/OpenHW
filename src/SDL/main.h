@@ -133,6 +133,7 @@ extern sdword mainChromaticAberrationPercent;
 extern sdword mainMotionBlurPercent;
 extern sdword mainFilmGrainPercent;
 extern sdword mainGodRaysPercent;
+extern sdword mainGodRayQuality;
 extern sdword mainLensFlares;
 extern sdword mainBloomPercent;
 extern sdword mainShadowStrengthPercent;
