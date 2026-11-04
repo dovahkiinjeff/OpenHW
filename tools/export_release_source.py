@@ -22,7 +22,7 @@ def export(repo, output, profile=None):
         if path.is_symlink():raise ValueError('Source export refuses symlinks: '+str(path))
         target=output/path.relative_to(repo);target.parent.mkdir(parents=True,exist_ok=True)
         shutil.copyfile(path,target)
-    for directory in ('src','tools','tests','cmake','Windows','docs','documentation','deferred','.github'):
+    for directory in ('src','tools','tests','cmake','Windows','docs','documentation','deferred','.github','updates'):
         for path in (repo/directory).rglob('*'):
             if not path.is_file() or '__pycache__' in path.parts or '.texture-tools' in path.parts:continue
             if path.suffix.lower() in CODE_EXTENSIONS or path.name in {'LICENSE','COPYING','NOTICE'}:copy(path)

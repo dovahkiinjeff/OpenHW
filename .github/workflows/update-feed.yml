@@ -1,0 +1,21 @@
+name: Update portable updater feed
+on:
+  release:
+    types: [published, edited]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: openhw-update-feed
+  cancel-in-progress: false
+jobs:
+  publish-feed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+      - name: Refresh the verified stable patch chain
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/publish_update_manifest.py --publish

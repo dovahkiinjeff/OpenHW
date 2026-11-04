@@ -12,6 +12,12 @@
 > [!WARNING]
 > **Disk space:** allow approximately **120 GB free during conversion** as a conservative planning estimate; the exact peak of this compact installer has not been measured. The download is about 473 MB and the main generated game archive is about 34 GB, plus loose resources and user data. Setup reads the original Collection archives directly, stages selected HW1 resources and removes intermediate conversion caches. The original Collection and source-build dependencies occupy separate space.
 
+## Automatic updates
+
+Download [**Updater.exe**](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.5/Updater.exe), put it beside **OpenHW.exe** after installing the base game, close the game, and run it. It detects that folder’s version and downloads, verifies and installs its missing patches in the required order. Current and future stable patches come from the official GitHub update feed; the updater can update itself too.
+
+Saves, settings, mods and authored maps are preserved. Downloads, backups, logs and temporary files stay under **Development**. No separate Python installation or administrator access is required. See [updater details and recovery](docs/UPDATER.md). Manual patch downloads remain available below.
+
 ## 1.0.5 patch — performance update
 
 [Download OpenHW-Patch-1.0.5.exe](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.5/OpenHW-Patch-1.0.5.exe) · [Patch notes](RELEASE_NOTES_1.0.5.md) · [Complete cumulative source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.5/OpenHW-1.0.5-Source.zip)
@@ -83,7 +89,7 @@ This patch corrects the startup splash artwork path, removes in-engine cinematic
 2. Download the [**OpenHW-Setup.exe** base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe). Put it in the writable folder where you want OpenHW installed, for example `D:\Games\OpenHW`.
 3. Run it and select the Collection installation. The Collection root, `HomeworldRM`, or its `Data` directory can be selected; setup also locates the Collection's Classic data.
 4. Let extraction, conversion, package building and validation finish. Setup installs **beside itself** and leaves the original Collection untouched. There is no manual music/voice-copy step.
-5. Apply **1.0.1**, **1.0.2**, **1.0.3**, **1.0.4**, **1.0.4.5**, and **1.0.5** in that order after setup completes, then start **OpenHW.exe**. Setup does not automatically start the game. The first launch detects your display resolution and refresh rate.
+5. Run **Updater.exe** beside **OpenHW.exe** to install the required patches automatically. Alternatively, apply **1.0.1**, **1.0.2**, **1.0.3**, **1.0.4**, **1.0.4.5**, and **1.0.5** manually in that order. Then start **OpenHW.exe**. Setup does not automatically start the game. The first launch detects your display resolution and refresh rate.
 
 All application-owned settings, saves, mods, exports and working files stay inside the OpenHW folder. `Development` contains setup work, diagnostics, logs, caches and receipts. Successful setup removes its temporary `SetupSources` and `SetupWork` conversion copies; a failed setup keeps work for recovery. Windows and graphics-driver system caches remain under those components' control.
 

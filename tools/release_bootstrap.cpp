@@ -17,6 +17,10 @@
 #include <stdexcept>
 #include <algorithm>
 #include <cstring>
+#include <cwctype>
+#ifdef OPENHW_UPDATER
+#include "UpdaterVersion.h"
+#endif
 #pragma pack(push,1)
 struct Footer { char magic[16]; unsigned long long offset,bytes; unsigned char sha[32]; };
 #pragma pack(pop)
@@ -28,7 +32,9 @@ static void status(const wchar_t* text){if(labelHandle)SetWindowTextW(labelHandl
 static void createProgress(){
     INITCOMMONCONTROLSEX controls={sizeof(controls),ICC_PROGRESS_CLASS};InitCommonControlsEx(&controls);
     windowHandle=CreateWindowExW(WS_EX_DLGMODALFRAME,L"STATIC",
-#ifdef OPENHW_PATCH_INSTALLER
+#ifdef OPENHW_UPDATER
+        L"OpenHW Updater",
+#elif defined(OPENHW_PATCH_INSTALLER)
         L"OpenHW 1.0.5 patch",
 #else
         L"OpenHW 1.0 setup",
@@ -40,7 +46,14 @@ static void createProgress(){
     SendMessageW(progressHandle,PBM_SETMARQUEE,TRUE,30);UpdateWindow(windowHandle);pump();
 }
 static std::wstring literal(const std::wstring& input){std::wstring out=L"'";for(wchar_t c:input){out+=c;if(c==L'\'')out+=c;}return out+L"'";}
-static std::wstring quote(const std::wstring& input){return L"\""+input+L"\"";}
+static std::wstring quote(const std::wstring& input){
+    std::wstring out=L"\"";size_t slashes=0;
+    for(wchar_t c:input){
+        if(c==L'\\'){++slashes;continue;}
+        out.append(c==L'\"'?slashes*2+1:slashes,L'\\');slashes=0;out+=c;
+    }
+    out.append(slashes*2,L'\\');return out+L"\"";
+}
 static DWORD launch(const std::wstring& application,std::wstring arguments,HANDLE log,bool visible=false){
     STARTUPINFOW startup={sizeof(startup)};PROCESS_INFORMATION process={};
     startup.dwFlags=STARTF_USESHOWWINDOW;startup.wShowWindow=visible?SW_SHOWNORMAL:SW_HIDE;
@@ -63,6 +76,18 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
     try{
         wchar_t executable[32768]={};check(GetModuleFileNameW(nullptr,executable,32768)!=0,"Cannot locate this installer.");
         auto root=std::filesystem::path(executable).parent_path();
+#ifdef OPENHW_UPDATER
+        check(std::filesystem::is_regular_file(root/L"setup-complete.json") &&
+              std::filesystem::is_regular_file(root/L"OpenHW.exe"),
+              "Place Updater.exe beside OpenHW.exe in an installed OpenHW folder. Complete the base installation first.");
+        unsigned long long rootHash=1469598103934665603ull;
+        for(auto c:root.wstring()){rootHash^=static_cast<unsigned long long>(towlower(c));rootHash*=1099511628211ull;}
+        const auto mutexName=L"Local\\OpenHWUpdater-"+std::to_wstring(rootHash);
+        HANDLE updaterMutex=CreateMutexW(nullptr,TRUE,mutexName.c_str());
+        check(updaterMutex!=nullptr && GetLastError()!=ERROR_ALREADY_EXISTS,"An updater is already running in this folder.");
+        SetEnvironmentVariableW(L"OPENHW_UPDATER_EXE",executable);
+        SetEnvironmentVariableW(L"OPENHW_UPDATER_BOOTSTRAP_PID",std::to_wstring(GetCurrentProcessId()).c_str());
+#endif
 #ifdef OPENHW_PATCH_INSTALLER
         if(!std::filesystem::is_regular_file(root/L"setup-complete.json")){
             CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
@@ -97,7 +122,13 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         for(const wchar_t* name:{L"TEMP",L"TMP",L"TMPDIR"})SetEnvironmentVariableW(name,(development/L"Temp").c_str());
         SetEnvironmentVariableW(L"PSModuleAnalysisCachePath",(development/L"Temp/PowerShellModuleAnalysisCache").c_str());
         SECURITY_ATTRIBUTES security={sizeof(security),nullptr,TRUE};
-        log=CreateFileW((development/L"Logs/bootstrap.log").c_str(),FILE_APPEND_DATA,FILE_SHARE_READ,&security,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
+        log=CreateFileW((development/
+#ifdef OPENHW_UPDATER
+            L"Logs/updater-bootstrap.log"
+#else
+            L"Logs/bootstrap.log"
+#endif
+            ).c_str(),FILE_APPEND_DATA,FILE_SHARE_READ,&security,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
         if(!quiet)createProgress();
         source=CreateFileW(executable,GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
         check(source!=INVALID_HANDLE_VALUE,"Cannot read installer package.");
@@ -109,7 +140,12 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
             footer.bytes==static_cast<unsigned long long>(size.QuadPart)-sizeof(Footer)-footer.offset,"Installer package is damaged or truncated.");
         check(BCryptOpenAlgorithmProvider(&algorithm,BCRYPT_SHA256_ALGORITHM,nullptr,0)>=0,"Cannot initialize package verification.");
         check(BCryptCreateHash(algorithm,&hash,nullptr,0,nullptr,0,0)>=0,"Cannot initialize package checksum.");
+#ifdef OPENHW_UPDATER
+        std::filesystem::create_directories(development/L"Updater");
+        const auto archive=development/L"Updater/bootstrap-payload.zip";
+#else
         const auto archive=development/L"setup-payload.zip";
+#endif
         output=CreateFileW(archive.c_str(),GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
         check(output!=INVALID_HANDLE_VALUE,"Cannot write here. Move this installer to a writable folder and try again.");
         position.QuadPart=footer.offset;SetFilePointerEx(source,position,nullptr,FILE_BEGIN);
@@ -133,10 +169,51 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         check(launch(powershell.wstring(),L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand "+encoded,log)==0,
             "Could not unpack installer support files. See Development/Logs/bootstrap.log.");
         DeleteFileW(archive.c_str());
+#ifdef OPENHW_UPDATER
+        // A private copy prevents future game patches from replacing DLLs
+        // loaded by this updater. No Python install or AppData is required.
+        const auto runtime=development/L"Updater/Runtime"/OPENHW_UPDATER_VERSION;
+        const auto support=runtime/L"Development";
+        if(!std::filesystem::is_regular_file(runtime/L"runtime-ready.txt") ||
+           !std::filesystem::is_regular_file(support/L"python312.dll") ||
+           !std::filesystem::is_regular_file(support/L"_ssl.pyd")){
+            status(L"Preparing the updater runtime inside this OpenHW folder…");
+            auto installedSupport=development/L"Installer/Development";
+            // An older updater must still boot after a future game patch
+            // changes/removes the original installer's Python dependencies.
+            if(!std::filesystem::is_regular_file(installedSupport/L"python312.dll")){
+                for(const auto& prior:std::filesystem::directory_iterator(development/L"Updater/Runtime")){
+                    if(prior.path()!=runtime && std::filesystem::is_regular_file(prior.path()/L"Development/python312.dll")){
+                        installedSupport=prior.path()/L"Development";break;
+                    }
+                }
+            }
+            check(std::filesystem::is_regular_file(installedSupport/L"python312.dll"),
+                "The base installer runtime is missing. Repair the OpenHW base installation first.");
+            for(const auto& item:std::filesystem::recursive_directory_iterator(installedSupport)){
+                check(!(GetFileAttributesW(item.path().c_str())&FILE_ATTRIBUTE_REPARSE_POINT),"Installer runtime contains a link; repair the base installation.");
+                const auto target=support/std::filesystem::relative(item.path(),installedSupport);
+                if(item.is_directory())std::filesystem::create_directories(target);
+                else if(item.is_regular_file()){
+                    std::filesystem::create_directories(target.parent_path());
+                    std::filesystem::copy_file(item.path(),target,std::filesystem::copy_options::overwrite_existing);
+                }
+                pump();
+            }
+            HANDLE ready=CreateFileW((runtime/L"runtime-ready.txt").c_str(),GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
+            check(ready!=INVALID_HANDLE_VALUE,"Cannot finish preparing the updater runtime.");CloseHandle(ready);
+        }
+#endif
         if(windowHandle){DestroyWindow(windowHandle);windowHandle=labelHandle=progressHandle=nullptr;}
+#ifdef OPENHW_UPDATER
+        const auto engine=development/L"Updater/Runtime"/OPENHW_UPDATER_VERSION/L"UpdaterEngine.exe";
+#else
         const auto engine=development/L"Installer/OpenHW-SetupEngine.exe";
+#endif
         const DWORD result=launch(engine.wstring(),
-#ifdef OPENHW_PATCH_INSTALLER
+#ifdef OPENHW_UPDATER
+            L"--root "+quote(root.wstring())+(quiet?L" --verify-payload":L""),
+#elif defined(OPENHW_PATCH_INSTALLER)
             L"--apply-hotfix",
 #else
             quiet?L"--verify-payload":L"",
