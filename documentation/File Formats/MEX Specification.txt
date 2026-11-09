@@ -11,7 +11,7 @@ Homeworld File Format Documentation
 .MEX File Format
 By B1FF (lmoloney@relic.com)
 
-� 2000 Relic Entertainment, Inc.
+© 2000 Relic Entertainment, Inc.
 
 Preamble.
 .MEX files are used in Homeworld to store information that accompanies meshes. The extension is short for Mesh Extension, not the line of stylish clothing stores. It is one of the simpler Homeworld formats out there, and has been mostly reverse-engineered already. However, here is the full breakdown. 

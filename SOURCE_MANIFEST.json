@@ -70,13 +70,13 @@
     },
     {
       "path": "CONTRIBUTING.md",
-      "size": 1729,
-      "sha256": "b6e4e11903d3fe747265f552dbed5c3f915b753b75d4672655c6ba31d6f9bb66"
+      "size": 2124,
+      "sha256": "958f7ac79ef8299a0ec6958f0956ce56020b617a66b1cb1117894b69bc3a1636"
     },
     {
       "path": "LICENSE.txt",
-      "size": 13905,
-      "sha256": "402324358eeab8fe3215540b6fe0d553ca755c133c11cc14594cbcbb12d4eb38"
+      "size": 13906,
+      "sha256": "ed7e1c5e38da40621a5131551cc680a03e81afec4d6ed5b370c7def3f6c73b7c"
     },
     {
       "path": "README.md",
@@ -23075,13 +23075,13 @@
     },
     {
       "path": "docs/OPTIMIZATION_PASS_2026_10_20.md",
-      "size": 2635,
-      "sha256": "95da26ebdb98b014f3cb83c2f1ee3796a1f39ca989587f4f9aea47a56e7fd257"
+      "size": 2645,
+      "sha256": "daec25880d8d61ea0ae8d10ada6160a2a16c21301bf9fa82d00891b6a7c740b1"
     },
     {
       "path": "docs/PARTICLE_DENSITY_CLOUDS.md",
-      "size": 4696,
-      "sha256": "7d4c8d860205aad0ba46aa5396af63d1cb51f1e681e46f953e7320e0e5933bd5"
+      "size": 4698,
+      "sha256": "3f04d1109b9a0c178e322fb3af82cb941f928ae9d3dd44de977c86d9848cb311"
     },
     {
       "path": "docs/PERFORMANCE_PASS_2026_11_03.md",
@@ -23135,8 +23135,8 @@
     },
     {
       "path": "docs/USER_GUIDE.md",
-      "size": 8127,
-      "sha256": "5dece7bc51978ebc0170138fc1cada1a8819c43b91d58cda7a648af5801f4c5f"
+      "size": 8117,
+      "sha256": "83d229627519f81cb535cd156bd561cbc0a8549f2867387fc6cf9397ae13bdc1"
     },
     {
       "path": "docs/WEAPON_FX_UPSCALING.md",
@@ -23155,8 +23155,8 @@
     },
     {
       "path": "documentation/File Formats/BIG Specification.txt",
-      "size": 16301,
-      "sha256": "bfbacfa4b97e571cdf0ac60ca0ca266b3ed261440d15937706991ee258cbb183"
+      "size": 16283,
+      "sha256": "a8720a2253757ea8f31bd03d8d7acf7e0b43c0ea4311f9ea49ea6508b912d4f3"
     },
     {
       "path": "documentation/File Formats/GEO Specification.txt",
@@ -23170,13 +23170,13 @@
     },
     {
       "path": "documentation/File Formats/MAD Specification.txt",
-      "size": 7806,
-      "sha256": "3495db4f13fb50fad16a735ddfd107a9acba07bcadf2dc05c0ca8701988db10d"
+      "size": 7805,
+      "sha256": "ef63f45045f69785d0010d44cc0dc41077acadd528b28a57e778dc31fe32e702"
     },
     {
       "path": "documentation/File Formats/MEX Specification.txt",
-      "size": 4924,
-      "sha256": "459cfd0320714792a055262a8edcad9a37985ee824369b2c19c18c1b217926b7"
+      "size": 4923,
+      "sha256": "a0e716f8a7d53d1d16737026151e2f5bd1c836c03b78e9f608139c37a92c4d90"
     },
     {
       "path": "documentation/GRAPHICS_FEATURE_STATUS.md",
@@ -28225,8 +28225,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 3011,
-      "sha256": "e6cb8e4407044325227490097ccc1260109feed5b375d59bfa5cbfdddb051bdc"
+      "size": 2905,
+      "sha256": "55419df6016c0bc20ea10cd5017b90e3033e9b3a1af3ac0da6082b673decfc22"
     },
     {
       "path": "vcpkg.json",

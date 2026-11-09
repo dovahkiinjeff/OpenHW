@@ -1,4 +1,4 @@
-# OpenHW 1.0 â€” installation and user guide
+# OpenHW 1.0 — installation and user guide
 
 ## Installation and disk space
 
@@ -56,7 +56,7 @@ COMMAND supplies target-based flight and weapon control:
 | Right drag / wheel | Orbit camera / zoom |
 | Ctrl+wheel; range buttons | Change requested range |
 | Speed bar; + / - | Set speed limit |
-| F1â€“F12 | Toggle weapons in the selected bank |
+| F1–F12 | Toggle weapons in the selected bank |
 | Page Up / Page Down | Change weapon bank |
 | Unlock / Cease Fire | Clear target / disable firing |
 | Esc | Exit ship control |

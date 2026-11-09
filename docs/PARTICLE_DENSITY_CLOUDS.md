@@ -64,4 +64,4 @@ Per-brick normalization peaks do not activate high-density material boosts.
 Headless production-HLSL tests cover those bounds, ordering, material scaling,
 and grid cadence. Live camera-orbit appearance/performance remains a user check.
 
-Original rope mesh controls: the ROPES inspector provides ORIGINAL ROPE COLOR, ORIGINAL ROPE OPACITY (0–100%, double-click to type), and RESET ROPE COLOR. These affect only the classic nebula mesh; RTX rope settings are independent when the color override is enabled. SAVE MAP persists ORIGINAL_ROPE_STYLE, and older maps default to the original appearance and 100% opacity.
+Original rope mesh controls: the ROPES inspector provides ORIGINAL ROPE COLOR, ORIGINAL ROPE OPACITY (0â€“100%, double-click to type), and RESET ROPE COLOR. These affect only the classic nebula mesh; RTX rope settings are independent when the color override is enabled. SAVE MAP persists ORIGINAL_ROPE_STYLE, and older maps default to the original appearance and 100% opacity.

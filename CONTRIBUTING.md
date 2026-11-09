@@ -33,6 +33,11 @@ driver, Windows version, and data edition in the pull request.
 - Update user/editor documentation for every visible control, range, shortcut,
   file format, or compatibility boundary.
 - Distinguish measured behavior from planned roadmap work.
+- Save documentation as UTF-8. Publish GitHub release descriptions directly from
+  the UTF-8 file with `gh release edit <tag> --notes-file <path>` (or
+  `gh release create <tag> --notes-file <path>` for a new release). Do not pass
+  notes through a Windows PowerShell `Get-Content` call with its default encoding;
+  it can turn valid dashes, arrows and accented characters into unreadable text.
 
 ## Reports
 
