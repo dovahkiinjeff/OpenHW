@@ -28230,8 +28230,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 2905,
-      "sha256": "55419df6016c0bc20ea10cd5017b90e3033e9b3a1af3ac0da6082b673decfc22"
+      "size": 3325,
+      "sha256": "a79028b2dfa7880a2594420251632f0aab9d0a1a0edb7eb9dca8b9664d786ad5"
     },
     {
       "path": "vcpkg.json",
