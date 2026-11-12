@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channel": "stable",
-  "latest": "1.0.5",
+  "latest": "1.0.6",
   "minimum_protocol": 1,
   "patches": [
     {
@@ -88,6 +88,21 @@
       "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.5/OpenHW-Patch-1.0.5.exe",
       "size": 39807287,
       "sha256": "17ea23cf6294548f689f9a672c13146e33fc6dd204e79fde3f1068d4a1608bcb",
+      "post_actions": [
+        {
+          "kind": "repair-mission-skies-v1"
+        }
+      ]
+    },
+    {
+      "to": "1.0.6",
+      "from": [
+        "1.0.5"
+      ],
+      "format": "openhw-exe-zip-v1",
+      "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.6/OpenHW-Patch-1.0.6.exe",
+      "size": 40078846,
+      "sha256": "f28f6d548247920fa332c995822a49ffbc8f30439bacbb220eea08a22a843dfd",
       "post_actions": [
         {
           "kind": "repair-mission-skies-v1"
