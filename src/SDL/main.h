@@ -102,6 +102,7 @@ extern bool32 showBorder;
 // Modern display and presentation controls.  The simulation tick remains
 // independent from these values.
 extern sdword mainRefreshRate;
+extern sdword mainActiveRefreshRate;
 extern sdword mainDetectDisplayOnFirstBoot;
 extern sdword mainFrameRateLimit;
 extern sdword mainVSync;

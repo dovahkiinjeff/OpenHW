@@ -25,6 +25,7 @@ class NativeDdsDecodeTests(unittest.TestCase):
 #include <vector>
 struct { double decodeMilliseconds; int decodeCalls; unsigned long long decodeBytes; } textureLoadMetrics;
 struct TextureMetricTimer { TextureMetricTimer(double*) {} };
+bool hwDiagnosticsDisabled() { return false; }
 '''
         cases = r'''
 void check(const DirectX::Image &source, bool exact) {

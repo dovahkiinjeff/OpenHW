@@ -202,6 +202,8 @@ bool32 mainExclusiveFullscreen = FALSE;
 // uncapped (VSync may still limit presentation).  VSync accepts the SDL swap
 // interval values: 0 off, 1 on, -1 adaptive.
 sdword mainRefreshRate = 0;
+/* Observed monitor timing is separate from the saved exclusive request. */
+sdword mainActiveRefreshRate = 0;
 sdword mainDetectDisplayOnFirstBoot = 0;
 sdword mainFrameRateLimit = 0;
 sdword mainVSync = 1;

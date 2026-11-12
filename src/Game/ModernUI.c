@@ -7113,7 +7113,7 @@ static void muiDrawVideo(regionhandle region)
         {"CHROMATIC ABERRATION", "MOTION BLUR", "LUMINANCE FILM GRAIN", "GOD RAYS", "GOD RAY QUALITY", "BLOOM", "LENS FLARES"}
     };
     static const char *descriptions[MUI_VIDEO_TAB_COUNT][MUI_VIDEO_ROW_COUNT] = {
-        {"Default: desktop-matched borderless", "Staged for the next launch", "Auto follows the active display", "Zero removes the limiter", "Staged; scales from resolution automatically"},
+        {"Default: desktop-matched borderless", "Staged for the next launch", "Exclusive refresh is staged; borderless uses Windows timing", "Zero removes the limiter", "Staged; scales from resolution automatically"},
         {"DXR scene traversal and accumulated lighting", "1-6 bounces; default 3, higher values cost more GPU time", "New stochastic paths each frame", "LIF-derived micro-surface response", "Weapons, engines, beams, blasts and nav lights"},
         {"Auto, native TAA, DLAA/DLSS, FSR or XeSS-SR full-scene reconstruction", "Final image brightness; default 30%", "Trails and impact complexity", "Maximum simultaneous effects", "Additional displayed frames; status reflects the active runtime", "Model DDS textures; long-edge limit, Ultra preserves source. Restart required.", "Midtone visibility; 1.00 neutral, higher brightens shadows"},
         {"Radial RGB lens separation", "DXR motion-vector blur; default off", "Response-controlled midtone grain; protected blacks/highlights", "On/Off; per-mission strength and color in Shift+F12", "Low / Medium / High / Ultra; Medium is the default", "Soft bright-scene glow; 0-400%, default 100%", "Occluded sunlight lens ghosts; independent of god rays"}
@@ -7125,6 +7125,7 @@ static void muiDrawVideo(regionhandle region)
     sdword mouseY = mouseCursorY();
     char value[64];
     char frameGenerationDescription[192];
+    char refreshDescription[192];
     const char *valueText;
     bool32 adjustable;
 
@@ -7199,8 +7200,20 @@ static void muiDrawVideo(regionhandle region)
                 layout.rows[index].x1 - layout.rows[index].x0 - uiScaleSize(32),
                 muiBodyFont);
         }
+        if (muiVideo.tab == 0 && index == 2)
+        {
+            if (!fullScreen || !mainExclusiveFullscreen)
+                snprintf(refreshDescription, sizeof(refreshDescription),
+                    "Windows desktop: %d Hz. Selected rate is saved for exclusive fullscreen; restart to apply.",
+                    mainActiveRefreshRate);
+            else
+                snprintf(refreshDescription, sizeof(refreshDescription),
+                    "Active: %d Hz. Selected exclusive refresh applies on the next launch.",
+                    mainActiveRefreshRate);
+        }
         muiDrawVideoRow(&layout.rows[index], labels[muiVideo.tab][index],
                         muiVideo.tab == 2 && index == 4 ? frameGenerationDescription :
+                        muiVideo.tab == 0 && index == 2 ? refreshDescription :
                             descriptions[muiVideo.tab][index], valueText,
                         hovered, adjustable);
     }

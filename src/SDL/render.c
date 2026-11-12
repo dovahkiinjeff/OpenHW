@@ -195,15 +195,22 @@ static bool32 rndApplyWindowMode(void)
 {
     int displayIndex;
 
-    if (!fullScreen)
-    {
-        return TRUE;
-    }
-
     displayIndex = SDL_GetWindowDisplayIndex(sdlwindow);
     if (displayIndex < 0)
     {
         displayIndex = 0;
+    }
+    mainActiveRefreshRate = 0;
+    {
+        SDL_DisplayMode activeMode;
+        if (SDL_GetCurrentDisplayMode(displayIndex, &activeMode) == 0)
+            mainActiveRefreshRate = activeMode.refresh_rate;
+    }
+    if (!fullScreen)
+    {
+        HW_DIAG_FPRINTF(stderr, "[Display] Windowed: display=%d active=%d Hz; saved exclusive request=%d Hz.\n",
+            displayIndex, mainActiveRefreshRate, mainRefreshRate);
+        return TRUE;
     }
 
     if (mainExclusiveFullscreen)
@@ -246,7 +253,9 @@ static bool32 rndApplyWindowMode(void)
 
         MAIN_WindowWidth = closest.w;
         MAIN_WindowHeight = closest.h;
-        mainRefreshRate = closest.refresh_rate;
+        mainActiveRefreshRate = closest.refresh_rate;
+        HW_DIAG_FPRINTF(stderr, "[Display] Exclusive: display=%d requested=%d Hz applied=%d Hz (%dx%d).\n",
+            displayIndex, mainRefreshRate, mainActiveRefreshRate, closest.w, closest.h);
         return TRUE;
     }
 
@@ -261,10 +270,12 @@ static bool32 rndApplyWindowMode(void)
         if (SDL_GetCurrentDisplayMode(displayIndex, &activeMode) == 0 &&
             activeMode.refresh_rate > 0)
         {
-            mainRefreshRate = activeMode.refresh_rate;
+            mainActiveRefreshRate = activeMode.refresh_rate;
         }
     }
 
+    HW_DIAG_FPRINTF(stderr, "[Display] Borderless: display=%d active=%d Hz; saved exclusive request=%d Hz. Change Windows display settings to change borderless refresh.\n",
+        displayIndex, mainActiveRefreshRate, mainRefreshRate);
     return TRUE;
 }
 

@@ -35,13 +35,13 @@ static void createProgress(){
 #ifdef OPENHW_UPDATER
         L"OpenHW Updater",
 #elif defined(OPENHW_PATCH_INSTALLER)
-        L"OpenHW 1.0.5 patch",
+        L"OpenHW 1.0.6 patch",
 #else
         L"OpenHW 1.0 setup",
 #endif
         WS_OVERLAPPED|WS_CAPTION|WS_VISIBLE,
         CW_USEDEFAULT,CW_USEDEFAULT,560,165,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
-    labelHandle=CreateWindowExW(0,L"STATIC",L"Preparing installer files in this folder…",WS_CHILD|WS_VISIBLE,20,24,510,42,windowHandle,nullptr,nullptr,nullptr);
+    labelHandle=CreateWindowExW(0,L"STATIC",L"Preparing installer files in this folderâ€¦",WS_CHILD|WS_VISIBLE,20,24,510,42,windowHandle,nullptr,nullptr,nullptr);
     progressHandle=CreateWindowExW(0,PROGRESS_CLASSW,nullptr,WS_CHILD|WS_VISIBLE|PBS_MARQUEE,20,80,510,22,windowHandle,nullptr,nullptr,nullptr);
     SendMessageW(progressHandle,PBM_SETMARQUEE,TRUE,30);UpdateWindow(windowHandle);pump();
 }
@@ -101,8 +101,8 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         check(std::filesystem::is_regular_file(root/L"setup-complete.json") &&
               std::filesystem::is_regular_file(root/L"Development/Installer/Development/python312.dll"),
               "Select an installed OpenHW 1.0 folder, not the original Collection.");
-        check(std::filesystem::is_regular_file(root/L"Development/Patches/1.0.4.5/applied.json"),
-              "Install OpenHW 1.0.1 through 1.0.4.5 before applying this patch.");
+        check(std::filesystem::is_regular_file(root/L"Development/Patches/1.0.5/applied.json"),
+              "Install OpenHW and every patch through 1.0.5 before applying this patch.");
         HANDLE snapshot=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
         check(snapshot!=INVALID_HANDLE_VALUE,"Cannot check whether OpenHW is running.");
         PROCESSENTRY32W entry={};entry.dwSize=sizeof(entry);bool running=false;
@@ -110,7 +110,7 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
             if(!_wcsicmp(entry.szExeFile,L"OpenHW.exe") || !_wcsicmp(entry.szExeFile,L"OpenHW-Daignostics.exe"))running=true;
         }while(Process32NextW(snapshot,&entry));CloseHandle(snapshot);
         check(!running,"Close OpenHW and OpenHW-Daignostics before applying this patch.");
-        const auto backup=root/L"Development/Patches/1.0.5/Backup";
+        const auto backup=root/L"Development/Patches/1.0.6/Backup";
         std::filesystem::create_directories(backup);
         for(const wchar_t* name:{L"OpenHW.exe",L"OpenHW-Daignostics.exe",L"version.json"})
             if(std::filesystem::is_regular_file(root/name) && !std::filesystem::exists(backup/name))
@@ -159,7 +159,7 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         std::array<unsigned char,32> digest={};check(BCryptFinishHash(hash,digest.data(),32,0)>=0 &&
             std::memcmp(digest.data(),footer.sha,32)==0,"Installer checksum failed. Download the complete installer again.");
         BCryptDestroyHash(hash);hash=nullptr;BCryptCloseAlgorithmProvider(algorithm,0);algorithm=nullptr;
-        status(L"Unpacking installer support files beside this EXE…");
+        status(L"Unpacking installer support files beside this EXEâ€¦");
         const std::wstring script=L"$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath "+literal(archive.wstring())+L" -DestinationPath "+literal(root.wstring())+L" -Force";
         DWORD count=0;check(CryptBinaryToStringW(reinterpret_cast<const BYTE*>(script.data()),DWORD(script.size()*2),CRYPT_STRING_BASE64|CRYPT_STRING_NOCRLF,nullptr,&count)!=0,"Cannot prepare local extraction.");
         std::wstring encoded(count,0);check(CryptBinaryToStringW(reinterpret_cast<const BYTE*>(script.data()),DWORD(script.size()*2),CRYPT_STRING_BASE64|CRYPT_STRING_NOCRLF,encoded.data(),&count)!=0,"Cannot encode local extraction.");
@@ -177,7 +177,7 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         if(!std::filesystem::is_regular_file(runtime/L"runtime-ready.txt") ||
            !std::filesystem::is_regular_file(support/L"python312.dll") ||
            !std::filesystem::is_regular_file(support/L"_ssl.pyd")){
-            status(L"Preparing the updater runtime inside this OpenHW folder…");
+            status(L"Preparing the updater runtime inside this OpenHW folderâ€¦");
             auto installedSupport=development/L"Installer/Development";
             // An older updater must still boot after a future game patch
             // changes/removes the original installer's Python dependencies.

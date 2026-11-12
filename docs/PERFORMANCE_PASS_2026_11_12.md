@@ -1,0 +1,13 @@
+# Community GTX 1080 Ti follow-up, November 12, 2026
+
+Inputs: renderer-20261112-164233-15780.log and renderer-20261029-195444-11008.log supplied by a community player. They identify a GTX 1080 Ti with approximately 11 GiB VRAM and run at 1920x1080. They cover different maps/settings and cannot establish a release-to-release speedup.
+
+The newer capture has 179 telemetry windows with active cloud volumes. Median recorded GPU time is 12.837 ms; the 95th percentile of these window averages is 20.378 ms. Median raster, DXR and cloud-screen times are 0.521, 4.595 and 2.315 ms. FSR-active windows include a median 5.821 ms reconstruction/composition interval. Timings do not include every SDK presentation workload. VSync is enabled, and many owning-frame windows remain near 16.6 ms. These values are window averages, not individual-frame percentile measurements.
+
+The trace accumulates 2,157 DDS decodes, 20,146.4 MiB of expanded image data and 14,123.5 ms decode CPU time; the shared cache records only 25 hits and 2,068 misses. These counters are cumulative, not current memory usage. The previous cache consumes its one retained image on a hit, so subsequent requests can decode again. The replacement retains a pristine bounded image and encoded bytes, validates content exactly, and returns independent writable allocations. Existing memory limits, texture resolution and rendered data are retained. Allocation failure falls back to ordinary decoding, and oversized entries bypass retention.
+
+An isolated actual-DirectXTex test on the developer machine loaded one installed 1024x1024 BC7 asteroid DDS 32 times. The original path took 185.131 ms with 16 decodes/16 hits; the replacement took 27.551 ms with 1 decode/31 hits. This is not a GTX 1080 Ti FPS result. A production-code test also checks caller mutation isolation, same-path content changes, normalized names, multiple live allocations, eviction, oversize bypass and invalid input.
+
+The separate startup shader fix retains fully optimized cloud flow control and uses variant-specific cache keys; its NVIDIA pipeline checks and cloud-output parity checks are recorded in the 1.0.6 release notes. The refresh fix keeps the requested exclusive refresh independent of desktop timing. Borderless/windowed refresh follows Windows; it does not modify the user's desktop configuration.
+
+No automatic graphics downgrade, ray-tracing disable, reduced cloud quality, asynchronous frame-generation change, game-camera control or unsupported whole-game FPS claim is included. Further GTX 1080 Ti GPU optimization needs a comparable scene on that hardware; these two logs alone cannot attribute all slow presentation to a single pass.

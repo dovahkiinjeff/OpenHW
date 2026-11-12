@@ -106,6 +106,7 @@ extern "C" float hwModernGraphicsGetFramesPerSecond(void)
 #include "DustScreenBindings.h"
 #include "GoodGodRaysPass.h"
 #include <d3dcompiler.h>
+#include "PresenterShaderCompilePolicy.h"
 #include <dxgi1_6.h>
 #include <DirectXTex.h>
 #ifndef HW_ENABLE_D3D12_NATIVE_RASTER
@@ -4643,6 +4644,8 @@ std::uint64_t presenterShaderHash(const char *entryPoint, const char *target,
     append(target, std::strlen(target));
     static const char cacheVersion[] = "HomeworldModern-0.91.2";
     append(cacheVersion, sizeof(cacheVersion) - 1);
+    const char *compileVariant = hwmodern::presenterShaderCompileVariant(entryPoint);
+    append(compileVariant, std::strlen(compileVariant));
     // Compile definitions are part of the bytecode identity. Preserve the
     // existing keys for the three shaders compiled without definitions.
     for (const D3D_SHADER_MACRO *macro = macros; macro && macro->Name; ++macro)
@@ -5158,8 +5161,7 @@ bool compileShader(const char *entryPoint, const char *target,
     HRESULT result = D3DCompile(shaderSource, shaderBytes,
                                 sourceName, macros,
                                 nullptr, entryPoint, target,
-                                D3DCOMPILE_ENABLE_STRICTNESS |
-                                D3DCOMPILE_OPTIMIZATION_LEVEL3,
+                                hwmodern::presenterShaderCompileFlags(entryPoint),
                                 0, &bytecode, &errors);
     if (FAILED(result))
     {
@@ -10238,21 +10240,14 @@ namespace
 {
 struct SharedDdsEntry
 {
-    unsigned char *pixels = nullptr;
+    std::vector<unsigned char> encoded;
+    std::vector<unsigned char> pixels;
     unsigned int width = 0;
     unsigned int height = 0;
     size_t bytes = 0;
     unsigned long long age = 0;
 };
-struct SharedDdsIssued
-{
-    std::string key;
-    bool parkOnFree = false;
-    unsigned int width = 0;
-    unsigned int height = 0;
-};
 std::unordered_map<std::string, SharedDdsEntry> sharedDdsCache;
-std::unordered_map<void *, SharedDdsIssued> sharedDdsIssued;
 size_t sharedDdsCacheBytes = 0;
 unsigned long long sharedDdsAge = 0;
 constexpr size_t sharedDdsCacheLimit = 128u * 1024u * 1024u;
@@ -10269,16 +10264,17 @@ std::string normalizedDdsKey(const char *value)
     return key;
 }
 
-void trimSharedDdsCache()
+void trimSharedDdsCache(size_t incomingBytes = 0)
 {
-    while (sharedDdsCacheBytes > sharedDdsCacheLimit &&
+    const size_t available = incomingBytes <= sharedDdsCacheLimit
+        ? sharedDdsCacheLimit - incomingBytes : 0;
+    while (sharedDdsCacheBytes > available &&
            !sharedDdsCache.empty())
     {
         auto oldest = sharedDdsCache.begin();
         for (auto it = sharedDdsCache.begin(); it != sharedDdsCache.end(); ++it)
             if (it->second.age < oldest->second.age) oldest = it;
         sharedDdsCacheBytes -= oldest->second.bytes;
-        std::free(oldest->second.pixels);
         sharedDdsCache.erase(oldest);
     }
 }
@@ -10293,49 +10289,67 @@ extern "C" int hwModernGraphicsDecodeDdsShared(
     auto found = sharedDdsCache.find(key);
     if (!key.empty() && found != sharedDdsCache.end())
     {
-        if(!hwDiagnosticsDisabled()) ++textureLoadMetrics.sharedHits;
-        SharedDdsEntry entry = found->second;
+        SharedDdsEntry &entry = found->second;
+        // Exact source bytes also invalidate a path reused by a live mod edit.
+        // Comparing the encoded DDS is much cheaper than decoding its texels.
+        if (data != nullptr && entry.encoded.size() == size &&
+            std::memcmp(entry.encoded.data(), data, size) == 0)
+        {
+            unsigned char *pixels = static_cast<unsigned char *>(
+                std::malloc(entry.pixels.size()));
+            if (pixels != nullptr)
+            {
+                std::memcpy(pixels, entry.pixels.data(), entry.pixels.size());
+                *width = entry.width;
+                *height = entry.height;
+                *rgba = pixels;
+                entry.age = ++sharedDdsAge;
+                if(!hwDiagnosticsDisabled()) ++textureLoadMetrics.sharedHits;
+                return 1;
+            }
+            // Do not retain optional cached memory while an allocation is
+            // failing. The caller still receives its own writable allocation.
+        }
         sharedDdsCacheBytes -= entry.bytes;
         sharedDdsCache.erase(found);
-        *width = entry.width;
-        *height = entry.height;
-        *rgba = entry.pixels;
-        sharedDdsIssued[entry.pixels] = {key, false, entry.width, entry.height};
-        return 1;
     }
     if(!hwDiagnosticsDisabled()) ++textureLoadMetrics.sharedMisses;
     if (!hwModernGraphicsDecodeDds(data, size, width, height, rgba)) return 0;
-    if (!key.empty())
-        sharedDdsIssued[*rgba] = {key, true, *width, *height};
+    const size_t pixelBytes = static_cast<size_t>(*width) * *height * 4u;
+    if (!key.empty() && pixelBytes <= sharedDdsCacheLimit &&
+        size <= sharedDdsCacheLimit - pixelBytes)
+    {
+        try
+        {
+            // Make space before allocating the retained copy, so temporary
+            // retention cannot exceed the cache budget on smaller systems.
+            trimSharedDdsCache(pixelBytes + size);
+            // Retain a pristine image for every subsequent consumer, rather
+            // than consuming the cache on its first hit. Public allocations
+            // remain independent so callers cannot alter cached team colors.
+            SharedDdsEntry entry;
+            entry.encoded.assign(static_cast<const unsigned char *>(data),
+                                 static_cast<const unsigned char *>(data) + size);
+            entry.pixels.assign(*rgba, *rgba + pixelBytes);
+            entry.width = *width;
+            entry.height = *height;
+            entry.bytes = pixelBytes + size;
+            entry.age = ++sharedDdsAge;
+            const size_t bytes = entry.bytes;
+            sharedDdsCache.emplace(key, std::move(entry));
+            sharedDdsCacheBytes += bytes;
+            trimSharedDdsCache();
+        }
+        catch (const std::bad_alloc &)
+        {
+            // Cache retention is optional; a successful decode still succeeds.
+        }
+    }
     return 1;
 }
 
 extern "C" void hwModernGraphicsFreeDecodedDds(void *rgba)
 {
-    auto issued = sharedDdsIssued.find(rgba);
-    if (issued != sharedDdsIssued.end())
-    {
-        SharedDdsIssued value = issued->second;
-        sharedDdsIssued.erase(issued);
-        if (value.parkOnFree)
-        {
-            const size_t bytes = static_cast<size_t>(value.width) *
-                                 value.height * 4u;
-            auto previous = sharedDdsCache.find(value.key);
-            if (previous != sharedDdsCache.end())
-            {
-                sharedDdsCacheBytes -= previous->second.bytes;
-                std::free(previous->second.pixels);
-                sharedDdsCache.erase(previous);
-            }
-            sharedDdsCache[value.key] = {
-                static_cast<unsigned char *>(rgba), value.width, value.height,
-                bytes, ++sharedDdsAge};
-            sharedDdsCacheBytes += bytes;
-            trimSharedDdsCache();
-            return;
-        }
-    }
     std::free(rgba);
 }
 

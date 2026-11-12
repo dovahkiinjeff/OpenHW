@@ -15,9 +15,12 @@ public static class PresenterShaderValidation {
  delegate UIntPtr GetSize(IntPtr self);
  public static void Compile(string source, string entry, string target) {
    var bytes = System.Text.Encoding.UTF8.GetBytes(source);
+   // Match PresenterShaderCompilePolicy.h, including the bytecode cache key.
+   bool cloudFlow = entry == "DustScreenPS" || entry == "DustScreenGuidedPS";
+   uint flags = (1u << 11) | (1u << 15) | (cloudFlow ? (1u << 10) : 0u);
    IntPtr code, errors;
    int hr = D3DCompile(bytes, (UIntPtr)bytes.Length, "PresenterValidation", IntPtr.Zero,
-     IntPtr.Zero, entry, target, (1u << 11) | (1u << 15), 0, out code, out errors);
+     IntPtr.Zero, entry, target, flags, 0, out code, out errors);
    string message = "";
    if (errors != IntPtr.Zero) {
      var table = Marshal.ReadIntPtr(errors);
@@ -33,7 +36,7 @@ public static class PresenterShaderValidation {
        var compiled = new byte[checked((int)size(code).ToUInt64())];
        Marshal.Copy(get(code),compiled,0,compiled.Length);
        ulong hash=1469598103934665603UL;
-       foreach(var segment in new[]{source,entry,target,"HomeworldModern-0.91.2"})
+       foreach(var segment in new[]{source,entry,target,"HomeworldModern-0.91.2",cloudFlow ? "cloud-flow-control-v1" : ""})
          foreach(byte value in System.Text.Encoding.UTF8.GetBytes(segment))
            unchecked{hash=(hash^value)*1099511628211UL;}
        System.IO.Directory.CreateDirectory(CacheDirectory);

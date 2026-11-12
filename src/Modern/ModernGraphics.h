@@ -505,8 +505,9 @@ int hwModernGraphicsTryAliasSurfaceTexture(const void *materialIdentity,
 int hwModernGraphicsDecodeDds(const void *data, unsigned int size,
                               unsigned int *width, unsigned int *height,
                               unsigned char **rgba);
-/* Same decode with a bounded one-consumer handoff cache. Two legacy systems
-   requesting the same loose path can reuse one decoded allocation. */
+/* Same decode with a bounded immutable cache. Repeated requests for the same
+   path and exact encoded content avoid decoding. Each returned allocation is
+   independently writable and must be freed by hwModernGraphicsFreeDecodedDds. */
 int hwModernGraphicsDecodeDdsShared(const void *data, unsigned int size,
                                     const char *cacheKey,
                                     unsigned int *width, unsigned int *height,

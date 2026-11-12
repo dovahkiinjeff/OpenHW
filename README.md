@@ -1,10 +1,10 @@
-# OpenHW 1.0.5
+# OpenHW 1.0.6
 
 **The best of both worlds: high-fidelity Homeworld Remastered assets and original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets with modern rendering and in-game creation tools to build the ultimate classic Homeworld experience.
 
 [![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-[Base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe)  [1.0.1 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.1/OpenHW-Patch-1.0.1.exe)  [1.0.2 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.2/OpenHW-Patch-1.0.2.exe)  [1.0.3 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.3/OpenHW-Patch-1.0.3.exe)  [1.0.4 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4/OpenHW-Patch-1.0.4.exe)  [1.0.4.5 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4.5/OpenHW-Patch-1.0.4.5.exe)  [1.0.5 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.5/OpenHW-Patch-1.0.5.exe)   [Installation and controls](docs/USER_GUIDE.md)   [Editors](docs/EDITING_GUIDE.md)   [Modding](docs/MODDING.md)   [Build the installer](BUILD_INSTALLER.md)
+[Base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe)  [1.0.1 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.1/OpenHW-Patch-1.0.1.exe)  [1.0.2 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.2/OpenHW-Patch-1.0.2.exe)  [1.0.3 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.3/OpenHW-Patch-1.0.3.exe)  [1.0.4 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4/OpenHW-Patch-1.0.4.exe)  [1.0.4.5 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4.5/OpenHW-Patch-1.0.4.5.exe)  [1.0.5 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.5/OpenHW-Patch-1.0.5.exe)  [1.0.6 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.6/OpenHW-Patch-1.0.6.exe)   [Installation and controls](docs/USER_GUIDE.md)   [Editors](docs/EDITING_GUIDE.md)   [Modding](docs/MODDING.md)   [Build the installer](BUILD_INSTALLER.md)
 
 > [!IMPORTANT]
 > **Use AMD technology for 1.0. AMD FSR upscaling and AMD FSR frame generation are the recommended, working options.** DLSS currently has known visual issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.** Bundled vendor libraries or development code do not imply supported release features.
@@ -17,6 +17,18 @@
 Download [**Updater.exe**](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.5/Updater.exe), put it beside **OpenHW.exe** after installing the base game, close the game, and run it. It detects that folder’s version and downloads, verifies and installs its missing patches in the required order. Current and future stable patches come from the official GitHub update feed; the updater can update itself too.
 
 Saves, settings, mods and authored maps are preserved. Downloads, backups, logs and temporary files stay under **Development**. No separate Python installation or administrator access is required. See [updater details and recovery](docs/UPDATER.md). Manual patch downloads remain available below.
+
+## 1.0.6 patch - texture loading, startup and refresh settings
+
+[Download OpenHW-Patch-1.0.6.exe](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.6/OpenHW-Patch-1.0.6.exe) - approximately **40 MB**. [Patch notes](RELEASE_NOTES_1.0.6.md) - [Complete cumulative source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.6/OpenHW-1.0.6-Source.zip).
+
+**Requires 1.0.5 first.** Updater.exe automatically installs the required chain. Manual order: base 1.0 -> 1.0.1 -> 1.0.2 -> 1.0.3 -> 1.0.4 -> 1.0.4.5 -> 1.0.5 -> 1.0.6. Close both game executables before patching; saves, settings, mods and authored maps are preserved.
+
+- Improves repeated texture preparation identified in community GTX 1080 Ti logs. A bounded immutable cache avoids repeated decompression while preserving independent writable buffers, mod reloads and the existing memory limit. An isolated developer-machine test improved from 185 ms to 28 ms for 32 requests; **this is not a verified 1080 Ti gameplay FPS gain**.
+- Fixes a cloud-shader startup failure reproduced on an RTX 5070 Ti. Ordinary and frame-generation variants retain full optimization with compatible flow control and separate cache identities. Tested cloud output remains identical.
+- Keeps an exclusive-fullscreen refresh request such as 360 Hz from being overwritten by a 60 Hz desktop mode. Video options show active timing separately. **Borderless/windowed refresh is controlled by Windows**; the saved exclusive refresh applies after restarting in exclusive fullscreen.
+
+Further GPU performance on older hardware still needs same-scene player testing. These fixes retain texture detail, cloud quality, lighting and simulation behavior. [Technical evidence and scope](docs/PERFORMANCE_PASS_2026_11_12.md).
 
 ## 1.0.5 patch — performance update
 

@@ -10,6 +10,8 @@ Allow setup to finish extraction, asset conversion and validation. Its logs live
 
 Start `OpenHW.exe` for normal play. `OpenHW-Daignostics.exe` is the full-logging variant (filename spelling intentional). Application-owned diagnostic output is below `Development`. Save games, settings, mods and exports also stay in the game folder; no application-owned AppData install is required. Windows and driver caches are external system behavior.
 
+Borderless/windowed mode follows the refresh rate selected in Windows Advanced display settings. The OpenHW refresh selection is saved for exclusive fullscreen and takes effect after applying settings and restarting. The active desktop timing is shown separately and no longer overwrites the saved exclusive request. Unsupported exclusive modes can fall back; check the active timing rather than assuming a requested rate was accepted.
+
 First boot detects resolution and refresh rate rather than imposing the author's monitor mode. Other options use the authored release defaults. Change video/gameplay options to suit your system. Keep backups of `SavedGames`, `Homeworld.cfg`, `RTXExports`, `RTXLighting`, `Modding`, `mods` and parade presets before installing updates. Never overwrite the only copy of your authoring work.
 
 ## Recommended graphics settings
