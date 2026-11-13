@@ -1,6 +1,6 @@
 # OpenHW UI and gameplay screenshot archive
 
-User-supplied images saved on November 12, 2026 for a later GitHub update. Originals are retained without rescaling or edits. No publication is performed by archiving them.
+User-supplied images saved on November 12, 2026 for the OpenHW 1.0.7 feature tour. Originals are retained without rescaling or edits. All sixteen images are included with captions in the [1.0.7 feature tour](../../FEATURE_TOUR_1.0.7.md).
 
 Images marked **issue-evidence** record reported problems; use their captions when discussing them, rather than presenting them as corrected feature previews. All sixteen supplied files are retained, including the duplicate.
 

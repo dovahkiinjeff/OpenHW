@@ -347,6 +347,9 @@ void trReload(void);    //fixup OpenGL .DLL hooks
 trhandle trTextureRegister(char *fileName, trcolorinfo *info, void *meshReference);
 //now change one or more of it's colors
 void trTextureColorsUpdate(trhandle handle, trcolorinfo *info);
+/* Isolated menu-only palettes; targeted prepare never refreshes fleet textures. */
+trhandle trTextureRegisterPreview(char *name, trcolorinfo *colors, void *mesh);
+void trTextureReleasePreview(trhandle handle);
 trhandle trRegisterAddition(trhandle handle, trcolorinfo *info);
 void trRegisterRemoval(trhandle handle/*, trcolorinfo *info*/);
 void trInternalTexturesDelete(trhandle handle);
@@ -378,6 +381,9 @@ void trRGBTextureMakeCurrent(udword handle);
 void trRGBTextureDelete(udword handle);
 lifheader *trLIFFileLoad(char *fileName, udword flags);
 void trBufferColorRGB(color *dest, color *source, ubyte *teamEffect0, ubyte *teamEffect1, color teamColor0, color teamColor1, sdword size, udword flags, real32 effectScalar0, real32 effectScalar1);
+trcolorinfo *trColorInfosPointer(sdword textureIndex);
+/* Match an edited ship's CPU-baked palette for its modern surface, preserving alpha. */
+bool32 trColorizeSurfaceRgba(trhandle handle,const lifheader *lif,const char *looseName,color *pixels,sdword width,sdword height);
 
 //misc utility functions
 void trFilterEnable(sdword bEnable);

@@ -659,6 +659,8 @@ scriptEntry utyOptionsList[] =
     {"exclusiveFullscreen", scriptSetUdwordCB, &mainExclusiveFullscreen},
     {"detectDisplayOnFirstBoot", scriptSetUdwordCB, &mainDetectDisplayOnFirstBoot},
     {"refreshRate",         scriptSetUdwordCB, &mainRefreshRate},
+    {"frameRateLimit",      scriptSetUdwordCB, &mainFrameRateLimit},
+    {"vSync",               scriptSetUdwordCB, &mainVSync},
     {"uiScalePercent",      scriptSetUdwordCB, &mainUIScalePercent},
     {"raytracing",          scriptSetUdwordCB, &mainRaytracing},
     {"fxLightStrength",      scriptSetUdwordCB, &mainFxLightingStrengthPercent},
@@ -820,6 +822,8 @@ scriptEntry utyOptionsList[] =
 
 
     {"language",                scriptSetUdwordCB, &strCurLanguage},
+    {"keyboardLayout",          scriptSetUdwordCB, &strKeyboardLayout},
+    {"voiceLanguage",           scriptSetUdwordCB, &strVoiceLanguage},
     {"PlayerBaseColor",         scriptSetUdwordCB, &utyBaseColor},
     {"PlayerStripeColor",       scriptSetUdwordCB, &utyStripeColor},
     {"PlayerEngineTrailColor",  scriptSetUdwordCB, &utyEngineTrailColor},
@@ -880,6 +884,7 @@ scriptEntry utyOptionsList[] =
     {"DisableUnitCaps",                scriptSetUdwordCB, &opDisableUnitCaps},
     {"RankSystem",                     scriptSetUdwordCB, &opRankSystem},
     {"MissionStartLaunch",             scriptSetUdwordCB, &opMissionStartLaunch},
+    {"StartingResourceFleet",           scriptSetUdwordCB, &opStartingResourceFleet},
     {"ResourceMultiplier",             scriptSetUdwordCB, &opResourceMultiplier},
     {"UnlimitedRUs",                   scriptSetUdwordCB, &opUnlimitedRUs},
     {"RestoreFogOfWar",                scriptSetUdwordCB, &opRestoreFogOfWar},

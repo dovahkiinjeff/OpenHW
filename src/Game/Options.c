@@ -488,6 +488,7 @@ udword opCaptureBuildAll = 0;
 udword opDisableUnitCaps = 0;
 udword opRankSystem = 1;
 udword opMissionStartLaunch = 0;
+udword opStartingResourceFleet = 0;
 /* RTX-0075: single-player harvesting yield/rate multiplier.  Source asset
    values stay authored while harvest speed and deposited payout scale 1x-4x. */
 udword opResourceMultiplier = 1;

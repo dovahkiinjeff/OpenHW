@@ -636,6 +636,34 @@ static void auditKharSelimContacts(const std::filesystem::path& root) {
 int main(int argc,char**argv) {
     documentTests::run();
     try {
+        if(argc==3 && !std::strcmp(argv[1],"--menu-model")) {
+            auto *model=readScene(argv[2]);bool nozzle=false;
+            require(hwRmHodSceneMeshCount(model)>0 && hwRmHodSceneMaterialCount(model)>0,"empty preview model");
+            for(unsigned i=0;i<hwRmHodSceneJointCount(model);++i)
+                if(!std::strcmp(hwRmHodSceneJoint(model,i)->name,"EngineNozzle1"))nozzle=true;
+            require(nozzle,"preview model lacks its engine nozzle joint");
+            std::printf("Menu model validated: %u mesh/LOD records, %u materials, engine nozzle present\n",
+                hwRmHodSceneMeshCount(model),hwRmHodSceneMaterialCount(model));
+            hwRmHodSceneFree(model);return 0;
+        }
+        if(argc==4 && !std::strcmp(argv[1],"--attachment-check")) {
+            for(unsigned fileIndex=2;fileIndex<4;++fileIndex) {
+                auto bytes=readBytes(argv[fileIndex]);char error[512];
+                auto *asset=hwRmVisualAssetCreate(bytes.data(),bytes.size(),nullptr,0,error,sizeof(error));require(asset!=nullptr,error);
+                auto *instance=hwRmVisualInstanceCreate(asset);require(instance!=nullptr,"attachment audit instance failed");
+                if(fileIndex==2)for(const char *semantic:{"nav_antenna1","nav_antenna2","nav_antenna3","nav_Dock1","nav_Dock2","nav_Dock3","nav_Dock4"}){
+                    float matrix[16];require(hwRmVisualInstanceMarker(instance,semantic,2.6117642f,matrix,error,sizeof(error))!=0,error);
+                    std::printf("%s %.3f %.3f %.3f\n",semantic,matrix[12],matrix[13],matrix[14]);
+                }
+                else {
+                    float position[3];require(hwRmVisualInstanceDockEndpoint(instance,"Frigate_In",1.f,position)!=0,"Mothership native Frigate_In endpoint is unavailable");
+                    std::printf("Frigate_In unscaled endpoint %.3f %.3f %.3f\n",position[0],position[1],position[2]);
+                }
+                hwRmVisualInstanceFree(instance);hwRmVisualAssetFree(asset);
+            }
+            return 0;
+        }
+
         HwHodShip ship{}; char error[256]; auto data=sample();
         packageTests();
         if(argc==3 && !std::strcmp(argv[1],"--audit-pose")){auditPose(argv[2]);return 0;}
@@ -1265,6 +1293,21 @@ int main(int argc,char**argv) {
             require(hwRmVisualAssetTexture(direct,0,0,"$diffuse",0,&nativeTexture,error,sizeof(error))&&nativeTexture.bytes[1]==20,"asset texture resolution changed bytes");
             require(!hwRmVisualAssetTexture(direct,1,0,"$diffuse",0,&nativeTexture,error,sizeof(error))&&!nativeTexture.bytes,"missing component texture accepted");
             hwRmVisualAssetFree(direct);
+        }
+        {
+            Bytes hierarchy;le(hierarchy,unsigned(-3));
+            for(const char *name:{"Root","HeavyInterceptor","NavLightantenna1"}) {
+                str(hierarchy,name);str(hierarchy,!std::strcmp(name,"Root")?"":"Root");
+                const bool lamp=!std::strcmp(name,"NavLightantenna1");
+                for(float v:{lamp?.2f:0.f,lamp?1.f:0.f,lamp?2.f:0.f,0.f,0.f,0.f,0.f,0.f,0.f})f(hierarchy,v);
+            }
+            auto fixture=sample(false,false,false,false,0xc8c8c8ff,nullptr,&hierarchy);
+            auto *asset=hwRmVisualAssetCreate(fixture.data(),fixture.size(),nullptr,0,error,sizeof(error));require(asset!=nullptr,error);
+            auto *instance=hwRmVisualInstanceCreate(asset);require(instance!=nullptr,"nav fixture instance failed");
+            float matrix[16];require(hwRmVisualInstanceMarker(instance,"nav_ANTENNA1",2.f,matrix,error,sizeof(error))!=0,error);
+            require(std::abs(matrix[12]-2.f)<.0001f && std::abs(matrix[13]+.4f)<.0001f && std::abs(matrix[14]-4.f)<.0001f,"native nav marker lost model basis or scale");
+            require(!hwRmVisualInstanceMarker(instance,"nav_missing",2.f,matrix,error,sizeof(error)),"missing lamp fabricated a location");
+            hwRmVisualInstanceFree(instance);hwRmVisualAssetFree(asset);
         }
         if(argc>1) {
             std::ifstream file(argv[1],std::ios::binary);require(bool(file),"source HOD missing");

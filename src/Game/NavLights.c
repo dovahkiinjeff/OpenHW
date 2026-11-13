@@ -7,14 +7,17 @@
 =============================================================================*/
 
 #include "NavLights.h"
+#include <stdio.h>
 
 #include "glinc.h"
 #include "Matrix.h"
 #include "Memory.h"
+#include "Mesh.h"
 #include "prim3d.h"
 #include "render.h"
 #include "Universe.h"
 #include "utility.h"
+#include "ShipAppearance.h"
 
 static color navLightEffectiveColor(Ship *ship, NAVLightStatic *navLightStatic)
 {
@@ -26,9 +29,9 @@ static color navLightEffectiveColor(Ship *ship, NAVLightStatic *navLightStatic)
         ship->objtype == OBJ_ShipType &&
         ship->playerowner == universe.curPlayerPtr)
     {
-        return utyNavLightColor;
+        return shipAppearanceColor(ship,SHIP_PAINT_NAV,utyNavLightColor);
     }
-    return navLightStatic->color;
+    return ship != NULL && ship->objtype==OBJ_ShipType ? shipAppearanceColor(ship,SHIP_PAINT_NAV,navLightStatic->color) : navLightStatic->color;
 }
 
 #ifdef HW_ENABLE_D3D12_BACKEND
@@ -196,6 +199,14 @@ void RenderNAVLights(Ship *ship)
 
 			if(navLight->lightstate)
 			{
+                NAVLightStatic positioned=*navLightStatic;
+                NAVLightStatic *source=navLightStatic;
+                char semantic[32];
+                if (ship->objtype==OBJ_ShipType && ship->shiprace==R1 && ship->shiptype==AdvanceSupportFrigate) {
+                    snprintf(semantic,sizeof(semantic),"nav_%s",source->name);
+                    meshRemasteredMarkerPosition(ship,semantic,&positioned.position);
+                }
+                navLightStatic=&positioned;
                 lightColor = navLightEffectiveColor(ship, navLightStatic);
 #ifdef HW_ENABLE_D3D12_BACKEND
                 /* MEX-authored local point transformed by the same ship
@@ -236,6 +247,7 @@ void RenderNAVLights(Ship *ship)
                     primPointSize3Fade(&navLightStatic->position, 2.0f, tempColor, fade);
                     glDisable(GL_POINT_SMOOTH);
 				}
+                navLightStatic=source;
 			}
       }
 

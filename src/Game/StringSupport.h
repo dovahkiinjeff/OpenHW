@@ -27,6 +27,9 @@ typedef enum
 
 extern udword strCurLanguage;
 extern udword strCurKeyboardLanguage;
+/* 0 Windows, 1 physical US, 2 French, 3 German, 4 Spanish, 5 Italian, 6 Dvorak. */
+extern udword strKeyboardLayout;
+extern udword strVoiceLanguage;
 
 bool8 strLoadLanguage(strLanguageType language);
 bool8 strFreeLanguage(void);

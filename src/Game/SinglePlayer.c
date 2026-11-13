@@ -2290,8 +2290,30 @@ void singlePlayerSetMissionAttributes(char *directory,char *filename)
     nebReset();
 }
 
+static void spCompleteStartingResourceFleet(void)
+{
+    Player *player=&universe.players[0];
+    Ship *host=player->PlayerMothership;
+    ShipType types[2]={ResourceCollector,ResourceController};
+    sdword minimum[2]={3,2},i,n;
+    if (!singlePlayerGame || !opStartingResourceFleet || spMapEditorBootActive() || !host) return;
+    /* shiptotals includes ships carried inside factories. This is invoked only
+       by fresh mission creation/arrival, never by savegame loading. */
+    for (i=0;i<2;++i) {
+        ShipStaticInfo *info=GetShipStaticInfoSafe(types[i],player->race);
+        if (!info || !bitTest(info->staticheader.infoFlags,IF_InfoLoaded)) continue;
+        for (n=player->shiptotals[types[i]];n<minimum[i];++n) {
+            Ship *ship=univAddShip(types[i],player->race,&host->posinfo.position,player,0);
+            gameStatsAddShip(ship,0);
+            unitCapCreateShip(ship,player);
+            GroupShipIntoMilitaryParade(&universe.mainCommandLayer,ship,host);
+        }
+    }
+}
+
 void singlePlayerLevelLoaded(void)
 {
+    spCompleteStartingResourceFleet();
     HorseRaceLoadingTask("Applying persistent fleet formations");
     paradeCampaignLoaded();
     // need to fix up the mission sequence index to match the currentMission

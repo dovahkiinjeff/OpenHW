@@ -10355,7 +10355,7 @@ extern "C" void hwModernGraphicsFreeDecodedDds(void *rgba)
 
 extern "C" unsigned int hwModernGraphicsModelTextureCap(int quality)
 {
-    static const unsigned int cap = hwTextureResolutionCap(quality);
+    const unsigned int cap = hwTextureResolutionCap(quality);
     observedModelTextureCap = static_cast<int>(cap);
     static bool logged = false;
     if (!logged)

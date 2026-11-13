@@ -18,8 +18,8 @@ import urllib.parse
 import uuid
 import zipfile
 
-UPDATER_VERSION = '1.0.0'
-PROTOCOL = 1
+UPDATER_VERSION = '1.0.1'
+PROTOCOL = 2
 MANIFEST_URL = 'https://raw.githubusercontent.com/dovahkiinjeff/OpenHW/main/updates/stable.json'
 REPOSITORY_DOWNLOAD = 'https://github.com/dovahkiinjeff/OpenHW/releases/download/'
 FOOTER = struct.Struct('<16sQQ32s')
@@ -99,7 +99,7 @@ def writable_member(name):
         return False
     if len(parts) == 1:
         return parts[0] in ('openhw.exe','openhw-daignostics.exe','openhw-diagnostics.exe',
-            'third_party_notices.md','license.txt','openhw-hw1.obig','openhw-presentation.obig') or p.suffix.lower() == '.dll'
+            'launcher.exe','third_party_notices.md','license.txt','openhw-hw1.obig','openhw-presentation.obig') or p.suffix.lower() == '.dll'
     if parts[0] == 'development':
         return len(parts) > 2 and parts[1] in ('installer','symbols','content','setuptools')
     return parts[0] in ('data','licenses','documentation','ui','cursors','planets','asteroids',
@@ -212,6 +212,14 @@ def game_running():
 
 def stop_if_game_running():
     if game_running(): raise UpdateError('Close OpenHW and its diagnostics version, then run the updater again.')
+
+
+def launcher_running():
+    if os.name != 'nt': return False
+    import csv
+    result = subprocess.run(['tasklist','/FO','CSV','/NH'], capture_output=True, text=True,
+        creationflags=subprocess.CREATE_NO_WINDOW, check=True)
+    return any(row and row[0].lower() == 'launcher.exe' for row in csv.reader(result.stdout.splitlines()))
 
 
 def download(row, cache, progress, cancelled):
@@ -359,7 +367,10 @@ def apply_patch(root, patch, package, progress, select_collection=lambda: None, 
     transaction.mkdir(parents=True)
     progress('Checking patch '+patch['to']+'...', None)
     payload, metadata = unpack_payload(package, transaction, patch)
-    rows = payload['files']; names = [r['path'] for r in rows]+[metadata,'version.json',
+    rows = payload['files']
+    if any(row['path'].lower() == 'launcher.exe' for row in rows) and launcher_running():
+        raise UpdateError('This patch updates the Launcher. Close Launcher.exe and run Updater.exe beside OpenHW.exe to finish it.')
+    names = [r['path'] for r in rows]+[metadata,'version.json',
         'Development/Patches/'+patch['to']+'/applied.json']
     journal = dict(schema=1, state='prepared', prior=installed, target=patch['to'], files=[])
     for name in names:
@@ -437,7 +448,7 @@ def update_lock(root):
         stream.close()
 
 
-def update(root, progress, cancelled=lambda: False, select_collection=lambda: None, manifest=None):
+def update(root, progress, cancelled=lambda: False, select_collection=lambda: None, manifest=None, self_update=True):
     root = Path(root).resolve(); detect_version(root); stop_if_game_running()
     with update_lock(root):
         recover(root, progress)
@@ -446,7 +457,7 @@ def update(root, progress, cancelled=lambda: False, select_collection=lambda: No
         # Self-update before validating actions introduced by a newer protocol.
         if manifest.get('schema') != 1: raise UpdateError('Unrecognized update feed')
         own = manifest.get('updater')
-        if own and compare_versions(own['version'], UPDATER_VERSION) > 0:
+        if self_update and own and compare_versions(own['version'], UPDATER_VERSION) > 0:
             validate_download(own)
             candidate = download(own, inside(root,'Development/Updater/Downloads'), progress, cancelled)
             request_self_update(root, candidate, os.environ.get('OPENHW_UPDATER_EXE', str(root/'Updater.exe')))

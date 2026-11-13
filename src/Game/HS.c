@@ -10,6 +10,7 @@ Copyright Relic Entertainment, Inc.  All rights reserved.
 #include <math.h>
 
 #include "AIVar.h"
+#include "ShipAppearance.h"
 #include "Damage.h"
 #include "Debug.h"
 #include "FEReg.h"
@@ -698,6 +699,7 @@ void hsEnd(Ship* ship, bool32 displayEffect)
     }
     if (hwModernGraphicsIsActive())
     {
+        c=shipAppearanceColor(ship,SHIP_PAINT_HYPERSPACE,c);
         HWModernDynamicLightEmitter emitter = {0};
         real32 phase = 1.0f;
         real32 envelope;

@@ -115,5 +115,6 @@ void cpColorsAddToPreviousList(color base, color stripe);
    the original color picker remains the authority for caller-owned values. */
 void cpModernColorsSnapshot(color *base, color *stripe);
 void cpModernColorsCommit(color base, color stripe);
+void cpModernRaceSelect(ShipRace race);
 
 #endif

@@ -1,0 +1,20 @@
+{
+  "art": "assets/UI/concept_hangar.png",
+  "treatment": "aspect-preserving crop, scale and interface grade; no generated detail",
+  "fonts": [
+    "https://github.com/google/fonts/tree/main/ofl/rajdhani",
+    "https://github.com/google/fonts/tree/main/ofl/sharetechmono"
+  ],
+  "sha256": {
+    "hangar-1000.png": "777f8fd72911e241b77431b1b9fb4ec78342d289dd82d25e23538084cf117fc8",
+    "hangar-1440.png": "fbab48bf06f9511c66c0011d6800cecb537a96d8f355b093f3c065f379227021",
+    "hangar-2200.png": "34d6a2cce8200e7a0fd01cc5816053586680599776f0589a4271590899d64db3",
+    "launcher.ico": "1d52466ede4d52aae3d01186bc4cf55ee2b12bfb23ab9aded2052796d17c1e05",
+    "mark.png": "4352eb53550c623395937b538732cd09cd515ecdadb741a6d183d148d2e676c6",
+    "Rajdhani-Bold.ttf": "691470dd3286a14e9677940d0bf75796179841ba5215cbda1a2c8910a3226afd",
+    "Rajdhani-OFL.txt": "f62ef357d3a1c3d27edd35a6e1ba350e8a8d13499797964eeadefbf0b3b15d1f",
+    "Rajdhani-Regular.ttf": "6e1fc228a8318251a6e569502ec57bac1e4656c582f92f59ccecc4688e039b98",
+    "ShareTechMono-OFL.txt": "9d96f445b6e9c701428811d0177f894874f8d6f07ecc30d568c506542368f3ff",
+    "ShareTechMono-Regular.ttf": "9ceab1f87414829af259c0f537573ae03ef7dd3147c0b27a36a1a0beb6732677"
+  }
+}

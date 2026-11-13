@@ -36,6 +36,11 @@
 #include "render.h"
 #include "utility.h"
 #include "Teams.h"
+#include "ShipAppearance.h"
+static void paintSetOwner(const void *owner);
+static materialentry *paintOriginalMaterial(materialentry *material);
+static trhandle paintMaterialHandle(const materialentry *material);
+static unsigned paintSurfaceVariant(unsigned scheme);
 #include "ObjTypes.h"
 #include "SpaceObj.h"
 #include "Universe.h"
@@ -176,6 +181,7 @@ void meshMotionRegisterShip(const void *owner)
 
 void meshMotionRetireShip(const void *owner)
 {
+    shipAppearanceRetire(owner);
 #ifdef HW_ENABLE_D3D12_BACKEND
     const Ship *ship = (const Ship *)owner;
     if (ship != NULL)
@@ -280,6 +286,7 @@ unsigned long long meshMotionDerelictIdentity(const void *owner)
 
 void meshSetEngineMaterialOwner(const void *owner)
 {
+    paintSetOwner(owner);
     const Ship *ship=(const Ship *)owner;
     meshEngineBlend=0;
 #ifdef HW_ENABLE_D3D12_BACKEND
@@ -334,8 +341,12 @@ static unsigned meshEngineMaterialBucket(const materialentry *material)
 static materialentry *meshEngineMaterial(materialentry *idle)
 {
     meshEngineMaterialPair *pair;
+    materialentry *source;
     for(pair=meshEngineMaterials[meshEngineMaterialBucket(idle)];pair;pair=pair->next)
         if(pair->idle==idle)return &pair->active;
+    source=paintOriginalMaterial(idle);
+    if(source!=idle)for(pair=meshEngineMaterials[meshEngineMaterialBucket(source)];pair;pair=pair->next)
+        if(pair->idle==source)return &pair->active;
     return idle;
 }
 
@@ -414,6 +425,14 @@ static void meshModernSurfaceTextureKey(char *key, size_t capacity,
         strcpy(controls + strlen(controls) - 4, "_material.dds");
         if (fileExists(controls, FF_IgnoreBIG) && strlen(key) + 12 < capacity)
             strcat(key, "|rm-material");
+    }
+    {
+        trhandle handle=paintMaterialHandle(material);
+        if(handle!=TR_Invalid && trIndex(handle)<TR_RegistrySize) {
+            trcolorinfo *colors=&trColorInfosPointer((sdword)trIndex(handle))[trPaletteIndex(handle)];
+            size_t used=strlen(key);
+            snprintf(key+used,capacity-used,"|paint=%08x:%08x",colors->base,colors->detail);
+        }
     }
 }
 
@@ -626,6 +645,10 @@ static bool32 meshModernTryRegisterLoosePng(
                 materialRgba = NULL;
             }
         }
+    }
+    {
+        trhandle handle=paintMaterialHandle(material);
+        if(handle!=TR_Invalid)trColorizeSurfaceRgba(handle,lif,pngName,(color *)surfaceRgba,width,height);
     }
     meshModernSurfaceTextureKey(textureKey, sizeof(textureKey), pngName, material);
     hwModernGraphicsRegisterSurfaceTextureNamed(
@@ -847,6 +870,10 @@ static bool32 meshRegisterModernSurfaceTexture(
             (double)sumBlue * inverseTexelCount);
     }
 
+    {
+        trhandle handle=paintMaterialHandle(material);
+        if(handle!=TR_Invalid)trColorizeSurfaceRgba(handle,lif,NULL,(color *)surfaceRgba,lif->width,lif->height);
+    }
     hwModernGraphicsRegisterSurfaceTextureNamed(
         material, textureKey, (unsigned int)lif->width, (unsigned int)lif->height,
         surfaceRgba, emissiveRgba, NULL, NULL);
@@ -1172,7 +1199,7 @@ submitModernSurfaces:
         (const unsigned short *)&object->pPolygonList[0].iV0,
         (unsigned int)object->nPolygons,
         (unsigned int)sizeof(polyentry),
-        (unsigned int)iColorScheme | engineVariant,
+        paintSurfaceVariant((unsigned int)iColorScheme) | engineVariant,
         surfaces, (unsigned int)sizeof(HWModernTriangleSurface),
         modelView, baseColor, instanceMask,
         (unsigned long long)meshMotionOwner,
@@ -1188,6 +1215,8 @@ static void meshSubmitModernRaytracingObject(polygonobject *object,
         object, materials, iColorScheme, 0x03u, FALSE);
 }
 #endif
+
+#include "ShipAppearanceMesh.inc"
 
 #if MESH_SURFACE_NAME_DEBUG
 bool32 gTestTexture = FALSE;
@@ -1479,6 +1508,9 @@ static bool32 meshStaticColorSchemeEnabled(StaticInfo *info,
     Outputs     : allocates a list of texture handles MAX_MULTIPLAYER_PLAYERS in length.
     Return      : pointer to this new list of handles
 ----------------------------------------------------------------------------*/
+static bool32 meshLoadingMenuPreview;
+static trcolorinfo meshMenuPreviewPaint;
+
 trhandle * meshTextureRegisterAllPlayers(char *fullName, void *meshReference)
 {
     trhandle handleList[MAX_MULTIPLAYER_PLAYERS], *allocedList;
@@ -1494,6 +1526,11 @@ trhandle * meshTextureRegisterAllPlayers(char *fullName, void *meshReference)
     trhandle *d = ( trhandle *) handleList;
     while (nHandles--) *d++ = TR_Invalid;
 
+    if(meshLoadingMenuPreview) {
+        handleList[0]=trTextureRegisterPreview(fullName,&meshMenuPreviewPaint,meshReference);
+        allocedList=memAlloc(sizeof(handleList),"Menu preview palettes",NonVolatile);
+        memcpy(allocedList,handleList,sizeof(handleList));return allocedList;
+    }
     info = meshNameToStaticInfo(schemeSource);
     if (info == NULL)
     {
@@ -1604,7 +1641,7 @@ static void meshRegisterEngineMaterials(meshdata *mesh, const char *fileName)
         pair->active.textureNameSave=pair->name;
         pair->active.bTexturesRegistered=TRUE;
 #ifdef HW_ENABLE_D3D12_BACKEND
-        if (!meshRegisterModernSurfaceTexture(&pair->active,pair->name))
+        if (!meshLoadingMenuPreview && !meshRegisterModernSurfaceTexture(&pair->active,pair->name))
         {
             for(player=0;player<MAX_MULTIPLAYER_PLAYERS;++player)
                 if(pair->handles[player]!=TR_Invalid)trTextureUnregister(pair->handles[player]);
@@ -2849,7 +2886,7 @@ registerMeshMaterials:
                legacy texreg has produced handles yet.  Keep that exact path in
                the pending record so late mission/derelict materials can retry
                without losing their source filename. */
-            if (!meshRegisterModernSurfaceTexture(
+            if (!meshLoadingMenuPreview && !meshRegisterModernSurfaceTexture(
                     &mesh->localMaterial[index], fullName))
             {
                 meshQueueModernSurfaceTexture(
@@ -2858,7 +2895,7 @@ registerMeshMaterials:
 #endif
         }
 #ifdef HW_ENABLE_D3D12_BACKEND
-        meshRegisterModernEmissiveMaterial(fileName,
+        if(!meshLoadingMenuPreview)meshRegisterModernEmissiveMaterial(fileName,
                                            &mesh->localMaterial[index]);
 #endif
 /*
@@ -3112,6 +3149,7 @@ doneDeletingAllOldTextures:
     /* Idle and active pages must both follow a level's palette updates and
        the carried/captured schemes enabled by levelPreInit. */
     meshFreeEngineMaterials(mesh);
+    paintForgetMesh(mesh);
     meshRegisterEngineMaterials(mesh,mesh->fileName);
 }
 
@@ -3166,6 +3204,7 @@ void meshFree(meshdata *mesh)
 #endif
     meshFreeEngineMaterials(mesh);
     meshNativeVisualReleaseMesh(mesh);
+    paintForgetMesh(mesh);
 
 #ifdef HW_ENABLE_D3D12_BACKEND
     meshForgetModernSurfaceTextures(mesh);
@@ -4730,7 +4769,7 @@ sdword meshRender(meshdata *mesh, sdword iColorScheme)
 #endif //MESH_MATERIAL_STATS
     for (object = &mesh->object[0]; object != NULL; object = object->pSister)
     {
-        meshObjectRenderR(object, mesh->localMaterial, iColorScheme);
+        meshObjectRenderR(object, meshAppearanceMaterials(mesh,iColorScheme), iColorScheme);
     }
 #if MESH_MATERIAL_STATS
     meshMaterialChanges += nMaterialChanges;                //record material stats
@@ -4814,7 +4853,7 @@ void meshRenderShipHierarchy(shipbindings *bindings, sdword currentLOD, meshdata
     binding = bindings->localBinding[currentLOD];
     for (object = &mesh->object[0]; object != NULL; object = object->pSister)
     {
-        binding = meshObjectRenderHierarchy(binding, object, mesh->localMaterial, iColorScheme);
+        binding = meshObjectRenderHierarchy(binding, object, meshAppearanceMaterials(mesh,iColorScheme), iColorScheme);
     }
 #if MESH_MATERIAL_STATS
     meshMaterialChanges += nMaterialChanges;                //record material stats
@@ -4889,7 +4928,7 @@ void meshSubmitRaytracingShadow(meshdata *mesh, sdword iColorScheme)
     for (object = &mesh->object[0]; object != NULL; object = object->pSister)
     {
         meshObjectSubmitRaytracingShadowR(
-            object, mesh->localMaterial, iColorScheme);
+            object, meshAppearanceMaterials(mesh,iColorScheme), iColorScheme);
     }
 #else
     (void)mesh; (void)iColorScheme;
@@ -4918,7 +4957,7 @@ void meshSubmitRaytracingShadowShipHierarchy(
     for (object = &mesh->object[0]; object != NULL; object = object->pSister)
     {
         binding = meshObjectSubmitRaytracingShadowHierarchy(
-            binding, object, mesh->localMaterial, iColorScheme);
+            binding, object, meshAppearanceMaterials(mesh,iColorScheme), iColorScheme);
     }
     if (bindings->postCallback)
         bindings->postCallback(mesh, bindings, currentLOD);
@@ -5148,3 +5187,5 @@ void meshHierarchyWalk(meshdata *mesh, meshcallback preCallback, meshcallback po
         }
     }
 }
+
+#include "MeshMenuPreview.inc"

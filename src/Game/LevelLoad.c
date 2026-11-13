@@ -2307,6 +2307,10 @@ void levelPreInit(char *directory,char *pickedMission)
     if (singlePlayerGame)
     {
         singlePlayerPreLoadCheck();
+        if (opStartingResourceFleet) {
+            SetInfoNeededForShipAndRelatedStaticInfo(ResourceCollector,universe.players[0].race,TRUE);
+            SetInfoNeededForShipAndRelatedStaticInfo(ResourceController,universe.players[0].race,TRUE);
+        }
     }
     else
     {

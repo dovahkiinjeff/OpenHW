@@ -31,6 +31,9 @@ def export(repo, output, profile=None):
             path.suffix.lower() in {'.md','.txt','.json'} or path.name in {
                 'CMakeLists.txt','CHANGELOG','.clang-format','.gitattributes','.gitignore'}):copy(path)
     shutil.copytree(profile,output/'assets/Release',dirs_exist_ok=True)
+    if (repo/'assets/Launcher').is_dir():
+        shutil.copytree(repo/'assets/Launcher',output/'assets/Launcher',dirs_exist_ok=True)
+    for path in (repo/'docs/media').rglob('*.png'):copy(path)
     if (profile/'Content/cursors').is_dir():
         shutil.copytree(profile/'Content/cursors',output/'assets/Cursors',dirs_exist_ok=True)
     for part in ('Missions','DustClouds','Parades'):

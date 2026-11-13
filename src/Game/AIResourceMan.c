@@ -16,6 +16,9 @@
 #include "Select.h"
 #include "StatScript.h"
 #include "UnivUpdate.h"
+#include "ConsMgr.h"
+#include "CommandDefs.h"
+#include "ResearchAPI.h"
 
 
 udword UPDATE_RU_COUNT_RATE = 3;
@@ -937,6 +940,32 @@ void airResourceManager(void)
                 }
             }
         }
+    }
+
+    /* Skirmish had carrier ownership/support handling, but no economy request
+       ever bought one. Budget it after essential research/harvesting; leave a
+       reserve for combat, respect research/caps, and count pending builds. */
+    if (!singlePlayerGame && !requestedSomething && !requestedResearch &&
+        aiCurrentAIPlayer->ResourceManRequestShips.num_ships <= 0 &&
+        aiCurrentAIPlayer->airNumRCollectors >= 3 &&
+        aiCurrentAIPlayer->player->shiptotals[Carrier] == 0 &&
+        aiuCanBuildShipType(Carrier,FALSE) &&
+        aiuUnitCapCanBuildShip(aiCurrentAIPlayer,Carrier,1))
+    {
+        Player *player=aiCurrentAIPlayer->player;
+        Ship *host=player->PlayerMothership;
+        ShipStaticInfo *info=GetShipStaticInfo(Carrier,host->shiprace);
+        Node *node;
+        bool32 queued=FALSE;
+        for(node=universe.mainCommandLayer.todolist.head;node;node=node->next) {
+            CommandToDo *command=(CommandToDo *)listGetStructOfNode(node);
+            if(command->ordertype.order==COMMAND_BUILDING_SHIP &&
+               command->buildingship.playerIndex==player->playerIndex &&
+               command->buildingship.shipType==Carrier) {queued=TRUE;break;}
+        }
+        if(!queued && player->resourceUnits >= info->buildCost+1500 &&
+           (!bitTest(tpGameCreated.flag,MG_ResearchEnabled) || rmCanBuildShip(player,Carrier)))
+            aifResourceManRequestsShipsCB(Carrier,1,0);
     }
 
     if (aiCurrentAIPlayer->numSupportTeams)

@@ -735,6 +735,19 @@ extern "C" int hwRmVisualInstanceMarker(HwRmVisualInstance *instance,const char 
     if(instance && semantic) for(const auto& marker:instance->asset->markers) if(marker.semantic==semantic)
         return hwRmSubsystemJointTransform(instance->subsystem,marker.component,marker.joint.c_str(),
             scale,nullptr,nullptr,matrix,error,errorSize);
+    // Classic lamp names (antenna1, Dock1, ...) retain their timing/colour,
+    // while the native animated HOD owns their actual positions. Explicit
+    // authoring aliases above always take precedence.
+    if(instance && semantic && std::strncmp(semantic,"nav_",4)==0) {
+        const std::string name=std::string("NavLight")+(semantic+4);
+        const auto *hull=instance->asset->hull.get();
+        for(unsigned i=0;i<hwRmHodSceneJointCount(hull);++i) {
+            const auto *joint=hwRmHodSceneJoint(hull,i);
+            if(_stricmp(joint->name,name.c_str())==0)
+                return hwRmSubsystemJointTransform(instance->subsystem,0,joint->name,
+                    scale,nullptr,nullptr,matrix,error,errorSize);
+        }
+    }
     detail(error,errorSize,"unbound native marker semantic");return 0;
 }
 extern "C" void hwRmVisualInstanceFree(HwRmVisualInstance *instance) {

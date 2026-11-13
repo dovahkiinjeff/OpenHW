@@ -95,6 +95,7 @@ extern udword opDisableUnitCaps;
 extern udword opRankSystem;
 /* Campaign arrival only: vanilla / hold combat craft / hold all carried ships. */
 extern udword opMissionStartLaunch;
+extern udword opStartingResourceFleet;
 /* Single-player resource economy scale.  Values are clamped to 1x-4x at use. */
 extern udword opResourceMultiplier;
 /* Use full authored resource populations when starting single-player missions. */

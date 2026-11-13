@@ -163,3 +163,7 @@ unmodified Three.js package, and no Three.js runtime or demo assets are included
 References to companies, products, and APIs identify compatibility only. This
 project is community-developed, unsupported by those companies, and provided
 without warranty.
+
+## Launcher fonts
+
+The launcher privately loads Rajdhani and Share Tech Mono, distributed under the SIL Open Font License 1.1. Complete notices accompany the fonts in `assets/Launcher/Rajdhani-OFL.txt` and `assets/Launcher/ShareTechMono-OFL.txt` and are embedded with Launcher.exe under `Development/Launcher/Theme`. Artwork treatment and source records are in `assets/Launcher/provenance.json`; original concept-art provenance remains in `assets/UI/ART_PROVENANCE.md`.

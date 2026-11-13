@@ -1,3 +1,4 @@
+#include "ShipAppearance.h"
 /*=============================================================================
     Name    : Trails.c
     Purpose : Code to draw ship trails
@@ -547,9 +548,20 @@ void trailGetNozzleOffset(real32* vec, shiptrail* trail)
 /* One physical emitter for both the billboard bulb and every trail sample.
    History must use the same offset as the live head, or the first segment
    bends back toward the ship and becomes visible before the bulb. */
+static const Ship *trailMenuOwner;
+static real32 trailMenuMaxSpeed;
+static vector trailMenuEye;
+static const vector *trailViewerEye(void)
+{
+    return trailMenuOwner ? &trailMenuEye : &mrCamera->eyeposition;
+}
+static real32 trailOwnerMaxSpeed(Ship *ship)
+{
+    return ship==trailMenuOwner ? MAX2(1.0f,trailMenuMaxSpeed) : tacticsGetShipsMaxVelocity(ship);
+}
 static real32 trailBulbRadius(shiptrail *trail, Ship *ship)
 {
-    real32 maxVelocity=tacticsGetShipsMaxVelocity(ship);
+    real32 maxVelocity=trailOwnerMaxSpeed(ship);
     real32 speed=fsqrt(vecMagnitudeSquared(ship->posinfo.velocity));
     real32 ratio=maxVelocity>0 ? speed/maxVelocity : 0;
     trail->ran=.975f+.025f*(real32)sin((double)(universe.totaltimeelapsed*7.0f+
@@ -909,7 +921,7 @@ void trailDrawCapitalGlow(shiptrail* trail, sdword LOD)
     }
 
 //    maxvel = ship->staticinfo->staticheader.maxvelocity;
-    maxvel = tacticsGetShipsMaxVelocity(ship);
+    maxvel = trailOwnerMaxSpeed(ship);
     VECCOPY(&vel, &ship->posinfo.velocity);
     mag = fsqrt(vecMagnitudeSquared(vel));
     velratio = 0.5f * mag / maxvel;
@@ -1271,7 +1283,7 @@ void trailDrawBillboardedSquareThingz(shiptrail* trail, trailsegment* seg, real3
         (double)(universe.totaltimeelapsed * 7.0f +
                  (real32)trail->trailNum * 1.713f));
 
-    maxvel = tacticsGetShipsMaxVelocity(ship);
+    maxvel = trailOwnerMaxSpeed(ship);
 
     //scale radius by velocity fn
     VECCOPY(&vel, &ship->posinfo.velocity);
@@ -1808,7 +1820,7 @@ void trailLineBillboard(
 
     //calc
 
-    vecSub(veye, from, mrCamera->eyeposition);
+    vecSub(veye, from, (*trailViewerEye()));
     vecSub(vseg, to, from);
     vecNormalize(&veye);
     vecNormalize(&vseg);
@@ -2092,7 +2104,7 @@ static void trailModernLayeredSequence(sdword n, vector vectors[],
             (real32)i * 0.67f + (real32)activeTrail->trailNum * 1.31f));
 
         vecSub(tangent, curve[after], curve[before]);
-        vecSub(eye, mrCamera->eyeposition, curve[i]);
+        vecSub(eye, (*trailViewerEye()), curve[i]);
         vecCrossProduct(cross, tangent, eye);
         magnitudeSquared = vecMagnitudeSquared(cross);
         if (magnitudeSquared > 0.000001f)
@@ -2348,12 +2360,26 @@ void mistrailDraw(vector* current, missiletrail* trail, sdword LOD, sdword teamI
     Outputs     :
     Return      : void
 ----------------------------------------------------------------------------*/
+static color *trailAppearanceColors(Ship *ship,color *source,sdword count,color *buffer)
+{
+    sdword i,peak=0;color tint;
+    if(!shipAppearanceHas(ship,SHIP_PAINT_TRAIL) || count<=0 || count>256)return source;
+    tint=shipAppearanceColor(ship,SHIP_PAINT_TRAIL,colWhite);
+    for(i=0;i<count;++i)peak=max(peak,max(colRed(source[i]),max(colGreen(source[i]),colBlue(source[i]))));
+    for(i=0;i<count;++i) {
+        sdword level=max(colRed(source[i]),max(colGreen(source[i]),colBlue(source[i])));
+        level=peak?min(255,level*255/peak):(count-i)*255/count;
+        buffer[i]=colRGBA(colRed(tint)*level/255,colGreen(tint)*level/255,colBlue(tint)*level/255,colAlpha(source[i]));
+    }
+    return buffer;
+}
 void trailDraw(vector *current, shiptrail *trail, sdword LOD, sdword teamIndex)
 {
     sdword index;
 //    sdword count;
     trailsegment lastSegment, currentSegment;
     color *segmentArray;
+    color appearanceSegments[256];
     real32 mag;
     bool32 dontdrawtrail = FALSE;
 
@@ -2465,7 +2491,7 @@ void trailDraw(vector *current, shiptrail *trail, sdword LOD, sdword teamIndex)
            embellishment.  Keep it visible at every visual LOD so zooming out
            cannot collapse a moving ship to a bare one-pixel trail. */
         real32 rad = ship->staticinfo->staticheader.staticCollInfo.collspheresize;
-        segmentArray = trail->staticInfo->segmentColor[teamIndex];
+        segmentArray = trailAppearanceColors(ship,trail->staticInfo->segmentColor[teamIndex],trail->staticInfo->nSegments,appearanceSegments);
         _afterburning = FALSE;
         trailDrawBillboardedSquareThingz(trail, &lastSegment, rad, ship, segmentArray[2]);
 
@@ -2490,7 +2516,7 @@ void trailDraw(vector *current, shiptrail *trail, sdword LOD, sdword teamIndex)
     trailsRendered++;
 #endif
 
-    segmentArray = trail->staticInfo->segmentColor[teamIndex];
+    segmentArray = trailAppearanceColors(ship,trail->staticInfo->segmentColor[teamIndex],trail->staticInfo->nSegments,appearanceSegments);
 
     //actually display the trail now
     if (trail->nLength > 3)
@@ -2860,4 +2886,25 @@ void trailMove(shiptrail* trail, vector *delta)
         segment->position[1] += delta->y;
         segment->position[2] += delta->z;
     }
+}
+
+/* The menu drives an isolated synthetic ship. It never runs ship AI/tactics,
+   advances universe time, or registers a simulation object. */
+void trailDrawMenuPreview(vector *current,shiptrail *trail,real32 maximumSpeed,const vector *eye)
+{
+    const Ship *saved=trailMenuOwner;real32 savedSpeed=trailMenuMaxSpeed;
+    vector savedEye=trailMenuEye;
+    trailMenuOwner=(const Ship *)trail->vship;trailMenuMaxSpeed=maximumSpeed;
+    trailMenuEye=*eye;
+    if(g_glowHandle!=TR_InvalidHandle)trPreparePreviewTexture(g_glowHandle);
+    trailDraw(current,trail,0,0);
+    trailMenuOwner=saved;trailMenuMaxSpeed=savedSpeed;
+    trailMenuEye=savedEye;
+}
+void trailUpdateMenuPreview(shiptrail *trail,vector *position,real32 maximumSpeed)
+{
+    const Ship *saved=trailMenuOwner;real32 savedSpeed=trailMenuMaxSpeed;
+    trailMenuOwner=(const Ship *)trail->vship;trailMenuMaxSpeed=maximumSpeed;
+    trailUpdate(trail,position);
+    trailMenuOwner=saved;trailMenuMaxSpeed=savedSpeed;
 }

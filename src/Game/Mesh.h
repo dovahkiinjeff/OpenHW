@@ -408,6 +408,10 @@ bool32 meshPagedVersionExists(char* fileName);
 
 //render a specific mesh
 sdword meshRender(meshdata *mesh, sdword iColorScheme);
+meshdata *meshLoadMenuPreview(char *path,color base,color stripe);
+void meshMenuPreviewColors(meshdata *mesh,color base,color stripe);
+void meshRenderMenuPreview(meshdata *mesh,real32 engineBlend);
+void meshFreeMenuPreview(meshdata *mesh);
 void meshMorphedObjectRender(
     polygonobject* object1, polygonobject* object2, polyentry *uvPolys,
     materialentry* materials, real32 frac, sdword iColorScheme);

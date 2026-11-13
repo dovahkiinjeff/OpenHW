@@ -220,7 +220,7 @@ color teColorAdjust(color baseColor, trhlscolorize *colorize)
    separate brightness curves.  Modern colour picking deliberately permits a
    black hull; feeding that value directly into the original trail colourizer
    also made every engine ribbon and its ray-traced emitter black. */
-static color teTrailEmissiveSeed(color baseColor, color stripeColor)
+color teTrailEmissiveSeed(color baseColor, color stripeColor)
 {
     color source = baseColor;
     real32 red, green, blue, hue, sat, val;

@@ -1451,6 +1451,21 @@ sdword salCapTrackHeadingAndUp(SpaceObjRotImpTargGuidanceShipDerelict *target,re
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+static sdword getDockIndex(Ship *ship,SpaceObjRotImpTargGuidanceShipDerelict *target,Ship *dockwith);
+static void salCapDockWorld(Ship *host,sdword index,vector *normal,vector *position)
+{
+    DockStaticPoint *point=host->dockInfo->dockpoints[index].dockstaticpoint;
+    vector local=point->position;
+    /* Native Frigate_In terminates at the actual capture hangar. Keep the
+       original queue/door state machine, but use the same model-space port
+       throughout the approach and capture stages. */
+    if(host->shiptype==Mothership && host->shiprace==R1 && !strcmp(point->name,"Frigate"))
+        meshRemasteredDockEndpoint(host,"Frigate_In",&local);
+    matMultiplyMatByVec(normal,&host->rotinfo.coordsys,&point->conenormal);
+    matMultiplyMatByVec(position,&host->rotinfo.coordsys,&local);
+    vecAddTo(*position,host->posinfo.position);
+}
+
 #define SAL_WITHIN_DOCKING_RANGE    6000.0f
 
 sdword salCapFlyToWithinDockingRange(Ship *ship)
@@ -1458,7 +1473,20 @@ sdword salCapFlyToWithinDockingRange(Ship *ship)
     real32 maxpushvelocity;
 
     SalCapCorvetteSpec *spec = (SalCapCorvetteSpec *)ship->ShipSpecifics;
-    if(MoveReachedDestinationVariable((Ship *)spec->target,&spec->dockwith->posinfo.position,SAL_WITHIN_DOCKING_RANGE))
+    vector waiting=spec->dockwith->posinfo.position;
+    real32 tolerance=SAL_WITHIN_DOCKING_RANGE;
+    if(spec->target->objtype==OBJ_ShipType && ((Ship *)spec->target)->staticinfo->shipclass==CLASS_Frigate &&
+       spec->dockwith->shiptype==Mothership && spec->dockwith->shiprace==R1 && spec->dockwith->dockInfo &&
+       spec->dockwith->dockInfo->numDockPoints>0) {
+        sdword index=getDockIndex(ship,spec->target,spec->dockwith);
+        vector normal,offset;
+        real32 clearance=max(600.0f,spec->target->staticinfo->staticheader.staticCollInfo.collspheresize*1.5f);
+        salCapDockWorld(spec->dockwith,index,&normal,&waiting);
+        vecScalarMultiply(offset,normal,clearance);
+        vecAddTo(waiting,offset);
+        tolerance=250.0f;
+    }
+    if(MoveReachedDestinationVariable((Ship *)spec->target,&waiting,tolerance))
     {
         return TRUE;
     }
@@ -1474,7 +1502,7 @@ sdword salCapFlyToWithinDockingRange(Ship *ship)
             goto dontflyme1;
         }
     }
-    aishipFlyToPointAvoidingObjs((Ship *)spec->target,&spec->dockwith->posinfo.position,AISHIP_PointInDirectionFlying,maxpushvelocity);
+    aishipFlyToPointAvoidingObjs((Ship *)spec->target,&waiting,AISHIP_PointInDirectionFlying,maxpushvelocity);
     salCapTrackHeadingAndUp(spec->target,0.999f);
     if(spec->target->objtype == OBJ_ShipType)
     {
@@ -1484,7 +1512,7 @@ dontflyme1:;
 
     return FALSE;
 }
-sdword getDockIndex(Ship *ship,SpaceObjRotImpTargGuidanceShipDerelict *target,Ship *dockwith)
+static sdword getDockIndex(Ship *ship,SpaceObjRotImpTargGuidanceShipDerelict *target,Ship *dockwith)
 {
     sdword i;
     sdword needBig;
@@ -1496,7 +1524,7 @@ sdword getDockIndex(Ship *ship,SpaceObjRotImpTargGuidanceShipDerelict *target,Sh
     {
         //needs a mothership BIG door
         //and WON'T fit in the carrier
-        for(i=0;dockwith->dockInfo->numDockPoints;i++)
+        for(i=0;i<dockwith->dockInfo->numDockPoints;i++)
         {
             if(strcmp(dockwith->dockInfo->dockpoints[i].dockstaticpoint->name,"Big") == 0)
             {
@@ -1508,7 +1536,7 @@ sdword getDockIndex(Ship *ship,SpaceObjRotImpTargGuidanceShipDerelict *target,Sh
     {
         if(dockwith->shiprace == R1 || dockwith->shiptype == Carrier)
         {
-            for(i=0;dockwith->dockInfo->numDockPoints;i++)
+            for(i=0;i<dockwith->dockInfo->numDockPoints;i++)
             {
                 if(strcmp(dockwith->dockInfo->dockpoints[i].dockstaticpoint->name,"Frigate") == 0)
                 {
@@ -1519,7 +1547,7 @@ sdword getDockIndex(Ship *ship,SpaceObjRotImpTargGuidanceShipDerelict *target,Sh
         else
         {
             //ship race is R2 and not a carrier!
-            for(i=0;dockwith->dockInfo->numDockPoints;i++)
+            for(i=0;i<dockwith->dockInfo->numDockPoints;i++)
             {
                 if(strcmp(dockwith->dockInfo->dockpoints[i].dockstaticpoint->name,"Big") == 0)
                 {
@@ -1556,9 +1584,7 @@ sdword salCapFlyToDockingPoint1over2(Ship *ship,SpaceObjRotImpTargGuidanceShipDe
     matGetVectFromMatrixCol3(dockwithHeading,spec->dockwith->rotinfo.coordsys);
     vecScalarMultiply(dockwithHeading,dockwithHeading,SALCAP_1over2HEADINGSCALAR);
 
-    matMultiplyMatByVec(&coneheadingInWorldCoordSys,&spec->dockwith->rotinfo.coordsys,&spec->dockwith->dockInfo->dockpoints[spec->dockindex].dockstaticpoint->conenormal);
-    matMultiplyMatByVec(&conepositionInWorldCoordSys,&spec->dockwith->rotinfo.coordsys,&spec->dockwith->dockInfo->dockpoints[spec->dockindex].dockstaticpoint->position);
-    vecAddTo(conepositionInWorldCoordSys,spec->dockwith->posinfo.position);
+    salCapDockWorld(spec->dockwith,spec->dockindex,&coneheadingInWorldCoordSys,&conepositionInWorldCoordSys);
 
     vecAdd(destination,dockwithHeading,conepositionInWorldCoordSys);
 
@@ -1641,9 +1667,7 @@ sdword salCapFlyToDockingPoint1(Ship *ship,SpaceObjRotImpTargGuidanceShipDerelic
         }
     }
     
-    matMultiplyMatByVec(&coneheadingInWorldCoordSys,&spec->dockwith->rotinfo.coordsys,&spec->dockwith->dockInfo->dockpoints[spec->dockindex].dockstaticpoint->conenormal);
-    matMultiplyMatByVec(&conepositionInWorldCoordSys,&spec->dockwith->rotinfo.coordsys,&spec->dockwith->dockInfo->dockpoints[spec->dockindex].dockstaticpoint->position);
-    vecAddTo(conepositionInWorldCoordSys,spec->dockwith->posinfo.position);
+    salCapDockWorld(spec->dockwith,spec->dockindex,&coneheadingInWorldCoordSys,&conepositionInWorldCoordSys);
 
     needDest = TRUE;
     if(spec->dockwith->shiptype == Mothership)
@@ -1756,9 +1780,7 @@ sdword salCapFlyToDockingPoint2(Ship *dockwith,SpaceObjRotImpTargGuidanceShipDer
             desiredUp = dockwithUp;
         }
     }
-    matMultiplyMatByVec(&coneheadingInWorldCoordSys,&dockwith->rotinfo.coordsys,&dockwith->dockInfo->dockpoints[dockindex].dockstaticpoint->conenormal);
-    matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotinfo.coordsys,&dockwith->dockInfo->dockpoints[dockindex].dockstaticpoint->position);
-    vecAddTo(conepositionInWorldCoordSys,dockwith->posinfo.position);
+    salCapDockWorld(dockwith,dockindex,&coneheadingInWorldCoordSys,&conepositionInWorldCoordSys);
 
     destination = conepositionInWorldCoordSys;
     NO = FALSE;
@@ -1863,9 +1885,7 @@ sdword salCapFlyToDockingPoint3(Ship *dockwith,SpaceObjRotImpTargGuidanceShipDer
             desiredHeading = dockwithHeading;
             desiredUp = dockwithUp;
         }
-        matMultiplyMatByVec(&coneheadingInWorldCoordSys,&dockwith->rotinfo.coordsys,&dockwith->dockInfo->dockpoints[dockindex].dockstaticpoint->conenormal);
-        matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotinfo.coordsys,&dockwith->dockInfo->dockpoints[dockindex].dockstaticpoint->position);
-        vecAddTo(conepositionInWorldCoordSys,dockwith->posinfo.position);
+        salCapDockWorld(dockwith,dockindex,&coneheadingInWorldCoordSys,&conepositionInWorldCoordSys);
 
         destination = conepositionInWorldCoordSys;
     }

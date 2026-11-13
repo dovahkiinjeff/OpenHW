@@ -52,6 +52,7 @@ typedef struct { unsigned flags; int sharedFrom,nPalettes; ubyte *palettes;
 #define bitTest(f,b) ((f)&(b))
 #define dbgAssertOrIgnore(x) do { if(!(x)) abort(); } while(0)
 static texreg trTextureRegistry[1];
+static ubyte trPreviewPrivate[1];
 static HWReplacementTextureStorage trReplacementStorage[1];
 static int trLowestFree,trHighestAllocated;
 static unsigned trNameCRCs[1];

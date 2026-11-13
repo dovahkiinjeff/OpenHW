@@ -814,6 +814,19 @@ void cmWheelNegative(void)
     cmUpperIndex = (uword)ui;
 }
 
+void cmWheelPositive(void);
+void cmScrollWheel(sdword steps)
+{
+    if (!cmActive) return;
+    if (steps > 64) steps = 64;
+    if (steps < -64) steps = -64;
+    while (steps > 0) { cmWheelNegative(); --steps; }
+    while (steps < 0) { cmWheelPositive(); ++steps; }
+    if (g_shandle != NULL)
+        scAdjustThumbwheel(g_shandle, cmUpperIndex, cmMaxIndex, (uword)NUMBER_SHIPS_AVAILABLE);
+    if (cmBaseRegion != NULL) regRecursiveSetDirty(cmBaseRegion);
+}
+
 void cmWheelPositive(void)
 {
     sdword ui = (sdword)cmUpperIndex + 3;
@@ -5212,11 +5225,7 @@ void LoadConsMgrDetermListCB(LinkedList *list)
 
 void SaveConsMgrDetermOptional(void)
 {
-    if (cmDetermProgress.num == 0)
-    {
-        return;         // don't save anything - optional block
-    }
-
+    /* Keep a build block, even when empty, so later optional extensions have a stable boundary. */
     SaveInfoNumber(BUILD_OPTIONAL_FLAG);
 
     SaveLinkedListOfStuff(&cmDetermProgress,SaveConsMgrDetermListCB);

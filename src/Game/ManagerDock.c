@@ -9,6 +9,7 @@
 #include "LaunchMgr.h"
 #include "main.h"
 #include "mainrgn.h"
+#include "mouse.h"
 #include "ResearchGUI.h"
 #include "Tutor.h"
 #include "uiscale.h"
@@ -386,6 +387,18 @@ void mdCloseAllManagers(void)
     {
         lmCloseIfOpen();
     }
+}
+
+bool32 mdHandleBuildWheel(sdword steps)
+{
+    rectangle rect;
+    if (!cmActive || !mdManagerDockEnabled() || !steps) return FALSE;
+    mdGetPanelRect(&rect);
+    rect.x0 += uiScaleSize(MD_BUILD_X_OFFSET);
+    if (mouseCursorX() < rect.x0 || mouseCursorX() >= rect.x1 ||
+        mouseCursorY() < rect.y0 || mouseCursorY() >= rect.y1) return FALSE;
+    cmScrollWheel(steps);
+    return TRUE;
 }
 
 static udword mdManagerToggleKey(regionhandle region, smemsize ID,

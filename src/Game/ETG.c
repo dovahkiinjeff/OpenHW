@@ -8,6 +8,7 @@
 =============================================================================*/
 
 #include "ETG.h"
+#include "ShipAppearance.h"
 #include "EffectOwner.h"
 #include "RemasteredWeaponFX.h"
 #include "RemasteredPresentation.h"
@@ -2401,6 +2402,10 @@ static bool32 etgModernResolveResourceColor(
             *resolvedColor = utyResourceBeamColor;
             *overrideApplied = TRUE;
         }
+        if(shipAppearanceHas(ship,SHIP_PAINT_RESOURCE)) {
+            *resolvedColor=shipAppearanceColor(ship,SHIP_PAINT_RESOURCE,*resolvedColor);
+            *overrideApplied=TRUE;
+        }
     }
     return TRUE;
 }
@@ -2870,13 +2875,13 @@ void etgEffectDraw(Effect *effect)
                  etgHyperspaceEffect) &&
              effect->owner != NULL &&
              effect->owner->objtype == OBJ_ShipType &&
-             effect->owner->playerowner == universe.curPlayerPtr &&
-             utyHyperspaceColorOverride)
+             ((effect->owner->playerowner == universe.curPlayerPtr && utyHyperspaceColorOverride) ||
+              shipAppearanceHas((Ship *)effect->owner,SHIP_PAINT_HYPERSPACE)))
     {
         /* The gate particle system is world-space and otherwise copies the
            static ship field below.  Scope a local override so the selected
            player's transition, its visible sprite and its DXR field agree. */
-        effectColor = utyHyperspaceColor;
+        effectColor = shipAppearanceColor((Ship *)effect->owner,SHIP_PAINT_HYPERSPACE,utyHyperspaceColor);
         partEffectColor = effectColor;
         effectColorOverride = TRUE;
     }

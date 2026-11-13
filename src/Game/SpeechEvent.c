@@ -422,11 +422,16 @@ void soundEventDebugPrint(char *pszInformation)
 }
 
 
+#include "StringSupport.h"
+#include "VoiceLanguage.inc"
 sdword speechEventInit(void)
 {
     sdword buffersize;
     sdword streamersize;
     char loadfile[100];
+    char sentencePath[100]=SOUNDFXDIR "speechsentence_comp.lut";
+    char phrasePath[100]=SOUNDFXDIR "speechphrase_comp.lut";
+    char voicePath[100];
     sdword i, j;
 
 #if FIX_ENDIAN
@@ -434,12 +439,14 @@ sdword speechEventInit(void)
 #endif
 
 
+    strcpy(voicePath,utyVoiceFilename);
+    speechLanguagePaths(sentencePath,phrasePath,voicePath);
     /* load the speech lookup tables */
     strcpy(loadfile, SOUNDFXDIR);
 #ifdef HW_GAME_DEMO
     strcat(loadfile, "DLsentence.lut");
 #else
-    strcat(loadfile, "speechsentence_comp.lut");
+    strcpy(loadfile, sentencePath);
 #endif
     fileLoadAlloc(loadfile, (void**)&SentenceLUT, NonVolatile);
 
@@ -466,7 +473,7 @@ sdword speechEventInit(void)
 #ifdef HW_GAME_DEMO
     strcat(loadfile, "DLphrase.lut");
 #else
-    strcat(loadfile, "speechphrase_comp.lut");
+    strcpy(loadfile, phrasePath);
 #endif
     fileLoadAlloc(loadfile, (void**)&PhraseLUT, NonVolatile);
 
@@ -506,7 +513,7 @@ sdword speechEventInit(void)
     //  strcpy(loadfile, SOUNDFXDIR);
 
     /* open speech file and compare checksums */
-    strcpy(loadfile,utyVoiceFilename);
+    strcpy(loadfile,voicePath);
     if (soundstreamopenfile(loadfile, &speechfilehandle) != SentenceLUT->checksum)
     {
         dbgMessage("Voice file does not match lookup tables.  Not from same generate.");

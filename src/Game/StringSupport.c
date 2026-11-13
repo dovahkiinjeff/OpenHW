@@ -9,6 +9,7 @@
 
 #include "Memory.h"
 #include "StatScript.h"
+#include "File.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -19,6 +20,8 @@
 
 udword strCurLanguage=0;
 udword strCurKeyboardLanguage=0;
+udword strKeyboardLayout=0;
+udword strVoiceLanguage=0;
 bool8  strInitialized=FALSE;
 char  *MessageStrings[NumStrings];
 
@@ -725,43 +728,14 @@ bool8 strLoadLanguage(strLanguageType language)
     udword keyboard;
 #endif
 
-    for (i=0;i<NumStrings;i++)
-    {
-        MessageStrings[i]=crapMessage;
-    }
-
-#ifdef _WIN32
-    if (keyboard = GetKeyboardLayout(0))
-    {
-        if (PRIMARYLANGID(keyboard)==LANG_ENGLISH)
-        {
-            strCurKeyboardLanguage = languageEnglish;
-        }
-        else if (PRIMARYLANGID(keyboard)==LANG_FRENCH)
-        {
-            strCurKeyboardLanguage = languageFrench;
-        }
-        else if (PRIMARYLANGID(keyboard)==LANG_GERMAN)
-        {
-            strCurKeyboardLanguage = languageGerman;
-        }
-        else if (PRIMARYLANGID(keyboard)==LANG_SPANISH)
-        {
-            strCurKeyboardLanguage = languageSpanish;
-        }
-        else if (PRIMARYLANGID(keyboard)==LANG_ITALIAN)
-        {
-            strCurKeyboardLanguage = languageItalian;
-        }
-    }
-    else
-#endif
-        strCurKeyboardLanguage = languageEnglish;
-
-    if (strInitialized==TRUE)
-    {
-        strFreeLanguage();
-    }
+    static char *scripts[]={"English.script","French.script","German.script","Spanish.script","Italian.script"};
+    if ((unsigned)language >= 5 || !fileExists(scripts[language],0)) language=languageEnglish;
+    if (strInitialized) strFreeLanguage();
+    for (i=0;i<NumStrings;i++) MessageStrings[i]=crapMessage;
+    strSetCurKeyboard();
+    /* Missing legacy translations fall back to English strings, rather than
+       freeing/resetting the currently loaded table before it can be released. */
+    if (language!=languageEnglish) scriptSet("","English.script",LanguageStrings);
     switch (language)
     {
         case languageEnglish :
@@ -808,8 +782,9 @@ bool8 strFreeLanguage(void)
     for (i=0;i<NumStrings;i++)
     {
         if ((MessageStrings[i]!=NULL)&&(MessageStrings[i] != crapMessage)) memFree(MessageStrings[i]);
+        MessageStrings[i]=crapMessage;
     }
-
+    strInitialized=FALSE;
     return(TRUE);
 }
 

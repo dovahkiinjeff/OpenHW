@@ -25,6 +25,8 @@ void mdCloseOtherManagers(HWManagerDockKind requested);
 /* Shared geometry for code-native panels which occupy the same right-side
  * command dock (for example the Ship Dossier). */
 void mdGetPanelRect(rectangle *rect);
+/* Consume wheel input over the entire Build panel, including gaps/buttons. */
+bool32 mdHandleBuildWheel(sdword steps);
 void mdCloseAllManagers(void);
 bool32 mdHandleActiveManagerKey(sdword key);
 

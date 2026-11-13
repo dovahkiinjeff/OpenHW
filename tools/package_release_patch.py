@@ -10,6 +10,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     for n in ('source','installed','normal','diagnostic','bootstrap','output','work','pyinstaller-modules'):
         p.add_argument('--'+n,type=Path,required=True)
+    p.add_argument('--launcher',type=Path,required=True)
     a=p.parse_args();sys.path.insert(0,str(a.pyinstaller_modules.resolve()))
     from PyInstaller.archive.readers import CArchiveReader
     from PyInstaller.archive.writers import CArchiveWriter
@@ -46,6 +47,7 @@ def main():
     files={
         'OpenHW.exe':a.normal/'HomeworldModern.exe',
         'OpenHW-Daignostics.exe':a.diagnostic/'HomeworldModern.exe',
+        'Launcher.exe':a.launcher,
         'Licenses/ThreeGoodGodRays-LICENSE.txt':a.source/'src/ThirdParty/ThreeGoodGodRays/LICENSE',
         'THIRD_PARTY_NOTICES.md':a.source/'THIRD_PARTY_NOTICES.md',
         'Development/Symbols/OpenHW.pdb':a.normal/'HomeworldModern.pdb',
@@ -60,15 +62,15 @@ def main():
     payload=a.work/'patch.zip'
     with zipfile.ZipFile(payload,'w',zipfile.ZIP_DEFLATED,compresslevel=6,allowZip64=True) as z:
         for name,path in files.items():z.write(path,name)
-        z.writestr('Development/Patches/1.0.6/patch.json',json.dumps(dict(version='1.0.6',files=rows),indent=2))
+        z.writestr('Development/Patches/1.0.7/patch.json',json.dumps(dict(version='1.0.7',files=rows),indent=2))
     with payload.open('rb') as f:digest=hashlib.file_digest(f,'sha256').digest()
-    pending=a.work/'OpenHW-Patch-1.0.6.exe'
+    pending=a.work/'OpenHW-Patch-1.0.7.exe'
     with pending.open('wb') as out,a.bootstrap.open('rb') as bootstrap,payload.open('rb') as archive:
         shutil.copyfileobj(bootstrap,out);offset=out.tell();shutil.copyfileobj(archive,out)
         out.write(struct.pack('<16sQQ32s',b'OPENHW1SETUPZIP\0',offset,payload.stat().st_size,digest))
     shutil.copyfile(pending,a.output)
     with a.output.open('rb') as f:checksum=hashlib.file_digest(f,'sha256').hexdigest()
-    report=dict(file=str(a.output),bytes=a.output.stat().st_size,sha256=checksum,version='1.0.6',files=rows,gameLaunched=False,patchExecuted=False)
+    report=dict(file=str(a.output),bytes=a.output.stat().st_size,sha256=checksum,version='1.0.7',files=rows,gameLaunched=False,patchExecuted=False)
     (a.work/'build-receipt.json').write_text(json.dumps(report,indent=2));print(json.dumps(report,indent=2))
 
 if __name__=='__main__':main()

@@ -172,23 +172,31 @@ static void mpeDrawGizmo(void)
     }
 }
 #include "ModManager.inc"
+static rectangle mpeMenuItem(int index)
+{
+    return muiFrontendItem(TRUE,index,mpe.stage==1?4:3);
+}
 static void mpeDrawMenu(void)
 {
-    rectangle whole=muiRect(0,0,MAIN_WindowWidth,MAIN_WindowHeight),button;int i;
-    muiDrawBackdrop(MUI_ART_GALAXY);muiFill(&whole,colRGBA(5,12,18,240));
-    muiText(uiScaleSize(40),uiScaleSize(35),muiSignal,"MODDING",muiHeadingFont);
-    if(mpe.stage==1) {
-        button=muiRect(uiScaleSize(40),uiScaleSize(120),MAIN_WindowWidth-uiScaleSize(40),uiScaleSize(180));
-        muiDrawButtonRect(&button,"MILITARY PARADE FORMATION EDITOR",TRUE,muiPointIn(&button,mouseCursorX(),mouseCursorY()));
-        button=muiRect(uiScaleSize(40),uiScaleSize(198),MAIN_WindowWidth-uiScaleSize(40),uiScaleSize(258));
-        muiDrawButtonRect(&button,"SHIP VIEWER / EDITOR / NEW SHIP PROJECT",TRUE,muiPointIn(&button,mouseCursorX(),mouseCursorY()));
-        button=muiRect(uiScaleSize(40),uiScaleSize(276),MAIN_WindowWidth-uiScaleSize(40),uiScaleSize(336));
-        muiDrawButtonRect(&button,"MOD MANAGER",TRUE,muiPointIn(&button,mouseCursorX(),mouseCursorY()));
-    } else {
-        muiText(uiScaleSize(40),uiScaleSize(85),muiPaper,"MILITARY PARADE FORMATION EDITOR / HOST",muiBodyFont);
-        for(i=0;i<2;i++){button=muiRect(uiScaleSize(40),uiScaleSize(130+i*70),MAIN_WindowWidth-uiScaleSize(40),uiScaleSize(188+i*70));muiDrawButtonRect(&button,i==0?"KUSHAN":"TAIIDAN",TRUE,muiPointIn(&button,mouseCursorX(),mouseCursorY()));}
+    static const char *titles[]={"PARADE FORMATIONS","SHIP EDITOR","MOD MANAGER","RETURN"};
+    static const char *details[]={"Arrange campaign and skirmish fleets","View ships, fit subsystems and author models","Enable mods and adjust their load order","Back to the main menu"};
+    rectangle whole=muiRect(0,0,MAIN_WindowWidth,MAIN_WindowHeight),panel=muiFrontendPanel(TRUE),button;
+    int i,count=mpe.stage==1?4:3,x=panel.x0+uiScaleSize(28);
+    muiDrawBackdrop(MUI_ART_ENGINEERING);muiFill(&whole,colRGBA(3,6,9,70));
+    muiFill(&panel,colRGBA(10,18,24,246));primLine2(panel.x0,0,panel.x0,MAIN_WindowHeight,muiLineSoft);
+    muiText(x,uiScaleSize(38),muiSignal,"FLEET WORKSHOP",muiBodyFont);
+    muiText(x,uiScaleSize(72),muiPaper,mpe.stage==1?"MODDING":"PARADE HOST",muiHeadingFont);
+    muiText(x,uiScaleSize(106),muiMuted,mpe.stage==1?"CREATE / CONFIGURE":"SELECT A FLEET",muiBodyFont);
+    for(i=0;i<count;i++) {
+        rectangle label,detail;button=mpeMenuItem(i);
+        muiFill(&button,muiPointIn(&button,mouseCursorX(),mouseCursorY())?muiSurfaceRaised:muiSurface);
+        primRectOutline2(&button,1,muiPointIn(&button,mouseCursorX(),mouseCursorY())?muiSignal:muiLineSoft);
+        label=muiRect(button.x0+uiScaleSize(14),button.y0+uiScaleSize(5),button.x1-uiScaleSize(12),button.y0+(button.y1-button.y0)/2);
+        detail=muiRect(label.x0,label.y1,label.x1,button.y1-uiScaleSize(4));
+        muiTextLeftAdaptiveFull(&label,muiPaper,mpe.stage==1?titles[i]:(i==0?"KUSHAN":i==1?"TAIIDAN":"RETURN"),muiHeadingFont,muiBodyFont,muiCompactFont,0);
+        muiTextLeftAdaptiveFull(&detail,muiMuted,mpe.stage==1?details[i]:(i<2?"Open the formation editor":"Back to workshop"),muiBodyFont,muiCompactFont,muiTinyFont,0);
     }
-    muiText(uiScaleSize(40),MAIN_WindowHeight-uiScaleSize(50),muiMuted,"ESC / BACK",muiBodyFont);
+    muiText(x,MAIN_WindowHeight-uiScaleSize(48),muiMuted,"ESC / BACK",muiBodyFont);
 }
 static void mpeDraw(void)
 {
@@ -309,10 +317,12 @@ static udword mpeProcess(smemsize ID,udword event)
         return RPR_Redraw;
     }
     if(mpe.stage<3) {
-        if(event==RPE_ReleaseLeft&&mpe.stage==1&&x>=uiScaleSize(40)&&x<MAIN_WindowWidth-uiScaleSize(40)&&y>=uiScaleSize(276)&&y<uiScaleSize(336)){modUIOpen(0);return RPR_Redraw;}
-        if(event==RPE_ReleaseLeft){if(mpe.stage==1 && y>=uiScaleSize(198)&&y<uiScaleSize(258)){speBegin();return RPR_Redraw;}
-            if(mpe.stage==1 && y>=uiScaleSize(120)&&y<uiScaleSize(180))mpe.stage=2;
-            else if(mpe.stage==2)for(i=0;i<2;i++)if(y>=uiScaleSize(130+i*70)&&y<uiScaleSize(188+i*70))mpeBegin(i);}
+        if(event==RPE_ReleaseLeft)for(i=0;i<(mpe.stage==1?4:3);i++) {
+            rectangle item=mpeMenuItem(i);if(!muiPointIn(&item,x,y))continue;
+            if(mpe.stage==1) {if(i==0)mpe.stage=2;else if(i==1)speBegin();else if(i==2)modUIOpen(0);else mpeClose();}
+            else {if(i<2)mpeBegin(i);else mpe.stage=1;}
+            break;
+        }
         return RPR_Redraw;
     }
     if(event==RPE_WheelUp || event==RPE_WheelDown) {

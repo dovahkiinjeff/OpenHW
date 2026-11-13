@@ -3051,7 +3051,7 @@ void mrOpenFormationSubmenuAt(sdword x, sdword y)
             bitSet(atom->status, FAS_Checked);
         }
     }
-    feMenuStart(ghMainRegion, screen, x, y);
+    feMenuStart(smSensorsActive && smBaseRegion != NULL ? smBaseRegion : ghMainRegion, screen, x, y);
     soundEvent(NULL, UI_Click);
 }
 
@@ -3098,7 +3098,7 @@ void mrOpenTacticsSubmenuAt(sdword x, sdword y)
             }
         }
     }
-    feMenuStart(ghMainRegion, screen, x, y);
+    feMenuStart(smSensorsActive && smBaseRegion != NULL ? smBaseRegion : ghMainRegion, screen, x, y);
     soundEvent(NULL, UI_Click);
 }
 
@@ -3337,7 +3337,7 @@ void mrMenuDisplay(udword actionMask, TypeOfFormation currentFormation, udword t
     }
     mrModernizeMenuWidth(newScreen);
     //start the actual menu
-    feMenuStart(ghMainRegion, newScreen, mouseCursorX(), mouseCursorY());
+    feMenuStart(smSensorsActive && smBaseRegion != NULL ? smBaseRegion : ghMainRegion, newScreen, mouseCursorX(), mouseCursorY());
     feTempMenuScreen = newScreen;
     mrDockMenuScreen = mrDockMenuTarget?newScreen:NULL;
 #undef NUMBER_GAPS
@@ -3471,13 +3471,13 @@ void mrRightClickMenu(void)
         {
             screen = feScreenFind("PlayerListRightClickAlly");
 
-            feMenuStart(ghMainRegion, screen, mouseCursorX(), mouseCursorY());
+            feMenuStart(smSensorsActive && smBaseRegion != NULL ? smBaseRegion : ghMainRegion, screen, mouseCursorX(), mouseCursorY());
         }
         else
         {
             screen = feScreenFind("PlayerListRightClick");
 
-            feMenuStart(ghMainRegion, screen, mouseCursorX(), mouseCursorY());
+            feMenuStart(smSensorsActive && smBaseRegion != NULL ? smBaseRegion : ghMainRegion, screen, mouseCursorX(), mouseCursorY());
         }
     }
 #if MR_VERBOSE_LEVEL >= 1

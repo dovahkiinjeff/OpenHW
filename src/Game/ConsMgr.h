@@ -30,6 +30,7 @@
     #define CM_CAP_JOBS_PER_CLASS   0
     #define CM_CHEAP_SHIPS          0
 #endif
+void cmScrollWheel(sdword steps);
 
 /*=============================================================================
     Type definitions:

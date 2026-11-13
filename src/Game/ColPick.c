@@ -20,6 +20,7 @@
 #include "StatScript.h"
 #include "Teams.h"
 #include "utility.h"
+#include "ModernUI.h"
 
 
 #define PREVIEW_IMAGE    1
@@ -931,18 +932,13 @@ void cpPreviewImageDraw(featom *atom, regionhandle region)
     if (FELASTCALL(atom))
     {
         cpRegion[14] = NULL;
+        modernUICloseFleetPreview();
         return;
     }
 
 #if PREVIEW_IMAGE
     cpRegion[14] = region;
-    if (cpPreviewTexture == TR_InvalidInternalHandle)
-    {
-        cpPreviewImagePrepare();
-    }
-    trPalettedTextureMakeCurrent(cpPreviewTexture, cpPreviewTexturePalette);
-    primRectSolidTextured2(&region->rect);
-    primRectOutline2(&region->rect, atom->borderWidth, atom->borderColor);
+    modernUIDrawFleetPreview(region);
 #endif
 }
 void cpHueSaturationDraw(featom *atom, regionhandle region)
@@ -1196,6 +1192,7 @@ void cpColorsUpdate(color base, color stripe)
 ----------------------------------------------------------------------------*/
 void cpColorsPick(color *base, color *stripe, ShipRace *race)
 {
+    modernUIRememberColorReturn();
     cpPBaseColor = base;
     cpPStripeColor = stripe;
     feScreenStart(ghMainRegion, CP_ScreenName);
@@ -1229,6 +1226,21 @@ void cpModernColorsCommit(color base, color stripe)
     if (cpPBaseColor != NULL) *cpPBaseColor = base;
     if (cpPStripeColor != NULL) *cpPStripeColor = stripe;
     cpColorsPicked = TRUE;
+}
+
+/* Same default-race behaviour as the retail radio callback, without requiring
+   its removed FIB regions or allocating obsolete palette-image textures. */
+void cpModernRaceSelect(ShipRace race)
+{
+    tecolorscheme temporary;
+    if((race!=R1 && race!=R2) || race==whichRaceSelected)return;
+    whichRaceSelected=race;
+    if(!cpColorsPicked) {
+        swap(teColorSchemes[0],teColorSchemes[1],temporary);
+        cpColorsUpdate(teColorSchemes[0].textureColor.base,teColorSchemes[0].textureColor.detail);
+        if(cpPBaseColor)*cpPBaseColor=teColorSchemes[0].textureColor.base;
+        if(cpPStripeColor)*cpPStripeColor=teColorSchemes[0].textureColor.detail;
+    }
 }
 
 /*-----------------------------------------------------------------------------

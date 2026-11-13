@@ -82,6 +82,24 @@ class PortableUpdaterTests(unittest.TestCase):
         self.assertEqual((self.root/'version.json').read_bytes(),before)
         self.assertFalse((self.root/'Development/Patches/1.0.1/applied.json').exists())
         self.unchanged_player_files()
+
+    def test_launcher_is_installed_with_patch_and_preserves_player_files(self):
+        path = package(self.root,'1.0.1',{'OpenHW.exe':b'new','Launcher.exe':b'launcher'})
+        with patch.object(updater,'launcher_running',return_value=False):
+            updater.apply_patch(self.root,entry('1.0','1.0.1',path),path,self.progress)
+        self.assertEqual((self.root/'Launcher.exe').read_bytes(),b'launcher')
+        self.unchanged_player_files()
+
+    def test_running_launcher_refused_before_any_replacement(self):
+        path = package(self.root,'1.0.1',{'OpenHW.exe':b'new','Launcher.exe':b'launcher'})
+        before=(self.root/'version.json').read_bytes()
+        with patch.object(updater,'launcher_running',return_value=True):
+            with self.assertRaisesRegex(updater.UpdateError,'Close Launcher.exe'):
+                updater.apply_patch(self.root,entry('1.0','1.0.1',path),path,self.progress)
+        self.assertEqual((self.root/'OpenHW.exe').read_bytes(),b'old-normal')
+        self.assertEqual((self.root/'version.json').read_bytes(),before)
+        self.assertFalse((self.root/'Launcher.exe').exists())
+        self.unchanged_player_files()
     def test_interrupted_commit_recovered_before_update(self):
         path = package(self.root,'1.0.1',{'OpenHW.exe':b'new'})
         updater.apply_patch(self.root,entry('1.0','1.0.1',path),path,self.progress)

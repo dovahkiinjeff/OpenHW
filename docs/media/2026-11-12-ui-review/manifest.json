@@ -1,7 +1,7 @@
 {
   "date": "2026-11-12",
   "source": "User-supplied OpenHW screenshots",
-  "published": false,
+  "published": true,
   "notes": "Original PNG files retained without rescaling or edits. Issue-evidence images document the state before fixes and are not corrected feature screenshots.",
   "images": [
     {
@@ -133,5 +133,7 @@
       "sha256": "e0dcd9ad46abb2928fc50730117faca0d8a25b3724cd3c7f187f8601e0df5eb4",
       "size": 1283927
     }
-  ]
+  ],
+  "release": "1.0.7",
+  "feature_tour": "https://github.com/dovahkiinjeff/OpenHW/blob/v1.0.7/docs/FEATURE_TOUR_1.0.7.md"
 }

@@ -22,6 +22,9 @@ void modernUIDrawFPS(void);
 void modernUIPrepareScreen(fescreen *screen);
 regionhandle modernUICreateOwnedScreen(regionhandle parent, fescreen *screen);
 void modernUIOwnedScreenDeleted(const fescreen *screen);
+void modernUIRememberColorReturn(void);
+void modernUIDrawFleetPreview(regionhandle region);
+void modernUICloseFleetPreview(void);
 
 color modernUITextColor(const regionhandle region);
 void modernUIDrawBase(regionhandle region);

@@ -153,6 +153,8 @@ void trailUpdate(shiptrail *trail, vector *position);
 //draw a ship trail
 void trailDraw(vector *current, shiptrail *trail, sdword LOD, sdword teamIndex);
 void trailZeroLength(shiptrail *trail);
+void trailDrawMenuPreview(vector *current,shiptrail *trail,real32 maximumSpeed,const vector *eye);
+void trailUpdateMenuPreview(shiptrail *trail,vector *position,real32 maximumSpeed);
 void trailMove(shiptrail* trail, vector *delta);
 
 //cause a trail or glow to enter/exit its "wobbly" state

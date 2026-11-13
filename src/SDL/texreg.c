@@ -84,6 +84,12 @@ texreg *trTextureRegistry = NULL;
 crc32 *trNameCRCs = NULL;                              //separate list to reduce cache misses during searches.
 sdword trLowestFree = 0;                        //indices of extremes free texture indices
 sdword trHighestAllocated = -1;
+/* Preview palettes must never alias a live fleet palette, even when their
+   current colours happen to match. This is registry ownership, not save data. */
+static ubyte trPreviewPrivate[TR_RegistrySize];
+static bool32 trRegisteringPreview;
+static sdword trPreviewDecodeQuality = -1;
+static sdword trDecodeQuality(void) { return trPreviewDecodeQuality >= 0 ? trPreviewDecodeQuality : mainTextureResolution; }
 
 //default coloration palette
 trcolorinfo trDefaultColorInfo = {colWhite, colWhite};
@@ -433,6 +439,7 @@ sdword trTextureDelete(trhandle handle)
     dbgMessagef("trTextureDelete: deleting texture handle 0x%x, internalHandle 0x%x", handle, reg->handle);
 #endif  //TR_VERBOSE_LEVEL
     dbgAssertOrIgnore(trAllocated(trIndex(handle)));
+    trPreviewPrivate[trIndex(handle)] = FALSE;
     oldUsageCount = reg->nUsageCount;                       //remember usage count
     //kill the GL textures
     if (!trPending(trIndex(handle)))
@@ -662,7 +669,7 @@ sdword trFindTextureIndexByName(char *fileName)
     regCRC = &trNameCRCs[trHighestAllocated];
     for (index = trHighestAllocated; index >= 0 ; index--, reg--, regCRC--)
     {                                                       //for all registry entries
-        if (*regCRC == nameCRC)
+        if (*regCRC == nameCRC && !trPreviewPrivate[index])
         {                                                   //if names have matching CRC's
             if (!trAllocated(index))
             {                                               //if not allocated
@@ -719,7 +726,7 @@ trhandle trTextureRegister(char *fileName, trcolorinfo *info, void *meshReferenc
 
     for (index = trHighestAllocated; index >= 0 ; index--, reg--, regCRC--)
     {                                                       //for all registry entries
-        if (*regCRC == nameCRC)
+        if (!trRegisteringPreview && !trPreviewPrivate[index] && *regCRC == nameCRC)
         {                                                   //if names have matching CRC's
             if (!trAllocated(index))
             {                                               //if not allocated
@@ -739,6 +746,18 @@ trhandle trTextureRegister(char *fileName, trcolorinfo *info, void *meshReferenc
                 }
                 else
                 {                                           //colors do not match
+                    sdword freeColor;
+                    trcolorinfo *infos=trColorInfosPointer(index);
+                    if(reg->nPalettes>=TR_NumPalettesPerTexture) {
+                        for(freeColor=0;freeColor<reg->nPalettes;++freeColor) if(trUnusedInfo(&infos[freeColor]))break;
+                        if(freeColor==reg->nPalettes)continue; /* New registry entry, never write past eight palettes. */
+                    }
+                    if(!trPending(index) && reg->sharedFrom==TR_NotShared) {
+                        trcolorinfo *pending=(trcolorinfo *)memAlloc(TR_NumPaletteSize,"new instance paint palette",NonVolatile);
+                        memcpy(pending,infos,sizeof(trcolorinfo)*reg->nPalettes);
+                        trInternalTexturesDelete(trHandleMake(index,0));
+                        reg->palettes=(ubyte *)pending;trSetPending(index);
+                    }
                     //!!! create a new paletted copy
                     //... if it is a pending texture
                     dbgAssertOrIgnore(reg->nUsageCount < SDWORD_Max);
@@ -783,6 +802,7 @@ trhandle trTextureRegister(char *fileName, trcolorinfo *info, void *meshReferenc
             }
             */
 
+            trPreviewPrivate[index] = (ubyte)trRegisteringPreview;
             trTextureRegistry[index].meshReference = meshReference;//texture's parent mesh
             trTextureRegistry[index].nUsageCount = 1;       //one usage of this texture
             trNameCRCs[index] = nameCRC;                    //save the name CRC
@@ -821,6 +841,25 @@ trhandle trTextureRegister(char *fileName, trcolorinfo *info, void *meshReferenc
 #endif //TR_ERROR_CHECKING
     //should never get here
     return(0);
+}
+
+trhandle trTextureRegisterPreview(char *name, trcolorinfo *colors, void *mesh)
+{
+    bool32 saved=trRegisteringPreview;
+    trhandle handle;
+    trRegisteringPreview=TRUE;
+    handle=trTextureRegister(name,colors,mesh);
+    trRegisteringPreview=saved;
+    if(handle==TR_Invalid || trIndex(handle)>=TR_RegistrySize ||
+       !trPreviewPrivate[trIndex(handle)] || !trAllocated(trIndex(handle)) ||
+       trStructure(handle)->meshReference!=mesh)return TR_Invalid;
+    return handle;
+}
+void trTextureReleasePreview(trhandle handle)
+{
+    if(handle!=TR_Invalid && trIndex(handle)<TR_RegistrySize &&
+       trPreviewPrivate[trIndex(handle)] && trAllocated(trIndex(handle)) &&
+       trStructure(handle)->nUsageCount==0)trTextureDelete(handle);
 }
 
 /*-----------------------------------------------------------------------------
@@ -1054,7 +1093,7 @@ sdword trTextureUnregister(trhandle handle)
 
 #ifdef _X86_64
 // Legacy error catching due to not everything working straight away.
-if (handle >= TR_RegistrySize){
+if (handle == TR_Invalid || trIndex(handle) >= TR_RegistrySize || trPaletteIndex(handle) >= TR_NumPalettesPerTexture){
     dbgMessagef("Invalid handle %lx in trTextureUnregister",handle);
     return 0;
 }
@@ -1943,7 +1982,7 @@ static bool32 trModernLoadLooseGrayPng(const char *name,
         unsigned char *rgba = NULL;
         pixels = NULL;
         if (hwModernGraphicsDecodeModelDds(fileData, (unsigned int)fileSize,
-                                     name, mainTextureResolution,
+                                     name, trDecodeQuality(),
                                      &ddsWidth, &ddsHeight, &rgba))
         {
             sdword index;
@@ -2040,6 +2079,10 @@ static ubyte *trModernLoosePngEffectMap(const lifheader *lifFile,
             {
                 value = explicitMask[sourceIndex];
             }
+            else if (paletteEffect == NULL)
+            {
+                value = 0;
+            }
             else if (bitTest(lifFile->flags, TRF_Paletted))
             {
                 value = paletteEffect[lifFile->data[sourceIndex]];
@@ -2054,6 +2097,8 @@ static ubyte *trModernLoosePngEffectMap(const lifheader *lifFile,
     if (explicitMask != NULL) memFree(explicitMask);
     return result;
 }
+
+#include "TextureSurfacePaint.inc"
 
 static udword trModernDdsTextureCreate(const void *fileData, sdword fileSize)
 {
@@ -2129,7 +2174,7 @@ static bool32 trModernTryLoadLoosePng(texreg *reg,
     ubyte originalFlags;
     crc32 originalPaletteCRC;
     sdword ddsSourceWidth = 0, ddsSourceHeight = 0;
-    int textureQuality = mainTextureResolution;
+    int textureQuality = trDecodeQuality();
     unsigned int textureCap;
     const char *component;
 
@@ -3566,7 +3611,12 @@ static bool32 trPreparePreviewIndex(sdword index,sdword depth)
     list.nAllocated=list.nTextures=1;
     list.textureList=&index;
     list.teamFlags=reg->flags;
-    trMeshSortListLoad(&list);
+    {
+        sdword savedQuality=trPreviewDecodeQuality;
+        if(trPreviewPrivate[index])trPreviewDecodeQuality=min(mainTextureResolution,1);
+        trMeshSortListLoad(&list);
+        trPreviewDecodeQuality=savedQuality;
+    }
     trClearCurrent();
     return !trPending(index);
 }
@@ -3716,7 +3766,7 @@ void trRegistryRefresh(void)
                     /* A loose PNG is an explicit per-path override.  Do not
                        collapse it to a textures.ll shared parent or the loose
                        replacement could be bypassed by the parent's LIF. */
-                    if (trModernLoosePngExists(reg->fileName))
+                    if (trPreviewPrivate[index] || trModernLoosePngExists(reg->fileName))
                     {
                         pSharedFrom = NULL;
                     }

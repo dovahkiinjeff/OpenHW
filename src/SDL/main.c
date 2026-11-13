@@ -2015,61 +2015,11 @@ bool32 mainLoadParticularRGL(char* device, char* data)
     Outputs     : converted character
     Return      : Uh-huh
 ----------------------------------------------------------------------------*/
+#include "KeyboardLayout.inc"
+
 udword keyLanguageTranslate(udword wParam)
 {
-    switch (strCurKeyboardLanguage)
-    {
-        case languageEnglish:
-            return(wParam);
-        break;
-        case languageFrench:
-            if (wParam < KEY_TOTAL_KEYS)
-                return(keyFrenchToEnglish(wParam));
-            else
-                return(0);
-        break;
-        case languageGerman:
-            if (wParam < KEY_TOTAL_KEYS)
-                return(keyGermanToEnglish(wParam));
-            else
-                return(0);
-        break;
-        case languageSpanish:
-            if (wParam < KEY_TOTAL_KEYS)
-                return(keySpanishToEnglish(wParam));
-            else
-                return(0);
-        break;
-        case languageItalian:
-            if (wParam < KEY_TOTAL_KEYS)
-                return(keyItalianToEnglish(wParam));
-            else
-                return(0);
-        break;
-    }
-
-    return wParam;
-/*    char   buff[256], trankey[2];
-    sdword i,ret;
-
-    for (i=0;i<256;i++) buff[i] = 0;
-
-    ret = ToAscii(wParam, 0, buff, (uword *)trankey, 0);
-
-    if (ret==0)
-    {
-        return((udword)wParam);
-    }
-    else if (ret==1)
-    {
-        if ((trankey[0] >= 'a') && (trankey[0] <= 'z'))
-        {
-            trankey[0]-='a'-'A';
-        }
-        return ((udword)((ubyte)trankey[0]));
-    }
-
-    return (0);*/
+    return mainLayoutKey(wParam);
 }
 
 /*-----------------------------------------------------------------------------
@@ -2217,7 +2167,7 @@ void HandleEvent(SDL_Event const* pEvent) {
                     keyPressUp(pEvent->key.keysym.scancode);
                     break;
                 default:
-                    keyPressUp(keyLanguageTranslate(pEvent->key.keysym.scancode));//keyPressUp(KeyMapFromWindows(wParam));
+                    keyPressUp(mainLayoutEventKey(pEvent->key.keysym.scancode, TRUE));//keyPressUp(KeyMapFromWindows(wParam));
             }
             return;
 
@@ -2226,9 +2176,9 @@ void HandleEvent(SDL_Event const* pEvent) {
             /* Docked panels may own keyboard focus, but B/L/R remain commands
                for switching/toggling them rather than legacy FIB shortcuts. */
             if (!(pEvent->key.keysym.mod & (KMOD_CTRL|KMOD_SHIFT|KMOD_ALT|KMOD_GUI)) &&
-                (pEvent->key.keysym.scancode == SDL_SCANCODE_B ||
-                 pEvent->key.keysym.scancode == SDL_SCANCODE_L ||
-                 pEvent->key.keysym.scancode == SDL_SCANCODE_R) &&
+                (mainLayoutKey(pEvent->key.keysym.scancode) == SDL_SCANCODE_B ||
+                 mainLayoutKey(pEvent->key.keysym.scancode) == SDL_SCANCODE_L ||
+                 mainLayoutKey(pEvent->key.keysym.scancode) == SDL_SCANCODE_R) &&
                 mdManagerDockEnabled() && (cmActive || lmActive || rmGUIActive))
             {
                 if (!pEvent->key.repeat) {
@@ -2239,11 +2189,11 @@ void HandleEvent(SDL_Event const* pEvent) {
             }
             if (pEvent->key.repeat != 0) //if it's a repeating key
             {
-                keyRepeat(keyLanguageTranslate(pEvent->key.keysym.scancode));
+                keyRepeat(mainLayoutEventKey(pEvent->key.keysym.scancode, FALSE));
             }
             else                         //else it's a freshly-pressed key
             {
-                keyPressDown(keyLanguageTranslate(pEvent->key.keysym.scancode));
+                keyPressDown(mainLayoutEventKey(pEvent->key.keysym.scancode, FALSE));
             }
             return;
 
@@ -2313,7 +2263,7 @@ void HandleEvent(SDL_Event const* pEvent) {
                 {
                     wheelSteps = -wheelSteps;
                 }
-                mouseWheelStepsAdd(wheelSteps);
+                if (!mdHandleBuildWheel(wheelSteps)) mouseWheelStepsAdd(wheelSteps);
                 break;
             }
  

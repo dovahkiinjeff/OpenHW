@@ -1,10 +1,10 @@
-# OpenHW 1.0.6
+# OpenHW 1.0.7
 
 **The best of both worlds: high-fidelity Homeworld Remastered assets and original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets with modern rendering and in-game creation tools to build the ultimate classic Homeworld experience.
 
 [![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-[Base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe)  [1.0.1 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.1/OpenHW-Patch-1.0.1.exe)  [1.0.2 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.2/OpenHW-Patch-1.0.2.exe)  [1.0.3 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.3/OpenHW-Patch-1.0.3.exe)  [1.0.4 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4/OpenHW-Patch-1.0.4.exe)  [1.0.4.5 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4.5/OpenHW-Patch-1.0.4.5.exe)  [1.0.5 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.5/OpenHW-Patch-1.0.5.exe)  [1.0.6 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.6/OpenHW-Patch-1.0.6.exe)   [Installation and controls](docs/USER_GUIDE.md)   [Editors](docs/EDITING_GUIDE.md)   [Modding](docs/MODDING.md)   [Build the installer](BUILD_INSTALLER.md)
+[Base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe)  [1.0.1 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.1/OpenHW-Patch-1.0.1.exe)  [1.0.2 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.2/OpenHW-Patch-1.0.2.exe)  [1.0.3 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.3/OpenHW-Patch-1.0.3.exe)  [1.0.4 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4/OpenHW-Patch-1.0.4.exe)  [1.0.4.5 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4.5/OpenHW-Patch-1.0.4.5.exe)  [1.0.5 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.5/OpenHW-Patch-1.0.5.exe)  [1.0.6 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.6/OpenHW-Patch-1.0.6.exe)   [1.0.7 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.7/OpenHW-Patch-1.0.7.exe)   [Installation and controls](docs/USER_GUIDE.md)   [Editors](docs/EDITING_GUIDE.md)   [Modding](docs/MODDING.md)   [Build the installer](BUILD_INSTALLER.md)
 
 > [!IMPORTANT]
 > **Use AMD technology for 1.0. AMD FSR upscaling and AMD FSR frame generation are the recommended, working options.** DLSS currently has known visual issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.** Bundled vendor libraries or development code do not imply supported release features.
@@ -14,9 +14,130 @@
 
 ## Automatic updates
 
-Download [**Updater.exe**](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.5/Updater.exe), put it beside **OpenHW.exe** after installing the base game, close the game, and run it. It detects that folder’s version and downloads, verifies and installs its missing patches in the required order. Current and future stable patches come from the official GitHub update feed; the updater can update itself too.
+Download [**Updater.exe**](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.7/Updater.exe), put it beside **OpenHW.exe** after installing the base game, close the game, and run it. It detects that folder’s version and downloads, verifies and installs its missing patches in the required order. Current and future stable patches come from the official GitHub update feed; the updater can update itself too.
 
 Saves, settings, mods and authored maps are preserved. Downloads, backups, logs and temporary files stay under **Development**. No separate Python installation or administrator access is required. See [updater details and recovery](docs/UPDATER.md). Manual patch downloads remain available below.
+
+## 1.0.7 - Fleet Command launcher, new menus and community fixes
+
+[**Download OpenHW-Patch-1.0.7.exe**](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.7/OpenHW-Patch-1.0.7.exe) (about 49.5 MB) - [Release notes](RELEASE_NOTES_1.0.7.md) - [Complete cumulative source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.7/OpenHW-1.0.7-Source.zip) - [Standalone Updater](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.7/Updater.exe).
+
+**The 1.0.7 patch installs Launcher.exe automatically beside OpenHW.exe. Requires the base game and all patches through 1.0.6.** Close both game executables and the launcher before patching. Updater.exe installs the full required patch chain and refreshes itself before 1.0.7. Saves, settings, mods and authored missions are kept.
+
+The new portable launcher manages play, diagnostics, searchable game settings, updates, shader-cache rebuilding, mod activation/load order and owned voice-pack import. In-game changes include redesigned Story/Multiplayer/Modding menus, a live interceptor paint/trail viewer, working single-ship colour controls, keyboard layouts and language selection, optional larger starting resource fleets, Sensors/Build input fixes, carrier-building AI and native ship attachment/material corrections. Read the full notes for scope and validation.
+
+### See the features
+
+The supplied development screenshots illustrate new tools and existing capabilities retained by 1.0.7. Some show 1.0.6; captions identify pre-fix orientation/input views, white-model editor references and the duplicate. [Separate illustrated guide](docs/FEATURE_TOUR_1.0.7.md).
+
+<details>
+<summary>Open the complete 16-image feature tour</summary>
+
+### Portable Fleet Command launcher
+
+**Deploy**
+
+The portable launcher starts normal OpenHW or the full diagnostics executable. The custom border, hangar artwork, bundled fonts and amber/cyan controls carry the game styling into the desktop launcher.
+
+![Deploy](docs/media/2026-11-12-ui-review/01-launcher-deploy.png)
+
+**Mod Loadout**
+
+Enable or disable installed mods and move them up or down in the load order. Later enabled entries take priority; newly discovered mods start disabled. Save the loadout and restart the game to apply changes.
+
+![Mod Loadout](docs/media/2026-11-12-ui-review/02-launcher-mod-loadout.png)
+
+**Configuration**
+
+Browse or search display, graphics, classic effects, audio, keyboard/mouse, player/language, skirmish and gameplay settings. Save them before launching. Shift+F11 authoring documents remain in the in-game editors.
+
+![Configuration](docs/media/2026-11-12-ui-review/03-launcher-configuration.png)
+
+**Ship Systems**
+
+Check for official updates, back up and rebuild the local shader cache, or import a matching voice bank from an owned localized Classic installation. Downloads, runtime files and backups stay in the OpenHW folder.
+
+![Ship Systems](docs/media/2026-11-12-ui-review/04-launcher-ship-systems.png)
+
+### Menus and live fleet preview
+
+**Main menu**
+
+The fleet command menu groups Story, Training, Multiplayer, Settings, Archive and Modding on the navy overlay while leaving the background artwork visible.
+
+![Main menu](docs/media/2026-11-12-ui-review/05-main-menu.png)
+
+**Story setup and live interceptor**
+
+Centered Story setup combines race selection, saves, Player Setup and a real 3D interceptor. Orbit and zoom the preview; simulate maximum speed to inspect its engine trails. This supplied screenshot predates the 1.0.7 axis correction: the released menu viewer presents the ship horizontally. Gameplay model orientation is unchanged.
+
+![Story setup and live interceptor](docs/media/2026-11-12-ui-review/06-story-viewer-before-axis-fix.png)
+
+**Multiplayer navigation**
+
+Compact skirmish, saved battle, LAN, online-services and replay actions sit inside the left overlay. Existing connection modes retain their individual availability; this menu redesign does not imply a new online backend or verified multi-computer synchronization.
+
+![Multiplayer navigation](docs/media/2026-11-12-ui-review/07-multiplayer-menu.png)
+
+**Fleet Workshop**
+
+The right-hand panel opens Parade Formations, the Ship Editor and Mod Manager without covering the engineering artwork. Use the workshop to arrange fleets, fit subsystems and manage custom content.
+
+![Fleet Workshop](docs/media/2026-11-12-ui-review/08-modding-menu.png)
+
+### Authoring tools
+
+**Military Parade editor**
+
+Arrange campaign or multiplayer parade offsets, move/rotate entries, frame the fleet and save separate race/mode presets. This development reference has white model silhouettes; it illustrates the placement interface, not final textured-model appearance.
+
+![Military Parade editor](docs/media/2026-11-12-ui-review/09-parade-editor-reference.png)
+
+**Parade editor: supplied duplicate**
+
+This is the second supplied copy of the same parade view, retained as requested. The placed-type list and campaign/MP selector control which formation preset is edited. It is not evidence of a separate feature or a corrected texture-rendering issue.
+
+![Parade editor: supplied duplicate](docs/media/2026-11-12-ui-review/10-parade-editor-reference-duplicate.png)
+
+**Ship Editor and subsystem authoring**
+
+Inspect the hull/joint tree, transforms, attachment points and material slots. Copy, paste and place subsystem/turret chains, import geometry and save or append a mod. Source HODs remain read-only. This supplied white-model reference demonstrates the editor layout; this release does not claim to fix those editor silhouettes.
+
+![Ship Editor and subsystem authoring](docs/media/2026-11-12-ui-review/11-ship-editor-reference.png)
+
+### Campaign, individual colours and ship control
+
+**Fleet command and mission presentation**
+
+Original Homeworld 1 mission scripting and the fleet HUD run with locally imported Remastered ships and authored environments. This view also shows the mission message area and classic-style top-right FPS counter.
+
+![Fleet command and mission presentation](docs/media/2026-11-12-ui-review/12-mission-cinematic.png)
+
+**Remastered ships with original gameplay**
+
+The salvage corvette illustrates the project goal: higher-fidelity imported models while retaining original Homeworld gameplay. The mission HUD, selection information and production shortcuts remain accessible.
+
+![Remastered ships with original gameplay](docs/media/2026-11-12-ui-review/13-salvage-corvette.png)
+
+**Single-ship colours**
+
+Select one owned ship and open COLORS beside PILOT. Override hull/base, stripes, engine trails/bulbs, navigation lights, resource beam and hyperspace independently. Unchecked channels inherit fleet appearance; Reset All clears overrides. This screenshot predates the input correction: 1.0.7 fixes the controls, Apply, Reset, Cancel and nested picker routing. Paint is saved for that individual ship; it is a local visual customization, not a new synchronized multiplayer command.
+
+![Single-ship colours](docs/media/2026-11-12-ui-review/14-ship-colors-before-input-fix.png)
+
+**EVE-style Command control**
+
+Lock targets, approach, orbit, keep range, adjust the speed limit and control weapon banks from one eligible ship. The illustrated command mode is retained alongside direct piloting. Eligible X/Claw formations can also be led through their wingleader.
+
+![EVE-style Command control](docs/media/2026-11-12-ui-review/15-command-piloting.png)
+
+**Direct piloting**
+
+Take direct control of throttle, turning, strafing, vertical movement and weapons. On-screen hints show the available controls; Escape returns to fleet command. Command and Pilot modes are separate choices, with eligibility depending on ship class.
+
+![Direct piloting](docs/media/2026-11-12-ui-review/16-direct-piloting.png)
+
+</details>
 
 ## 1.0.6 patch - texture loading, startup and refresh settings
 
@@ -101,7 +222,7 @@ This patch corrects the startup splash artwork path, removes in-engine cinematic
 2. Download the [**OpenHW-Setup.exe** base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe). Put it in the writable folder where you want OpenHW installed, for example `D:\Games\OpenHW`.
 3. Run it and select the Collection installation. The Collection root, `HomeworldRM`, or its `Data` directory can be selected; setup also locates the Collection's Classic data.
 4. Let extraction, conversion, package building and validation finish. Setup installs **beside itself** and leaves the original Collection untouched. There is no manual music/voice-copy step.
-5. Run **Updater.exe** beside **OpenHW.exe** to install the required patches automatically. Alternatively, apply **1.0.1**, **1.0.2**, **1.0.3**, **1.0.4**, **1.0.4.5**, and **1.0.5** manually in that order. Then start **OpenHW.exe**. Setup does not automatically start the game. The first launch detects your display resolution and refresh rate.
+5. Run **Updater.exe** beside **OpenHW.exe** to install the required patches automatically. Alternatively, apply **1.0.1**, **1.0.2**, **1.0.3**, **1.0.4**, **1.0.4.5**, **1.0.5**, **1.0.6**, and **1.0.7** manually in that order. Then use **Launcher.exe** or start **OpenHW.exe**. Setup does not automatically start the game. The first launch detects your display resolution and refresh rate.
 
 All application-owned settings, saves, mods, exports and working files stay inside the OpenHW folder. `Development` contains setup work, diagnostics, logs, caches and receipts. Successful setup removes its temporary `SetupSources` and `SetupWork` conversion copies; a failed setup keeps work for recovery. Windows and graphics-driver system caches remain under those components' control.
 

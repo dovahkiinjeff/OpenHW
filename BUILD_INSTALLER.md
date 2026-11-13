@@ -84,3 +84,7 @@ inferred merely from a repository being publicly accessible. Publication does no
 ## Installation disk budget
 
 Running the generated installer has exceeded 200 GB of temporary destination-drive usage. Recommend at least 250 GB free, with additional margin; this is not a guaranteed maximum. The approximately 473 MB download locally builds a roughly 34 GB main archive plus loose data and caches. Build dependencies and source compilation require separate space. See docs/USER_GUIDE.md.
+
+## Build the 1.0.7 utilities and patch
+
+The 1.0.7 patch uses the same checked normal/diagnostics Release outputs and includes Launcher.exe. Build both game variants, then build OpenHWPatchBootstrap from the main project and OpenHWUpdaterBootstrap / OpenHWLauncherBootstrap from `tools/updater`. `tools/package_updater.py --launcher` packages the launcher; without that flag it packages Updater.exe. Both use the selected completed installation's frozen installer support, supplied through `--installed`. `tools/package_release_patch.py` accepts `--source`, `--installed`, `--normal`, `--diagnostic`, `--bootstrap`, `--launcher`, `--output`, `--work`, and `--pyinstaller-modules`. The launcher argument must point at the newly packaged Launcher.exe. No developer machine paths are required. See [Launcher build instructions](docs/LAUNCHER.md) for the utility commands. The base installer remains the starting point; install the published patch chain to reach 1.0.7.

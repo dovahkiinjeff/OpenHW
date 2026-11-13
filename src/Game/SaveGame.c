@@ -8,6 +8,7 @@
 =============================================================================*/
 
 #include "SaveGame.h"
+#include "ShipAppearance.h"
 #include "SaveGameLayout.h"
 
 #include <string.h>
@@ -726,6 +727,7 @@ bool32 SaveGame(char *filename)
     SaveVersionInfo();
     SavePreGameInfo();
 
+    shipAppearanceClear();
     SpaceObjRegistryInit();
     BlobRegistryInit();
 
@@ -774,6 +776,7 @@ bool32 SaveGame(char *filename)
     SaveInfoNumber(smGhostMode);
 
     SaveConsMgrDetermOptional();                // added for V1.04 patch
+    shipAppearanceSave();
 
     fileClose(savefile);
     savefile = 0;
@@ -859,6 +862,7 @@ void LoadGame(char *filename)
 
     dbgAssertOrIgnore(savefile);
 
+    shipAppearanceClear();
     SpaceObjRegistryInit();
     BlobRegistryInit();
 
@@ -911,6 +915,8 @@ void LoadGame(char *filename)
     smGhostMode = LoadInfoNumber();
 
     LoadConsMgrDetermOptional();            // optional, won't crash if not there, added for V1.04 patch
+
+    shipAppearanceLoad();
 
     HorseRaceLoadingTask("Resolving saved-object and collision references");
     FixAllSpaceObjs();
@@ -4375,3 +4381,5 @@ void LoadUniverse(void)
 #ifdef _WIN32_FIX_ME
  #pragma warning( 2 : 4047)      // turn back on "different levels of indirection warning"
 #endif
+
+#include "ShipAppearanceSave.inc"

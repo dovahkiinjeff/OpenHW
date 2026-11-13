@@ -1,6 +1,8 @@
 #include "../Modern/DiagnosticPolicy.h"
 #include "ModernUI.h"
 #include "ShipPilot.h"
+#include "StringSupport.h"
+#include "ShipAppearance.h"
 #include "RemasteredPresentation.h"
 #include "Veterancy.h"
 #include "Tactics.h"
@@ -39,10 +41,15 @@
 #include "ControlGroupTabPolicy.h"
 #include "Sensors.h"
 #include "ShipView.h"
+#include "Mesh.h"
+#include "Mex.h"
+#include "LOD.h"
+#include "Trails.h"
 #include "SoundEvent.h"
 #include "SinglePlayer.h"
 #include "SpaceObj.h"
 #include "TaskBar.h"
+#include "Teams.h"
 #include "UIControls.h"
 #include "Universe.h"
 #include "font.h"
@@ -59,6 +66,7 @@
 #include "ModernGraphics.h"
 
 extern real32 btgFieldOfView;
+static void muiEditorColorBringToFront(void);
 
 #define MUI_VIDEO_TAB_COUNT 4
 #define MUI_AUDIO_TAB_COUNT 2
@@ -67,8 +75,12 @@ extern real32 btgFieldOfView;
 #define MUI_COLOR_TAB_COUNT 6
 #define MUI_ROW_COUNT 5
 #define MUI_VIDEO_ROW_COUNT 7
-#define MUI_GAMEPLAY_ROW_COUNT 12
+#define MUI_GAMEPLAY_ROW_COUNT 13
 #define MUI_ART_COUNT 19
+#ifndef MIN2
+#define MIN2(a,b) ((a)<(b)?(a):(b))
+#define MAX2(a,b) ((a)>(b)?(a):(b))
+#endif
 
 typedef struct ModernUIVideoState
 {
@@ -99,6 +111,7 @@ typedef struct ModernUIGameplayState
     udword savedDisableUnitCaps;
     udword savedRankSystem;
     udword savedMissionStartLaunch;
+    udword savedStartingResourceFleet;
     udword savedResourceMultiplier;
     udword savedUnlimitedRUs;
     udword savedRestoreFogOfWar;
@@ -123,6 +136,7 @@ typedef struct ModernUIKeysState
     sdword scroll;
     bool32 capturing;
     udword invalidUntil;
+    udword savedKeyboardLayout;
 } ModernUIKeysState;
 
 typedef struct ModernUIColorState
@@ -440,6 +454,8 @@ static rectangle muiRect(sdword x0, sdword y0, sdword x1, sdword y1)
     return result;
 }
 
+#include "FrontendMenuLayout.inc"
+
 static void muiFill(const rectangle *rect, color c)
 {
     rectangle copy = *rect;
@@ -682,7 +698,14 @@ static ModernUIScreenLayout muiScreenLayout(ModernUIScreenKind kind)
     layout.outer = muiRect(0, 0, MAIN_WindowWidth, MAIN_WindowHeight);
     layout.content = layout.outer;
 
-    if (kind == MUI_SCREEN_FRONTEND || kind == MUI_SCREEN_MULTIPLAYER)
+    if(kind==MUI_SCREEN_FRONTEND)
+    {
+        width=MIN2(MAIN_WindowWidth-margin*2,uiScaleSize(900));
+        height=MIN2(MAIN_WindowHeight-margin*2,uiScaleSize(610));
+        layout.content=muiRect((MAIN_WindowWidth-width)/2,(MAIN_WindowHeight-height)/2,
+            (MAIN_WindowWidth+width)/2,(MAIN_WindowHeight+height)/2);
+    }
+    else if (kind == MUI_SCREEN_MULTIPLAYER)
     {
         layout.content.x0 = MAIN_WindowWidth >= uiScaleSize(900) ?
             MAIN_WindowWidth * (kind == MUI_SCREEN_MULTIPLAYER ? 23 : 39) / 100 : margin;
@@ -3005,6 +3028,7 @@ static udword muiControlGroupsProcess(regionhandle region, smemsize ID,
     return RPR_Redraw;
 }
 
+#include "ShipAppearanceUI.inc"
 #include "ShipPilotHUD.inc"
 #include "FormationSpreadUI.inc"
 static void muiCommandRuleDraw(regionhandle region)
@@ -3124,10 +3148,14 @@ void modernUICommandBarBringToFront(void)
         regSiblingMoveToFront(muiLighting.markerRegion);
     if (muiLighting.region != NULL)
         regSiblingMoveToFront(muiLighting.region);
+    if (muiShipPaint.region != NULL)
+        regSiblingMoveToFront(muiShipPaint.region);
+    muiEditorColorBringToFront();
 }
 
 void modernUICommandBarShutdown(void)
 {
+    muiShipPaintClose();
     shipPilotExit();
     muiFormationSpreadDragging=FALSE;
     muiFormationSpreadDragCommand=NULL;
@@ -6414,16 +6442,7 @@ static udword muiMainProcess(regionhandle region, smemsize ID,
 #define MUI_CONNECTION_COUNT 6
 static rectangle muiConnectionItemRect(sdword index)
 {
-    sdword margin = uiScaleSize(34);
-    sdword left = muiClamp(MAIN_WindowWidth * 35 / 100,
-                           uiScaleSize(300), MAIN_WindowWidth / 2);
-    sdword right = MAIN_WindowWidth - margin;
-    sdword top = uiScaleSize(132);
-    sdword gap = uiScaleSize(10);
-    sdword height = (MAIN_WindowHeight - margin - top -
-                     gap * (MUI_CONNECTION_COUNT - 1)) / MUI_CONNECTION_COUNT;
-    return muiRect(left, top + index * (height + gap),
-                   right, top + index * (height + gap) + height);
+    return muiFrontendItem(FALSE, index, MUI_CONNECTION_COUNT);
 }
 
 static featom *muiConnectionActionAtom(fescreen *screen, sdword index)
@@ -6477,9 +6496,7 @@ static void muiDrawConnection(regionhandle region)
     muiEnsureFonts();
     muiDrawBackdrop(MUI_ART_MOTHERSHIP);
     muiFill(&whole, colRGBA(3, 6, 9, 92));
-    rail = muiRect(0, 0, muiClamp(MAIN_WindowWidth * 30 / 100,
-                                  uiScaleSize(290), MAIN_WindowWidth / 2),
-                   MAIN_WindowHeight);
+    rail = muiFrontendPanel(FALSE);
     muiFill(&rail, colRGBA(10, 18, 24, 246));
     primLine2(rail.x1, 0, rail.x1, MAIN_WindowHeight, muiLineSoft);
 
@@ -6489,10 +6506,9 @@ static void muiDrawConnection(regionhandle region)
             "MULTIPLAYER", muiHeadingFont);
     muiText(uiScaleSize(38), uiScaleSize(106), muiMuted,
             "CONNECTION METHOD", muiBodyFont);
-    muiText(uiScaleSize(38), MAIN_WindowHeight - uiScaleSize(92), muiMuted,
-            "SELECT A COMMAND CHANNEL", muiBodyFont);
-    muiText(uiScaleSize(38), MAIN_WindowHeight - uiScaleSize(62), muiDisabled,
-            "SKIRMISH / SAVES / NETWORK", muiBodyFont);
+    muiText(uiScaleSize(28), MAIN_WindowHeight - uiScaleSize(48), muiMuted,
+            "ENTER / SELECT     ESC / RETURN", muiBodyFont);
+
 
     for (index = 0; index < MUI_CONNECTION_COUNT; ++index)
     {
@@ -6512,11 +6528,11 @@ static void muiDrawConnection(regionhandle region)
             muiFill(&accent, muiSignal);
         }
         snprintf(number, sizeof(number), "%02d", index + 1);
-        muiText(item.x0 + uiScaleSize(20), item.y0 + uiScaleSize(18),
+        muiText(item.x0 + uiScaleSize(12), item.y0 + uiScaleSize(12),
                 index == muiConnectionSelection ? muiSignal : muiDisabled,
                 number, muiBodyFont);
         {
-            rectangle label = muiRect(item.x0 + uiScaleSize(66), item.y0 + uiScaleSize(8),
+            rectangle label = muiRect(item.x0 + uiScaleSize(40), item.y0 + uiScaleSize(4),
                 item.x1 - uiScaleSize(14), item.y0 + (item.y1 - item.y0) / 2);
             rectangle detail = muiRect(label.x0, label.y1, label.x1, item.y1 - uiScaleSize(6));
             muiTextLeftAdaptiveFull(&label, index == muiConnectionSelection ? muiPaper : muiMuted,
@@ -7391,6 +7407,7 @@ static const char *muiGameplayValue(sdword row, char *buffer, size_t count)
             return buffer;
         case 10: return opUnlimitedRUs ? "ON" : "OFF";
         case 11: return opRestoreFogOfWar ? "ON" : "OFF";
+        case 12: return opStartingResourceFleet ? "3 COLLECTORS / 2 CONTROLLERS" : "MISSION DEFAULT";
         default: return "";
     }
 }
@@ -7558,6 +7575,7 @@ static void muiAdjustGameplay(sdword row, sdword direction)
             break;
         case 10: opUnlimitedRUs = !opUnlimitedRUs; break;
         case 11: opRestoreFogOfWar = !opRestoreFogOfWar; break;
+        case 12: opStartingResourceFleet = !opStartingResourceFleet; break;
         default: return;
     }
     muiGameplayApplyLive();
@@ -7583,6 +7601,7 @@ static void muiExitGameplay(bool32 apply)
         opDisableUnitCaps = muiGameplay.savedDisableUnitCaps;
         opRankSystem = muiGameplay.savedRankSystem;
         opMissionStartLaunch = muiGameplay.savedMissionStartLaunch;
+        opStartingResourceFleet = muiGameplay.savedStartingResourceFleet;
         opResourceMultiplier = muiGameplay.savedResourceMultiplier;
         opUnlimitedRUs = muiGameplay.savedUnlimitedRUs;
         opRestoreFogOfWar = muiGameplay.savedRestoreFogOfWar;
@@ -7601,7 +7620,7 @@ static void muiDrawGameplay(regionhandle region)
         "CAMERA SENSITIVITY", "UNLIMITED STRIKE-CRAFT FUEL",
         "ISSUE ORDERS WHILE PAUSED", "SHIP WEAPON RECOIL",
         "CURSOR SCALE", "RESOURCE MULTIPLIER", "RANK SYSTEM", "MISSION START LAUNCH", "SHOW FPS",
-        "MISSION RESOURCE SCALING", "UNLIMITED RUs", "RESTORE FOG OF WAR"
+        "MISSION RESOURCE SCALING", "UNLIMITED RUs", "RESTORE FOG OF WAR", "STARTING RESOURCE FLEET"
     };
     static const char *descriptions[MUI_GAMEPLAY_ROW_COUNT] = {
         "Continuous camera response; five-percent steps",
@@ -7615,7 +7634,8 @@ static void muiDrawGameplay(regionhandle region)
         "Yellow frame-rate counter in the top-right corner",
         "0% vanilla scaling / 100% full authored resources; single-player",
         "Build, buy technology and hyperspace without spending RUs; single-player only",
-        "Original Homeworld visibility ranges instead of unlimited distant objects; applies immediately"
+        "Original Homeworld visibility ranges instead of unlimited distant objects; applies immediately",
+        "Fresh campaign arrivals: top up to 3 collectors and 2 controllers; keeps larger fleets"
     };
     ModernUILayout layout;
     rectangle marker;
@@ -8297,6 +8317,7 @@ static void muiExitKeys(bool32 apply)
     else
     {
         kbRestoreSavedSettings();
+        strKeyboardLayout=muiKeys.savedKeyboardLayout;
     }
     feScreenDisappear(NULL, NULL);
     feScreenStart(ghMainRegion, inGame ? "Game_options" : "Main_game_screen");
@@ -8371,6 +8392,13 @@ static void muiDrawKeys(regionhandle region)
             layout.content.y0 + uiScaleSize(82), muiMuted,
             "Select a command, choose Rebind, then press the replacement key",
             muiBodyFont);
+
+    {
+        static const char *names[]={"WINDOWS / AUTO","US / PHYSICAL","FRENCH / AZERTY","GERMAN / QWERTZ","SPANISH","ITALIAN","US / DVORAK"};
+        rectangle choice=muiRect(layout.rail.x0+uiScaleSize(14),layout.rail.y0+uiScaleSize(198),layout.rail.x1-uiScaleSize(14),layout.rail.y0+uiScaleSize(244));
+        muiText(choice.x0,choice.y0-uiScaleSize(22),muiMuted,"KEYBOARD LAYOUT",muiCompactFont);
+        muiDrawButtonRect(&choice,names[muiClamp((sdword)strKeyboardLayout,0,6)],FALSE,muiPointIn(&choice,mouseCursorX(),mouseCursorY()));
+    }
 
     muiFill(&list, colRGBA(11, 20, 27, 210));
     primRectOutline2(&list, 1, muiLineSoft);
@@ -8532,6 +8560,11 @@ static udword muiKeysProcess(regionhandle region, smemsize ID,
     visibleRows = muiKeysVisibleRows(&list);
     maxScroll = count > visibleRows ? count - visibleRows : 0;
     muiKeysActionRects(&layout, &reset, &rebind);
+    if (event==RPE_ReleaseLeft && !muiKeys.capturing) {
+        rectangle choice=muiRect(layout.rail.x0+uiScaleSize(14),layout.rail.y0+uiScaleSize(198),layout.rail.x1-uiScaleSize(14),layout.rail.y0+uiScaleSize(244));
+        if (muiPointIn(&choice,mouseX,mouseY)) {strKeyboardLayout=(strKeyboardLayout+1)%7;keyClearAllStuckKeys();regRecursiveSetDirty(region);return RPR_Redraw;}
+    }
+
 
     if (event == RPE_KeyDown)
     {
@@ -8811,6 +8844,11 @@ static struct
     void *context;
 } muiEditorColor;
 
+static void muiEditorColorBringToFront(void)
+{
+    if(muiEditorColor.region!=NULL)regSiblingMoveToFront(muiEditorColor.region);
+}
+
 static real32 muiClampF(real32 v,real32 low,real32 high)
 {
     return v<low?low:(v>high?high:v);
@@ -8949,164 +8987,63 @@ void modernUIOpenEditorColorPicker(const char *title,const real32 rgb[3],real32 
     regKeyChildAlloc(muiEditorColor.region,RETURNKEY,RPE_KeyDown,muiEditorColorProcess,1,RETURNKEY);
 }
 
+#include "FrontendShipPreview.inc"
+#include "FrontendStory.inc"
+
+static void muiFleetPreviewRects(const ModernUILayout *layout,rectangle *view,rectangle *thrust)
+{
+    *view=layout->preview;view->x0+=uiScaleSize(12);view->x1-=uiScaleSize(12);
+    view->y0+=uiScaleSize(76);view->y1-=uiScaleSize(124);
+    *thrust=muiRect(view->x0,view->y1+uiScaleSize(12),view->x1,view->y1+uiScaleSize(48));
+}
+
 static void muiDrawColorPicker(regionhandle region)
 {
-    static const char *tabs[MUI_COLOR_TAB_COUNT] = {
-        "HULL BASE", "STRIPE / MARKING", "ENGINE EMISSION", "NAV LIGHTS",
-        "HARVEST BEAM", "HYPERSPACE"
-    };
-    ModernUILayout layout;
-    rectangle palette, value, toggle, cursor, swatch;
-    color active = *muiActivePlayerColor();
-    real32 hue, sat, val;
-    sdword index;
-    sdword mouseX = mouseCursorX();
-    sdword mouseY = mouseCursorY();
-    char rgb[64];
-    char hsv[64];
-    char hex[32];
-    (void)region;
-
-    muiEnsureFonts();
-    muiBuildLayout(&layout);
-    muiColorRects(&layout, &palette, &value, &toggle);
-    muiColorHSV(active, &hue, &sat, &val);
-
-    muiDrawBackdrop(MUI_ART_FLEET);
-    muiFill(&layout.canvas, colRGBA(4, 7, 10, 118));
-    muiFill(&layout.rail, muiSurface);
-    muiFill(&layout.content, muiSurface);
-    if (layout.preview.x1 > layout.preview.x0)
-        muiFill(&layout.preview, colRGBA(11, 20, 27, 232));
-
-    muiText(layout.rail.x0 + uiScaleSize(16),
-            layout.rail.y0 + uiScaleSize(18), muiSignal,
-            "FLEET IDENTITY", muiHeadingFont);
-    muiText(layout.rail.x0 + uiScaleSize(16),
-            layout.rail.y0 + uiScaleSize(54), muiMuted,
-            "PLAYER SHIPS", muiBodyFont);
-    for (index = 0; index < MUI_COLOR_TAB_COUNT; ++index)
-    {
-        bool32 selected = index == muiColor.mode;
-        bool32 hovered = muiPointIn(&layout.tabs[index], mouseX, mouseY);
-        if (selected || hovered)
-            muiFill(&layout.tabs[index], selected ? muiSignalSoft : muiSurfaceRaised);
-        swatch = muiRect(layout.tabs[index].x0 + uiScaleSize(8),
-                         layout.tabs[index].y0 + uiScaleSize(8),
-                         layout.tabs[index].x0 + uiScaleSize(30),
-                         layout.tabs[index].y1 - uiScaleSize(8));
-        if (index == 0) active = muiColor.base;
-        else if (index == 1) active = muiColor.stripe;
-        else if (index == 2) active = muiColor.engine;
-        else if (index == 3) active = muiColor.nav;
-        else if (index == 4) active = muiColor.resourceBeam;
-        else active = muiColor.hyperspace;
-        muiDrawColorSwatch(&swatch, active, selected);
-        muiText(layout.tabs[index].x0 + uiScaleSize(40),
-                layout.tabs[index].y0 + uiScaleSize(11),
-                selected ? muiPaper : muiMuted, tabs[index], muiBodyFont);
+    static const char *tabs[MUI_COLOR_TAB_COUNT]={"HULL BASE","STRIPE / MARKING","ENGINE EMISSION","NAV LIGHTS","HARVEST BEAM","HYPERSPACE"};
+    ModernUILayout layout;rectangle palette,value,toggle,cursor,swatch,view,thrust;
+    color active=*muiActivePlayerColor();float hue,sat,val;sdword i;
+    int x=mouseCursorX(),y=mouseCursorY();char text[100];
+    (void)region;muiEnsureFonts();muiBuildFleetColorLayout(&layout);
+    muiColorRects(&layout,&palette,&value,&toggle);muiFleetPreviewRects(&layout,&view,&thrust);
+    muiColorHSV(active,&hue,&sat,&val);
+    muiDrawBackdrop(MUI_ART_HANGAR);muiFill(&layout.canvas,colRGBA(3,6,9,112));
+    muiFill(&layout.rail,colRGBA(10,18,24,244));muiFill(&layout.content,colRGBA(10,18,24,244));
+    muiFill(&layout.preview,colRGBA(6,14,22,236));
+    {rectangle caption=muiRect(layout.rail.x0+uiScaleSize(14),layout.rail.y0+uiScaleSize(16),layout.rail.x1-uiScaleSize(8),layout.rail.y0+uiScaleSize(46));
+     muiTextLeftAdaptiveFull(&caption,muiSignal,"FLEET IDENTITY",muiHeadingFont,muiBodyFont,muiCompactFont,0);}
+    muiText(layout.rail.x0+uiScaleSize(14),layout.rail.y0+uiScaleSize(56),muiMuted,"PLAYER SETUP",muiBodyFont);
+    for(i=0;i<MUI_COLOR_TAB_COUNT;++i) {
+        bool32 selected=i==muiColor.mode;rectangle label;
+        color colors[MUI_COLOR_TAB_COUNT]={muiColor.base,muiColor.stripe,muiColor.engine,muiColor.nav,muiColor.resourceBeam,muiColor.hyperspace};
+        if(selected || muiPointIn(&layout.tabs[i],x,y))muiFill(&layout.tabs[i],selected?muiSignalSoft:muiSurfaceRaised);
+        swatch=muiRect(layout.tabs[i].x0+uiScaleSize(6),layout.tabs[i].y0+uiScaleSize(9),layout.tabs[i].x0+uiScaleSize(24),layout.tabs[i].y1-uiScaleSize(9));
+        muiDrawColorSwatch(&swatch,colors[i],selected);
+        label=muiRect(swatch.x1+uiScaleSize(8),layout.tabs[i].y0,layout.tabs[i].x1-uiScaleSize(4),layout.tabs[i].y1);
+        muiTextLeftAdaptiveFull(&label,selected?muiPaper:muiMuted,tabs[i],muiBodyFont,muiCompactFont,muiTinyFont,0);
     }
-
-    active = *muiActivePlayerColor();
-    muiColorHSV(active, &hue, &sat, &val);
-    muiText(layout.content.x0 + uiScaleSize(22),
-            layout.content.y0 + uiScaleSize(22), muiSignal,
-            "LIVERY / EMISSIVE PALETTE", muiBodyFont);
-    muiText(layout.content.x0 + uiScaleSize(22),
-            layout.content.y0 + uiScaleSize(54), muiPaper,
-            tabs[muiColor.mode], muiHeadingFont);
-    muiText(layout.content.x0 + uiScaleSize(22),
-            layout.content.y0 + uiScaleSize(86), muiMuted,
-            muiColor.mode < 2 ? "UNRESTRICTED PIGMENT" :
-            "INDEPENDENT LIGHT-EMITTER COLOR", muiBodyFont);
-
-    /* Keep the selectable chart visible even when the current color is black.
-       Value is applied to the selected color and controlled by the adjacent
-       ramp; it must not black out the hue/saturation reference plane. */
-    muiDrawHueSaturation(&palette, 1.0f);
-    muiDrawValueRamp(&value, hue, sat);
-    primRectOutline2(&palette, 1, muiLine);
-    primRectOutline2(&value, 1, muiLine);
-    cursor = muiRect(
-        palette.x0 + (sdword)(hue * (real32)(palette.x1 - palette.x0)) - uiScaleSize(5),
-        palette.y1 - (sdword)(sat * (real32)(palette.y1 - palette.y0)) - uiScaleSize(5),
-        palette.x0 + (sdword)(hue * (real32)(palette.x1 - palette.x0)) + uiScaleSize(5),
-        palette.y1 - (sdword)(sat * (real32)(palette.y1 - palette.y0)) + uiScaleSize(5));
-    primRectOutline2(&cursor, 2, muiPaper);
-    cursor = muiRect(value.x0 - uiScaleSize(3),
-                     value.y1 - (sdword)(val * (real32)(value.y1 - value.y0)) - uiScaleSize(2),
-                     value.x1 + uiScaleSize(3),
-                     value.y1 - (sdword)(val * (real32)(value.y1 - value.y0)) + uiScaleSize(2));
-    muiFill(&cursor, muiPaper);
-
-    if (muiColor.mode >= 2)
-    {
-        bool32 enabled = muiColor.mode == 2 ?
-            muiColor.engineOverride : (muiColor.mode == 3 ?
-            muiColor.navOverride : (muiColor.mode == 4 ?
-            muiColor.resourceBeamOverride : muiColor.hyperspaceOverride));
-        muiDrawButtonRect(&toggle,
-            muiColor.mode == 2 ?
-                (enabled ? "CUSTOM ENGINE COLOR" : "HULL-DERIVED ENGINE COLOR") :
-            (muiColor.mode == 3 ?
-                (enabled ? "CUSTOM PLAYER NAV LIGHTS" : "AUTHORED NAV LIGHTS") :
-                (muiColor.mode == 4 ?
-                    (enabled ? "CUSTOM PLAYER HARVEST BEAM" : "AUTHORED HARVEST BEAM") :
-                    (enabled ? "CUSTOM PLAYER HYPERSPACE" : "AUTHORED HYPERSPACE"))),
-            enabled, muiPointIn(&toggle, mouseX, mouseY));
+    muiText(layout.content.x0+uiScaleSize(22),layout.content.y0+uiScaleSize(22),muiSignal,"COLOUR PALETTE",muiBodyFont);
+    {rectangle label=muiRect(layout.content.x0+uiScaleSize(22),layout.content.y0+uiScaleSize(50),layout.content.x1-uiScaleSize(18),layout.content.y0+uiScaleSize(84));
+     muiTextLeftAdaptiveFull(&label,muiPaper,tabs[muiColor.mode],muiHeadingFont,muiBodyFont,muiCompactFont,0);}
+    muiDrawHueSaturation(&palette,1);muiDrawValueRamp(&value,hue,sat);
+    primRectOutline2(&palette,1,muiLine);primRectOutline2(&value,1,muiLine);
+    {sdword px=palette.x0+(sdword)(hue*(palette.x1-palette.x0)),py=palette.y1-(sdword)(sat*(palette.y1-palette.y0)),d=uiScaleSize(4);
+     cursor=muiRect(px-d,py-d,px+d,py+d);primRectOutline2(&cursor,2,muiPaper);
+     py=value.y1-(sdword)(val*(value.y1-value.y0));cursor=muiRect(value.x0-uiScaleSize(3),py-uiScaleSize(2),value.x1+uiScaleSize(3),py+uiScaleSize(2));muiFill(&cursor,muiPaper);}
+    if(muiColor.mode>=2) {
+        bool32 enabled=muiColor.mode==2?muiColor.engineOverride:muiColor.mode==3?muiColor.navOverride:muiColor.mode==4?muiColor.resourceBeamOverride:muiColor.hyperspaceOverride;
+        muiDrawButtonRect(&toggle,enabled?"CUSTOM COLOUR / ON":"USE AUTHORED COLOUR",enabled,muiPointIn(&toggle,x,y));
     }
-    else
-    {
-        muiText(toggle.x0, toggle.y0 + uiScaleSize(10), muiMuted,
-                "Black and near-black hull values are permitted.", muiBodyFont);
-    }
-
-    muiDrawButtonRect(&layout.cancel, "CANCEL", FALSE,
-                      muiPointIn(&layout.cancel, mouseX, mouseY));
-    muiDrawButtonRect(&layout.apply, "APPLY", TRUE,
-                      muiPointIn(&layout.apply, mouseX, mouseY));
-
-    if (layout.preview.x1 > layout.preview.x0)
-    {
-        sdword x = layout.preview.x0 + uiScaleSize(18);
-        sdword y = layout.preview.y0 + uiScaleSize(24);
-        rectangle chip = muiRect(x, y + uiScaleSize(64),
-                                 layout.preview.x1 - uiScaleSize(18),
-                                 y + uiScaleSize(122));
-        muiText(x, y, muiSignal, "LIVE MATERIAL KEY", muiBodyFont);
-        muiText(x, y + uiScaleSize(30), muiPaper,
-                "PLAYER FLEET", muiHeadingFont);
-        muiDrawColorSwatch(&chip, active, TRUE);
-        snprintf(rgb, sizeof(rgb), "RGB %03u / %03u / %03u",
-                 (unsigned)colRed(active), (unsigned)colGreen(active),
-                 (unsigned)colBlue(active));
-        muiText(x, chip.y1 + uiScaleSize(18), muiMuted, rgb, muiBodyFont);
-        snprintf(hsv, sizeof(hsv), "HSV %03d / %03d / %03d",
-                 (sdword)(hue * 360.0f + 0.5f),
-                 (sdword)(sat * 100.0f + 0.5f),
-                 (sdword)(val * 100.0f + 0.5f));
-        snprintf(hex, sizeof(hex), "#%02X%02X%02X",
-                 (unsigned)colRed(active), (unsigned)colGreen(active),
-                 (unsigned)colBlue(active));
-        muiText(x, chip.y1 + uiScaleSize(42), muiMuted, hsv, muiBodyFont);
-        muiText(x, chip.y1 + uiScaleSize(66), muiSignal, hex, muiBodyFont);
-        muiText(x, chip.y1 + uiScaleSize(104), muiCool,
-                muiColor.mode == 5 ? "HYPERSPACE / DXR LINKED" :
-                (muiColor.mode == 4 ? "HARVEST / DXR LINKED" :
-                 (muiColor.mode == 3 ? "NAV / PLAYER ONLY" :
-                  "ENGINE / DXR LINKED")), muiBodyFont);
-        muiText(x, chip.y1 + uiScaleSize(130), muiMuted,
-                muiColor.mode == 5 ? "Gate, slice and field emitter" :
-                (muiColor.mode == 4 ? "Beam, nozzle glow and line emitter" :
-                 (muiColor.mode == 3 ? "Lamp sprite and point emitter" :
-                  "Ribbon, glow and light emitter")), muiBodyFont);
-        muiText(x, chip.y1 + uiScaleSize(168), muiCool,
-                "LOCAL PLAYER OVERRIDE", muiBodyFont);
-        muiText(x, chip.y1 + uiScaleSize(194), muiMuted,
-                "Other fleets stay authored", muiBodyFont);
-        muiText(x, layout.preview.y1 - uiScaleSize(50), muiSignal,
-                "NO BRIGHTNESS GATE", muiBodyFont);
-    }
+    else muiText(toggle.x0,toggle.y0+uiScaleSize(10),muiMuted,"Choose hue, saturation and brightness.",muiCompactFont);
+    muiDrawButtonRect(&layout.cancel,"CANCEL",FALSE,muiPointIn(&layout.cancel,x,y));
+    muiDrawButtonRect(&layout.apply,"APPLY",TRUE,muiPointIn(&layout.apply,x,y));
+    muiText(layout.preview.x0+uiScaleSize(18),layout.preview.y0+uiScaleSize(20),muiSignal,"LIVE SHIP PREVIEW",muiBodyFont);
+    snprintf(text,sizeof(text),"%s / INTERCEPTOR",whichRaceSelected==R1?"KUSHAN":"TAIIDAN");
+    muiText(layout.preview.x0+uiScaleSize(18),layout.preview.y0+uiScaleSize(44),muiPaper,text,muiHeadingFont);
+    muiShipPreviewDraw(&view,whichRaceSelected,muiColor.base,muiColor.stripe,muiColor.engineOverride?muiColor.engine:teTrailEmissiveSeed(muiColor.base,muiColor.stripe));
+    muiDrawButtonRect(&thrust,muiShipPreview.thrust?"MAX SPEED / STOP":"SIMULATE MAX SPEED",muiShipPreview.thrust,muiPointIn(&thrust,x,y));
+    snprintf(text,sizeof(text),"#%02X%02X%02X   /   RGB %u %u %u",colRed(active),colGreen(active),colBlue(active),colRed(active),colGreen(active),colBlue(active));
+    muiText(thrust.x0,thrust.y1+uiScaleSize(16),muiCool,text,muiBodyFont);
+    muiText(thrust.x0,thrust.y1+uiScaleSize(40),muiMuted,"RIGHT DRAG / ORBIT     WHEEL / ZOOM",muiCompactFont);
 }
 
 static void muiColorApplyPoint(const rectangle *palette,
@@ -9155,15 +9092,20 @@ static void muiExitColorPicker(bool32 apply)
         cpColorsAddToPreviousList(muiColor.base, muiColor.stripe);
         opOptionsSaveSettings();
     }
-    feScreenDisappear(NULL, NULL);
-    feScreenStart(ghMainRegion, "Main_game_screen");
+    {
+        char target[sizeof(muiColorReturnScreen)];
+        snprintf(target,sizeof(target),"%s",muiColorReturnScreen);
+        feScreenDisappear(NULL,NULL);
+        if(feStackIndex<=0 || !feStack[feStackIndex].screen || strcmp(feStack[feStackIndex].screen->name,target))
+            feScreenStart(ghMainRegion,target);
+    }
 }
 
 static udword muiColorProcess(regionhandle region, smemsize ID,
                               udword event, udword data)
 {
     ModernUILayout layout;
-    rectangle palette, value, toggle;
+    rectangle palette, value, toggle, view, thrust;
     sdword index;
     sdword mouseX = mouseCursorX();
     sdword mouseY = mouseCursorY();
@@ -9174,8 +9116,11 @@ static udword muiColorProcess(regionhandle region, smemsize ID,
         muiExitColorPicker(FALSE);
         return RPR_Redraw;
     }
-    muiBuildLayout(&layout);
+    muiBuildFleetColorLayout(&layout);
     muiColorRects(&layout, &palette, &value, &toggle);
+    muiFleetPreviewRects(&layout,&view,&thrust);
+    if(muiShipPreviewInput(&view,event))return RPR_Redraw;
+    if(event==RPE_ReleaseLeft && muiPointIn(&thrust,mouseX,mouseY)){muiShipPreviewToggle();return RPR_Redraw;}
     if (event == RPE_PressLeft)
     {
         for (index = 0; index < MUI_COLOR_TAB_COUNT; ++index)
@@ -9233,6 +9178,7 @@ bool32 modernUIOwnsScreen(const char *screenName)
     if (screenName == NULL) return FALSE;
     return strcmp(screenName, "Main_game_screen") == 0 ||
            strcmp(screenName, "Connection_Method") == 0 ||
+           strcmp(screenName, "Create_new_game") == 0 ||
            strcmp(screenName, "Audio_Options") == 0 ||
            strcmp(screenName, "Audio") == 0 ||
            strcmp(screenName, "Video_Options") == 0 ||
@@ -9331,6 +9277,22 @@ regionhandle modernUICreateOwnedScreen(regionhandle parent, fescreen *screen)
         HW_DIAG_FPRINTF(stderr, "[ModernUI] Multiplayer connection menu replaced by responsive UI.\n");
         return base;
     }
+    if(strcmp(screen->name,"Create_new_game")==0)
+    {
+        muiEnsureFonts();muiStoryScreen=screen;
+        cpSetColorsToModify(&utyBaseColor,&utyStripeColor);
+        if(whichRaceSelected!=R1 && whichRaceSelected!=R2)whichRaceSelected=R1;
+        base=regChildAlloc(parent,(smemsize)screen,0,0,MAIN_WindowWidth,MAIN_WindowHeight,0,RPE_ModalBreak|RPE_DrawEveryFrame);
+        regSiblingMoveToFront(base);regDrawFunctionSet(base,muiDrawStory);
+        input=regChildAlloc(base,(smemsize)screen,0,0,MAIN_WindowWidth,MAIN_WindowHeight,0,
+            RPE_LeftClick|RPE_RightClick|RPE_HoldRight|RPE_WheelUp|RPE_WheelDown);
+        regFunctionSet(input,muiStoryProcess);base->atom=&screen->atoms[0];screen->atoms[0].region=base;
+        regKeyChildAlloc(base,ESCKEY,RPE_KeyDown,muiStoryProcess,1,ESCKEY);
+        regKeyChildAlloc(base,RETURNKEY,RPE_KeyDown,muiStoryProcess,1,RETURNKEY);
+        regKeyChildAlloc(base,ARRLEFT,RPE_KeyDown,muiStoryProcess,1,ARRLEFT);
+        regKeyChildAlloc(base,ARRRIGHT,RPE_KeyDown,muiStoryProcess,1,ARRRIGHT);
+        return base;
+    }
     if (strcmp(screen->name, "Select_colour") == 0)
     {
         muiEnsureFonts();
@@ -9352,7 +9314,7 @@ regionhandle modernUICreateOwnedScreen(regionhandle parent, fescreen *screen)
         regDrawFunctionSet(base, muiDrawColorPicker);
         input = regChildAlloc(base, (smemsize)screen, 0, 0,
                               MAIN_WindowWidth, MAIN_WindowHeight, 0,
-                              RPE_LeftClick | RPE_HoldLeft);
+                              RPE_LeftClick | RPE_HoldLeft | RPE_RightClick | RPE_HoldRight | RPE_WheelUp | RPE_WheelDown);
         regFunctionSet(input, muiColorProcess);
         base->atom = &screen->atoms[0];
         screen->atoms[0].region = base;
@@ -9398,6 +9360,7 @@ regionhandle modernUICreateOwnedScreen(regionhandle parent, fescreen *screen)
         muiEnsureFonts();
         memset(&muiKeys, 0, sizeof(muiKeys));
         muiKeys.active = TRUE;
+        muiKeys.savedKeyboardLayout=strKeyboardLayout;
         muiKeys.inGame = gameIsRunning;
         muiKeys.selected = 0;
         muiKeys.scroll = 0;
@@ -9451,6 +9414,7 @@ regionhandle modernUICreateOwnedScreen(regionhandle parent, fescreen *screen)
         muiGameplay.savedDisableUnitCaps = opDisableUnitCaps;
         muiGameplay.savedRankSystem = opRankSystem;
         muiGameplay.savedMissionStartLaunch = opMissionStartLaunch;
+        muiGameplay.savedStartingResourceFleet = opStartingResourceFleet;
         muiGameplay.savedResourceMultiplier = opResourceMultiplier;
         muiGameplay.savedUnlimitedRUs = opUnlimitedRUs;
         muiGameplay.savedRestoreFogOfWar = opRestoreFogOfWar;
@@ -9519,6 +9483,8 @@ void modernUIOwnedScreenDeleted(const fescreen *screen)
         muiKeys.inputRegion = NULL;
         muiKeys.capturing = FALSE;
         muiColor.active = FALSE;
+        if(!strcmp(screen->name,"Create_new_game") || !strcmp(screen->name,"Select_colour"))muiShipPreviewClose();
+        if(!strcmp(screen->name,"Create_new_game"))muiStoryScreen=NULL;
         if (strcmp(screen->name, "Main_game_screen") == 0)
         {
             mpeClose();

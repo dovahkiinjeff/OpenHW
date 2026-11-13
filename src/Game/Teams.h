@@ -95,6 +95,8 @@ void teShutdown(void);
 
 //recompute team colors
 void teTeamColorsSet(sdword iTeam, color baseColor, color stripeColor);
+/* Pure colour derivation shared by the isolated front-end ship preview. */
+color teTrailEmissiveSeed(color baseColor, color stripeColor);
 
 //parsing callbacks
 void teTrailColorSet(char *directory,char *field,void *dataToFillIn);

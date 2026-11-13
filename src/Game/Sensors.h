@@ -193,6 +193,7 @@ smticktext;
 
 extern bool32 smSensorsDisable;
 extern bool32 smSensorsActive;
+extern regionhandle smBaseRegion;
 extern bool8 smZoomingIn, smZoomingOut, smFocus;
 extern bool32 smInstantTransition;
 

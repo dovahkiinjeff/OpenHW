@@ -60,6 +60,11 @@ static void meshSurfaceRemove(MeshSurfaceCacheEntry *entry)
 }
 static void meshSurfaceCacheClear(void)
 { while(meshSurfaceOldest)meshSurfaceRemove(meshSurfaceOldest); }
+static void meshSurfaceCacheForgetMaterials(const materialentry *materials)
+{
+    MeshSurfaceCacheEntry *entry=meshSurfaceNewest;
+    while(entry){MeshSurfaceCacheEntry *next=entry->older;if(entry->materials==materials)meshSurfaceRemove(entry);entry=next;}
+}
 static MeshSurfaceCacheEntry *meshSurfaceCacheFind(const polygonobject *object,materialentry *materials,sdword scheme)
 {
     MeshSurfaceCacheEntry *entry;

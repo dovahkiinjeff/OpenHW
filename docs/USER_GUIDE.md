@@ -1,14 +1,14 @@
-# OpenHW 1.0 — installation and user guide
+# OpenHW 1.0.7 - installation and user guide
 
 ## Installation and disk space
 
 Download `OpenHW-Setup.exe` into the **writable final game folder** and run it there. Select your own installed Homeworld Remastered Collection (Collection root, HomeworldRM, or its Data folder). Setup also needs the Collection's Homeworld 1 Classic data and required English archives. It installs beside the installer and does not change the original Collection. No separate Classic executable selection or manual music/voice copying is required.
 
-**Temporary installation usage has exceeded 200 GB. Start with at least 250 GB free on the destination drive.** This is a practical recommendation, not a measured maximum or guarantee. Conversion retains source archives, extracted resources and intermediate assets while building and validating the final package. The main generated archive is roughly 34 GB; total installed usage also includes loose data, runtime files, caches and your additions. Download size is approximately 473 MB. The original Collection occupies separate space.
+**Allow approximately 120 GB free during base conversion as a conservative planning estimate.** The compact installer's exact peak has not been measured; the earlier broad-extraction installer could exceed 200 GB. The current setup stages selected HW1 assets from the Collection archives instead. The main generated archive is roughly 34 GB, plus loose data, runtime files and user content. The base download is about 473 MB. The original Collection and source-build dependencies occupy separate space.
 
 Allow setup to finish extraction, asset conversion and validation. Its logs live in `Development/Logs`. After success, setup removes `Development/SetupSources` and `Development/SetupWork`; if cleanup fails it reports retained files. Failed imports retain working data for recovery. Do not delete working data during installation. Setup does not launch the game.
 
-Start `OpenHW.exe` for normal play. `OpenHW-Daignostics.exe` is the full-logging variant (filename spelling intentional). Application-owned diagnostic output is below `Development`. Save games, settings, mods and exports also stay in the game folder; no application-owned AppData install is required. Windows and driver caches are external system behavior.
+Install patches through 1.0.7 (or let Updater.exe install the chain); the 1.0.7 patch adds Launcher.exe automatically. Use the launcher for settings, mods, updates and play, or start `OpenHW.exe` for normal play. `OpenHW-Daignostics.exe` is the full-logging variant (filename spelling intentional). Application-owned diagnostic output is below `Development`. Save games, settings, mods and exports also stay in the game folder; no application-owned AppData install is required. Windows and driver caches are external system behavior.
 
 Borderless/windowed mode follows the refresh rate selected in Windows Advanced display settings. The OpenHW refresh selection is saved for exclusive fullscreen and takes effect after applying settings and restarting. The active desktop timing is shown separately and no longer overwrites the saved exclusive request. Unsupported exclusive modes can fall back; check the active timing rather than assuming a requested rate was accepted.
 
@@ -33,7 +33,7 @@ Brightness/gamma and post-processing controls are available alongside display an
 
 ## Fleet and formation controls
 
-Double-click a ship to select visible ships of that type. Shift-double-click another type to add its visible peers. Press B with a build-capable carrier/mothership selected to open that ship's Build menu. Launch Manager lists eligible holds; drone frigates are not treated as carriers. Captured ships keep their identity and appropriate build/docking behavior. Player-controlled strike craft and corvettes can explicitly dock with the Karos Graveyard mission relay.
+Ordinary double-click retains docking/support actions. Use **Shift+Ctrl+double-click** to add visible ships of that type to the selection. Press B with a build-capable carrier/mothership selected to open that ship's Build menu. Launch Manager lists eligible holds; drone frigates are not treated as carriers. Captured ships keep their identity and appropriate build/docking behavior. Player-controlled strike craft and corvettes can explicitly dock with the Karos Graveyard mission relay.
 
 Select ships of **one type in a formation** to display Formation Spread. It changes spacing immediately, without requiring another move order. Center is the default layout, the tight end brings ships close, and the wide end doubles the default spread. Mixed-type selections do not show the slider. Main-view move orders no longer use the former short-range clamp, although the game still has a finite playable world.
 
@@ -92,3 +92,7 @@ Shift+F11 opens map/cloud authoring; Shift+F12 opens lighting. The main-menu Mod
 ## Reporting and upcoming work
 
 Completing NVIDIA DLSS and Intel support and addressing player-reported bugs/glitches are immediate priorities. Until then use AMD FSR for 1.0. Include the mission, reproducible steps, GPU/driver, all reconstruction/frame-generation settings, screenshots/video and relevant diagnostic output. Do not share retail game assets. [Known limitations](LIMITATIONS.md) distinguishes supported behavior from unfinished integrations.
+
+## Launcher, menus and individual paint
+
+See [Launcher](LAUNCHER.md), [live fleet preview and ship colours](FRONTEND.md), and the [16-image feature tour](FEATURE_TOUR_1.0.7.md).
