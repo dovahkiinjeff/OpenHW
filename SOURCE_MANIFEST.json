@@ -23100,8 +23100,8 @@
     },
     {
       "path": "docs/MULTIPLAYER_PREVIEW.md",
-      "size": 4593,
-      "sha256": "f375534607a1649ea6a5c582ef765b5d5b80dd6ace96aa2151da8e376e46c81c"
+      "size": 5097,
+      "sha256": "7b1237f2271ee979ebc3096596deca79ca3321bd94a3bf598faa13a30624c8dd"
     },
     {
       "path": "docs/NATIVE_BENTUSI.md",
@@ -23190,8 +23190,8 @@
     },
     {
       "path": "docs/RELEASE_NOTES_1.1.md",
-      "size": 6144,
-      "sha256": "2612e6a8daf84bc8cfe48477184812aeb7ec225cbe6aa13389b530802b4e0074"
+      "size": 6752,
+      "sha256": "234636e7465fa9fc2f03f504ce7df145db89a0febffb599d75fb2aa2b7501af8"
     },
     {
       "path": "docs/REMASTERED_WEAPON_FX.md",
@@ -23385,8 +23385,8 @@
     },
     {
       "path": "server/coordinator.py",
-      "size": 11658,
-      "sha256": "66b54dc8015403539032df83e6abe223104bfd16a98807c23902ca3c73476a36"
+      "size": 12170,
+      "sha256": "84cb429258c3426b860cfe96ff94fcc1e6bad2af2e4de9e30055f73ca7181a05"
     },
     {
       "path": "server/diagnostics.py",
@@ -23435,8 +23435,8 @@
     },
     {
       "path": "server/README.md",
-      "size": 12045,
-      "sha256": "0ae006282e78a097db6aba5ac57897ba19196ddf7338b4aa36d18eb032191a75"
+      "size": 13018,
+      "sha256": "9244aa1f20c957556f8ae17152d15d6d56c6c2f824f3d51b3a4969bc91c0054e"
     },
     {
       "path": "server/requirements.txt",
@@ -23454,14 +23454,19 @@
       "sha256": "a0c718d71a32a8e47b50e1f525a057131f828d74cbac5517b7ba19deb47e8c83"
     },
     {
+      "path": "server/test_coordinator_clock.py",
+      "size": 3209,
+      "sha256": "71ea1f187e7b57223796fa95b2a13765223bcd92c52835f08be208bace320d89"
+    },
+    {
       "path": "server/test_diagnostics.py",
       "size": 13574,
       "sha256": "99fb4aed99885b87bbdae3ff58be401f10619d780034c889a3ab55027d934d46"
     },
     {
       "path": "server/test_live.py",
-      "size": 13381,
-      "sha256": "5aef91b73049903d1c832bd27012acfe6e1e7e6859110f3bcfc8297f0ab22c06"
+      "size": 14296,
+      "sha256": "9658b1a78f4abff3a86879b5c0245bc045e03042ca34dbf0cbb6913401cf1285"
     },
     {
       "path": "server/test_loading_gate.py",
@@ -28800,8 +28805,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 5128,
-      "sha256": "b33061233dfe9480abe9426590d16978b1a298c2d02884808da5422643e9b294"
+      "size": 4955,
+      "sha256": "ccac62db80d0b39b96e12d09a387e2cdf909df8c8263d484eefc42888fce1661"
     },
     {
       "path": "vcpkg.json",

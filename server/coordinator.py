@@ -18,6 +18,14 @@ from protocol import *
 
 LOG=logging.getLogger('openhw.multiplayer')
 
+# Universe.h: 16 * (1 << 2) physics ticks/second in the modern engine.
+# Both workerRun and the gameplay client advance TWO physics ticks per SYNC.
+# The old Classic 8 Hz packet schedule only supplied 16/64 simulated seconds
+# per real second. Keep command frames at 32 Hz; never scale ship velocities.
+PHYSICS_TICKS_PER_SECOND = 64
+PHYSICS_TICKS_PER_SYNC = 2
+SYNC_PERIOD = PHYSICS_TICKS_PER_SYNC / PHYSICS_TICKS_PER_SECOND
+
 async def read_worker(stream, timeout):
     header=await asyncio.wait_for(stream.readexactly(HEADER.size),timeout)
     magic,version,kind,length=HEADER.unpack(header)
@@ -81,7 +89,7 @@ class Gateway:
                 if room.state!=1:return
                 if any(m.signature!=ready[40:48] for m in room.members.values()):
                     raise LobbyError('Loaded map, fleet or gameplay data differs from the server; use matching unmodified game data')
-                LOG.info('Room %s loaded worlds agree; starting simulation',room.code)
+                LOG.info('Room %s loaded worlds agree; starting simulation (%d physics ticks/s, %.0f sync frames/s)',room.code,PHYSICS_TICKS_PER_SECOND,1/SYNC_PERIOD)
                 room.state=2;await self.broadcast(room)
                 frame=0;next_frame=time.monotonic()
                 while room.state==2:
@@ -96,7 +104,7 @@ class Gateway:
                         await self.stop_match(room,'Match finished');return
                     if kind!=WORKER_SYNC or not 24<=len(sync)<=48000:raise ValueError('Invalid simulation frame')
                     await self.broadcast(room,SYNC,sync)
-                    frame+=1;next_frame+=.125
+                    frame+=1;next_frame+=SYNC_PERIOD
                     delay=next_frame-time.monotonic()
                     if delay>0:await asyncio.sleep(delay)
                     elif delay < -2: next_frame=time.monotonic() # do not flood catch-up frames

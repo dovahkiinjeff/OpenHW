@@ -13,6 +13,16 @@ game; full diagnostics write under Development. Settings, saves, mods,
 downloads and application-owned caches stay in the portable folder. Display
 size/refresh detect on first boot.
 
+## Server-only timing hotfix - November 13, 2026
+
+Restores normal multiplayer simulation speed. The gateway now supplies 32
+command frames per second, matching two physics steps per frame at the modern
+64-tick physics rate. The earlier 8 Hz cadence ran matches at quarter speed and
+left long gaps between movement updates. Ship stats and client EXEs are unchanged.
+Start a new match using your existing 1.1 installation; no new game download is
+needed. Live testing measured 4.969 seconds of simulation in 4.969 real seconds,
+with both replicas synchronized. The cumulative source includes this server fix.
+
 ## Dedicated multiplayer preview
 
 Online Multiplayer uses the OpenHW server to run simulation/AI, validate

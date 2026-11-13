@@ -6,6 +6,7 @@ data locally; this test never downloads, publishes or replaces player data.
 import argparse
 import asyncio
 import os
+import json
 import math
 from pathlib import Path
 import struct
@@ -115,8 +116,11 @@ async def run(args):
                 assert len(wing_members)==2, 'Test fleet needs two fighters'
             seen_move=seen_paint=seen_spread=False
             bad=good=paint=spread=b''
+            timing=[]
+            if args.realtime:assert args.frames>=128
             for frame in range(args.frames):
                 packets=await asyncio.gather(receive(host,SYNC),receive(guest,SYNC))
+                if frame>=32:timing.append(asyncio.get_running_loop().time())
                 assert packets[0]==packets[1]
                 assert struct.unpack_from('<I',packets[0],4)[0]==frame
                 for r in replicas:
@@ -167,6 +171,15 @@ async def run(args):
                         await host.send(envelope(COMMAND,pilot(0,wing_leader,4,0,squad=1)))
                         print('X formation leader and wing member moved together through the server',flush=True)
                 if frame%32==31:print(f'{frame+1} VPS frames replayed by both replicas; checksums agree',flush=True)
+            if args.realtime:
+                wall=timing[-1]-timing[0]
+                simulated=(len(timing)-1)*2/64
+                ratio=simulated/wall
+                result=dict(sync_frames=len(timing)-1,physics_ticks=(len(timing)-1)*2,
+                    simulated_seconds=simulated,wall_seconds=wall,speed_ratio=ratio)
+                (args.logs/'real-time-clock.json').write_text(json.dumps(result,indent=2))
+                assert .85<=ratio<=1.15, ('Dedicated clock is not real time',result)
+                print(f'PASS: {simulated:.3f}s game time in {wall:.3f}s wall time ({ratio:.3f}x speed)',flush=True)
             assert seen_move and seen_paint and seen_spread,(seen_move,seen_paint,seen_spread)
             await host.send(envelope(PAUSE,b'\1'))
             await asyncio.gather(receive(host,PAUSED),receive(guest,PAUSED))
@@ -210,6 +223,7 @@ if __name__=='__main__':
     p.add_argument('--endpoint',default='wss://openhw.tech/multiplayer/v1');p.add_argument('--frames',type=int,default=256)
     p.add_argument('--second-exe',type=Path)
     p.add_argument('--controls',action='store_true')
+    p.add_argument('--realtime',action='store_true',help='Assert real-time wall-clock pacing after warmup (at least 128 frames)')
     p.add_argument('--finish',action='store_true')
     p.add_argument('--logs',type=Path,required=True);args=p.parse_args();args.logs.mkdir(parents=True,exist_ok=True)
     asyncio.run(run(args))

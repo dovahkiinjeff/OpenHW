@@ -42,3 +42,13 @@ another match without opening a game window.
 ## Source and hosting
 
 The implementation lives in `src/Network`, with the lobby drawn by `src/Game/ModernOnlineLobby.inc`. Server setup and developer test commands are in [the server guide](../server/README.md). Retail game content belongs only in private installed/server data directories; it is not part of the server source package.
+
+
+## Server timing correction
+
+The November 13, 2026 server-side hotfix restores normal match speed: 32 server
+command frames per second supply the engine's 64 physics ticks per second.
+Previously, the old 8 Hz command cadence made matches advance at quarter speed,
+with large gaps between movement updates despite high rendering FPS. No ship
+speed values or client executables changed. Existing 1.1 players need only start
+a new match; there is no additional game patch to download for this correction.

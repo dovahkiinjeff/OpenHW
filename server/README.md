@@ -131,3 +131,20 @@ python -m unittest discover -s server -p test_diagnostics.py -v
 ```
 
 The separate `openhw-update-mirror.timer` refreshes the verified GitHub download mirror every 15 minutes after deployment. `mirror_updates.py` uses the updater verification code installed beside it; mirrored public downloads stay in `/srv/openhw-downloads`, entirely separate from private diagnostics reports and owned game content.
+
+
+## Real-time simulation pacing
+
+The modern physics rate is 64 ticks per second. Each worker/client SYNC advances
+two ticks, so the gateway sends 32 command frames per second using monotonic
+deadlines that include worker/transport processing time. The original 8 Hz
+packet cadence advanced only one quarter of real time with this engine build.
+The server-only 1.1 timing hotfix corrects that cadence; players keep their
+existing 1.1 game files and start a new match after deployment.
+
+`test_coordinator_clock.py` exercises the actual match loop with a virtual wall
+clock and validates the engine-rate contract. Add `--realtime --frames 192` to
+`test_live.py` to measure game-time versus wall-time after warmup while replaying
+both Windows clients. The live fix measured 4.969 simulated seconds in 4.969 wall
+seconds, with matching checksums, AI/teams, controls and host pause. This checks
+simulation speed; it does not prove that every rendered movement artifact is gone.
