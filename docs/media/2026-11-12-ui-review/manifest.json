@@ -1,0 +1,137 @@
+{
+  "date": "2026-11-12",
+  "source": "User-supplied OpenHW screenshots",
+  "published": false,
+  "notes": "Original PNG files retained without rescaling or edits. Issue-evidence images document the state before fixes and are not corrected feature screenshots.",
+  "images": [
+    {
+      "file": "01-launcher-deploy.png",
+      "original": "codex-clipboard-a1d7b0b9-2327-40d7-88a6-697f6b3b07bf.png",
+      "caption": "Launcher - Deploy",
+      "role": "showcase-candidate",
+      "sha256": "6cf839bc0e37a2cd717f9e489301e313fe89b4ac23519bda39aab364827878cb",
+      "size": 1076074
+    },
+    {
+      "file": "02-launcher-mod-loadout.png",
+      "original": "codex-clipboard-e34bc9b8-9f1d-476d-a446-285b48764d34.png",
+      "caption": "Launcher - Mod Loadout",
+      "role": "showcase-candidate",
+      "sha256": "a49616e88af128054ac7db34ec8982e15c1b6811ed4356d4112ab1fb9e1cd133",
+      "size": 52195
+    },
+    {
+      "file": "03-launcher-configuration.png",
+      "original": "codex-clipboard-a837196a-7327-437d-9d3c-86d4f1644a33.png",
+      "caption": "Launcher - Configuration categories",
+      "role": "showcase-candidate",
+      "sha256": "1e82a35b965b20832a48f5bcd2918aecf938fb051cb0d9c679d479ae23e68722",
+      "size": 61646
+    },
+    {
+      "file": "04-launcher-ship-systems.png",
+      "original": "codex-clipboard-4745c7a8-9dcb-43ff-9430-3cf338d8601d.png",
+      "caption": "Launcher - maintenance, updates and voice import",
+      "role": "showcase-candidate",
+      "sha256": "1ca3a8316a82f50bf04af1b9d128031c0982502aabba927ed5532c8ae4fa7c8f",
+      "size": 61205
+    },
+    {
+      "file": "05-main-menu.png",
+      "original": "codex-clipboard-546fe339-b758-4a14-9b4c-98af22ac024f.png",
+      "caption": "Main menu",
+      "role": "showcase-candidate",
+      "sha256": "aad41c647aa48118808e05d841cc0d40f2552529dd3cfece4a5022134a3e65ca",
+      "size": 2097072
+    },
+    {
+      "file": "06-story-viewer-before-axis-fix.png",
+      "original": "codex-clipboard-4426a22b-d79c-424a-a566-18e0a2567786.png",
+      "caption": "Story setup - interceptor was standing vertically",
+      "role": "issue-evidence",
+      "sha256": "8391fc3bea2a7106dbdd7885b1f74f82dc72c74b061e0f240e836f6fe7bc1089",
+      "size": 1549771
+    },
+    {
+      "file": "07-multiplayer-menu.png",
+      "original": "codex-clipboard-8507b3f9-03c0-4911-bf7f-e6255a9d743c.png",
+      "caption": "Multiplayer navigation panel",
+      "role": "showcase-candidate",
+      "sha256": "e5ad937b21d781e9e2a31c926aee7d9362dbf46dcebdc4408fe43c4cf5b44db0",
+      "size": 1371480
+    },
+    {
+      "file": "08-modding-menu.png",
+      "original": "codex-clipboard-4c5026d5-8ccb-4025-bfbf-3f0f5b9eea2e.png",
+      "caption": "Modding navigation panel",
+      "role": "showcase-candidate",
+      "sha256": "85309e329befc0fffcbf8391011cdb28de08c886f6a60177ed40b4b7a9ff80d8",
+      "size": 2645031
+    },
+    {
+      "file": "09-parade-editor-reference.png",
+      "original": "codex-clipboard-90a5d407-4df8-4318-aa23-45389472d84f.png",
+      "caption": "Parade editor - white model rendering in the supplied reference",
+      "role": "issue-evidence",
+      "sha256": "f387c2dd8c8ef74a267819694cf3dd29016a77402cc6117c4f201e74ffc0876e",
+      "size": 173941
+    },
+    {
+      "file": "10-parade-editor-reference-duplicate.png",
+      "original": "codex-clipboard-1a4c280e-9dfe-4c62-ab9b-d2cd5f0411d0.png",
+      "caption": "Second supplied parade editor reference",
+      "role": "issue-evidence",
+      "sha256": "f387c2dd8c8ef74a267819694cf3dd29016a77402cc6117c4f201e74ffc0876e",
+      "size": 173941,
+      "duplicate_of": "09-parade-editor-reference.png"
+    },
+    {
+      "file": "11-ship-editor-reference.png",
+      "original": "codex-clipboard-664a57b7-ff10-4da4-96cc-79a8ae633e12.png",
+      "caption": "Ship editor - white model rendering in the supplied reference",
+      "role": "issue-evidence",
+      "sha256": "4c9a241e10b957eeb7c1a437012bd0cf11481108e51e3367f3d9508ce1e99808",
+      "size": 168692
+    },
+    {
+      "file": "12-mission-cinematic.png",
+      "original": "codex-clipboard-e0e2dcbc-3fb7-4aac-b789-c0c5f532f74a.png",
+      "caption": "Mission cinematic and fleet command HUD",
+      "role": "showcase-candidate",
+      "sha256": "1a14065938dc543fadd4a73413841e43f577b0e356695fd1950867329f4b3c89",
+      "size": 1230333
+    },
+    {
+      "file": "13-salvage-corvette.png",
+      "original": "codex-clipboard-5e07706a-cadf-4a2b-83e1-2bb3c51f6001.png",
+      "caption": "Salvage corvette in a mission",
+      "role": "showcase-candidate",
+      "sha256": "8ffb2fd72379bd180fbf97fb80becdd38f32c74925b1701fe7eade39fc1e6484",
+      "size": 1390078
+    },
+    {
+      "file": "14-ship-colors-before-input-fix.png",
+      "original": "codex-clipboard-9bd5a17e-6f46-4ee1-a6fe-7143378ca602.png",
+      "caption": "Single-ship colours - controls were not receiving clicks",
+      "role": "issue-evidence",
+      "sha256": "0d9eb849639ce9d3d5f0f00c6a3db12aa4c7f59e6febd27ea637b4f415070ef5",
+      "size": 859691
+    },
+    {
+      "file": "15-command-piloting.png",
+      "original": "codex-clipboard-ce15bf20-2cfc-4dda-bfbe-7fde4748c68e.png",
+      "caption": "EVE-style command piloting",
+      "role": "showcase-candidate",
+      "sha256": "0371f28fc78ded7f7755dcf374ec4e8ff25e9b2da2e0003e65aa48f614334c14",
+      "size": 1254786
+    },
+    {
+      "file": "16-direct-piloting.png",
+      "original": "codex-clipboard-a20e6d25-fbd5-4d99-b6de-80096f5021b8.png",
+      "caption": "Direct piloting controls",
+      "role": "showcase-candidate",
+      "sha256": "e0dcd9ad46abb2928fc50730117faca0d8a25b3724cd3c7f187f8601e0df5eb4",
+      "size": 1283927
+    }
+  ]
+}
