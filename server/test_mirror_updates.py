@@ -25,6 +25,18 @@ class MirrorTests(unittest.TestCase):
             self.assertEqual((root/'updates/stable.json').read_bytes(),previous)
             self.assertFalse(mirror.hosted_path(feed['fresh_install']['url'],root).exists())
 
+    def test_stale_upstream_cannot_roll_back_hosted_release(self):
+        row=dict(version='1.1',url=mirror.REPOSITORY_DOWNLOAD+'v1.1/OpenHW-Setup.exe',size=1,sha256='a'*64)
+        old=dict(schema=1,channel='stable',latest='1.1',patches=[],fresh_install=row)
+        current=dict(old,latest='1.2',fresh_install=dict(row,version='1.2',url=mirror.REPOSITORY_DOWNLOAD+'v1.2/OpenHW-Setup.exe'))
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/'updates').mkdir()
+            previous=json.dumps(current).encode();(root/'updates/stable.json').write_bytes(previous)
+            with patch.object(mirror.urllib.request,'urlopen',return_value=io.BytesIO(json.dumps(old).encode())) as fetch:
+                with self.assertRaisesRegex(ValueError,'older'):mirror.sync(root)
+                self.assertEqual(fetch.call_count,1)
+            self.assertEqual((root/'updates/stable.json').read_bytes(),previous)
+
     def test_path_traversal_and_other_repositories_refused(self):
         for url in ('https://github.com/other/repo/releases/download/v1/u.exe',mirror.REPOSITORY_DOWNLOAD+'v1/../../secrets',mirror.REPOSITORY_DOWNLOAD+'v1/%2e%2e/secret'):
             with self.assertRaises((ValueError,RuntimeError)):mirror.hosted_path(url)

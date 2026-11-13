@@ -42,6 +42,13 @@ def sync(root=ROOT):
     with urllib.request.urlopen(request,timeout=45) as response:data=response.read(MAX_JSON+1)
     if len(data)>MAX_JSON:raise ValueError('Feed too large')
     feed=validate_manifest(json.loads(data))
+    existing=root/'updates/stable.json'
+    if existing.is_file():
+        previous=validate_manifest(json.loads(existing.read_text(encoding='utf-8')))
+        if compare_versions(feed['latest'],previous['latest'])<0:
+            raise ValueError('Upstream feed is older than the hosted release; existing feed retained')
+        if feed.get('updater') and previous.get('updater') and compare_versions(feed['updater']['version'],previous['updater']['version'])<0:
+            raise ValueError('Upstream updater is older than the hosted updater; existing feed retained')
     floor=feed.get('fresh_install',{}).get('version','1.0')
     rows=[r for r in (feed.get('updater'),feed.get('fresh_install')) if r]
     rows += [p for p in feed.get('patches',[]) if compare_versions(p['to'],floor)>0]

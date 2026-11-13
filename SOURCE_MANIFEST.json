@@ -23400,8 +23400,8 @@
     },
     {
       "path": "server/mirror_updates.py",
-      "size": 3861,
-      "sha256": "d24d140a0db3ef42ce91c230e54498015a339e737d34ddf120bf16201a4dd881"
+      "size": 4430,
+      "sha256": "93e9bd7bb6fb5ed928e73c560970279175bdccba861739725c842843ddd339ff"
     },
     {
       "path": "server/openhw-diagnostics.service",
@@ -23475,8 +23475,8 @@
     },
     {
       "path": "server/test_mirror_updates.py",
-      "size": 1901,
-      "sha256": "ceaa23789b1a3cec4904b25c6b18fb39f57b34e84d02f29023f78e6d3a523365"
+      "size": 2844,
+      "sha256": "8162ba6a913a39444cbb52347d6232270e127975566876630e7dcce25b6b119b"
     },
     {
       "path": "src/Game/AIAttackMan.c",
@@ -28800,8 +28800,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 3745,
-      "sha256": "8349d2a7592afd806113a95e454908c22ae95ced8e40d30935a0488fc833715f"
+      "size": 5128,
+      "sha256": "b33061233dfe9480abe9426590d16978b1a298c2d02884808da5422643e9b294"
     },
     {
       "path": "vcpkg.json",
