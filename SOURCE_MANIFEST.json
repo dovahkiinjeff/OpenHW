@@ -22940,8 +22940,8 @@
     },
     {
       "path": "docs/COMMUNITY_FIXES_2026_11_13.md",
-      "size": 3134,
-      "sha256": "9e779f8001b8d43a2659c56222494f74f13d7923fa3dea223ac75fb1ccebc04b"
+      "size": 3161,
+      "sha256": "7ace460e54d1e28d926f9df4b37b3aef60f461ac3f8089e702e6cb6ecaed3672"
     },
     {
       "path": "docs/DX11_COMPATIBILITY.md",
@@ -23307,11 +23307,6 @@
       "path": "README.md",
       "size": 40007,
       "sha256": "156c5c7cc2df7cfb344d63750b040808ff22fa270b9869c809738bbaa43da5ba"
-    },
-    {
-      "path": "RELEASE_NOTES_0.92.0_BETA1.md",
-      "size": 4505,
-      "sha256": "c2dbd37cc1e80c392395c4871fffa4c78ec3b5e10431def4d618469bf73cf85f"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -28265,8 +28260,8 @@
     },
     {
       "path": "tools/export_release_source.py",
-      "size": 5219,
-      "sha256": "eecaee4cf7cd997567107a5043031ab8583aea40838ddff9ae9115ae0908781f"
+      "size": 5344,
+      "sha256": "e86a741878187ee222609a706e5275f380b5338776b0571d96b2247c540f1ef4"
     },
     {
       "path": "tools/extract_classic_big.py",
@@ -28842,11 +28837,6 @@
       "path": "Windows/HomeworldModern.rc.in",
       "size": 63,
       "sha256": "3cc5db3cb4f1e35580435ecd7234844fe34f82f2a7dd10282375522824bc7283"
-    },
-    {
-      "path": "Windows/package-0.92.0-beta.1.ps1",
-      "size": 3842,
-      "sha256": "1e41613a510bd8b60975be174573f63568e9cd0553690b5990525b57012474ba"
     },
     {
       "path": "Windows/release-python-requirements.txt",

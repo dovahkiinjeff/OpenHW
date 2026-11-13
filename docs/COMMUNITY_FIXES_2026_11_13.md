@@ -1,6 +1,6 @@
-# Community report corrections - development preview
+# Community report corrections - OpenHW 1.1
 
-These changes are prepared for player verification, not a new published release.
+These changes are included in OpenHW 1.1. Player verification of full mission and battle behavior remains important.
 
 - **Capture delivery:** restored the coherent Classic salvage entry route and outer arrival envelope. The 1.0.7 close holding point combined a Remastered interior waypoint with Classic approach directions and could prevent a towed frigate from reaching the port-reservation stage. This concerns delivery into the mothership, rather than initial capture success.
 - **Khar-Selim:** native wreck contacts are rechecked at final approach. Both native salvage corvettes now account for their own forward grip when aligning with the wreck surface. Heading must align before latching. Saved relative clamp offsets are repaired without changing the mission's salvage state.

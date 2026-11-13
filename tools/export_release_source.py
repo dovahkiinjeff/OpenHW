@@ -22,6 +22,7 @@ def export(repo, output, profile=None, version='1.1'):
     verify_profile(profile)
     output.mkdir(parents=True,exist_ok=True)
     def copy(path):
+        if path.relative_to(repo).as_posix() in {'RELEASE_NOTES_0.92.0_BETA1.md','Windows/package-0.92.0-beta.1.ps1'}:return
         if path.is_symlink():raise ValueError('Source export refuses symlinks: '+str(path))
         target=output/path.relative_to(repo);target.parent.mkdir(parents=True,exist_ok=True)
         shutil.copyfile(path,target)
