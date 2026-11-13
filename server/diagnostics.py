@@ -8,12 +8,14 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hashlib
+import hmac
 import ipaddress
 import json
 import logging
 import os
 from pathlib import Path
 import re
+import secrets
 import shutil
 import socket
 import stat
@@ -27,6 +29,7 @@ import zipfile
 import zlib
 
 ENDPOINT = '/diagnostics/v1/reports'
+PROFILES = '/diagnostics/v1/profiles'
 MIB = 1024 * 1024
 MAX_METADATA = 64 * 1024
 ALLOWED_LOG_EXTENSIONS = {'.log', '.txt', '.json', '.dmp'}
@@ -46,8 +49,8 @@ class Limits:
     socket_seconds: float = 15
     connections: int = 4
     uploads: int = 2
-    per_ip_requests: int = 6
-    global_requests: int = 60
+    per_ip_requests: int = 120
+    global_requests: int = 600
     rate_seconds: float = 600
     rate_keys: int = 4096
 
@@ -112,7 +115,7 @@ def validate_archive(path, limits):
             members = archive.infolist()
             if not 2 <= len(members) <= limits.members:
                 raise ReportError(400, 'Invalid archive member count')
-            names, actual, declared, total, metadata = set(), {}, 0, 0, None
+            names, actual, digests, declared, total, metadata = set(), {}, {}, 0, 0, None
             for member in members:
                 name = _member_name(member.orig_filename)
                 key = unicodedata.normalize('NFC', name).casefold()
@@ -128,12 +131,13 @@ def validate_archive(path, limits):
                     raise ReportError(413, 'Expanded report exceeds the limit')
                 if name == 'report.json' and member.file_size > MAX_METADATA:
                     raise ReportError(413, 'Report metadata is too large')
-                count, chunks = 0, []
+                count, chunks, digest = 0, [], hashlib.sha256()
                 with archive.open(member) as stream:
                     while chunk := stream.read(64 * 1024):
                         if time.monotonic() > deadline:
                             raise ReportError(408, 'ZIP validation deadline exceeded')
                         count += len(chunk)
+                        digest.update(chunk)
                         total += len(chunk)
                         if total > limits.expanded_bytes or count > member.file_size:
                             raise ReportError(413, 'Expanded report exceeds its declared bounds')
@@ -148,10 +152,13 @@ def validate_archive(path, limits):
                         raise ReportError(400, 'Invalid report metadata') from error
                 else:
                     actual[name] = count
+                    digests[name] = digest.hexdigest()
             if not isinstance(metadata, dict) or type(metadata.get('schema')) is not int or metadata['schema'] != 1:
                 raise ReportError(400, 'Unsupported report schema')
-            if set(metadata) - {'schema', 'alias', 'comment', 'files', 'created_utc', 'game_version'}:
+            if set(metadata) - {'schema', 'alias', 'comment', 'files', 'created_utc', 'game_version', 'profile_id'}:
                 raise ReportError(400, 'Unsupported metadata fields')
+            if 'profile_id' in metadata and not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', str(metadata['profile_id'])):
+                raise ReportError(400, 'Invalid upload profile')
             alias, comment = metadata.get('alias'), metadata.get('comment')
             if (not isinstance(alias, str) or not alias.strip() or len(alias) > 80 or
                     any(ord(ch) < 32 for ch in alias) or not isinstance(comment, str) or len(comment) > 4000 or '\0' in comment):
@@ -175,12 +182,23 @@ def validate_archive(path, limits):
                 raise ReportError(400, 'Invalid report file inventory')
             inventory = {}
             for entry in entries:
-                if not isinstance(entry, dict) or set(entry) != {'path', 'size'}:
+                if not isinstance(entry, dict) or not {'path', 'size'} <= set(entry) or set(entry) - {'path', 'size', 'source', 'offset', 'sha256'}:
                     raise ReportError(400, 'Invalid report file inventory')
                 name = _member_name(entry['path'])
                 if name == 'report.json' or name in inventory or type(entry['size']) is not int or entry['size'] < 0:
                     raise ReportError(400, 'Invalid report file inventory')
                 inventory[name] = entry['size']
+                if set(entry) != {'path', 'size'}:
+                    source = entry.get('source', '')
+                    if (set(entry) != {'path', 'size', 'source', 'offset', 'sha256'} or
+                            not isinstance(source, str) or len(source) > 1024 or
+                            not source.startswith('Development/Logs/') or '\\' in source or
+                            any(part in ('', '.', '..') for part in source.split('/')) or
+                            any(ord(c) < 32 for c in source) or
+                            Path(source).suffix.lower() not in ALLOWED_LOG_EXTENSIONS or
+                            type(entry['offset']) is not int or not 0 <= entry['offset'] <= 2**50 or
+                            entry['sha256'] != digests.get(name)):
+                        raise ReportError(400, 'Invalid log chunk or checksum')
             if inventory != actual or sum(name.startswith('logs/') for name in inventory) > 60 or sum(name.startswith('saves/') for name in inventory) > 1:
                 raise ReportError(400, 'Report inventory does not match ZIP contents')
             return metadata
@@ -331,19 +349,73 @@ class IntakeHandler(BaseHTTPRequestHandler):
         return str(peer.ipv4_mapped if isinstance(peer, ipaddress.IPv6Address) and peer.ipv4_mapped else peer)
 
     def body_size(self):
-        if self.path != ENDPOINT:
+        if self.path not in (ENDPOINT, PROFILES):
             raise ReportError(404, 'Unknown diagnostics endpoint')
-        if self.headers.get('Content-Type', '').split(';')[0].strip().lower() != 'application/zip':
-            raise ReportError(415, 'Expected application/zip')
+        expected = 'application/json' if self.path == PROFILES else 'application/zip'
+        if self.headers.get('Content-Type', '').split(';')[0].strip().lower() != expected:
+            raise ReportError(415, 'Unexpected request content type')
         if self.headers.get('Transfer-Encoding') or self.headers.get('Content-Encoding', 'identity').lower() != 'identity':
             raise ReportError(400, 'Transfer or content encoding is not supported')
         values = self.headers.get_all('Content-Length', [])
         if len(values) != 1 or not re.fullmatch(r'[0-9]{1,12}', values[0]):
             raise ReportError(411, 'One valid Content-Length is required')
         size = int(values[0])
-        if not 1 <= size <= self.server.limits.body_bytes:
+        if not 1 <= size <= (8192 if self.path == PROFILES else self.server.limits.body_bytes):
             raise ReportError(413, 'Compressed report exceeds 64 MiB')
         return size
+
+    def profile(self, identity):
+        if not isinstance(identity, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', identity):
+            raise ReportError(403, 'Invalid upload profile')
+        folder = self.server.root / identity
+        record = folder / 'profile.json'
+        if folder.is_symlink() or record.is_symlink() or not record.is_file():
+            raise ReportError(403, 'Upload profile is unavailable')
+        data = json.loads(record.read_text(encoding='utf-8'))
+        supplied = self.headers.get('Authorization', '')
+        if not re.fullmatch(r'Bearer [A-Za-z0-9_-]{43}', supplied):
+            raise ReportError(403, 'Upload profile authorization required')
+        if not hmac.compare_digest(hashlib.sha256(supplied[7:].encode()).hexdigest(), data['token_sha256']):
+            raise ReportError(403, 'Upload profile authorization failed')
+        return folder, data
+
+    def save_profile(self, staging):
+        try:
+            data = json.loads(staging.read_text(encoding='utf-8'), object_pairs_hook=_json_object)
+        except (ValueError, UnicodeError, RecursionError) as error:
+            raise ReportError(400, 'Invalid profile details') from error
+        if (not isinstance(data, dict) or data.get('schema') != 1 or
+                set(data) - {'schema', 'name', 'comment', 'profile_id'}):
+            raise ReportError(400, 'Invalid profile details')
+        name, comment = data.get('name'), data.get('comment')
+        if (not isinstance(name, str) or not name.strip() or len(name) > 80 or
+                any(ord(c) < 32 for c in name) or not isinstance(comment, str) or
+                len(comment) > 4000 or '\0' in comment):
+            raise ReportError(400, 'Enter a community alias and a comment under 4,000 characters')
+        timestamp = datetime.now(timezone.utc).isoformat()
+        token = None
+        if 'profile_id' in data:
+            folder, record = self.profile(data['profile_id'])
+            record.update(name=name.strip(), comment=comment, updated_utc=timestamp)
+        else:
+            slug = re.sub(r'[^A-Za-z0-9_-]+', '-', unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode()).strip('-_')[:32] or 'reporter'
+            identity = slug + '-' + uuid.uuid4().hex
+            folder = self.server.root / identity
+            folder.mkdir(mode=0o700)
+            token = secrets.token_urlsafe(32)
+            record = dict(schema=1, profile_id=identity, name=name.strip(), comment=comment,
+                          created_utc=timestamp, token_sha256=hashlib.sha256(token.encode()).hexdigest())
+        pending = folder / ('.profile-' + uuid.uuid4().hex + '.json')
+        try:
+            with pending.open('x', encoding='utf-8') as output:
+                json.dump(record, output, ensure_ascii=True, indent=2)
+                output.flush(); os.fsync(output.fileno())
+            pending.replace(folder / 'profile.json')
+        finally:
+            pending.unlink(missing_ok=True)
+        result = dict(profile_id=record['profile_id'], name=record['name'], comment=record['comment'])
+        if token: result['upload_token'] = token
+        self.reply(201, **result)
 
     def handle_expect_100(self):
         try:
@@ -382,10 +454,29 @@ class IntakeHandler(BaseHTTPRequestHandler):
                     remaining -= len(chunk)
                 destination.flush()
                 os.fsync(destination.fileno())
+            if self.path == PROFILES:
+                self.save_profile(staging)
+                return
             metadata = validate_archive(staging, self.server.limits)
             timestamp = datetime.now(timezone.utc)
             alias = re.sub(r'[^A-Za-z0-9_-]+', '-', unicodedata.normalize('NFKD', metadata['alias']).encode('ascii', 'ignore').decode()).strip('-_')[:32] or 'reporter'
             report_id = alias + '-' + timestamp.strftime('%Y%m%dT%H%M%SZ') + '-' + uuid.uuid4().hex[:16]
+            if 'profile_id' in metadata:
+                folder, profile = self.profile(metadata['profile_id'])
+                if metadata['alias'] != profile['name']:
+                    raise ReportError(400, 'Save your profile name before uploading')
+                record = dict(metadata, report_id=report_id, received_utc=timestamp.isoformat(), archive_sha256=digest.hexdigest())
+                record_path = folder / (report_id + '.json')
+                try:
+                    with record_path.open('x', encoding='utf-8') as output:
+                        json.dump(record, output, ensure_ascii=True, indent=2)
+                    staging.replace(folder / (report_id + '.zip'))
+                except Exception:
+                    record_path.unlink(missing_ok=True)
+                    raise
+                staging = None
+                self.reply(201, report_id=report_id, profile_id=profile['profile_id'])
+                return
             completed = self.server.root / report_id
             completed.mkdir(mode=0o700)
             record = dict(metadata, report_id=report_id, received_utc=timestamp.isoformat(), archive_sha256=digest.hexdigest())

@@ -1,2 +1,4 @@
 #pragma once
-#define OPENHW_UPDATER_VERSION "1.1.0"
+#define OPENHW_UPDATER_VERSION "1.1.2"
+
+#define OPENHW_LAUNCHER_VERSION "1.1.2"

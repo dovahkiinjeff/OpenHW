@@ -11,6 +11,7 @@ def main():
     for n in ('source','installed','normal','diagnostic','bootstrap','output','work','pyinstaller-modules'):
         p.add_argument('--'+n,type=Path,required=True)
     p.add_argument('--launcher',type=Path,required=True)
+    p.add_argument('--version',default='1.0.7',choices=['1.0.7','1.1.1'])
     a=p.parse_args();sys.path.insert(0,str(a.pyinstaller_modules.resolve()))
     from PyInstaller.archive.readers import CArchiveReader
     from PyInstaller.archive.writers import CArchiveWriter
@@ -21,7 +22,7 @@ def main():
     pyz_name=next(n for n,r in pkg.toc.items() if r[4]=='z')
     pyz_file=a.work/'original.pyz';pyz_file.write_bytes(pkg.extract(pyz_name))
     pyz=ZlibArchiveReader(str(pyz_file),check_pymagic=True);raw_pyz=pyz_file.read_bytes()
-    replacements={name:compile((a.source/'tools'/(name+'.py')).read_text(),name+'.py','exec') for name in ('release_patch','release_sky_lighting')}
+    replacements={name:compile((a.source/'tools'/('release_patch111.py' if name=='release_patch' and a.version=='1.1.1' else name+'.py')).read_text(),name+'.py','exec') for name in ('release_patch','release_sky_lighting')}
     if 'generate_mission_skies' not in pyz.toc:raise ValueError('Installed converter lacks the required sky generator')
     new_pyz=io.BytesIO();new_pyz.write(raw_pyz[:17]);toc=[]
     for name,(kind,start,size) in pyz.toc.items():
@@ -55,6 +56,10 @@ def main():
         'Development/Installer/OpenHW-SetupEngine.exe':rebuilt,
         'Development/Installer/Development/sky_materials/btg_microstructure.png':a.source/'tools/sky_materials/btg_microstructure.png',
     }
+    if a.version=='1.1.1':
+        import sysconfig
+        files={'Launcher.exe':a.launcher,'Development/Installer/OpenHW-SetupEngine.exe':rebuilt,
+               'Development/Installer/Development/codex-rejected-cas.pem':Path(sysconfig.get_path('stdlib'))/'codex-rejected-cas.pem'}
     rows=[]
     for name,path in files.items():
         with path.open('rb') as f:digest=hashlib.file_digest(f,'sha256').hexdigest()
@@ -62,15 +67,15 @@ def main():
     payload=a.work/'patch.zip'
     with zipfile.ZipFile(payload,'w',zipfile.ZIP_DEFLATED,compresslevel=6,allowZip64=True) as z:
         for name,path in files.items():z.write(path,name)
-        z.writestr('Development/Patches/1.0.7/patch.json',json.dumps(dict(version='1.0.7',files=rows),indent=2))
+        z.writestr('Development/Patches/'+a.version+'/patch.json',json.dumps(dict(version=a.version,files=rows),indent=2))
     with payload.open('rb') as f:digest=hashlib.file_digest(f,'sha256').digest()
-    pending=a.work/'OpenHW-Patch-1.0.7.exe'
+    pending=a.work/('OpenHW-Patch-'+a.version+'.exe')
     with pending.open('wb') as out,a.bootstrap.open('rb') as bootstrap,payload.open('rb') as archive:
         shutil.copyfileobj(bootstrap,out);offset=out.tell();shutil.copyfileobj(archive,out)
         out.write(struct.pack('<16sQQ32s',b'OPENHW1SETUPZIP\0',offset,payload.stat().st_size,digest))
     shutil.copyfile(pending,a.output)
     with a.output.open('rb') as f:checksum=hashlib.file_digest(f,'sha256').hexdigest()
-    report=dict(file=str(a.output),bytes=a.output.stat().st_size,sha256=checksum,version='1.0.7',files=rows,gameLaunched=False,patchExecuted=False)
+    report=dict(file=str(a.output),bytes=a.output.stat().st_size,sha256=checksum,version=a.version,files=rows,gameLaunched=False,patchExecuted=False)
     (a.work/'build-receipt.json').write_text(json.dumps(report,indent=2));print(json.dumps(report,indent=2))
 
 if __name__=='__main__':main()

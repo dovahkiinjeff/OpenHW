@@ -18,13 +18,14 @@ def main():
     for name in ('source','installed','bootstrap','pyinstaller-modules','output','work'):
         parser.add_argument('--'+name, type=Path, required=True)
     parser.add_argument('--launcher',action='store_true')
+    parser.add_argument('--bundle',type=Path)
     args = parser.parse_args(); sys.path.insert(0,str(args.pyinstaller_modules.resolve()))
     from PyInstaller.archive.readers import CArchiveReader
     from PyInstaller.archive.writers import CArchiveWriter
     from PyInstaller.loader.pyimod01_archive import ZlibArchiveReader
-    version = '1.1.0'
+    version = '1.1.2'
     source = args.source.resolve(); args.work.mkdir(parents=True, exist_ok=True)
-    for path in ('tools/openhw_updater.py','tools/UpdaterVersion.h'):
+    for path in (('tools/openhw_launcher.py' if args.launcher else 'tools/openhw_updater.py'),'tools/UpdaterVersion.h'):
         if version not in (source/path).read_text(encoding='utf-8'): raise ValueError('Updater version mismatch')
     original = args.installed/'Development/Installer/OpenHW-SetupEngine.exe'
     engine = original.read_bytes(); pkg = CArchiveReader(str(original))
@@ -37,6 +38,15 @@ def main():
     if args.launcher: modules+=['openhw_launcher','openhw_launcher_ui','launcher_settings','launcher_languages','openhw_diagnostics']
     replacements = {module:compile((source/'tools'/(module+'.py')).read_text(encoding='utf-8'),module+'.py','exec')
                     for module in modules}
+    # Some build runtimes ship an SSL policy certificate beside ssl.py.
+    # Preserve that policy file: importing ssl succeeds without it, but
+    # constructing the first verified HTTPS context otherwise raises ENOENT.
+    ssl_policy = None
+    if b'codex-rejected-cas.pem' in marshal.dumps(pyz.extract('ssl')):
+        candidates = (args.installed/'Development/Installer/Development/codex-rejected-cas.pem',
+                      Path(sysconfig.get_path('stdlib'))/'codex-rejected-cas.pem')
+        ssl_policy = next((path for path in candidates if path.is_file()), None)
+        if ssl_policy is None: raise ValueError('The frozen SSL module requires its build-runtime certificate policy file')
     if args.launcher:
         for module in ('tkinter.ttk','tkinter.messagebox','tkinter.filedialog','tkinter.simpledialog','tkinter.commondialog','extract_vanilla_ship_textures'):
             if module not in pyz.toc: raise ValueError('Launcher runtime is missing '+module)
@@ -57,7 +67,7 @@ def main():
     entry = compile('''import sys,os,traceback
 try:
     from '''+('openhw_launcher' if args.launcher else 'openhw_updater')+''' import main
-    main()
+    main('''+(repr('Development/Updater/Bundled/manifest.json') if args.bundle else '')+''')
 except Exception:
     if '--verify-payload' in sys.argv:
         traceback.print_exc()
@@ -83,6 +93,11 @@ except Exception:
     archive = args.work/'updater.zip'
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as out:
         out.write(helper,'Development/'+('Launcher' if args.launcher else 'Updater')+'/Runtime/'+version+'/'+helper.name)
+        if args.bundle:
+            for path in args.bundle.rglob('*'):
+                if path.is_file():out.write(path,path.relative_to(args.bundle).as_posix())
+        if ssl_policy:
+            out.write(ssl_policy,'Development/'+('Launcher' if args.launcher else 'Updater')+'/Runtime/'+version+'/Development/codex-rejected-cas.pem')
         if args.launcher:
             theme=source/'assets/Launcher'
             for asset in sorted(theme.iterdir()):

@@ -26,6 +26,10 @@ def main():
               'tkinter.ttk','tkinter.messagebox','tkinter.filedialog','tkinter.simpledialog',
               'tkinter.commondialog','sqlite3']
     sys.argv+=['--add-data',str(repo/'tools/sky_materials/btg_microstructure.png')+';sky_materials']
+    # Keep optional SSL policy data required by the Python build runtime.
+    import sysconfig
+    ssl_policy=Path(sysconfig.get_path('stdlib'))/'codex-rejected-cas.pem'
+    if ssl_policy.is_file():sys.argv+=['--add-data',str(ssl_policy)+';.']
     for module in modules:sys.argv+=['--hidden-import',module]
     sys.argv+=[str(repo/'tools/release_setup.py')];runpy.run_module('PyInstaller',run_name='__main__')
     notices=a.output/'OpenHW-Setup/ThirdPartyNotices';notices.mkdir(parents=True,exist_ok=True)

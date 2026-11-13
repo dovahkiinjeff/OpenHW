@@ -76,9 +76,13 @@ unmodified 1.1 installs. See [the multiplayer guide](MULTIPLAYER_PREVIEW.md).
 ## Diagnostics and installation
 
 The main-menu Diagnostics action opens a report window through the launcher.
-Review selected logs, enter an alias/comment and optionally attach a save
-before choosing to upload. Reports use private server storage. Sending is
-explicit; normal play does not automatically upload files.
+Select or save a diagnostics name using your community alias and add a comment.
+Saving creates a persistent private server folder. Upload all new logs sends every
+previously unuploaded log/crash dump, including nested log folders, in bounded
+batches. Changed logs are eligible again; acknowledged batches are remembered
+and interrupted uploads can be retried. This save name identifies the report
+folder, not a campaign save. Sending is explicit; normal play never uploads files.
+The Diagnostics window can open while the main Launcher remains open.
 
 Setup rejects old installations even without their completion receipt.
 Interrupted 1.1 conversion resumes only with its matching recorded payload.

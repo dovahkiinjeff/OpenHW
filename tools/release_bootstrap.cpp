@@ -18,9 +18,13 @@
 #include <algorithm>
 #include <cstring>
 #include <cwctype>
+#include <fstream>
+#include <regex>
 #ifdef OPENHW_UPDATER
 #include "UpdaterVersion.h"
 #ifdef OPENHW_LAUNCHER
+#undef OPENHW_UPDATER_VERSION
+#define OPENHW_UPDATER_VERSION OPENHW_LAUNCHER_VERSION
 static constexpr const wchar_t* utilityFolder=L"Launcher";
 static constexpr const wchar_t* utilityEngine=L"LauncherEngine.exe";
 static constexpr const wchar_t* utilityLog=L"Logs/launcher-bootstrap.log";
@@ -48,7 +52,7 @@ static void createProgress(){
         L"OpenHW Updater",
 #endif
 #elif defined(OPENHW_PATCH_INSTALLER)
-        L"OpenHW 1.0.7 patch",
+        L"OpenHW patch",
 #else
         L"OpenHW 1.1 setup",
 #endif
@@ -83,9 +87,12 @@ static DWORD launch(const std::wstring& application,std::wstring arguments,HANDL
     DWORD code=1;GetExitCodeProcess(process.hProcess,&code);CloseHandle(process.hProcess);return code;
 }
 int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
-    const bool quiet=args && std::wstring(args).find(L"--verify-payload")!=std::wstring::npos;
+    const bool verify=args && std::wstring(args).find(L"--verify-payload")!=std::wstring::npos;
+    const bool checkFeed=args && std::wstring(args).find(L"--check-update-feed")!=std::wstring::npos;
+    const bool quiet=verify || checkFeed;
     HANDLE source=INVALID_HANDLE_VALUE,output=INVALID_HANDLE_VALUE,log=INVALID_HANDLE_VALUE;
     BCRYPT_ALG_HANDLE algorithm=nullptr;BCRYPT_HASH_HANDLE hash=nullptr;
+    HANDLE preparationMutex=nullptr;
     try{
         wchar_t executable[32768]={};check(GetModuleFileNameW(nullptr,executable,32768)!=0,"Cannot locate this installer.");
         auto root=std::filesystem::path(executable).parent_path();
@@ -95,9 +102,15 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
               "Place this utility beside OpenHW.exe in an installed OpenHW folder. Complete the base installation first.");
         unsigned long long rootHash=1469598103934665603ull;
         for(auto c:root.wstring()){rootHash^=static_cast<unsigned long long>(towlower(c));rootHash*=1099511628211ull;}
-        const auto mutexName=std::wstring(L"Local\\OpenHW")+utilityFolder+L"-"+std::to_wstring(rootHash);
+        #ifdef OPENHW_LAUNCHER
+        const bool diagnostics=args && wcsstr(args,L"--diagnostics-report");
+        const auto mode=diagnostics?L"-Diagnostics":L"";
+#else
+        const auto mode=L"";
+#endif
+        const auto mutexName=std::wstring(L"Local\\OpenHW")+utilityFolder+mode+L"-"+std::to_wstring(rootHash);
         HANDLE updaterMutex=CreateMutexW(nullptr,TRUE,mutexName.c_str());
-        check(updaterMutex!=nullptr && GetLastError()!=ERROR_ALREADY_EXISTS,"An updater is already running in this folder.");
+        check(updaterMutex!=nullptr && GetLastError()!=ERROR_ALREADY_EXISTS,"This utility window is already open in this folder.");
         SetEnvironmentVariableW(L"OPENHW_UPDATER_EXE",executable);
         SetEnvironmentVariableW(L"OPENHW_UPDATER_BOOTSTRAP_PID",std::to_wstring(GetCurrentProcessId()).c_str());
 #endif
@@ -114,6 +127,11 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         check(std::filesystem::is_regular_file(root/L"setup-complete.json") &&
               std::filesystem::is_regular_file(root/L"Development/Installer/Development/python312.dll"),
               "Select an installed OpenHW 1.0 folder, not the original Collection.");
+#ifdef OPENHW_PATCH_111
+        std::ifstream versionFile(root/L"version.json");
+        std::string versionText((std::istreambuf_iterator<char>(versionFile)),std::istreambuf_iterator<char>());
+        check(std::regex_search(versionText,std::regex(R"version("version"\s*:\s*"1\.1(?:\.0)?")version")),"This patch requires a fresh OpenHW 1.1 installation.");
+#else
         check(std::filesystem::is_regular_file(root/L"Development/Patches/1.0.6/applied.json"),
               "Install OpenHW and every patch through 1.0.6 before applying this patch.");
         HANDLE snapshot=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
@@ -123,7 +141,12 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
             if(!_wcsicmp(entry.szExeFile,L"OpenHW.exe") || !_wcsicmp(entry.szExeFile,L"OpenHW-Daignostics.exe") || !_wcsicmp(entry.szExeFile,L"Launcher.exe"))running=true;
         }while(Process32NextW(snapshot,&entry));CloseHandle(snapshot);
         check(!running,"Close OpenHW, OpenHW-Daignostics and Launcher before applying this patch.");
+        #endif
+#ifdef OPENHW_PATCH_111
+        const auto backup=root/L"Development/Patches/1.1.1/Backup";
+#else
         const auto backup=root/L"Development/Patches/1.0.7/Backup";
+#endif
         std::filesystem::create_directories(backup);
         for(const wchar_t* name:{L"OpenHW.exe",L"OpenHW-Daignostics.exe",L"Launcher.exe",L"version.json"})
             if(std::filesystem::is_regular_file(root/name) && !std::filesystem::exists(backup/name))
@@ -141,9 +164,29 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
 #else
             L"Logs/bootstrap.log"
 #endif
-            ).c_str(),FILE_APPEND_DATA,FILE_SHARE_READ,&security,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
+            ).c_str(),FILE_APPEND_DATA,FILE_SHARE_READ|FILE_SHARE_WRITE,&security,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
 #ifndef OPENHW_LAUNCHER
         if(!quiet)createProgress();
+#endif
+#ifdef OPENHW_LAUNCHER
+        // Serialize first extraction only. The main Launcher remains open while
+        // a separate Diagnostics window uses the already prepared helper.
+        const auto preparationName=std::wstring(L"Local\\OpenHWLauncherPrepare-")+std::to_wstring(rootHash);
+        preparationMutex=CreateMutexW(nullptr,FALSE,preparationName.c_str());
+        check(preparationMutex!=nullptr,"Cannot prepare the launcher runtime.");
+        const DWORD wait=WaitForSingleObject(preparationMutex,60000);
+        check(wait==WAIT_OBJECT_0 || wait==WAIT_ABANDONED,"The launcher is still preparing. Try again shortly.");
+        const auto prepared=development/utilityFolder/L"Runtime"/OPENHW_UPDATER_VERSION;
+        if(std::filesystem::is_regular_file(prepared/L"runtime-ready.txt") &&
+           std::filesystem::is_regular_file(prepared/utilityEngine) &&
+           std::filesystem::is_regular_file(prepared/L"Development/python312.dll") &&
+           std::filesystem::is_regular_file(prepared/L"Development/_ssl.pyd")){
+            ReleaseMutex(preparationMutex);CloseHandle(preparationMutex);preparationMutex=nullptr;
+            const DWORD result=launch((prepared/utilityEngine).wstring(),L"--root "+quote(root.wstring())+
+                (verify?L" --verify-payload":checkFeed?L" --check-update-feed":L"")+(diagnostics?L" --diagnostics-report":L""),log,!quiet);
+            if(log!=INVALID_HANDLE_VALUE)CloseHandle(log);
+            return int(result);
+        }
 #endif
         source=CreateFileW(executable,GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
         check(source!=INVALID_HANDLE_VALUE,"Cannot read installer package.");
@@ -219,6 +262,7 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
             check(ready!=INVALID_HANDLE_VALUE,"Cannot finish preparing the updater runtime.");CloseHandle(ready);
         }
 #endif
+        if(preparationMutex){ReleaseMutex(preparationMutex);CloseHandle(preparationMutex);preparationMutex=nullptr;}
         if(windowHandle){DestroyWindow(windowHandle);windowHandle=labelHandle=progressHandle=nullptr;}
 #ifdef OPENHW_UPDATER
         const auto engine=development/utilityFolder/L"Runtime"/OPENHW_UPDATER_VERSION/utilityEngine;
@@ -227,7 +271,7 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
 #endif
         const DWORD result=launch(engine.wstring(),
 #ifdef OPENHW_UPDATER
-            L"--root "+quote(root.wstring())+(quiet?L" --verify-payload":L"")
+            L"--root "+quote(root.wstring())+(verify?L" --verify-payload":checkFeed?L" --check-update-feed":L"")
 #ifdef OPENHW_LAUNCHER
             +(wcsstr(GetCommandLineW(),L"--diagnostics-report")?L" --diagnostics-report":L"")
 #endif
@@ -240,6 +284,7 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
             log,!quiet);
         if(log!=INVALID_HANDLE_VALUE)CloseHandle(log);return int(result);
     }catch(const std::exception& error){
+        if(preparationMutex){ReleaseMutex(preparationMutex);CloseHandle(preparationMutex);}
         if(log!=INVALID_HANDLE_VALUE){DWORD written=0;WriteFile(log,error.what(),DWORD(std::strlen(error.what())),&written,nullptr);WriteFile(log,"\r\n",2,&written,nullptr);}
         if(source!=INVALID_HANDLE_VALUE)CloseHandle(source);if(output!=INVALID_HANDLE_VALUE)CloseHandle(output);
         if(hash)BCryptDestroyHash(hash);if(algorithm)BCryptCloseAlgorithmProvider(algorithm,0);if(log!=INVALID_HANDLE_VALUE)CloseHandle(log);

@@ -16,7 +16,7 @@ SERVICE = Path('/etc/systemd/system/openhw-diagnostics.service')
 BEGIN = '    # BEGIN OPENHW PRIVATE DIAGNOSTICS'
 END = '    # END OPENHW PRIVATE DIAGNOSTICS'
 ROUTE = '''    # BEGIN OPENHW PRIVATE DIAGNOSTICS
-    handle /diagnostics/v1/reports {
+    handle /diagnostics/v1/* {
         request_body {
             max_size 64MiB
         }

@@ -58,3 +58,11 @@ python tools/package_updater.py --launcher --source . --installed F:\OpenHW1 --b
 ```
 
 Packaging reuses the completed installer's frozen Python support. Launcher.exe prepares its own private runtime under `Development/Launcher/Runtime/1.0.1`, so it does not need a system Python installation and does not rely on a future patch preserving the original installer runtime.
+
+## Named Diagnostics folders
+
+Open **Diagnostics** from the game main menu or **Ship Systems > Report an issue** in the Launcher. The main Launcher can remain open. Select an existing diagnostics name or choose **New diagnostics folder**. Enter your Homeworld/modding-community alias and a comment, then click **Save name + comment**. This creates a persistent private folder on openhw.tech; later saves update that same folder. The name is separate from campaign save files.
+
+Click **Upload all new logs** to upload every log/crash dump under Development/Logs that has not already been acknowledged. There is no newest-file limit or manual file selection. Nested folders and duplicate basenames are supported. Large files are split into 32 MiB chunks and at most 60 chunks are sent per bounded batch. Changed files are eligible again; previously acknowledged chunks are skipped. If a batch fails, retry the upload: successful earlier batches remain recorded.
+
+The folder identity, private upload credential, saved comment and content hashes are stored only in Development/Reports/profiles.json. Keep that file when moving an installation to preserve saved folders and upload history. No upload runs in the background during normal gameplay. Logs can contain local paths; reports are private to the OpenHW team.

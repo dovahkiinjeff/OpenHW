@@ -15,7 +15,7 @@ import openhw_updater as updater
 from launcher_settings import SETTINGS
 import launcher_languages
 
-VERSION = '1.1.0'
+VERSION = '1.1.2'
 MOD_NAME = re.compile(r'[A-Za-z0-9_-]{1,64}\Z')
 LANGUAGES = ('English', 'French', 'German', 'Spanish', 'Italian')
 
@@ -177,8 +177,11 @@ def main():
     import argparse
     parser=argparse.ArgumentParser(description=__doc__); parser.add_argument('--root',type=Path,required=True); parser.add_argument('--verify-payload',action='store_true')
     parser.add_argument('--diagnostics-report',action='store_true')
+    parser.add_argument('--check-update-feed',action='store_true')
     args=parser.parse_args(); root=args.root.resolve()
-    if args.verify_payload:
+    if args.check_update_feed:
+        updater.check_update_feed(root, 'Launcher')
+    elif args.verify_payload:
         from tkinter import ttk, messagebox, filedialog, simpledialog, colorchooser
         import extract_vanilla_ship_textures
         import openhw_launcher_ui

@@ -18,7 +18,7 @@ import urllib.parse
 import uuid
 import zipfile
 
-UPDATER_VERSION = '1.1.0'
+UPDATER_VERSION = '1.1.2'
 PROTOCOL = 3
 MANIFEST_URL = 'https://openhw.tech/updates/stable.json'
 FALLBACK_MANIFEST_URL = 'https://raw.githubusercontent.com/dovahkiinjeff/OpenHW/main/updates/stable.json'
@@ -152,6 +152,25 @@ def fetch_manifest(url=MANIFEST_URL):
         except (OSError,ValueError,KeyError,UpdateError) as error:
             failures.append(str(error))
     raise UpdateError('Cannot read the OpenHW or GitHub update feed: '+'; '.join(failures))
+
+
+def check_update_feed(root, component):
+    """Read-only packaged-runtime check; never download or install an update."""
+    import traceback
+    results = []
+    for endpoint in (MANIFEST_URL, FALLBACK_MANIFEST_URL):
+        try:
+            with network_open(endpoint) as response:
+                data = response.read(MAX_JSON + 1)
+            if len(data) > MAX_JSON: raise UpdateError('Update feed is too large')
+            manifest = validate_manifest(json.loads(data.decode('utf-8-sig')))
+            results.append(dict(endpoint=endpoint, status='passed', latest=manifest['latest']))
+        except Exception as error:
+            results.append(dict(endpoint=endpoint, status='failed', error=str(error), traceback=traceback.format_exc()))
+    result = dict(status='passed' if all(x['status']=='passed' for x in results) else 'failed',
+                  endpoints=results, gameRun=False, gameUpdated=False)
+    atomic_json(inside(root, 'Development/'+component+'/update-feed-check.json'), result)
+    return result
 
 
 def validate_download(row):
@@ -506,7 +525,7 @@ def update(root, progress, cancelled=lambda: False, select_collection=lambda: No
         return installed
 
 
-def run_gui(root):
+def run_gui(root, manifest=None):
     import queue
     import tkinter as tk
     from tkinter import filedialog, ttk
@@ -538,7 +557,7 @@ def run_gui(root):
     def worker():
         with contextlib.redirect_stdout(Output()), contextlib.redirect_stderr(Output()):
             try:
-                value = update(root, progress, cancel.is_set, select_collection)
+                value = update(root, progress, cancel.is_set, select_collection, manifest=manifest, self_update=manifest is None)
                 messages.put(('restart' if value == 'restart' else 'done',
                     'Restarting the updated updater...' if value == 'restart' else 'OpenHW '+value+' is up to date. You can start the game.', None))
             except FreshInstallRequired as error:
@@ -574,16 +593,19 @@ def run_gui(root):
     threading.Thread(target=worker,daemon=False).start(); window.after(100,poll); window.mainloop(); log.close()
 
 
-def main():
+def main(bundled_manifest=None):
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,required=True)
     parser.add_argument('--verify-payload',action='store_true')
+    parser.add_argument('--check-update-feed',action='store_true')
     args = parser.parse_args()
-    if args.verify_payload:
+    if args.check_update_feed:
+        check_update_feed(args.root, 'Updater')
+    elif args.verify_payload:
         import ssl
         from release_sky_lighting import ensure
         atomic_json(args.root/'Development/Updater/self-check.json', dict(status='passed', version=UPDATER_VERSION,
             protocol=PROTOCOL, tls=ssl.OPENSSL_VERSION, noNetwork=True, noGameUpdate=True))
-    else: run_gui(args.root)
+    else: run_gui(args.root, read_json(inside(args.root,bundled_manifest)) if bundled_manifest else None)
 

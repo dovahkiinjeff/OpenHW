@@ -360,7 +360,7 @@ class App:
         cards=[('01','UPDATE CHANNEL','Get the latest official patches in the required order.\nDownloads are verified before installation.','CHECK FOR UPDATES',self.update),
                ('02','SHADER LIBRARY','Back up the local shader cache and rebuild on next launch.\nThe next startup will take longer.','REBUILD CACHE',self.cache),
                ('03','VOICE ARCHIVE','Import a complete localized voice bank from your owned\nHomeworld 1 Classic files. Only matching packs are offered.','IMPORT VOICE PACK',self.import_voice),
-               ('04','DIAGNOSTICS','Send selected logs and an optional save to the OpenHW team.\nUse your community alias and add a comment.','REPORT AN ISSUE',self.diagnostics)]
+               ('04','DIAGNOSTICS','Save your community alias and comment to a private server folder.\nUpload all logs that have not already been uploaded.','REPORT AN ISSUE',self.diagnostics)]
         for number,title,description,action,callback in cards:
             card=tk.Frame(contents,bg=RAISED,padx=20,pady=17);card.pack(fill='x',padx=34,pady=(0,12));card.columnconfigure(1,weight=1)
             label(card,number,size=MONO,color=GOLD,bg=RAISED).grid(row=0,column=0,rowspan=2,sticky='n',padx=(0,16),pady=5)
@@ -420,15 +420,29 @@ class App:
         self.status.set('VOICE ARCHIVE IMPORTED / Save configuration to select it.')
     def poll(self):
         self.tick+=3
-        while not self.messages.empty():
-            kind,text,value=self.messages.get()
-            if kind=='collection':self.responses.put(filedialog.askdirectory(parent=self.window,title='Select Homeworld Remastered Collection'));continue
-            self.status.set(text);self.amount=value
-            if kind!='progress':
-                self.busy=False;self.config=self.api.Configuration(self.root);self.version=self.api.updater.detect_version(self.root);self.draw_rail()
-                if kind=='error':self.dialog('UPDATE INTERRUPTED',text)
-        self.draw_progress()
-        self.window.after(100,self.poll)
+        try:
+            while True:
+                try:kind,text,value=self.messages.get_nowait()
+                except queue.Empty:break
+                if kind=='collection':
+                    self.responses.put(filedialog.askdirectory(parent=self.window,title='Select Homeworld Remastered Collection'));continue
+                self.status.set(text);self.amount=value
+                if kind!='progress':self.finish_update(kind,text,value)
+            self.draw_progress()
+        except Exception as error:
+            self.busy=False;self.amount=0
+            self.status.set('UPDATE INTERRUPTED / '+str(error)+'. You can retry or close the Launcher.')
+        finally:
+            self.window.after(100,self.poll)
+    def finish_update(self,kind,text,value):
+        # Network errors belong in the status area. A borderless modal error
+        # window can end up behind its parent and trap all input in a grab.
+        self.busy=False;self.amount=value if kind=='done' else 0
+        if kind=='done':
+            self.config=self.api.Configuration(self.root)
+            self.version=self.api.updater.detect_version(self.root);self.draw_rail()
+        elif kind=='error':
+            self.status.set('UPDATE CHECK FAILED / '+text+'. You can retry or close the Launcher.')
     def popup(self,title,width=560,height=300):
         win=tk.Toplevel(self.window);win.withdraw();win.configure(bg=LINE);win.transient(self.window)
         result={'value':None}

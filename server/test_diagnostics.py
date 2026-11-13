@@ -238,6 +238,110 @@ class HttpTests(unittest.TestCase):
             IntakeServer(('0.0.0.0', 0), self.root)
 
 
+    def profile_client(self):
+        path = Path(__file__).resolve().parents[1] / 'tools/openhw_diagnostics.py'
+        spec = importlib.util.spec_from_file_location('openhw_profile_client_test', path)
+        client = importlib.util.module_from_spec(spec); spec.loader.exec_module(client)
+        host, port = self.server.server_address
+        client.ENDPOINT = f'http://{host}:{port}{ENDPOINT}'
+        installation = Path(self.temporary.name) / 'installation'
+        (installation / 'Development/Logs').mkdir(parents=True, exist_ok=True)
+        return client, installation
+
+    def test_named_folder_is_created_on_save_and_reused(self):
+        client, root = self.profile_client(); state = client.load_state(root)
+        profile = client.save_profile(root, state, '../../Community Pilot', 'First comment')
+        folder = self.root / profile['profile_id']
+        self.assertTrue((folder / 'profile.json').is_file())
+        record = json.loads((folder / 'profile.json').read_text('utf-8'))
+        self.assertNotIn(profile['upload_token'], (folder / 'profile.json').read_text())
+        self.assertEqual(record['name'], '../../Community Pilot')
+        updated = client.save_profile(root, state, 'Renamed Pilot', 'New comment', profile)
+        self.assertEqual(updated['profile_id'], profile['profile_id'])
+        self.assertEqual(len(list(self.root.iterdir())), 1)
+        self.assertEqual(client.load_state(root)['profiles'][0]['comment'], 'New comment')
+        self.assertEqual(self.request(method='GET', path='/diagnostics/v1/profiles')[0], 404)
+        self.assertEqual(self.request(method='GET', path='/diagnostics/v1/profiles/'+profile['profile_id'])[0], 404)
+
+    def test_all_logs_batching_dedup_and_changed_contents(self):
+        client, root = self.profile_client(); state = client.load_state(root)
+        profile = client.save_profile(root, state, 'Pilot', 'All new logs')
+        for i in range(205): (root / f'Development/Logs/{i:03}.log').write_bytes(b'log')
+        (root / 'Development/Logs/nested').mkdir()
+        (root / 'Development/Logs/nested/000.log').write_bytes(b'different same basename')
+        (root / 'private.txt').write_text('not sent')
+        self.assertEqual(client.upload_pending(root, state, profile), 206)
+        folder = self.root / profile['profile_id']
+        self.assertEqual(len(list(folder.glob('*.zip'))), 4)
+        self.assertEqual(client.pending_logs(root, client.load_state(root)), [])
+        self.assertEqual(client.upload_pending(root, state, profile), 0)
+        path = root / 'Development/Logs/000.log'
+        # Same length, same name and mtime still needs upload if contents changed.
+        timestamp = path.stat().st_mtime; path.write_bytes(b'new')
+        import os
+        os.utime(path, (timestamp, timestamp))
+        self.assertEqual(client.upload_pending(root, state, profile), 1)
+        self.assertEqual(len(list(folder.glob('*.zip'))), 5)
+        for archive_path in folder.glob('*.zip'):
+            with zipfile.ZipFile(archive_path) as archive:
+                meta = json.loads(archive.read('report.json'))
+                self.assertTrue(all(x['source'].startswith('Development/Logs/') for x in meta['files']))
+                self.assertFalse(any('private' in name for name in archive.namelist()))
+
+    def test_large_log_chunks_and_appended_live_log(self):
+        client, root = self.profile_client(); client.CHUNK_BYTES = 4
+        state = client.load_state(root); profile = client.save_profile(root, state, 'Pilot', '')
+        log = root / 'Development/Logs/renderer.log'; log.write_bytes(b'abcdefghij')
+        self.assertEqual(len(client.pending_logs(root, state)), 3)
+        self.assertEqual(client.upload_pending(root, state, profile), 1)
+        log.write_bytes(b'abcdefghijklm')
+        chunks = client.pending_logs(root, state)
+        self.assertEqual([item['offset'] for item in chunks], [8,12])
+        self.assertEqual(client.upload_pending(root, state, profile), 1)
+        self.assertEqual(client.pending_logs(root, state), [])
+
+    def test_failed_batch_is_not_marked_uploaded_and_resume_keeps_success(self):
+        client, root = self.profile_client(); state = client.load_state(root)
+        profile = client.save_profile(root, state, 'Pilot', '')
+        for i in range(61): (root / f'Development/Logs/{i}.log').write_bytes(b'data')
+        original = client.upload_report
+        calls = []
+        def upload(path, profile):
+            calls.append(path)
+            if len(calls) == 2: raise OSError('connection interrupted')
+            return original(path, profile)
+        with mock.patch.object(client, 'upload_report', side_effect=upload):
+            with self.assertRaises(OSError): client.upload_pending(root, state, profile)
+        reloaded = client.load_state(root)
+        self.assertEqual(len(reloaded['uploaded']), 60)
+        self.assertEqual(client.upload_pending(root, reloaded, profile), 1)
+        self.assertEqual(client.pending_logs(root, reloaded), [])
+
+    def test_profile_token_prevents_folder_impersonation(self):
+        client, root = self.profile_client(); state = client.load_state(root)
+        profile = client.save_profile(root, state, 'Pilot', '')
+        bad = dict(profile, upload_token='X'*43)
+        from urllib.error import HTTPError
+        with self.assertRaises(HTTPError) as error:
+            client.save_profile(root, state, 'Impersonator', '', bad)
+        self.assertEqual(error.exception.code, 403)
+        (root / 'Development/Logs/renderer.log').write_bytes(b'data')
+        with self.assertRaises(HTTPError) as error: client.upload_pending(root, state, bad)
+        self.assertEqual(error.exception.code, 403)
+        self.assertFalse(state['uploaded'])
+        folder = self.root / profile['profile_id']
+        self.assertEqual([p.name for p in folder.iterdir()], ['profile.json'])
+
+    def test_changed_log_after_scan_does_not_mark_or_upload(self):
+        client, root = self.profile_client(); state = client.load_state(root)
+        profile = client.save_profile(root, state, 'Pilot', '')
+        log = root / 'Development/Logs/renderer.log'; log.write_bytes(b'initial')
+        chunks = client.pending_logs(root, state); log.write_bytes(b'changed')
+        with self.assertRaises(ValueError): client.build_batch(root, profile, chunks)
+        self.assertFalse(list((root / 'Development/Reports').glob('report-*.zip')))
+        self.assertFalse(state['uploaded'])
+
+
 class ConfigurationTests(unittest.TestCase):
     def test_route_is_idempotent_preserves_other_handlers(self):
         existing = ('openhw.tech {\n    handle /multiplayer/v1 {\n        reverse_proxy 127.0.0.1:8767\n    }\n'
@@ -246,7 +350,7 @@ class ConfigurationTests(unittest.TestCase):
                     '    handle {\n        root * /srv/openhw-site\n        file_server\n    }\n}\n')
         updated = add_route(existing)
         self.assertEqual(add_route(updated), updated)
-        self.assertEqual(updated.count('handle /diagnostics/v1/reports'), 1)
+        self.assertEqual(updated.count('handle /diagnostics/v1/*'), 1)
         self.assertIn('header_up X-Forwarded-For {remote_host}', updated)
         self.assertTrue(updated.endswith(existing[existing.index('    handle /multiplayer/v1 {'):]))
 

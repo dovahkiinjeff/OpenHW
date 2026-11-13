@@ -1,4 +1,4 @@
-# OpenHW 1.1
+# OpenHW 1.1.1
 
 **The best of both worlds: high-fidelity Homeworld Remastered assets and original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets with modern rendering and in-game creation tools to build the ultimate classic Homeworld experience.
 
@@ -13,11 +13,13 @@
 
 > **OpenHW 1.1 release:** Shift+F11/F12 live map, lighting and texture authoring menus are disabled in both game executables. Authored environments still load normally. The reference below describes the developer tools; source builds can explicitly enable them with `-DHW_ENABLE_LIVE_MAP_AUTHORING=ON`. The ship and parade editors are separate tools.
 
+**Latest patch: [OpenHW 1.1.1](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.1)** fixes Diagnostics folders/uploads and Launcher update checks. Install the fresh 1.1 base first, close Launcher and the game, then apply the patch. [Patch notes](docs/RELEASE_NOTES_1.1.1.md).
+
 ## OpenHW 1.1 - dedicated multiplayer and a new installation pipeline
 
 Create and join online matches through the OpenHW server. The match host selects the map, teams, AI players and shared gameplay rules. The server runs the authoritative simulation and AI; players connect to it over HTTPS. Direct piloting, EVE-style Command control, formation spread and individual ship appearance remain integrated with the multiplayer command path. See [multiplayer setup, controls and current limits](docs/MULTIPLAYER_PREVIEW.md).
 
-**Diagnostics** in the main menu opens a report window. Use your Homeworld/modding-community alias as the report name, describe the issue in the comment field, choose the logs and optionally a saved game, then upload. Reports are private to the OpenHW team. The window lists what will be included and returns a report ID; nothing uploads automatically. Logs can contain local file paths. The same window is available under the launcher's Ship Systems page.
+**Diagnostics** in the main menu opens a report window. Select a saved diagnostics name or create one using your Homeworld/modding-community alias, add a comment, and choose **Save name + comment**. Saving creates a persistent private folder on the server. **Upload all new logs** sends every previously unuploaded log and crash dump in Development/Logs, in bounded batches. Successful uploads are remembered locally; changed logs are eligible again and failed batches can be retried. The save name identifies your diagnostics folder, not a campaign save. Nothing uploads during normal play. Logs can contain local file paths. The same window is available under the launcher's Ship Systems page.
 
 The installer reads selected files from your owned Collection archives and builds the runtime locally. The 1.1 pipeline releases disposable conversion files as they are packed, avoiding a second complete loose copy beside the final game archive. See [installation disk-space details](BUILD_INSTALLER.md); the full-install peak varies with the selected source and has not been measured end to end for every configuration.
 
@@ -375,7 +377,7 @@ The next priorities are **fully implementing and stabilizing NVIDIA DLSS and Int
 
 **Cataclysm support remains planned. OpenHW 1.1 introduces server-hosted multiplayer**, which will continue to improve with community testing and performance work. The current service supports one active battle, with no in-battle reconnect, save/resume or host migration. See the [multiplayer guide](docs/MULTIPLAYER_PREVIEW.md) before organizing a match. No delivery date is announced for remaining work.
 
-Player reports matter: they reveal mission, hardware and gameplay combinations that development testing can miss. Please report problems to the project author through [GitHub Issues](https://github.com/dovahkiinjeff/OpenHW/issues), with reproducible steps and useful evidence. The Diagnostics upload window can submit selected logs and a save privately; include its report ID in your issue.
+Player reports matter: they reveal mission, hardware and gameplay combinations that development testing can miss. Please report problems to the project author through [GitHub Issues](https://github.com/dovahkiinjeff/OpenHW/issues), with reproducible steps and useful evidence. The Diagnostics menu uploads all new logs privately into your saved community-alias folder; include that alias and a useful comment when reporting the issue.
 
 ## Reporting problems
 
