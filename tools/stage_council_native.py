@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 import shutil
+from release_compact import stage_copy
 import struct
 from pathlib import Path
 import numpy as np
@@ -23,7 +24,7 @@ def main():
         raise ValueError('Use the dedicated local Council staging cache')
     model='ship/misc_t-matmegaship/misc_t-matmegaship.hod'
     source=root/'source';(source/model).parent.mkdir(parents=True,exist_ok=True)
-    shutil.copy2(args.source_root/model,source/model)
+    stage_copy(args.source_root/model,source/model)
     reader=load_reader(args.reader)
     with NativeSurfaces(reader,source/model) as native:
         bounds=native.hull_bounds();joints=native.joints()
@@ -33,7 +34,7 @@ def main():
     cache=root/'material-cache/v1'
     report=json.loads((cache/'manifest.json').read_text()) if args.package_only else materials(reader,source,plan,cache,allowed_races=('P3',))
     folder=root/'package-cache/v1/P3/P3Megaship/RMNative';folder.mkdir(parents=True,exist_ok=True)
-    shutil.copy2(source/model,folder/'hull.hod')
+    stage_copy(source/model,folder/'hull.hod')
     lines=['type P3Megaship',f'scale {scale:.9g}','hull hull.hod','mad -']
     for material in report['materials']:
         if not material['variants']:
@@ -47,12 +48,12 @@ def main():
                 raise ValueError('Stale or unsafe material input')
             suffix='.lif' if kind=='bootstrap' else '.dds' if kind=='diffuse' else '_'+kind+'.dds'
             target=folder/(label+suffix)
-            if kind=='bootstrap':shutil.copy2(path,target);continue
+            if kind=='bootstrap':stage_copy(path,target);continue
             data=path.read_bytes();height,width=struct.unpack_from('<II',data,12)
             if data[:4]!=b'DDS ' or len(data)!=128+width*height*4:raise ValueError('Expected translated RGBA8 DDS')
             pixels=np.frombuffer(data,dtype='<u4',offset=128)
             if np.all(pixels==pixels[0]):target.write_bytes(dds_rgba(Image.new('RGBA',(1,1),tuple(data[128:132]))))
-            else:shutil.copy2(path,target)
+            else:stage_copy(path,target)
     original=(args.game_root/'Data/p3/p3megaship/rmnative/ship.owshipdef').read_bytes()
     if not original.startswith(b'OPENHW_SHIP_2') or b'[Ship]' not in original:raise ValueError('Unrecognized installed ship definition')
     gameplay=b'[Ship]'+original.split(b'[Ship]',1)[1]

@@ -1,3 +1,4 @@
+#include "../Network/MatchRules.h"
 /*=============================================================================
     Name    : Sensors.c
     Purpose : Code for handling and rendering the sensors manager.
@@ -34,6 +35,7 @@
 #include "main.h"
 #include "mainrgn.h"
 #include "Memory.h"
+#include "ManagerDock.h"
 #include "mouse.h"
 #include "MultiplayerGame.h"
 #include "ModernUI.h"
@@ -2261,6 +2263,7 @@ void smSensorsCloseForGood(void)
        Repeated/reentrant close must not delete a stale region or free its
        scroll arrays twice. Relinquish ownership before delete callbacks run. */
     if (!smSensorsActive && smBaseRegion == NULL) return;
+    if (mdManagerDockEnabled()) mdCloseAllManagers();
     closingRegion = smBaseRegion;
     smBaseRegion = NULL;
     smSensorsActive = FALSE;
@@ -3551,7 +3554,7 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
                             selRectDragFunction(universe.SpaceObjList.head, &smCamera, &smSelectionRect,
                                                 (SpaceObjRotImpTarg **)selSelected.ShipPtr, &selSelected.numShips,
                                                 TRUE, FALSE, FALSE);
-                            if ((selSelected.numShips > 0) && (!playPackets) && (!universePause && opPauseOrders))
+                            if ((selSelected.numShips > 0) && (!playPackets) && (!universePause && hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)))
                             {
                                 if (universe.curPlayerPtr->PlayerMothership != NULL &&
                                     selShipInSelection(selSelected.ShipPtr, selSelected.numShips,
@@ -3712,6 +3715,10 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
                     {
                         selSelectionCopy((MaxAnySelection *)&selSelecting,(MaxAnySelection *)&selSelected);
                         smCullAndFocusSelecting();
+                        /* F is the explicit focus-and-return command. Alt
+                           clicks and bandboxes continue to recenter the map. */
+                        if (commandID == FKEY)
+                            smSensorsClose(SM_Close, NULL);
                     }
                     break;
                 case ENTERKEY:

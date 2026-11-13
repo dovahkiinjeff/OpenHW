@@ -25,6 +25,7 @@ def conversion_steps(state):
 
 
 def overlay(source, destination):
+    from release_compact import stage_copy
     for path in Path(source).rglob('*'):
         if path.is_file():
             relative = path.relative_to(source)
@@ -33,7 +34,27 @@ def overlay(source, destination):
             target = destination/relative
             target.parent.mkdir(parents=True, exist_ok=True)
             temporary=target.with_name(target.name+'.conversion-pending')
-            shutil.copyfile(path,temporary);temporary.replace(target)
+            # Native HODs/textures are immutable; link them on the installation
+            # volume instead of duplicating a race's complete material cache.
+            # Editable definitions and ordinary developer conversions are copied.
+            stage_copy(path,temporary);temporary.replace(target)
+
+
+def finish_release_archive(root, tools, work, prepared):
+    from openhw_obig import pack_consuming
+    from release_compact import audit_factions, discard
+    # All inputs are now in the prepared runtime tree or published loose files.
+    # These earlier conversion snapshots must not overlap final packing.
+    for name in ('out','background-work','ship-documents-v2','migration-input','release-runtime','special-game'):
+        discard(work/name,work)
+    sources=root/'Development/SetupSources'
+    for name in ('Remastered','material-cache'):
+        discard(sources/name,sources)
+    count=pack_consuming(work/'generated',root/'OpenHW-HW1.obig',work/'runtime-pack.sqlite',scratch=work)
+    subprocess.run([str(tools/'OpenHWAssetCheck.exe'), str(root/'OpenHW-HW1.obig'),str(root),str(root)], check=True,
+                   cwd=root, env={**os.environ, 'HW_PORTABLE_ROOT': str(root)})
+    audit_factions(root)
+    return dict(resources=count,definitions=prepared['definitions'],sky_size=prepared['sky_size'])
 
 
 def install_streaming_audio(sources, root):
@@ -51,14 +72,32 @@ def install_streaming_audio(sources, root):
 
 
 def convert(root, tools, sky_size=1024):
+    root=Path(root).resolve()
+    if (root/'Development/release.json').is_file():
+        from release_compact import compact_stage_copies
+        # Never link the immutable installer payload/retail receipt into mutable
+        # generators: only disposable cache siblings share physical payloads.
+        with compact_stage_copies(root/'Development/SetupWork'):
+            return _convert(root,tools,sky_size)
+    return _convert(root,tools,sky_size)
+
+
+def _convert(root, tools, sky_size=1024):
     root, tools = Path(root).resolve(), Path(tools).resolve()
     release=(root/'Development/release.json').is_file()
     development=root/'Development' if release else root
     sources = development/'SetupSources'
+    work = development/'SetupWork'
+    prepared_file=work/'runtime-prepared.json'
+    # Once the consuming pack starts its source tree is intentionally reduced.
+    # Resume directly, never rerun generators against a partially consumed tree.
+    if release and prepared_file.is_file():
+        prepared=json.loads(prepared_file.read_text())
+        if prepared.get('schema')!=1:raise ValueError('Unsupported runtime packing checkpoint')
+        return finish_release_archive(root,tools,work,prepared)
     from release_compact import source_locations, discard, link_or_copy
     archives,classic_dir=source_locations(sources)
     classic = classic_dir/'Homeworld.big'
-    work = development/'SetupWork'
     output = work/'generated'
     output.mkdir(parents=True, exist_ok=True)
     checkpoint=work/'pipeline.json'
@@ -228,17 +267,18 @@ def convert(root, tools, sky_size=1024):
             link_or_copy(source,target)
     if release:
         from release_import import apply_authored
-        # Keep the pre-migration checkpoint immutable so interrupted setup can
-        # resume without mixing v1 rig inputs and integrated v2 documents.
-        final=work/'release-runtime'
-        shutil.copytree(generated,final,copy_function=link_or_copy,dirs_exist_ok=True)
-        apply_authored(root,final,development/'Authored')
-        count=pack(final,root/'OpenHW-HW1.obig')
+        # Authored maps and migrated documents are committed before switching
+        # to the consuming pack. A durable handoff replaces the previous second
+        # complete runtime tree and permits resume without the retail sources.
+        apply_authored(root,generated,development/'Authored')
+        prepared=dict(schema=1,definitions=definition_count,sky_size=sky_size)
+        pending=prepared_file.with_suffix('.pending')
+        with pending.open('w') as stream:
+            json.dump(prepared,stream);stream.flush();os.fsync(stream.fileno())
+        pending.replace(prepared_file)
+        return finish_release_archive(root,tools,work,prepared)
     # Validation uses the engine's own HOD/package reader, across all native
     # definitions, including gun/animation mappings and LODs 0 through 4.
     subprocess.run([str(tools/'OpenHWAssetCheck.exe'), str(root/'OpenHW-HW1.obig'),str(root),str(root)], check=True,
                    cwd=root, env={**os.environ, 'HW_PORTABLE_ROOT': str(root)})
-    if release:
-        from release_compact import audit_factions
-        audit_factions(root)
     return dict(resources=count, definitions=definition_count, sky_size=sky_size)

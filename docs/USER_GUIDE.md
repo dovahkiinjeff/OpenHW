@@ -1,14 +1,32 @@
-# OpenHW 1.0.7 - installation and user guide
+> **OpenHW 1.1 release:** Shift+F11/F12 live map, lighting and texture authoring menus are disabled in both game executables. Authored environments still load normally. The reference below describes the developer tools; source builds can explicitly enable them with `-DHW_ENABLE_LIVE_MAP_AUTHORING=ON`. The ship and parade editors are separate tools.
+
+# OpenHW 1.1 installation and diagnostics
+
+OpenHW 1.1 requires a **new installation in a separate folder**. Put OpenHW-Setup.exe in that folder, run it, and choose your owned Homeworld Remastered Collection directory. Setup builds the assets locally and installs beside itself. Do not run the 1.0 patch chain on 1.1. Keep your old installation until you have tested the new one; it is not overwritten. Launcher.exe and Updater.exe are included.
+
+The launcher and updater prefer openhw.tech and use GitHub as a fallback. An old updater updates itself through GitHub and then directs you to the fresh 1.1 installer. It does not convert an existing 1.0 folder in place.
+
+## Send a diagnostic report
+
+Choose **Diagnostics** from the game's main menu, or **Ship Systems > Report an Issue** in the launcher. Enter the alias you use in the Homeworld or modding community. In the comment field, describe the mission, problem, graphics settings and steps that trigger it. Select the relevant logs (newest first) and optionally choose the saved game that reproduces it. Review that list, then press **Upload Report**.
+
+Only your selected logs, optional save, alias and comment are sent to the OpenHW team's private server storage. Logs may include local paths or machine details. Nothing is uploaded automatically, and no game assets or passwords/settings files are added. Keep the returned report ID and share it with your bug report. A local archive and receipt remain in Development/Reports. If you need more detailed logs, reproduce the issue with OpenHW-Daignostics.exe, then submit the resulting logs. Limits: 64 MB upload, 256 MB uncompressed; select fewer logs or omit a large save if necessary.
+
+See [1.1 release notes](RELEASE_NOTES_1.1.md) and [dedicated multiplayer controls and limits](MULTIPLAYER_PREVIEW.md).
+
+## Existing controls and features
+
+# Settings and gameplay reference
 
 ## Installation and disk space
 
 Download `OpenHW-Setup.exe` into the **writable final game folder** and run it there. Select your own installed Homeworld Remastered Collection (Collection root, HomeworldRM, or its Data folder). Setup also needs the Collection's Homeworld 1 Classic data and required English archives. It installs beside the installer and does not change the original Collection. No separate Classic executable selection or manual music/voice copying is required.
 
-**Allow approximately 120 GB free during base conversion as a conservative planning estimate.** The compact installer's exact peak has not been measured; the earlier broad-extraction installer could exceed 200 GB. The current setup stages selected HW1 assets from the Collection archives instead. The main generated archive is roughly 34 GB, plus loose data, runtime files and user content. The base download is about 473 MB. The original Collection and source-build dependencies occupy separate space.
+The main generated game archive is roughly 34 GB, plus loose resources and runtime files. The 1.1 installer releases disposable conversion inputs during packing instead of retaining a second full copy. See the current [installation disk budget](../BUILD_INSTALLER.md#installation-disk-budget) for the conservative planning allowance and measurement limits.
 
 Allow setup to finish extraction, asset conversion and validation. Its logs live in `Development/Logs`. After success, setup removes `Development/SetupSources` and `Development/SetupWork`; if cleanup fails it reports retained files. Failed imports retain working data for recovery. Do not delete working data during installation. Setup does not launch the game.
 
-Install patches through 1.0.7 (or let Updater.exe install the chain); the 1.0.7 patch adds Launcher.exe automatically. Use the launcher for settings, mods, updates and play, or start `OpenHW.exe` for normal play. `OpenHW-Daignostics.exe` is the full-logging variant (filename spelling intentional). Application-owned diagnostic output is below `Development`. Save games, settings, mods and exports also stay in the game folder; no application-owned AppData install is required. Windows and driver caches are external system behavior.
+A fresh 1.1 installation includes all prior fixes and both utilities; it does not require the old patch chain. Use the launcher for settings, mods, updates and play, or start `OpenHW.exe` for normal play. `OpenHW-Daignostics.exe` is the full-logging variant (filename spelling intentional). Application-owned diagnostic output is below `Development`. Save games, settings, mods and exports also stay in the game folder; no application-owned AppData install is required. Windows and driver caches are external system behavior.
 
 Borderless/windowed mode follows the refresh rate selected in Windows Advanced display settings. The OpenHW refresh selection is saved for exclusive fullscreen and takes effect after applying settings and restarting. The active desktop timing is shown separately and no longer overwrites the saved exclusive request. Unsupported exclusive modes can fall back; check the active timing rather than assuming a requested rate was accepted.
 
@@ -16,7 +34,7 @@ First boot detects resolution and refresh rate rather than imposing the author's
 
 ## Recommended graphics settings
 
-| Feature | OpenHW 1.0 status |
+| Feature | Recommended status |
 | --- | --- |
 | AMD FSR upscaling | Fully working; recommended |
 | AMD FSR frame generation | Fully working; recommended |
@@ -37,7 +55,11 @@ Ordinary double-click retains docking/support actions. Use **Shift+Ctrl+double-c
 
 Select ships of **one type in a formation** to display Formation Spread. It changes spacing immediately, without requiring another move order. Center is the default layout, the tight end brings ships close, and the wide end doubles the default spread. Mixed-type selections do not show the slider. Main-view move orders no longer use the former short-range clamp, although the game still has a finite playable world.
 
-Gameplay options include camera sensitivity, cursor scale, unlimited strike-craft fuel, orders while paused, ship weapon recoil, resource multiplier, ranks, mission-start launch behavior, FPS display, Disable SP Resource Scaling and Unlimited RUs. Resource/fuel cheats are single-player options. Disable SP Resource Scaling keeps the authored maximum resource population instead of reducing it according to adaptive campaign scaling; it is separate from resource yield and unlimited currency.
+Gameplay options include camera sensitivity, cursor scale, unlimited strike-craft fuel, orders while paused, ship weapon recoil, resource multiplier, ranks, mission-start launch behavior, FPS display, Mission Resource Scaling and Unlimited RUs. Mission Resource Scaling at 0% preserves vanilla adaptive population; 100% restores all authored starting resources. Intermediate values restore that fraction of the resources vanilla scaling would remove. This affects fresh mission generation; it does not replace resources already stored in a save. Resource Multiplier separately changes the RUs earned from harvesting. Larger populations, higher yields and the optional Starting Resource Fleet can each make a campaign easier.
+
+The development community-fix preview adds a Backspace display cycle: full HUD, compact Build/Research/Launch controls, then hidden HUD. Tutorial and cinematic controls retain their own visibility rules. In Sensors, F focuses the selected ships and returns to the normal view; closing a manager opened in Sensors preserves the Sensors view.
+
+Audio > Voice includes Battle Chatter Frequency, from 0% to 100%, alongside the separate Voice Chatter enable switch. The frequency changes how often eligible chatter is considered; speech priority and available voice channels still govern playback.
 
 Fleet Identity offers hull base/stripe color, engine-emission override and player navigation-light controls. Fleet Control also contains Capture / Build All, Super Salvagers and Disable Unit Caps. Use these optional gameplay changes deliberately when playing the campaign.
 
@@ -58,7 +80,7 @@ COMMAND supplies target-based flight and weapon control:
 | Right drag / wheel | Orbit camera / zoom |
 | Ctrl+wheel; range buttons | Change requested range |
 | Speed bar; + / - | Set speed limit |
-| F1–F12 | Toggle weapons in the selected bank |
+| F1-F12 | Toggle weapons in the selected bank |
 | Page Up / Page Down | Change weapon bank |
 | Unlock / Cease Fire | Clear target / disable firing |
 | Esc | Exit ship control |

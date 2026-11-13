@@ -1,3 +1,4 @@
+#include "../Network/MatchRules.h"
 #include "../Modern/DiagnosticPolicy.h"
 #include "SinglePlayer.h"
 
@@ -1902,7 +1903,8 @@ void GetShipsClampedTo(Ship *clampedto,GrowSelection *clampedships)
 bool32 ShipAlreadyHyperspaceOut(Ship *ship)
 {
     if ((ship->flags & SOF_Hyperspace) ||
-        ShipInSelection(singlePlayerGameInfo.ShipsToHyperspace.selection,ship))
+        (singlePlayerGameInfo.ShipsToHyperspace.selection != NULL &&
+         ShipInSelection(singlePlayerGameInfo.ShipsToHyperspace.selection,ship)))
     {
         return TRUE;
     }
@@ -2290,13 +2292,12 @@ void singlePlayerSetMissionAttributes(char *directory,char *filename)
     nebReset();
 }
 
-static void spCompleteStartingResourceFleet(void)
+void spCompleteStartingResourceFleetFor(Player *player)
 {
-    Player *player=&universe.players[0];
     Ship *host=player->PlayerMothership;
     ShipType types[2]={ResourceCollector,ResourceController};
     sdword minimum[2]={3,2},i,n;
-    if (!singlePlayerGame || !opStartingResourceFleet || spMapEditorBootActive() || !host) return;
+    if (!hwMatchPlayerOption(OH_STARTING_RESOURCE_FLEET,opStartingResourceFleet,player->playerIndex) || spMapEditorBootActive() || !host) return;
     /* shiptotals includes ships carried inside factories. This is invoked only
        by fresh mission creation/arrival, never by savegame loading. */
     for (i=0;i<2;++i) {
@@ -2304,18 +2305,32 @@ static void spCompleteStartingResourceFleet(void)
         if (!info || !bitTest(info->staticheader.infoFlags,IF_InfoLoaded)) continue;
         for (n=player->shiptotals[types[i]];n<minimum[i];++n) {
             Ship *ship=univAddShip(types[i],player->race,&host->posinfo.position,player,0);
+            CommandToDo *parade;
             gameStatsAddShip(ship,0);
             unitCapCreateShip(ship,player);
             GroupShipIntoMilitaryParade(&universe.mainCommandLayer,ship,host);
+            /* New ships must start at their actual parade berth, rather than
+               flying out from the mothership's center. Do not reposition the
+               existing fleet or disturb active player orders. */
+            parade=GetMilitaryGroupAroundShip(&universe.mainCommandLayer,host);
+            setMilitaryParadeShip(parade,ship);
+            vecSet(ship->posinfo.velocity,0.0f,0.0f,0.0f);
+            vecSet(ship->rotinfo.rotspeed,0.0f,0.0f,0.0f);
         }
     }
 }
 
 void singlePlayerLevelLoaded(void)
 {
-    spCompleteStartingResourceFleet();
     HorseRaceLoadingTask("Applying persistent fleet formations");
+    /* Reload the authored template before assigning newly created berths. */
     paradeCampaignLoaded();
+    /* During a campaign jump the carried mothership is still at its previous
+       coordinates and is not outside yet. Complete the optional fleet after
+       arrival instead; otherwise additions visibly drift and then snap. */
+    if (!singlePlayerHyperspacingInto &&
+        singlePlayerGameInfo.hyperspaceState == NO_HYPERSPACE)
+        spCompleteStartingResourceFleetFor(&universe.players[0]);
     // need to fix up the mission sequence index to match the currentMission
     singlePlayerCurrentMissionIndex
         = convertMissionToSequenceIndex(spGetCurrentMission());
@@ -2912,6 +2927,8 @@ void singlePlayerGameUpdate(void)
                 singlePlayerHyperspacingInto = FALSE;
                 singlePlayerGameInfo.hyperspaceState = NO_HYPERSPACE;
                 CleanupHyperspacingShips(FALSE,FALSE);
+
+                spCompleteStartingResourceFleetFor(&universe.players[0]);
 
                 //ccClearModeFlag(&universe.mainCameraCommand,CCMODE_LOCK_OUT_USER_INPUT);
 

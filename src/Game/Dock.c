@@ -1,3 +1,4 @@
+#include "../Network/MatchRules.h"
 /*=============================================================================
     Name    : Dock.c
     Purpose : Contains code for docking, and refueling/repairing
@@ -1253,9 +1254,9 @@ bool32 dockShipRefuelsAtShip(Ship *ship,Ship *dockwith)
     if ((dockwithstaticinfo->canReceiveResources) && (ship->resources > 0))
     {
         sdword depositedResources = ship->resources;
-        if (singlePlayerGame)
+        if (singlePlayerGame || hwMatchActive())
         {
-            sdword multiplier = (sdword)opResourceMultiplier;
+            sdword multiplier = (sdword)hwMatchOption(OH_RESOURCE_MULTIPLIER,opResourceMultiplier);
             if (multiplier < 1) multiplier = 1;
             if (multiplier > 4) multiplier = 4;
             depositedResources *= multiplier;

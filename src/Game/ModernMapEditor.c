@@ -1,5 +1,6 @@
 #include "../Modern/DiagnosticPolicy.h"
 #include "ModernMapEditor.h"
+#include "LiveMapAuthoringPolicy.h"
 
 #include <SDL2/SDL.h>
 #include <math.h>
@@ -3131,6 +3132,7 @@ static void mmeOpenInternal(bool32 fromBoot)
     rectangle left;
     rectangle right;
     rectangle toolbar;
+    if (!hwLiveMapAuthoringEnabled()) return;
     if (ghMainRegion == NULL || !gameIsRunning) return;
     modernMapEditorUpdateEnvironment();
     modernUICloseLightingEditor();
@@ -4476,6 +4478,7 @@ void modernMapEditorCloseForToolSwitch(void)
 
 void modernMapEditorToggle(void)
 {
+    if(!hwLiveMapAuthoringEnabled())return;
     if(mme.active){modernMapEditorClose();return;}
     if(!gameIsRunning||ghMainRegion==NULL)return;
     memset(&mme,0,sizeof(mme));
@@ -4545,6 +4548,7 @@ bool32 modernMapEditorPump(void)
 {
     sdword mission;
     bool32 loadOverlay;
+    if(!hwLiveMapAuthoringEnabled())return FALSE;
     if(mme.pendingMission<=0)return FALSE;
     mission=mme.pendingMission; loadOverlay=mme.pendingLoadOverlay;
     mme.pendingMission=0; mme.pendingLoadOverlay=FALSE;

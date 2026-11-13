@@ -9,6 +9,7 @@ import hashlib
 import json
 import struct
 import shutil
+from release_compact import stage_copy
 from pathlib import Path
 
 import numpy as np
@@ -31,7 +32,7 @@ def stage_active_engine_variant(material, cache, folder, label):
         if not source.is_relative_to(cache.resolve()) or hashlib.sha256(source.read_bytes()).hexdigest() != record['sha256']:
             raise ValueError('Unsafe/stale active thruster texture: ' + str(source))
         suffix = '.lif' if kind == 'bootstrap' else '.dds' if kind == 'diffuse' else '_' + kind + '.dds'
-        shutil.copy2(source, folder / (label + '_engineOn' + suffix))
+        stage_copy(source, folder / (label + '_engineOn' + suffix))
 
 
 def native_material_controls(shader, size, glow=None, team=None, spec=None):

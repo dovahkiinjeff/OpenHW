@@ -19,7 +19,9 @@ for i in range(struct.unpack_from('<I', data, off)[0]):
     length = struct.unpack_from('<I', data, nameoff)[0]
     name = data[nameoff + 4:nameoff + 4 + length].decode('utf-16-le')
     modules.append((base, size, name))
-exe = next(m for m in modules if Path(m[2]).name.lower() in ('homeworldmodern.exe','openhw.exe','openhw-daignostics.exe'))
+exe = next(m for m in modules if Path(m[2]).name.lower() in (
+    'homeworldmodern.exe', 'openhw.exe', 'openhw-daignostics.exe',
+    'openhw-multiplayer-preview.exe', 'openhw-multiplayer-preview-diagnostics.exe'))
 off, _ = streams[6]
 tid = struct.unpack_from('<I', data, off)[0]
 address = struct.unpack_from('<Q', data, off + 24)[0]
@@ -73,10 +75,21 @@ exceptionoff = streams[6][0]
 contextsize, contextoff = struct.unpack_from('<II', data, exceptionoff + 160)
 exceptionrsp = struct.unpack_from('<Q', data, contextoff + 152)[0]
 print('Exception RSP', hex(exceptionrsp))
+memory_ranges = []
+if 9 in streams:
+    memoryoff = streams[9][0]
+    rangecount, offset = struct.unpack_from('<QQ', data, memoryoff)
+    for i in range(rangecount):
+        base, size = struct.unpack_from('<QQ', data, memoryoff + 16 + i * 16)
+        memory_ranges.append((base, size, offset))
+        offset += size
 if 5 in streams:
     memoryoff = streams[5][0]
     for i in range(struct.unpack_from('<I', data, memoryoff)[0]):
         base, size, offset = struct.unpack_from('<QII', data, memoryoff+4+i*16)
+        memory_ranges.append((base, size, offset))
+if memory_ranges:
+    for base, size, offset in memory_ranges:
         if base <= exceptionrsp < base+size:
             begin = exceptionrsp-base
             for j in range(begin,min(size,begin+4096)-7,8):
@@ -85,6 +98,16 @@ if 5 in streams:
                     print(f'ExceptionStack+{j-begin:x}',resolve(candidate))
 for register, offset in [('Rax',120), ('Rcx',128), ('Rdx',136), ('Rbx',144), ('Rsi',168), ('Rdi',176), ('R8',184), ('R9',192)]:
     print(register, hex(struct.unpack_from('<Q',data,contextoff+offset)[0]))
+for arg in sys.argv[3:]:
+    start = int(arg, 16)
+    for base, size, offset in memory_ranges:
+        if base <= start < base + size:
+            chunk = data[offset + start - base:offset + min(size, start - base + 256)]
+            print('Memory', hex(start), chunk.hex(' '))
+            for j in range(0, len(chunk) - 7, 8):
+                value = struct.unpack_from('<Q', chunk, j)[0]
+                print(f'  +{j:02x}: {value:016x}', resolve(value) if exe[0] <= value < exe[0] + exe[1] else '')
+            break
 off, _ = streams[3]
 for i in range(struct.unpack_from('<I', data, off)[0]):
     p = off + 4 + i * 48

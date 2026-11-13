@@ -38,7 +38,8 @@ def audit(installer,source):
         if map_missions!=set(range(1,17)):raise ValueError('Complete authored campaign maps are missing')
         with zipfile.ZipFile(io.BytesIO(z.read('Development/runtime.zip'))) as runtime:
             game_exes=sorted(n for n in runtime.namelist() if n.lower().endswith('.exe'))
-            if game_exes!=['OpenHW-Daignostics.exe','OpenHW.exe']:raise ValueError('Unexpected game executables')
+            if game_exes!=['Launcher.exe','OpenHW-Daignostics.exe','OpenHW.exe','Updater.exe']:
+                raise ValueError('Unexpected runtime executables; fresh setup requires the game variants, Launcher and Updater')
             builds={}
             for name,logging in [('OpenHW.exe',False),('OpenHW-Daignostics.exe',True)]:
                 data=runtime.read(name)
@@ -64,7 +65,7 @@ def audit(installer,source):
         if path.stat().st_size!=row['size'] or digest(path)!=row['sha256']:raise ValueError('Source snapshot changed: '+name)
     return {'status':'passed','installer':{'bytes':installer.stat().st_size,'sha256':digest(installer)},
        'content':content,'contentCategories':dict(Counter(r['category'] for r in inventory['files'])),
-       'builds':builds,'sourceFiles':len(snapshot['files']),'sourceManifestSha256':digest(source/'SOURCE_MANIFEST.json'),
+       'builds':builds,'runtimeExecutables':game_exes,'sourceFiles':len(snapshot['files']),'sourceManifestSha256':digest(source/'SOURCE_MANIFEST.json'),
        'defaults':{'firstBootDisplayDetection':True,'globalNonPTGlowPercent':29},
        'missionAuthoring':{'maps':len(map_missions),'lighting':sum(r['path'].endswith('.rtxlight') for r in mission_authoring['files']),
                            'physicalLoaderPath':'Data/Missions','source':'Effective WIP runtime files'},

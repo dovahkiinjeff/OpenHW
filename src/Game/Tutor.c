@@ -1462,56 +1462,8 @@ rectangle   rect;
     fontMakeCurrent(currFont);
 }
 
-void tutShowNextButton(void)
-{
-    if(tutNextVisible)
-        tutHideNextButton();
+#include "TutorialControls.inc"
 
-    tutAllocateRootRegion();
-
-    tutNextAtom.x = tutTextRect.x0 + 128;
-    tutNextAtom.y = tutTextRect.y1;
-    tutNextAtom.width = 64;
-    tutNextAtom.height = 32;
-
-    tutNextRegion = (buttonhandle)regChildAlloc(tutRootRegion, (smemsize)&tutNextAtom,
-        tutNextAtom.x, tutNextAtom.y, tutNextAtom.width, tutNextAtom.height, sizeof(buttonhandle) - sizeof(regionhandle), 0);
-
-    tutNextAtom.region = (void*)tutNextRegion;
-    tutNextRegion->reg.atom = &tutNextAtom;
-    tutNextRegion->reg.flags |= RPM_MouseEvents;
-    tutNextAtom.pData = NULL;
-
-    tutNextRegion->reg.processFunction = uicButtonProcess;
-    tutNextRegion->processFunction = tutProcessNextButton;
-    tutNextVisible = TRUE;
-
-    regDrawFunctionSet((regionhandle)tutNextRegion, tutDrawNextButtonFunction);
-}
-
-void tutHideNextButton(void)
-{
-    if(tutNextRegion)
-    {
-        regRegionDelete((regionhandle)tutNextRegion);
-        tutDeallocateRootRegion();
-    }
-
-    tutNextRegion = NULL;
-    tutNextVisible = FALSE;
-
-}
-
-udword tutProcessNextButton(struct tagRegion *reg, smemsize ID, udword event, udword data)
-{
-    if(event == CM_ButtonClick)
-    {
-        tutNextButtonState = 1;
-        return 1;
-    }
-
-    return 0;
-}
 
 void tutDrawNextButtonFunction(regionhandle reg)
 {
@@ -1530,94 +1482,6 @@ void tutDrawNextButtonFunction(regionhandle reg)
 //  glDisable(GL_BLEND);
 }
 
-sdword tutNextButtonClicked(void)
-{
-sdword  RetVal;
-
-    RetVal = tutNextButtonState;
-    tutNextButtonState = 0;
-
-    return RetVal;
-}
-
-
-void tutShowBackButton(void)
-{
-    if(tutBackVisible)
-    {
-        tutPrevVisible = FALSE;
-        tutHideBackButton();
-    }
-
-    tutAllocateRootRegion();
-
-    tutBackAtom.x = tutTextRect.x0;
-    tutBackAtom.y = tutTextRect.y1;
-    tutBackAtom.width = 128;
-    tutBackAtom.height = 32;
-
-    tutBackRegion = (buttonhandle)regChildAlloc(tutRootRegion, (smemsize)&tutBackAtom,
-        tutBackAtom.x, tutBackAtom.y, tutBackAtom.width, tutBackAtom.height, sizeof(buttonhandle) - sizeof(regionhandle), 0);
-
-    tutBackAtom.region = (void*)tutBackRegion;
-    tutBackRegion->reg.atom = &tutBackAtom;
-    tutBackRegion->reg.flags |= RPM_MouseEvents;
-    tutBackAtom.pData = NULL;
-
-    tutBackRegion->reg.processFunction = uicButtonProcess;
-    tutBackRegion->processFunction = tutProcessBackButton;
-    tutBackVisible = TRUE;
-
-    regDrawFunctionSet((regionhandle)tutBackRegion, tutDrawBackButtonFunction);
-}
-
-void tutShowPrevButton(void)
-{
-    if (tutBackVisible)
-    {
-        tutHideBackButton();
-    }
-    tutPrevVisible = TRUE;
-    tutShowBackButton();
-}
-
-void tutHideBackButton(void)
-{
-    if(tutBackRegion)
-    {
-        regRegionDelete((regionhandle)tutBackRegion);
-        tutDeallocateRootRegion();
-    }
-
-    tutBackRegion = NULL;
-    tutBackVisible = FALSE;
-    tutPrevVisible = FALSE;
-
-}
-
-udword tutProcessBackButton(struct tagRegion *reg, smemsize ID, udword event, udword data)
-{
-    if(event == CM_ButtonClick)
-    {
-        if((tutPrevVisible) && (tutLastLessonName[0]))
-            strcpy(tutCurrLessonName, tutLastLessonName);
-
-        if (fileExists(tutCurrLessonName, 0) && (VerifySaveFile(tutCurrLessonName) == VERIFYSAVEFILE_OK))
-        {
-            tutEnableEverything();
-            spMainScreen();
-            tbForceTaskbar(FALSE);
-            gameEnd();
-
-            tutorial = 1;
-
-            utyLoadSinglePlayerGameGivenFilename(tutCurrLessonName);
-            return 1;
-        }
-    }
-
-    return 0;
-}
 
 void tutDrawBackButtonFunction(regionhandle reg)
 {
@@ -1891,8 +1755,10 @@ void tutInitialize(void)
 
             dbgAssertOrIgnore(tutImage[i] != NULL);
             tutTexture[i] = trRGBTextureCreate((color *)tutImage[i]->data, tutImage[i]->width, tutImage[i]->height, TRUE);
-            i++;
         }
+        /* A restored lesson can reuse existing texture handles. Advance even
+           when an image is already cached instead of looping forever. */
+        i++;
     }
 }
 

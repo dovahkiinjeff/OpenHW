@@ -18,17 +18,8 @@ def pack_migration_input(generated,work,destination):
     # Migration reads ship/gameplay definitions and attachment HOD identities,
     # never surface pixels. Avoid writing an entire texture archive twice.
     from openhw_obig import pack
-    source=work/'migration-input';source.mkdir(exist_ok=True)
-    for path in generated.rglob('*'):
-        if not path.is_file() or path.suffix.lower() not in ('.owshipdef','.shp','.hod'):continue
-        target=source/path.relative_to(generated)
-        target.parent.mkdir(parents=True,exist_ok=True)
-        if target.exists():
-            if os.path.samefile(path,target):continue
-            target.unlink()
-        try:os.link(path,target)
-        except OSError:shutil.copyfile(path,target)
-    return pack(source,destination)
+    return pack(generated,destination,
+        predicate=lambda name: Path(name).suffix.lower() in ('.owshipdef','.shp','.hod'))
 
 
 def stage_special_models(sources, output, tools, work, authored):

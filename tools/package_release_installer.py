@@ -29,6 +29,6 @@ def main():
         shutil.copyfileobj(bootstrap,out);offset=out.tell();shutil.copyfileobj(incoming,out)
         out.write(struct.pack('<16sQQ32s',b'OPENHW1SETUPZIP\0',offset,payload.stat().st_size,digest))
     with a.output.open('rb') as stream:result=hashlib.file_digest(stream,'sha256').hexdigest()
-    receipt={'version':'1.0','file':a.output.name,'size':a.output.stat().st_size,'sha256':result,'payloadSha256':digest.hex(),'payloadFiles':len(names),'installRoot':'directory containing the installer','gameExecutables':manifest['executables'],'contentAudit':content_audit}
+    receipt={'version':manifest['version'],'file':a.output.name,'size':a.output.stat().st_size,'sha256':result,'payloadSha256':digest.hex(),'payloadFiles':len(names),'installRoot':'directory containing the installer','gameExecutables':manifest['executables'],'contentAudit':content_audit}
     a.output.with_suffix('.json').write_text(json.dumps(receipt,indent=2));print(json.dumps(receipt,indent=2))
 if __name__=='__main__':main()

@@ -23,7 +23,7 @@ void clLaunchShip(CommandLayer *layer,SelectCommand *selection,ShipPtr host)
 static regionhandle lmBaseRegion,lmHoldRegion;
 static listwindowhandle lmListWindow;
 static ShipsInsideMe *shipsin;
-static bool32 lmActive,lmIoSaveState,mrRenderMainScreen,tbDisable;
+static bool32 lmActive,lmIoSaveState,mrRenderMainScreen,tbDisable,smSensorsActive;
 static int lmRenderEverythingCounter;
 static int docked=1;
 static void testDelete(regionhandle closing);
@@ -119,20 +119,21 @@ static void lifecycle(void)
     int pass;
     memset(&universe.mainCameraCommand,0x5a,sizeof(CameraCommand));
     untouched=universe.mainCameraCommand;
-    for(pass=0;pass<2;++pass)
+    for(pass=0;pass<3;++pass)
     {
         int before=deleted;
         lmBaseRegion=&base;lmHoldRegion=&bank;lmListWindow=&list;shipsin=&hold;
         lmActive=TRUE;lmIoSaveState=TRUE;lmRenderEverythingCounter=4;
-        tbDisable=TRUE;mrRenderMainScreen=FALSE;docked=pass==0;
+        tbDisable=TRUE;mrRenderMainScreen=FALSE;docked=pass!=1;
+        smSensorsActive=pass==2;
         lmDismiss();lmDismiss();
         CHECK(deleted==before+1 && previewClosed==pass+1 && overlayRestored==pass+1);
         CHECK(!lmActive && !lmBaseRegion && !lmHoldRegion && !lmListWindow && !shipsin);
-        CHECK(!lmIoSaveState && !lmRenderEverythingCounter && mrRenderMainScreen);
+        CHECK(!lmIoSaveState && !lmRenderEverythingCounter && mrRenderMainScreen==!smSensorsActive);
         CHECK(docked ? tbDisable : !tbDisable);
         CHECK(memcmp(&untouched,&universe.mainCameraCommand,sizeof(CameraCommand))==0);
     }
-    CHECK(sounds==3);
+    CHECK(sounds==4);
 }
 
 int main(void)

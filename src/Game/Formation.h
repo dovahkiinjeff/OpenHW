@@ -149,6 +149,7 @@ void AddShipToMilitaryGroup(ShipPtr ship,struct CommandToDo *militaryGroup);
 void RemoveShipFromMilitaryParade(Ship *shiptoremove,MilitaryParadeCommand *militaryParade);
 void FreeMilitaryParadeContents(MilitaryParadeCommand *militaryParade);
 void setMilitaryParade(struct CommandToDo *command);
+void setMilitaryParadeShip(struct CommandToDo *command, struct Ship *ship);
 bool32 shipInMilitaryParade(ShipPtr ship);
 void paradeSetTweakables(void);
 /* Reapply current SP authoring files after loading an older saved fleet. */

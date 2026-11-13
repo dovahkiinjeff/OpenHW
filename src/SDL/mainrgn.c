@@ -1,3 +1,5 @@
+#include "../Network/MatchRules.h"
+#include "OnlineClient.h"
 /*=============================================================================
     Name    : mainrgn.c
     Purpose : Logic for handling region events for the main game screen.
@@ -148,6 +150,7 @@ mrKeyFunction[] =
 {
     {{ESCKEY,    0,      0,      0}, 1, RPE_KeyDown},
     {{TABKEY,    0,      0,      0}, 1, RPE_KeyDown},
+    {{BACKSPACEKEY,0,    0,      0}, 1, RPE_KeyDown},
     {{ARRLEFT,   0,      0,      0}, 1, RPE_KeyDown},
     {{ARRRIGHT,  0,      0,      0}, 1, RPE_KeyDown},
     {{BKEY,      0,      0,      0}, 1, RPE_KeyDown},
@@ -557,7 +560,7 @@ void mrDeltaFormation(char *string, featom *atom)
 
 void mrBroadFormation(char *string, featom *atom)
 {
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
     {
         return;
     }
@@ -573,7 +576,7 @@ void mrBroadFormation(char *string, featom *atom)
 
 void mrXFormation(char *string, featom *atom)
 {
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
     {
         return;
     }
@@ -589,7 +592,7 @@ void mrXFormation(char *string, featom *atom)
 
 void mrClawFormation(char *string, featom *atom)
 {
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
     {
         return;
     }
@@ -605,7 +608,7 @@ void mrClawFormation(char *string, featom *atom)
 
 void mrWallFormation(char *string, featom *atom)
 {
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
     {
         return;
     }
@@ -621,7 +624,7 @@ void mrWallFormation(char *string, featom *atom)
 
 void mrSphereFormation(char *string, featom *atom)
 {
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
     {
         return;
     }
@@ -637,7 +640,7 @@ void mrSphereFormation(char *string, featom *atom)
 
 void mrCustomFormation(char *string, featom *atom)
 {
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
     {
         return;
     }
@@ -656,7 +659,7 @@ void mrHarvestResources(char *string, featom *atom)
     MaxSelection tempSelection;
     Resource *nearestresource;
 
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
     {
         return;
     }
@@ -702,7 +705,7 @@ void mrBuildShips(char *string, featom *atom)
         cmCloseIfOpen();
         return;
     }
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
     {
         return;
     }
@@ -833,7 +836,7 @@ void mrInfo(char *string, featom *atom)
 
 void mrCancel(char *string, featom *atom)
 {
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
     {
 //        return;
     }
@@ -1000,7 +1003,7 @@ void mrLaunch(char *string, featom *atom)
         lmCloseIfOpen();
         return;
     }
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
     {
         return;
     }
@@ -1037,7 +1040,7 @@ void mrResearch(char *string, featom *atom)
         rmCloseIfOpen();
         return;
     }
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
     {
         return;
     }
@@ -1062,7 +1065,7 @@ void mrResearch(char *string, featom *atom)
 }
 void mrEvasiveTactics(char *string, featom *atom)
 {
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
     {
         return;
     }
@@ -1082,7 +1085,7 @@ void mrEvasiveTactics(char *string, featom *atom)
 }
 void mrNeutralTactics(char *string, featom *atom)
 {
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
     {
         return;
     }
@@ -1102,7 +1105,7 @@ void mrNeutralTactics(char *string, featom *atom)
 }
 void mrAgressiveTactics(char *string, featom *atom)
 {
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
     {
         return;
     }
@@ -1265,7 +1268,7 @@ void mrSelectHold(void)
         mrSelectRectBuild(&mrSelectionRect, mrOldMouseX, mrOldMouseY);//create a selection rect
         if (guardKeyIsHit()) {                                        // guard mode
             selRectDrag(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);
-            if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+            if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
             {                           // if in recorded packet playback then can't issue a gaurd order.
                 selRectNone();
             }
@@ -1273,7 +1276,7 @@ void mrSelectHold(void)
             if (keyIsHit(SHIFTKEY))
             {                                               //ctrl-shift - select anything targetable
                 selRectDragAnythingToAttack(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);
-                if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+                if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
                 {                           // if in recorded packet playback then can't issue a gaurd order.
                     selRectNone();
                 }
@@ -1281,7 +1284,7 @@ void mrSelectHold(void)
             else
             {                                               //ctrl - select all enemies
                 selRectDragAnythingToAttack(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);
-                if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+                if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
                 {                           // if in recorded packet playback then can't issue a gaurd order.
                     selRectNone();
                 }
@@ -1305,7 +1308,7 @@ void mrSelectHold(void)
         } else if (kbCommandKeyIsHit(kbSHIP_SPECIAL)) { // special action modifier
             if (mrCanZBandBox(&bFriendlies, &bEnemies))
             {
-                if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+                if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
                 {                           // if in recorded packet playback then can't issue a gaurd order.
                     selRectNone();
                 }
@@ -1630,6 +1633,8 @@ void mrKeyPress(sdword ID)
         return;
     }
     if (shipPilotKey(ID)) return;
+    /* Backspace is a presentation toggle, not a remappable unit order. */
+    if (ID == BACKSPACEKEY) { tbCycleHudMode(); return; }
     /* Shift+F11 opens the realtime map editor before gameplay key translation,
        so the legacy F11 formation binding cannot consume the editor chord. */
     if (ID == F11KEY &&
@@ -2033,6 +2038,9 @@ processEscapeKey:
             {
                 goto forwardfocus;
             }
+            break;
+        case BACKSPACEKEY:
+            tbCycleHudMode();
             break;
         case TABKEY:
             if (selSelected.numShips >= MIN_SHIPS_IN_FORMATION)
@@ -2461,6 +2469,10 @@ cancelfocus:
             }
             break;
         case PKEY:
+            if(hwMatchActive() && NoModifierKeyPressed()) {
+                unsigned char pause=(unsigned char)!universePause;
+                hwOnlineSend(OH_PAUSE,&pause,1);break;
+            }
             if ((!multiPlayerGame) && NoModifierKeyPressed())
             {
                 tutGameMessage("KB_Pause");
@@ -3704,7 +3716,7 @@ void mrObjectClick(Ship *ship)
        ship->playerowner==universe.curPlayerPtr)return;
 
     if (guardKeyIsHit() && ship->objtype == OBJ_ShipType) {
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+        if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
         {
             return;  // playing back a recorded game do nothing!
         }
@@ -3746,7 +3758,7 @@ void mrObjectClick(Ship *ship)
             selSelecting.numTargets = 0;
         }
     } else if (kbCommandKeyIsHit(kbSHIP_SPECIAL)) { // z-key: special target operation
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+        if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
         {
             return;  // playing back a recorded game do nothing!
         }
@@ -3787,7 +3799,7 @@ void mrObjectClick(Ship *ship)
     } else if ((ship->objtype == OBJ_DerelictType ||
                 (ship->objtype == OBJ_ShipType && (!allianceIsShipAlly(ship, universe.curPlayerPtr)))) &&
                keyIsHit(CONTROLKEY) && keyIsHit(SHIFTKEY)) { // control-shift-click on derelict or enemy:attack
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+        if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
         {
             return;  // playing back a recorded game do nothing!
         }
@@ -3795,7 +3807,7 @@ void mrObjectClick(Ship *ship)
     } else if (((ship->objtype == OBJ_DerelictType) || (ship->objtype == OBJ_ShipType)) &&
                (MakeShipsSingleClickSpecialCapable((SelectCommand *)&tempSelection,
                                                    (SelectCommand *)&selSelected))) { // single-click special ships
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+        if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
         {
             return;  // playing back a recorded game do nothing!
         }
@@ -3831,7 +3843,7 @@ void mrObjectClick(Ship *ship)
         }
     } else if ((ship->objtype == OBJ_AsteroidType || ship->objtype == OBJ_DustType) && keyIsHit(CONTROLKEY) &&
                keyIsHit(SHIFTKEY)) { // ctrl-shift-click resource: force attack
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+        if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
         {
             return;  // playing back a recorded game do nothing!
         }
@@ -3839,7 +3851,7 @@ void mrObjectClick(Ship *ship)
     } else if ((ship->objtype == OBJ_AsteroidType || ship->objtype == OBJ_DustType) &&
                MakeShipsHarvestCapable((SelectCommand *)&tempSelection,
                                        (SelectCommand *)&selSelected)) { // there are harvesters present
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+        if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
         {
             return;  // playing back a recorded game do nothing!
         }
@@ -3849,13 +3861,13 @@ void mrObjectClick(Ship *ship)
         tutGameMessage("Game_ClickHarvest");
     } else if ((ship->objtype == OBJ_AsteroidType) &&
                (ship->attributes & (ATTRIBUTES_KillerCollDamage | ATTRIBUTES_HeadShotKillerCollDamage))) {
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+        if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
         {
             return;  // playing back a recorded game do nothing!
         }
         goto regularEnemyCase;
     } else if ((ship->objtype == OBJ_DerelictType) && (((Derelict *)ship)->derelicttype == HyperspaceGate)) {
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+        if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
         {
             return;  // playing back a recorded game do nothing!
         }
@@ -3868,7 +3880,7 @@ void mrObjectClick(Ship *ship)
 regularFriendlyCase:
                 if (keyIsHit(CONTROLKEY) && keyIsHit(SHIFTKEY) && ship->shiptype != CryoTray)
                 {                                           //ctrl-shift-click friendly ship: attack
-                    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+                    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
                     {
                         return;  // playing back a recorded game do nothing!
                     }
@@ -3896,7 +3908,7 @@ regularFriendlyCase:
                                          (MaxAnySelection *)(&tempSelection));
                         ioUpdateShipTotals();
 
-                        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+                        if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
                         {
                             return;  // playing back a recorded game do nothing!
                         }
@@ -3914,7 +3926,7 @@ regularFriendlyCase:
             }
             else    // must be clicking on enemy ship
             {
-                if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+                if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
                 {
                     return;// playing back a recorded game do nothing!
                 }
@@ -4346,7 +4358,7 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
                                 {                           //band-selecting no ships disabled if tutorial's cancel select disabled
                                     selRectSelect(&(universe.mainCameraCommand.actualcamera),
                                                   &mrSelectionRect);
-                                    if ((selSelected.numShips > 0) && (!playPackets) && (!universePause && opPauseOrders) )  
+                                    if ((selSelected.numShips > 0) && (!playPackets) && (!universePause && hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) )  
                                     {
                                         if (selShipInSelection(selSelected.ShipPtr, selSelected.numShips, universe.curPlayerPtr->PlayerMothership)
                                             && (universe.curPlayerPtr->PlayerMothership->shiptype == Mothership))

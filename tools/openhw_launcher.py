@@ -15,7 +15,7 @@ import openhw_updater as updater
 from launcher_settings import SETTINGS
 import launcher_languages
 
-VERSION = '1.0.1'
+VERSION = '1.1.0'
 MOD_NAME = re.compile(r'[A-Za-z0-9_-]{1,64}\Z')
 LANGUAGES = ('English', 'French', 'German', 'Spanish', 'Italian')
 
@@ -176,14 +176,19 @@ def run_gui(root):
 def main():
     import argparse
     parser=argparse.ArgumentParser(description=__doc__); parser.add_argument('--root',type=Path,required=True); parser.add_argument('--verify-payload',action='store_true')
+    parser.add_argument('--diagnostics-report',action='store_true')
     args=parser.parse_args(); root=args.root.resolve()
     if args.verify_payload:
         from tkinter import ttk, messagebox, filedialog, simpledialog, colorchooser
         import extract_vanilla_ship_textures
         import openhw_launcher_ui
+        import openhw_diagnostics
         for name in ('hangar-1000.png','hangar-1440.png','hangar-2200.png','mark.png','Rajdhani-Regular.ttf','Rajdhani-Bold.ttf','ShareTechMono-Regular.ttf'):
             if not safe(root,'Development/Launcher/Theme/'+name).is_file(): raise RuntimeError('Launcher theme file missing: '+name)
         updater.atomic_json(safe(root,'Development/Launcher/self-check.json'),dict(status='passed',version=VERSION,settings=len(SETTINGS),gameRun=False))
+    elif args.diagnostics_report:
+        from openhw_diagnostics import run
+        run(root)
     else: run_gui(root)
 
 

@@ -140,6 +140,7 @@ void opUpdateAudioSettings(void);
 void opUpdateVideoSettings(void);
 void opOptionsSaveSettings(void);
 void opRestoreSavedSettings(void);
+void opRestoreAdvancedSettings(void);
 char *opKeyToNiceString(keyindex key);
 keyindex opKeyTranslate(keyindex key);
 void opKeyAssign(uword func, keyindex key);

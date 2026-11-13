@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+from contextlib import contextmanager
 from extract_remastered_big import BigArchive
 
 HW1_PREFIXES=('kus_','tai_','tur_','kad_','hw1_')
@@ -87,13 +88,35 @@ def discard(path,within):
 
 def link_or_copy(source,target):
  source,target=Path(source),Path(target);target.parent.mkdir(parents=True,exist_ok=True)
- if source.suffix.lower() in ('.json','.txt','.cfg','.owevents','.owshipdef','.owsubsystem','.shp','.rmnative','.events'):return shutil.copyfile(source,target)
+ # Text definitions can be edited/rebuilt in place. Link only known immutable
+ # image/model/audio payloads; an unknown extension must remain independent.
+ if source.suffix.lower() not in ('.dds','.lif','.hod','.geo','.peo','.bin','.hwf6','.wav','.fda','.png','.tga','.webp','.jpg','.jpeg','.mp4','.bik','.avi','.mad'):
+  return shutil.copyfile(source,target)
  temporary=target.with_name(target.name+'.link-pending')
  if temporary.exists():temporary.unlink()
  try:os.link(source,temporary)
  except OSError:shutil.copyfile(source,temporary)
  temporary.replace(target)
  return str(target)
+
+@contextmanager
+def compact_stage_copies(within):
+ """Enable immutable cache links only for this release conversion tree."""
+ key='OPENHW_COMPACT_STAGE_ROOT';previous=os.environ.get(key)
+ os.environ[key]=str(Path(within).resolve())
+ try:yield
+ finally:
+  if previous is None:os.environ.pop(key,None)
+  else:os.environ[key]=previous
+
+def stage_copy(source,target):
+ """copy2-compatible publisher; release caches share immutable payloads."""
+ within=os.environ.get('OPENHW_COMPACT_STAGE_ROOT')
+ if within:
+  root=Path(within).resolve()
+  if Path(source).resolve().is_relative_to(root) and Path(target).resolve().is_relative_to(root):
+   return link_or_copy(source,target)
+ return shutil.copy2(source,target)
 
 def audit_factions(root):
  from openhw_obig import validate

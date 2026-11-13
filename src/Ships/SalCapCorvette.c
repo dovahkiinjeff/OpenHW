@@ -44,6 +44,8 @@
 #include "Universe.h"
 #include "UnivUpdate.h"
 
+#include "SalvageContact.inc"
+
 #define DEBUG_SALVAGE_CORVETTE  0
 
 #define SALVAGE_BEGIN               0
@@ -447,35 +449,7 @@ sdword salCapFlyToWithInCone(Ship *ship,SpaceObjRotImpTargGuidanceShipDerelict *
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-#define SALCAP_FINAL_DOCK_TOLERANCE 25.0f
-sdword salCapFlyToConeOrigin(Ship *ship,SpaceObjRotImpTargGuidanceShipDerelict *target)
-{
-    SalCapCorvetteSpec *spec = (SalCapCorvetteSpec *)ship->ShipSpecifics;
-    vector coneheadingInWorldCoordSys;
-    vector conepositionInWorldCoordSys;
-    vector desiredHeading;
-
-    SalvageStaticPoint *salvagestaticpoint = target->salvageInfo->salvagePoints[spec->salvageIndex].salvageStaticPoint;
-
-    matMultiplyMatByVec(&coneheadingInWorldCoordSys,&target->rotinfo.coordsys,&salvagestaticpoint->conenormal);
-
-    matMultiplyMatByVec(&conepositionInWorldCoordSys,&target->rotinfo.coordsys,&salvagestaticpoint->position);
-    vecAddTo(conepositionInWorldCoordSys,target->posinfo.position);
-
-
-    if (MoveReachedDestinationVariable(ship,&conepositionInWorldCoordSys,SALCAP_FINAL_DOCK_TOLERANCE))
-    {
-        ship->posinfo.velocity = target->posinfo.velocity;
-        return TRUE;
-    }
-    else
-    {
-        vecScalarMultiply(desiredHeading,coneheadingInWorldCoordSys,-1.0f);
-        aitrackHeading(ship,&desiredHeading,1.0);
-        aishipFlyToPointAvoidingObjs(ship,&conepositionInWorldCoordSys,0,0.0f);
-        return FALSE;
-    }
-}
+#include "SalvageApproach.inc"
 
 /* Super Salvagers should not inherit the slow multi-stage capital docking
    approach.  Pursue the assigned salvage point at full speed, predict the
@@ -1049,70 +1023,6 @@ void salCapHarvestTarget(SpaceObjRotImpTargGuidanceShipDerelict *target,Ship *do
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-/* The Khar-Selim uses a Remastered wreck with differently positioned hull
-   geometry. Its native HOD contains five authored salvage joints; use them
-   only when the native mesh is actually loaded, keeping classic fallback. */
-bool32 salCapAlignKharSelimPoints(SpaceObjRotImpTargGuidanceShipDerelict *target)
-{
-    Derelict *wreck;
-    lodinfo *levels;
-    SalvageStaticPoint *points[5];
-    hmatrix markers[5];
-    sdword i, level;
-    if (!target || target->objtype != OBJ_DerelictType || !target->salvageInfo ||
-        target->salvageInfo->numSalvagePoints != 5) return FALSE;
-    wreck = (Derelict *)target;
-    if (!wreck->staticinfo || wreck->staticinfo->derelicttype != Shipwreck) return FALSE;
-    levels = wreck->staticinfo->staticheader.LOD;
-    for (level=0; levels && level<levels->nLevels; ++level)
-    {
-        float scale; unsigned nativeLOD;
-        void *mesh=levels->level[level].pData;
-        if ((levels->level[level].flags & LM_LODType) != LT_Mesh ||
-            !meshNativeVisualParameters(mesh,&scale,&nativeLOD)) continue;
-        for (i=0; i<5; ++i)
-        {
-            char name[32];
-            points[i]=target->salvageInfo->salvagePoints[i].salvageStaticPoint;
-            if (!points[i]) return FALSE;
-            sprintf(name,"SalvagePoint%d",(int)i);
-            if (!meshNativeVisualRestMarker(mesh,name,(float *)&markers[i])) return FALSE;
-        }
-        for (i=0; i<5; ++i)
-        {
-            hmatGetVectFromHMatrixCol4(points[i]->position,markers[i]);
-            hmatGetVectFromHMatrixCol3(points[i]->conenormal,markers[i]);
-            vecNormalize(&points[i]->conenormal);
-        }
-        return TRUE;
-    }
-    return FALSE;
-}
-
-/* Save files retain a clamped object's old relative offset. Refresh it after
-   every object reference has been restored, rather than requiring the player
-   to abandon an in-progress Mission 2 salvage operation and order it again. */
-void salCapRestoreKharSelimContact(Ship *ship)
-{
-    SalCapCorvetteSpec *spec;
-    SpaceObjRotImpTargGuidanceShipDerelict *target;
-    SalvageStaticPoint *point;
-    vector offset;
-    if (!ship || ship->shiptype != SalCapCorvette) return;
-    spec = (SalCapCorvetteSpec *)ship->ShipSpecifics;
-    target = spec->target;
-    if (!salCapAlignKharSelimPoints(target) || !ship->clampInfo ||
-        ship->clampInfo->host != (SpaceObjRotImpTarg *)target ||
-        spec->salvageIndex < 0 ||
-        spec->salvageIndex >= target->salvageInfo->numSalvagePoints) return;
-    point = target->salvageInfo->salvagePoints[spec->salvageIndex].salvageStaticPoint;
-    if (!point) return;
-    ship->clampInfo->clampOffset = point->position;
-    matMultiplyMatByVec(&offset,&target->rotinfo.coordsys,&point->position);
-    vecAdd(ship->posinfo.position,target->posinfo.position,offset);
-    ship->posinfo.velocity = target->posinfo.velocity;
-}
-
 sdword salCapGetAndBusySalvageIndex(Ship *ship,SpaceObjRotImpTargGuidanceShipDerelict *target)
 {
     sdword i;
@@ -1452,66 +1362,8 @@ sdword salCapTrackHeadingAndUp(SpaceObjRotImpTargGuidanceShipDerelict *target,re
     Return      :
 ----------------------------------------------------------------------------*/
 static sdword getDockIndex(Ship *ship,SpaceObjRotImpTargGuidanceShipDerelict *target,Ship *dockwith);
-static void salCapDockWorld(Ship *host,sdword index,vector *normal,vector *position)
-{
-    DockStaticPoint *point=host->dockInfo->dockpoints[index].dockstaticpoint;
-    vector local=point->position;
-    /* Native Frigate_In terminates at the actual capture hangar. Keep the
-       original queue/door state machine, but use the same model-space port
-       throughout the approach and capture stages. */
-    if(host->shiptype==Mothership && host->shiprace==R1 && !strcmp(point->name,"Frigate"))
-        meshRemasteredDockEndpoint(host,"Frigate_In",&local);
-    matMultiplyMatByVec(normal,&host->rotinfo.coordsys,&point->conenormal);
-    matMultiplyMatByVec(position,&host->rotinfo.coordsys,&local);
-    vecAddTo(*position,host->posinfo.position);
-}
+#include "SalvageDelivery.inc"
 
-#define SAL_WITHIN_DOCKING_RANGE    6000.0f
-
-sdword salCapFlyToWithinDockingRange(Ship *ship)
-{
-    real32 maxpushvelocity;
-
-    SalCapCorvetteSpec *spec = (SalCapCorvetteSpec *)ship->ShipSpecifics;
-    vector waiting=spec->dockwith->posinfo.position;
-    real32 tolerance=SAL_WITHIN_DOCKING_RANGE;
-    if(spec->target->objtype==OBJ_ShipType && ((Ship *)spec->target)->staticinfo->shipclass==CLASS_Frigate &&
-       spec->dockwith->shiptype==Mothership && spec->dockwith->shiprace==R1 && spec->dockwith->dockInfo &&
-       spec->dockwith->dockInfo->numDockPoints>0) {
-        sdword index=getDockIndex(ship,spec->target,spec->dockwith);
-        vector normal,offset;
-        real32 clearance=max(600.0f,spec->target->staticinfo->staticheader.staticCollInfo.collspheresize*1.5f);
-        salCapDockWorld(spec->dockwith,index,&normal,&waiting);
-        vecScalarMultiply(offset,normal,clearance);
-        vecAddTo(waiting,offset);
-        tolerance=250.0f;
-    }
-    if(MoveReachedDestinationVariable((Ship *)spec->target,&waiting,tolerance))
-    {
-        return TRUE;
-    }
-
-
-    //fly to point
-
-    maxpushvelocity = salCapGetMaxPushingVelocity(ship,(Ship *)spec->target);
-    if(spec->target->objtype == OBJ_ShipType)
-    {
-        if(((Ship *)spec->target)->specialFlags2 & SPECIAL_2_SalvageTargetAlreadyDriven)
-        {
-            goto dontflyme1;
-        }
-    }
-    aishipFlyToPointAvoidingObjs((Ship *)spec->target,&waiting,AISHIP_PointInDirectionFlying,maxpushvelocity);
-    salCapTrackHeadingAndUp(spec->target,0.999f);
-    if(spec->target->objtype == OBJ_ShipType)
-    {
-        ((Ship *)spec->target)->specialFlags2 |= SPECIAL_2_SalvageTargetAlreadyDriven;
-    }
-dontflyme1:;
-
-    return FALSE;
-}
 static sdword getDockIndex(Ship *ship,SpaceObjRotImpTargGuidanceShipDerelict *target,Ship *dockwith)
 {
     sdword i;
@@ -2381,6 +2233,7 @@ reachedit:
             {
                 //do clamp
                 clampObjToObj((SpaceObjRotImpTargGuidance *)ship,(SpaceObjRotImpTargGuidance *)spec->target);
+                salCapRestoreKharSelimContact(ship);
 
             }
             //declare that we are latched on

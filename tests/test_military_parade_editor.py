@@ -17,6 +17,7 @@ class MilitaryParadeEditorTests(unittest.TestCase):
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
+#define HW_DIAG_FPRINTF(...) ((void)0)
 typedef int bool32,sdword;
 #define TRUE 1
 #define FALSE 0
@@ -260,7 +261,7 @@ int main(void){
         self.assertIn('positionat=legacyPosition;faceheading=legacyHeading;', formation)
         live = formation.split('void processMilitaryParadeToDo(', 1)[1].split('void setMilitaryParade(', 1)[0]
         self.assertLess(live.index('singlePlayerHyperspaceOwnsSteering(ship)'),live.index('paradeCustomPose(militaryParade,ship'))
-        instant = formation.split('void setMilitaryParade(', 1)[1].split('void FreeMilitaryParadeContents', 1)[0]
+        instant = formation.split('static void setMilitaryParadeShips(', 1)[1].split('void FreeMilitaryParadeContents', 1)[0]
         self.assertIn('paradeCustomPose(militaryParade,ship', instant)
         self.assertIn('matCreateMatFromVecs(&ship->rotinfo.coordsys,&customUp,&customRight,&customHeading)', instant)
 

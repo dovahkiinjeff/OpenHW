@@ -10,6 +10,7 @@
 
 #include "Captaincy.h"
 #include "ShipPilotFrame.h"
+#include "ShipAppearance.h"
 #include "Chatting.h"
 #include "CommandLayer.h"
 #include "Globals.h"
@@ -156,6 +157,7 @@ where Commands is a bunch of commands, one after the other, as defined above.
 #define COMMANDTYPE_DETERMINISTICBUILD  18
 
 #define COMMANDTYPE_SHIP_PILOT          20
+#define COMMANDTYPE_SHIP_APPEARANCE     21
 #define COMMANDTYPE_RESEARCHINFO        19
     #define RESEARCH_SUBCOMMAND_START   0
     #define RESEARCH_SUBCOMMAND_STOP    1
@@ -311,6 +313,13 @@ typedef struct
     uword numShips;
     ShipID ShipID[1];   // variable number of ShipID's
 } NetSelection;
+
+typedef struct NetShipAppearanceCommand {
+    ShipID ship;
+    uword reserved;
+    ShipAppearance appearance;
+} NetShipAppearanceCommand;
+void clSendShipAppearance(Ship *ship,const ShipAppearance *appearance);
 
 typedef struct
 {

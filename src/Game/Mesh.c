@@ -1,3 +1,4 @@
+#include "../Network/DedicatedServer.h"
 #include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     Name    : mesh.c
@@ -717,7 +718,7 @@ static bool32 meshRegisterModernSurfaceTexture(
     unsigned long long sumGreen = 0;
     unsigned long long sumBlue = 0;
 
-    if (material == NULL || material->textureNameSave == NULL)
+    if (hwDedicatedMode || material == NULL || material->textureNameSave == NULL)
     {
         return TRUE;
     }
@@ -1015,7 +1016,7 @@ static void meshRegisterModernEmissiveMaterial(const char *meshName,
     float emissiveColor[3];
     color sourceColor;
 
-    if (material == NULL ||
+    if (hwDedicatedMode || material == NULL ||
         (!bitTest(material->flags, MDF_SelfIllum) &&
          material->nFullAmbient == 0))
     {
@@ -2414,6 +2415,9 @@ static const char *meshNativePackageMaterial(void *user,const HwRmSubsystemNode 
     meshNativePackageIO *io=(meshNativePackageIO *)user;
     const char *label=hwRmVisualPackageMaterial(io->package,node->component,node->part->material);
     char path[FL_Path];
+    /* Dedicated simulation keeps the identical RM hierarchy, hardpoints and
+       animation bindings, while omitting presentation-only DDS payloads. */
+    if(hwDedicatedMode)return label;
     if (!label || snprintf(path,sizeof(path),"%s%s.lif",!strncmp(label,"@/",2)?"":io->root,!strncmp(label,"@/",2)?label+2:label)>=(int)sizeof(path) ||
         !fileExists(path,FF_IgnoreBIG)) return NULL;
     if (snprintf(path,sizeof(path),"%s%s.dds",!strncmp(label,"@/",2)?"":io->root,!strncmp(label,"@/",2)?label+2:label)>=(int)sizeof(path) ||

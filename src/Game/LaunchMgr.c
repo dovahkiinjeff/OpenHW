@@ -1,3 +1,4 @@
+#include "../Network/MatchRules.h"
 /*=============================================================================
     Name    : launchMgr.c
     Purpose : Logic for launch manager
@@ -34,6 +35,7 @@
 #include "Randy.h"
 #include "render.h"
 #include "Scroller.h"
+#include "Sensors.h"
 #include "ShipDefs.h"
 #include "ShipView.h"
 #include "SoundEvent.h"
@@ -380,7 +382,7 @@ void lmLaunch(char *string, featom*atom)
     }
 
     // enable rendering of main game screen
-    mrRenderMainScreen = TRUE;
+    mrRenderMainScreen = !smSensorsActive;
     lmActive = FALSE;
 
     glcFullscreen(FALSE);
@@ -1597,7 +1599,7 @@ sdword lmLaunchBegin(regionhandle region, smemsize ID, udword event, udword data
     ShipPtr shipinside;
     InsideShip *insideShipStruct;
 
-    if (playPackets || (universePause && !opPauseOrders) )
+    if (playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) )
     {
         return 0;
     }

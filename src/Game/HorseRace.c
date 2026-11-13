@@ -53,6 +53,8 @@
 #include "UnivUpdate.h"
 #include "utility.h"
 #include "MissionLoadProgress.h"
+#include "../Network/MatchRules.h"
+#include "../Network/DedicatedServer.h"
 
 #ifdef HW_ENABLE_D3D12_BACKEND
 #include "ModernGraphics.h"
@@ -1194,7 +1196,7 @@ void horseRaceShutdown(void)
 
 void horseRaceWaitForNetworkGameStartShutdown(void)
 {
-    if (multiPlayerGame)
+    if (multiPlayerGame && !hwMatchActive())
     {
         while (!multiPlayerGameUnderWay) ;
     }
@@ -1225,11 +1227,11 @@ void HorseRaceBeginBar(uword barnum)
     packet.barnum = (uword) localbar;
     packet.percent = horseRaceGetPacketPercent(0.0f);
 
-    if (multiPlayerGame)
+    if (multiPlayerGame && !hwMatchActive())
     {
         SendHorseRacePacket((ubyte *)&packet,sizeof(HorsePacket));
     }
-    else
+    else if (!hwMatchActive())
     {
         recievedHorsePacketCB((ubyte *)&packet,sizeof(HorsePacket));
     }
@@ -1530,6 +1532,15 @@ bool32 HorseRaceNext(real32 percent)
 
     if (!hrRunning) return percent >= 1.0f;
     if (percent > 1.0f) percent = 1.0f;
+    /* This function is called synchronously inside gameStart. Dedicated
+       clients must finish their local load before they can send OH_LOADED;
+       waiting here for legacy peer progress packets deadlocks that handoff.
+       The server owns the all-players-ready barrier after local loading. */
+    if (hwMatchActive())
+    {
+        if (!hwDedicatedMode) HorseRaceLoadingRefresh();
+        return percent >= 1.0f;
+    }
 //    if(utyTeaserHeader)  return TRUE;
 
     /*glClear(GL_COLOR_BUFFER_BIT);

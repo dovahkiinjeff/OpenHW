@@ -6,7 +6,7 @@ void mrDockingOrders(char *string, featom *atom)
         return;
     }
 
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
     {
         return;
     }

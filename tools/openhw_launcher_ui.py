@@ -359,7 +359,8 @@ class App:
         self.system_canvas.bind('<Configure>',lambda e:self.system_canvas.itemconfigure(inner,width=e.width))
         cards=[('01','UPDATE CHANNEL','Get the latest official patches in the required order.\nDownloads are verified before installation.','CHECK FOR UPDATES',self.update),
                ('02','SHADER LIBRARY','Back up the local shader cache and rebuild on next launch.\nThe next startup will take longer.','REBUILD CACHE',self.cache),
-               ('03','VOICE ARCHIVE','Import a complete localized voice bank from your owned\nHomeworld 1 Classic files. Only matching packs are offered.','IMPORT VOICE PACK',self.import_voice)]
+               ('03','VOICE ARCHIVE','Import a complete localized voice bank from your owned\nHomeworld 1 Classic files. Only matching packs are offered.','IMPORT VOICE PACK',self.import_voice),
+               ('04','DIAGNOSTICS','Send selected logs and an optional save to the OpenHW team.\nUse your community alias and add a comment.','REPORT AN ISSUE',self.diagnostics)]
         for number,title,description,action,callback in cards:
             card=tk.Frame(contents,bg=RAISED,padx=20,pady=17);card.pack(fill='x',padx=34,pady=(0,12));card.columnconfigure(1,weight=1)
             label(card,number,size=MONO,color=GOLD,bg=RAISED).grid(row=0,column=0,rowspan=2,sticky='n',padx=(0,16),pady=5)
@@ -368,6 +369,10 @@ class App:
             card.bind('<Configure>',lambda e,t=text:t.configure(wraplength=max(160,e.width-335)))
             Button(card,action,lambda f=callback:self.guarded(f),width=215,height=44,bg=RAISED).grid(row=0,column=2,rowspan=2,padx=(18,0))
         label(contents,'INSTALLATION / '+str(self.root),size=MONO,color=MUTED,wraplength=800,justify='left').pack(anchor='w',padx=34,pady=8)
+    def diagnostics(self):
+        import subprocess
+        subprocess.Popen([str(self.root/'Launcher.exe'),'--diagnostics-report'],cwd=self.root,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
     def make_footer(self):
         foot=tk.Frame(self.window,bg=BG,height=82);foot.pack(side='bottom',before=self.shell,fill='x',padx=2,pady=(0,2));foot.pack_propagate(False)
         line=tk.Frame(foot,bg=LINE,height=1);line.pack(fill='x')

@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import shutil
+from release_compact import stage_copy
 from pathlib import Path
 
 import numpy as np
@@ -148,10 +149,10 @@ def stage(reader, source, plan, materials, classic_archive, output, *,
                     if names.count(joint)!=1:raise ValueError('Missing/ambiguous reviewed engine: '+joint)
                     ship_engines.append((f'engine_{i}',joint))
         scale,axis=calibrated_scale(old,bounds)
-        shutil.copy2(source_hull,folder/'hull.hod')
+        stage_copy(source_hull,folder/'hull.hod')
         mad=source_hull.with_suffix('.mad')
         if mad.is_file():
-            shutil.copy2(mad,folder/'animation.mad')
+            stage_copy(mad,folder/'animation.mad')
         lines=[f'HW_RM_{race}_VISUAL_1','type '+identity_prefix+name,f'scale {scale:.9g}',
                'hull hull.hod','mad '+('animation.mad' if mad.is_file() else '-')]
         from openhw_presentation_events import stage_events
@@ -179,7 +180,7 @@ def stage(reader, source, plan, materials, classic_archive, output, *,
             file=model_files.get(a['model'])
             if file is None:
                 file=f'component{component}.hod';model_files[a['model']]=file
-                shutil.copy2(cache_path(source,a['model']),folder/file)
+                stage_copy(cache_path(source,a['model']),folder/file)
             role=1 if a['role']=='Weapon' else 2 if a['slot']=='Engine' else 3
             lines.append(f'attach {a["visual_instance"]} {a["anchor"]} {role} {file}')
             events=stage_events(cache_path(source,a['model']).with_suffix('.events'),folder,'component'+str(component)+'_events')
@@ -208,7 +209,7 @@ def stage(reader, source, plan, materials, classic_archive, output, *,
                     if hashlib.sha256(file.read_bytes()).hexdigest()!=record['sha256']:
                         raise ValueError('Stale native material output: '+str(file))
                     suffix='.lif' if key=='bootstrap' else '.dds' if key=='diffuse' else '_'+key+'.dds'
-                    shutil.copy2(file,folder/(label+suffix))
+                    stage_copy(file,folder/(label+suffix))
                 stage_active_engine_variant(material, materials, folder, label)
                 copied_labels.add(label)
         (folder/'visual.rmnative').write_text('\n'.join(lines)+'\n',encoding='ascii')

@@ -1,3 +1,4 @@
+#include "../Network/MatchRules.h"
 /*=============================================================================
     Name    : select.c
     Purpose : Logic for selecting ships and groups of ships.
@@ -150,7 +151,7 @@ static void selDrawVeterancyStars(Ship *ship, sdword barLeftX, sdword healthY)
     sdword star;
     sdword edge;
 
-    if (!opRankSystem || rank <= 0) return;
+    if (!hwMatchOption(OH_RANK_SYSTEM,opRankSystem) || rank <= 0) return;
     if (rank > VETERANCY_MAX_RANK) rank = VETERANCY_MAX_RANK;
     firstX = barLeftX + 7;
 

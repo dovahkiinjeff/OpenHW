@@ -9,6 +9,7 @@
 =============================================================================*/
 
 #include "Universe.h"
+#include "../Network/OnlineClient.h"
 #include "../Modern/RemasteredVisualPackage.h"
 
 #include <math.h>
@@ -4032,7 +4033,8 @@ processtextures:
             }
             else if (multiPlayerGame)
             {
-                TransferCaptaincyGameStarted();
+                if(hwMatchActive())hwOnlineGameLoaded();
+                else TransferCaptaincyGameStarted();
             }
 
         }
@@ -4067,7 +4069,7 @@ processtextures:
                     }
                 }
 
-                if (multiPlayerGame)
+                if (multiPlayerGame && !hwMatchActive())
                 {
                     gcPollForNewChat();
                     TransferCaptaincyUpdate();
@@ -4106,7 +4108,7 @@ processtextures:
                         if (multiPlayerGame)
                         {
                             multiPlayerGameUnderWay = TRUE;
-                            TransferCaptaincySyncPacketReceivedNotify();
+                            if(!hwMatchActive())TransferCaptaincySyncPacketReceivedNotify();
                         }
 
                         netCheck();
@@ -4458,7 +4460,7 @@ bool32 unitCapCanCreateShip(ShipType ship, shipsinprogress *factory, shipavailab
 
     /* Keep cap totals maintained for scripts/statistics, but bypass every
        total/class/type construction limit for the local single-player game. */
-    if (singlePlayerGame && opDisableUnitCaps)
+    if (hwMatchPlayerOption(OH_DISABLE_UNIT_CAPS,opDisableUnitCaps,player->playerIndex))
     {
         return(TRUE);
     }

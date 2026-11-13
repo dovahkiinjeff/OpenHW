@@ -1,12 +1,13 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(HomeworldModern
-    VERSION 1.0.0
+    VERSION 1.1.0
     DESCRIPTION "Native Windows modernization of the Homeworld engine"
     LANGUAGES C CXX)
 
 include(CTest)
 if(WIN32)
+    enable_language(RC)
     add_executable(OpenHWSetupBootstrap WIN32 EXCLUDE_FROM_ALL tools/release_bootstrap.cpp)
     target_compile_features(OpenHWSetupBootstrap PRIVATE cxx_std_17)
     target_compile_definitions(OpenHWSetupBootstrap PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
@@ -19,12 +20,20 @@ if(WIN32)
     target_compile_features(OpenHWUpdaterBootstrap PRIVATE cxx_std_17)
     target_compile_definitions(OpenHWUpdaterBootstrap PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN OPENHW_UPDATER)
     target_link_libraries(OpenHWUpdaterBootstrap PRIVATE comctl32 bcrypt crypt32)
+    add_executable(OpenHWLauncherBootstrap WIN32 EXCLUDE_FROM_ALL tools/release_bootstrap.cpp)
+    target_compile_features(OpenHWLauncherBootstrap PRIVATE cxx_std_17)
+    target_compile_definitions(OpenHWLauncherBootstrap PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN OPENHW_UPDATER OPENHW_LAUNCHER)
+    target_link_libraries(OpenHWLauncherBootstrap PRIVATE comctl32 bcrypt crypt32)
+    set(OPENHW_LAUNCHER_ICON "${CMAKE_CURRENT_SOURCE_DIR}/assets/Launcher/launcher.ico")
+    configure_file(tools/launcher_icon.rc.in launcher_icon.rc @ONLY)
+    target_sources(OpenHWLauncherBootstrap PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/launcher_icon.rc")
     add_executable(bc6h_encode EXCLUDE_FROM_ALL tools/bc6h_encode.cpp)
     target_compile_features(bc6h_encode PRIVATE cxx_std_17)
     if(MSVC)
         set_property(TARGET OpenHWSetupBootstrap PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
         set_property(TARGET OpenHWPatchBootstrap PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
         set_property(TARGET OpenHWUpdaterBootstrap PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+        set_property(TARGET OpenHWLauncherBootstrap PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     endif()
 endif()
 if(BUILD_TESTING AND WIN32)
@@ -55,6 +64,8 @@ option(HW_ENABLE_D3D12_BACKEND "Use the D3D12 DXGI visible presentation bridge" 
 option(HW_ENABLE_D3D12_NATIVE_RASTER "Replace the legacy OpenGL context with the native D3D12 fixed-function compatibility rasterizer" ON)
 option(HW_ENABLE_ASAN "Enable MSVC AddressSanitizer for native crash diagnosis" OFF)
 option(HW_ENABLE_DIAGNOSTICS "Compile engine logging, profiling, captures and crash reports" ON)
+option(HW_ENABLE_LIVE_MAP_AUTHORING "Developer-only live Shift+F11/F12 map and lighting editors" OFF)
+add_compile_definitions(HW_ENABLE_LIVE_MAP_AUTHORING=$<BOOL:${HW_ENABLE_LIVE_MAP_AUTHORING}>)
 add_compile_definitions(HW_ENABLE_DIAGNOSTICS=$<BOOL:${HW_ENABLE_DIAGNOSTICS}>)
 
 if(HW_ENABLE_ASAN AND NOT MSVC)
@@ -420,6 +431,11 @@ set_source_files_properties("${HW_SOURCE_DIR}/src/Game/ETG.c"
 # writes critical diagnostics to stdout/stderr.  SDL_MAIN_HANDLED preserves the
 # ordinary C main() entry point.
 add_executable(homeworld
+    "${HW_SOURCE_DIR}/src/Network/DedicatedServer.c"
+    "${HW_SOURCE_DIR}/src/Network/MatchRules.c"
+    "${HW_SOURCE_DIR}/src/Network/CommandValidation.c"
+    "${HW_SOURCE_DIR}/src/Network/OnlineSocket.cpp"
+    "${HW_SOURCE_DIR}/src/Network/OnlineGame.c"
     ${HW_GAME_SOURCES}
     "${HW_MESH_SOURCE}"
     ${HW_SDL_SOURCES}
@@ -436,6 +452,7 @@ if(_hw_mesh_source_index EQUAL -1)
 endif()
 
 target_include_directories(homeworld PRIVATE
+    "${HW_SOURCE_DIR}/src/Network"
     "${HW_SOURCE_DIR}/src/Game"
     "${HW_SOURCE_DIR}/src/SDL"
     "${HW_SOURCE_DIR}/src/Ships"
@@ -449,6 +466,40 @@ target_include_directories(homeworld PRIVATE
     "${HW_GENERATED_DIR}/Modern"
     "${HW_GENERATED_DIR}/Game"
     "${HW_GENERATED_DIR}/Missions")
+
+# Diagnostics and normal builds share a simulation compatibility identity.
+# Reconfigure after any engine source changes rather than trusting the filename
+# or release version of an EXE supplied by a multiplayer client.
+file(GLOB_RECURSE OH_ID_SOURCES CONFIGURE_DEPENDS RELATIVE "${HW_SOURCE_DIR}"
+    "${HW_SOURCE_DIR}/src/Game/*.c" "${HW_SOURCE_DIR}/src/Game/*.h" "${HW_SOURCE_DIR}/src/Game/*.inc"
+    "${HW_SOURCE_DIR}/src/Ships/*.c" "${HW_SOURCE_DIR}/src/Ships/*.h" "${HW_SOURCE_DIR}/src/Ships/*.inc"
+    "${HW_SOURCE_DIR}/src/SDL/*.c" "${HW_SOURCE_DIR}/src/SDL/*.h" "${HW_SOURCE_DIR}/src/SDL/*.inc"
+    "${HW_SOURCE_DIR}/src/Modern/*.c" "${HW_SOURCE_DIR}/src/Modern/*.h" "${HW_SOURCE_DIR}/src/Modern/*.cpp" "${HW_SOURCE_DIR}/src/Modern/*.inc"
+    "${HW_SOURCE_DIR}/src/Network/*.c" "${HW_SOURCE_DIR}/src/Network/*.h" "${HW_SOURCE_DIR}/src/Network/*.cpp")
+list(SORT OH_ID_SOURCES)
+set(OH_ID_TEXT "OpenHW dedicated protocol 1\n")
+foreach(OH_ID_SOURCE IN LISTS OH_ID_SOURCES)
+    file(SHA256 "${HW_SOURCE_DIR}/${OH_ID_SOURCE}" OH_FILE_HASH)
+    string(APPEND OH_ID_TEXT "${OH_ID_SOURCE}:${OH_FILE_HASH}\n")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${HW_SOURCE_DIR}/${OH_ID_SOURCE}")
+endforeach()
+string(SHA256 OH_ID_HASH "${OH_ID_TEXT}")
+file(WRITE "${HW_GENERATED_DIR}/Game/OnlineBuild.h" "#define OH_BUILD_FINGERPRINT \"${OH_ID_HASH}\"\n")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/server-fingerprint.txt" "${OH_ID_HASH}\n")
+if(MSVC)
+    # Legacy warning suppressions must not hide missing pointer-returning
+    # declarations or argument truncation in the new network boundary.
+    set_source_files_properties(
+        "${HW_SOURCE_DIR}/src/Network/DedicatedServer.c"
+        "${HW_SOURCE_DIR}/src/Network/MatchRules.c"
+        "${HW_SOURCE_DIR}/src/Network/CommandValidation.c"
+        "${HW_SOURCE_DIR}/src/Network/OnlineGame.c"
+        PROPERTIES COMPILE_OPTIONS "/we4013;/we4047;/we4024;/we4311;/we4312")
+    # This overlay stores a frontend atom pointer in a region ID. A narrow
+    # cast here crashes on the first rendered multiplayer frame under ASLR.
+    set_source_files_properties("${HW_SOURCE_DIR}/src/Game/GameChat.c"
+        PROPERTIES COMPILE_OPTIONS "/we4311;/we4312")
+endif()
 
 if(HW_ENABLE_D3D12_BACKEND)
     add_library(hw_gpu_memory STATIC
@@ -599,7 +650,8 @@ target_link_libraries(homeworld PRIVATE
     ole32
     shell32
     user32
-    winmm)
+      winmm
+      winhttp)
 
 if(NOT HW_ENABLE_D3D12_NATIVE_RASTER)
     target_link_libraries(homeworld PRIVATE OpenGL::GL)
@@ -860,6 +912,13 @@ if(BUILD_TESTING)
     target_link_libraries(effect_owner_tests PRIVATE SDL2::SDL2)
     target_compile_features(effect_owner_tests PRIVATE c_std_11)
     add_test(NAME effect_owner_types COMMAND effect_owner_tests)
+    add_executable(salvage_contact_tests "${HW_SOURCE_DIR}/tests/SalvageContactTests.c"
+        "${HW_SOURCE_DIR}/src/Game/Matrix.c" "${HW_SOURCE_DIR}/src/Game/Vector.c")
+    target_include_directories(salvage_contact_tests PRIVATE ${_hw_save_includes})
+    target_compile_definitions(salvage_contact_tests PRIVATE ${_hw_save_defines} SDL_MAIN_HANDLED)
+    target_link_libraries(salvage_contact_tests PRIVATE SDL2::SDL2)
+    target_compile_features(salvage_contact_tests PRIVATE c_std_11)
+    add_test(NAME salvage_contact_and_delivery COMMAND salvage_contact_tests)
     if(HW_ENABLE_D3D12_NATIVE_RASTER)
         add_executable(persistent_raster_tests
             "${HW_SOURCE_DIR}/tests/PersistentRasterTests.cpp"
@@ -987,6 +1046,14 @@ if(BUILD_TESTING)
     target_link_libraries(launch_manager_tests PRIVATE SDL2::SDL2)
     target_compile_features(launch_manager_tests PRIVATE c_std_11)
     add_test(NAME launch_manager_lifecycle COMMAND launch_manager_tests)
+    add_executable(tutorial_controls_tests "${HW_SOURCE_DIR}/tests/TutorialControlsTests.c")
+    target_include_directories(tutorial_controls_tests PRIVATE ${_hw_save_includes})
+    target_compile_definitions(tutorial_controls_tests PRIVATE ${_hw_save_defines})
+    target_link_libraries(tutorial_controls_tests PRIVATE SDL2::SDL2)
+    add_test(NAME tutorial_controls_lifecycle COMMAND tutorial_controls_tests)
+    add_executable(hud_visibility_tests "${HW_SOURCE_DIR}/tests/HudVisibilityTests.c")
+    target_include_directories(hud_visibility_tests PRIVATE "${HW_SOURCE_DIR}/src/Game")
+    add_test(NAME hud_visibility_policy COMMAND hud_visibility_tests)
     add_executable(ui_list_lifetime_tests "${HW_SOURCE_DIR}/tests/UIListLifetimeTests.c")
     target_include_directories(ui_list_lifetime_tests PRIVATE ${_hw_save_includes})
     target_compile_definitions(ui_list_lifetime_tests PRIVATE ${_hw_save_defines})

@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'tools'))
 from stage_release import defaults
-from release_setup import verify_payload,local_environment,root_directory
+from release_setup import verify_payload,local_environment,root_directory,validate_destination,begin_install
 from release_import import SPECIALS
 
 class ReleaseInstallerTests(unittest.TestCase):
@@ -38,8 +38,31 @@ class ReleaseInstallerTests(unittest.TestCase):
     def test_payload_rejects_paths_outside_install_folder(self):
         with tempfile.TemporaryDirectory(dir=ROOT/'tmp') as folder:
             root=Path(folder);(root/'Development').mkdir()
-            (root/'Development/release.json').write_text(json.dumps({'schema':1,'version':'1.0','content_policy':2,'files':[{'path':'../escape','size':0,'sha256':'0'*64}]}))
+            (root/'Development/release.json').write_text(json.dumps({'schema':1,'version':'1.1','content_policy':2,'files':[{'path':'../escape','size':0,'sha256':'0'*64}]}))
             with self.assertRaisesRegex(ValueError,'Unsafe'):verify_payload(root)
+
+    def test_fresh_setup_rejects_old_game_without_completion_receipt(self):
+        for name in ('OpenHW.exe','OpenHW-Daignostics.exe','OpenHW-HW1.obig','version.json'):
+            with self.subTest(name=name),tempfile.TemporaryDirectory(dir=ROOT/'tmp') as folder:
+                root=Path(folder);(root/'Development').mkdir()
+                (root/'Development/release.json').write_text('{"schema":1,"version":"1.1"}')
+                prior=root/name;prior.write_bytes(b'old installation bytes')
+                with self.assertRaisesRegex(ValueError,'existing OpenHW installation'):begin_install(root)
+                self.assertEqual(prior.read_bytes(),b'old installation bytes')
+                self.assertFalse((root/'Development/setup-session.json').exists())
+
+    def test_resume_accepts_only_identical_payload_and_never_completed_game(self):
+        with tempfile.TemporaryDirectory(dir=ROOT/'tmp') as folder:
+            root=Path(folder);(root/'Development').mkdir()
+            payload=root/'Development/release.json';payload.write_text('{"schema":1,"version":"1.1"}')
+            state=begin_install(root)
+            (root/'OpenHW.exe').write_bytes(b'interrupted runtime')
+            self.assertEqual(validate_destination(root),state)
+            payload.write_text('{"schema":1,"version":"1.1","changed":true}')
+            with self.assertRaisesRegex(ValueError,'different setup payload'):validate_destination(root)
+            payload.write_text('{"schema":1,"version":"1.1"}')
+            (root/'setup-complete.json').write_text('{}')
+            with self.assertRaisesRegex(ValueError,'already contains an installed'):validate_destination(root)
 
     def test_all_later_special_models_have_local_import_recipes(self):
         self.assertEqual({row[1] for row in SPECIALS},{'traders/floatingcity','traders/ghostship','traders/researchstation','traders/junkyardhq','traders/miningbase','p3/p3megaship'})

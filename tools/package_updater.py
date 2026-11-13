@@ -22,7 +22,7 @@ def main():
     from PyInstaller.archive.readers import CArchiveReader
     from PyInstaller.archive.writers import CArchiveWriter
     from PyInstaller.loader.pyimod01_archive import ZlibArchiveReader
-    version = '1.0.1'
+    version = '1.1.0'
     source = args.source.resolve(); args.work.mkdir(parents=True, exist_ok=True)
     for path in ('tools/openhw_updater.py','tools/UpdaterVersion.h'):
         if version not in (source/path).read_text(encoding='utf-8'): raise ValueError('Updater version mismatch')
@@ -34,7 +34,7 @@ def main():
     required = ('urllib.request','ssl','tkinter','zipfile','ctypes','generate_mission_skies')
     if any(module not in pyz.toc for module in required): raise ValueError('Installer runtime is missing required modules')
     modules=['openhw_updater','release_sky_lighting']
-    if args.launcher: modules+=['openhw_launcher','openhw_launcher_ui','launcher_settings','launcher_languages']
+    if args.launcher: modules+=['openhw_launcher','openhw_launcher_ui','launcher_settings','launcher_languages','openhw_diagnostics']
     replacements = {module:compile((source/'tools'/(module+'.py')).read_text(encoding='utf-8'),module+'.py','exec')
                     for module in modules}
     if args.launcher:
@@ -91,7 +91,7 @@ except Exception:
     payload = archive.read_bytes(); bootstrap = args.bootstrap.read_bytes()
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_bytes(bootstrap+payload+struct.pack('<16sQQ32s',b'OPENHW1SETUPZIP\0',len(bootstrap),len(payload),hashlib.sha256(payload).digest()))
-    receipt = dict(version=version,protocol=2,file=str(args.output),size=args.output.stat().st_size,
+    receipt = dict(version=version,protocol=3,file=str(args.output),size=args.output.stat().st_size,
         sha256=hashlib.sha256(args.output.read_bytes()).hexdigest(), gameRun=False, liveInstallationUpdated=False)
     (args.work/'build-receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
     print(json.dumps(receipt,indent=2))

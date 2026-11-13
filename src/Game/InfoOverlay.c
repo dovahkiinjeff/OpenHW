@@ -17,6 +17,7 @@
 #include "StatScript.h"
 #include "StringSupport.h"
 #include "Task.h"
+#include "TaskBar.h"
 #include "Tutor.h"
 #include "utility.h"
 
@@ -134,6 +135,7 @@ bool32 crapthing(udword num, void *data, struct BabyCallBack *baby)
 
 udword ioListClick(regionhandle reg, sdword ID, udword event, udword data)
 {
+    if (!tbFullHudVisible()) return 0;
     if (keyIsHit(SHIFTKEY))
     {
         overlayinfo[ID].listinfo->bSelected = (bool16)!overlayinfo[ID].listinfo->bSelected;
@@ -154,6 +156,7 @@ void ioShipListDraw(regionhandle region)
     char       tempstr[64];
     color      col;
 
+    if (!tbFullHudVisible()) return;
     oldfont = fontMakeCurrent(ioShipListFont);
 
     if (overlayinfo[region->userID].listinfo->bSelected)
@@ -214,6 +217,11 @@ void ioUpdateShipTotals(void)
 {
     sdword index, screen;
 
+    if (gameIsRunning && !tbFullHudVisible() && tutorial != TUTORIAL_ONLY)
+    {
+        ioHideHudRegions();
+        return;
+    }
     if (ioRunning || (tutorial==TUTORIAL_ONLY))
     {
         for (index=0;listinfo[index].nShips!=-1;index++)
@@ -251,6 +259,19 @@ void ioUpdateShipTotals(void)
                 regLinkRemove(overlayinfo[screen].region);
                 overlayinfo[screen].inlist = FALSE;
             }
+        }
+    }
+}
+
+void ioHideHudRegions(void)
+{
+    sdword index;
+    for (index=0; index<numButtons; index++)
+    {
+        if (overlayinfo[index].inlist)
+        {
+            regLinkRemove(overlayinfo[index].region);
+            overlayinfo[index].inlist = FALSE;
         }
     }
 }

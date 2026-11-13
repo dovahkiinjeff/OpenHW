@@ -572,8 +572,12 @@ static real32 trailBulbRadius(shiptrail *trail, Ship *ship)
 }
 static real32 trailBulbOffset(shiptrail *trail, Ship *ship)
 {
-    return engineGlowOriginOffset(ship->staticinfo->trailSpriteOffset[trail->trailNum],
+    real32 offset=engineGlowOriginOffset(ship->staticinfo->trailSpriteOffset[trail->trailNum],
         XADJ,trailBulbRadius(trail,ship));
+    float nativeScale;
+    int nativeScout=ship->shiptype==LightInterceptor &&
+        (ship->shiprace==R1 || ship->shiprace==R2) && meshRemasteredInstance(ship,&nativeScale)!=NULL;
+    return engineGlowNozzleSpacing(offset,nativeScout);
 }
 static void trailGetVisualNozzlePosition(real32 *position, shiptrail *trail)
 {

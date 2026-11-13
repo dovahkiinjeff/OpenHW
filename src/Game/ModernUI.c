@@ -1,5 +1,11 @@
 #include "../Modern/DiagnosticPolicy.h"
+#include "../Modern/WindowsInstall.h"
+#include "LiveMapAuthoringPolicy.h"
 #include "ModernUI.h"
+#include "../Network/OnlineClient.h"
+#include "../Network/MatchRules.h"
+#include "ScenPick.h"
+#include "Key.h"
 #include "ShipPilot.h"
 #include "StringSupport.h"
 #include "ShipAppearance.h"
@@ -36,6 +42,7 @@
 #include "NIS.h"
 #include "ObjTypes.h"
 #include "Options.h"
+#include "Battle.h"
 #include "ResourceScalingPolicy.h"
 #include "Select.h"
 #include "ControlGroupTabPolicy.h"
@@ -74,6 +81,7 @@ static void muiEditorColorBringToFront(void);
 #define MUI_KEYS_VISIBLE_ROWS 19
 #define MUI_COLOR_TAB_COUNT 6
 #define MUI_ROW_COUNT 5
+#define MUI_AUDIO_ROW_COUNT 6
 #define MUI_VIDEO_ROW_COUNT 7
 #define MUI_GAMEPLAY_ROW_COUNT 13
 #define MUI_ART_COUNT 19
@@ -5516,6 +5524,7 @@ static udword muiTextureProcess(regionhandle region, smemsize ID, udword event, 
 void modernUIOpenTexturePanel(void)
 {
     rectangle panel;sdword i;sdword keys[]={ESCKEY,ARRUP,ARRDOWN,ARRLEFT,ARRRIGHT,SKEY};
+    if(!hwLiveMapAuthoringEnabled())return;
     modernUICloseLightingEditor();
     if(ghMainRegion==NULL||!gameIsRunning)return;
     modernUICloseShipDossier();mdCloseAllManagers();muiEnsureFonts();
@@ -5553,6 +5562,7 @@ void modernUIToggleLightingEditor(void)
 {
     rectangle panel;
     ModernMissionLightingAuthoringState state;
+    if (!hwLiveMapAuthoringEnabled()) return;
     if (muiLighting.active)
     {
         modernUICloseLightingEditor();
@@ -6039,11 +6049,14 @@ static rectangle muiMainItemRect(sdword index)
     sdword margin = uiScaleSize(38);
     sdword width = muiClamp(MAIN_WindowWidth / 4,
                             uiScaleSize(220), uiScaleSize(390));
-    sdword top = muiClamp(MAIN_WindowHeight / 3,
-                          uiScaleSize(96), MAIN_WindowHeight - uiScaleSize(510));
-    sdword height = uiScaleSize(42);
-    return muiRect(margin, top + index * uiScaleSize(48),
-                   margin + width, top + index * uiScaleSize(48) + height);
+    sdword top = MIN2(MAIN_WindowHeight / 4, uiScaleSize(145));
+    sdword step = MIN2(uiScaleSize(48),
+        (MAIN_WindowHeight - top - uiScaleSize(70 + 156)) / 8);
+    sdword height;
+    step = MAX2(18, step);
+    height = MAX2(16, step - uiScaleSize(6));
+    return muiRect(margin, top + index * step,
+                   margin + width, top + index * step + height);
 }
 
 static rectangle muiMainAnimatedItemRect(sdword index, real32 expansion)
@@ -6155,7 +6168,8 @@ static featom *muiMainActionAtom(fescreen *screen, sdword index)
 static void muiActivateMain(fescreen *screen, sdword index)
 {
     if(index==5){mpe.stage=1;return;}
-    if(index==6)index=5;
+    if(index==6){hwWindowsDiagnosticsReportOpen();return;}
+    if(index==7)index=5;
     featom *atom = muiMainActionAtom(screen, index);
     if (atom == NULL) return;
     if (bitTest(atom->flags, FAF_Link))
@@ -6188,10 +6202,10 @@ static void muiActivateMainSettings(sdword index)
 static void muiDrawMain(regionhandle region)
 {
     static const char *items[] = {
-        "STORY", "TRAINING", "MULTIPLAYER", "SETTINGS", "ARCHIVE", "MODDING", "EXIT"
+        "STORY", "TRAINING", "MULTIPLAYER", "SETTINGS", "ARCHIVE", "MODDING", "DIAGNOSTICS", "EXIT"
     };
     static const char *indices[] = {
-        "01", "02", "03", "04", "05", "06", "07"
+        "01", "02", "03", "04", "05", "06", "07", "08"
     };
     static const char *settingsItems[MUI_MAIN_SETTINGS_COUNT] = {
         "AUDIO", "VIDEO", "GAMEPLAY", "KEY BINDINGS"
@@ -6240,7 +6254,7 @@ static void muiDrawMain(regionhandle region)
     muiText(uiScaleSize(38), uiScaleSize(98), muiMuted,
             "MODERN WINDOWS EDITION", muiBodyFont);
 
-    for (index = 0; index < 7; ++index)
+    for (index = 0; index < 8; ++index)
     {
         bool32 hovered;
         item = muiMainAnimatedItemRect(index, expansion);
@@ -6336,7 +6350,7 @@ static udword muiMainProcess(regionhandle region, smemsize ID,
                 }
             }
         }
-        for (index = 0; index < 7; ++index)
+        for (index = 0; index < 8; ++index)
         {
             rectangle item = muiMainAnimatedItemRect(index,
                                                      muiMainSettingsExpansion);
@@ -6360,7 +6374,7 @@ static udword muiMainProcess(regionhandle region, smemsize ID,
                 regRecursiveSetDirty(region);
                 return RPR_Redraw;
             }
-            muiActivateMain(screen, 5);
+            muiActivateMain(screen, 7);
             return RPR_Redraw;
         }
 
@@ -6382,8 +6396,8 @@ static udword muiMainProcess(regionhandle region, smemsize ID,
             return RPR_Redraw;
         }
 
-        if (ID == ARRUP) muiMainSelection = (muiMainSelection + 6) % 7;
-        else if (ID == ARRDOWN) muiMainSelection = (muiMainSelection + 1) % 7;
+        if (ID == ARRUP) muiMainSelection = (muiMainSelection + 7) % 8;
+        else if (ID == ARRDOWN) muiMainSelection = (muiMainSelection + 1) % 8;
         else if (ID == RETURNKEY)
         {
             if (muiMainSelection == 3)
@@ -6416,7 +6430,7 @@ static udword muiMainProcess(regionhandle region, smemsize ID,
                 }
             }
         }
-        for (index = 0; index < 7; ++index)
+        for (index = 0; index < 8; ++index)
         {
             rectangle item = muiMainAnimatedItemRect(index,
                                                      muiMainSettingsExpansion);
@@ -6439,6 +6453,8 @@ static udword muiMainProcess(regionhandle region, smemsize ID,
     return 0;
 }
 
+#include "ModernOnlineLobby.inc"
+
 #define MUI_CONNECTION_COUNT 6
 static rectangle muiConnectionItemRect(sdword index)
 {
@@ -6458,6 +6474,7 @@ static featom *muiConnectionActionAtom(fescreen *screen, sdword index)
 
 static void muiActivateConnection(sdword index)
 {
+    if(index==3){muiOnlineOpen();return;}
     featom *atom = muiConnectionActionAtom(muiConnectionScreen, index);
     if (atom != NULL)
     {
@@ -6474,13 +6491,13 @@ static void muiDrawConnection(regionhandle region)
 {
     static const char *titles[] = {
         "NEW SKIRMISH", "LOAD SKIRMISH", "LOCAL NETWORK",
-        "ONLINE SERVICES", "BATTLE REPLAYS", "RETURN"
+        "ONLINE MULTIPLAYER", "BATTLE REPLAYS", "RETURN"
     };
     static const char *descriptions[] = {
         "Set up a battle against computer fleets",
         "Continue a saved battle",
         "Browse battles on your local network",
-        "Open online connection settings",
+        "Dedicated server / host rules / AI / teams",
         "Watch a recorded battle",
         "Return to the main menu"
     };
@@ -7383,19 +7400,19 @@ static const char *muiGameplayValue(sdword row, char *buffer, size_t count)
         case 0:
             snprintf(buffer, count, "%d%%", opMouseSens);
             return buffer;
-        case 1: return opUnlimitedFuel ? "ON" : "OFF";
-        case 2: return opPauseOrders ? "ON" : "OFF";
-        case 3: return opShipRecoil ? "ON" : "OFF";
+        case 1: return hwMatchOption(OH_UNLIMITED_FUEL,opUnlimitedFuel) ? "ON" : "OFF";
+        case 2: return hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders) ? "ON" : "OFF";
+        case 3: return hwMatchOption(OH_SHIP_RECOIL,opShipRecoil) ? "ON" : "OFF";
         case 4:
             snprintf(buffer, count, "%d%%", mouseCursorScalePercent);
             return buffer;
         case 5:
             snprintf(buffer, count, "%ux",
-                     (unsigned int)muiClamp((sdword)opResourceMultiplier, 1, 4));
+                     (unsigned int)muiClamp((sdword)hwMatchOption(OH_RESOURCE_MULTIPLIER,opResourceMultiplier), 1, 4));
             return buffer;
-        case 6: return opRankSystem ? "ON" : "OFF";
+        case 6: return hwMatchOption(OH_RANK_SYSTEM,opRankSystem) ? "ON" : "OFF";
         case 7:
-            switch (opMissionStartLaunch)
+            switch (hwMatchOption(OH_MISSION_START_LAUNCH,opMissionStartLaunch))
             {
                 case 1: return "HOLD COMBAT CRAFT";
                 case 2: return "HOLD ALL CARRIED SHIPS";
@@ -7403,11 +7420,11 @@ static const char *muiGameplayValue(sdword row, char *buffer, size_t count)
             }
         case 8: return mainShowFPS ? "ON" : "OFF";
         case 9:
-            snprintf(buffer,count,"%u%%",resourceScalingPercent(opSPResourcePopulationPercent,opDisableSPResourceScaling));
+            snprintf(buffer,count,"%u%%",hwMatchOption(OH_RESOURCE_POPULATION,resourceScalingPercent(opSPResourcePopulationPercent,opDisableSPResourceScaling)));
             return buffer;
-        case 10: return opUnlimitedRUs ? "ON" : "OFF";
-        case 11: return opRestoreFogOfWar ? "ON" : "OFF";
-        case 12: return opStartingResourceFleet ? "3 COLLECTORS / 2 CONTROLLERS" : "MISSION DEFAULT";
+        case 10: return hwMatchOption(OH_UNLIMITED_RUS,opUnlimitedRUs) ? "ON" : "OFF";
+        case 11: return hwMatchOption(OH_FOG_OF_WAR,opRestoreFogOfWar) ? "ON" : "OFF";
+        case 12: return hwMatchOption(OH_STARTING_RESOURCE_FLEET,opStartingResourceFleet) ? "3 COLLECTORS / 2 CONTROLLERS" : "MISSION DEFAULT";
         default: return "";
     }
 }
@@ -7520,7 +7537,7 @@ static void muiGameplayDrawResourceSlider(const rectangle *row, bool32 hovered)
 {
     rectangle hit=muiGameplayCursorSliderRect(row),track=hit,fill,thumb;
     sdword width=hit.x1-hit.x0;
-    sdword percent=(sdword)resourceScalingPercent(opSPResourcePopulationPercent,opDisableSPResourceScaling);
+    sdword percent=(sdword)hwMatchOption(OH_RESOURCE_POPULATION,resourceScalingPercent(opSPResourcePopulationPercent,opDisableSPResourceScaling));
     sdword x=hit.x0+width*percent/100;
     track.y0=(hit.y0+hit.y1)/2-uiScaleSize(1);track.y1=track.y0+uiScaleSize(2);
     muiFill(&track,muiLineSoft);fill=track;fill.x1=x;
@@ -7530,6 +7547,7 @@ static void muiGameplayDrawResourceSlider(const rectangle *row, bool32 hovered)
 }
 static void muiGameplaySetResourceFromX(const rectangle *row,sdword mouseX)
 {
+    if(hwMatchActive())return;
     rectangle slider=muiGameplayCursorSliderRect(row);sdword width=slider.x1-slider.x0;
     if(width<=0)return;
     mouseX=muiClamp(mouseX,slider.x0,slider.x1);
@@ -7548,6 +7566,7 @@ static void muiGameplayApplyLive(void)
 
 static void muiAdjustGameplay(sdword row, sdword direction)
 {
+    if(hwMatchActive() && row!=0 && row!=4 && row!=8)return;
     switch (row)
     {
         case 0:
@@ -7632,7 +7651,7 @@ static void muiDrawGameplay(regionhandle region)
         "Earn ranks from combat; purple stars and damage / speed bonuses",
         "Campaign arrival: vanilla / hold combat craft / hold all carried ships",
         "Yellow frame-rate counter in the top-right corner",
-        "0% vanilla scaling / 100% full authored resources; single-player",
+        "Adds back resources removed by vanilla scaling: 0% vanilla / 100% authored",
         "Build, buy technology and hyperspace without spending RUs; single-player only",
         "Original Homeworld visibility ranges instead of unlimited distant objects; applies immediately",
         "Fresh campaign arrivals: top up to 3 collectors and 2 controllers; keeps larger fleets"
@@ -7690,7 +7709,7 @@ static void muiDrawGameplay(regionhandle region)
             "FLEET CONTROL", muiHeadingFont);
     muiText(layout.content.x0 + uiScaleSize(22),
             layout.content.y0 + uiScaleSize(82), muiMuted,
-            "Simulation preferences with multiplayer-safe boundaries",
+            hwMatchActive()?"Host match rules are locked; camera, cursor and FPS remain personal":"Simulation preferences with multiplayer-safe boundaries",
             muiBodyFont);
 
     for (index = 0; index < MUI_GAMEPLAY_ROW_COUNT; ++index)
@@ -7710,7 +7729,7 @@ static void muiDrawGameplay(regionhandle region)
     superHovered = muiPointIn(&superRow, mouseX, mouseY);
     muiDrawVideoRow(&superRow, "SUPER SALVAGERS",
                     "2x mobility; 3x effective health; no collision damage",
-                    opSuperSalvagers ? "ON" : "OFF",
+                    hwMatchOption(OH_SUPER_SALVAGERS,opSuperSalvagers) ? "ON" : "OFF",
                     superHovered, TRUE);
 
     resourceHovered = muiPointIn(&layout.rows[5], mouseX, mouseY);
@@ -7718,14 +7737,14 @@ static void muiDrawGameplay(regionhandle region)
     captureHovered = muiPointIn(&captureRow, mouseX, mouseY);
     muiDrawVideoRow(&captureRow, "CAPTURE / BUILD ALL",
                     "Capture exceptional production motherships; use their native build rosters",
-                    opCaptureBuildAll ? "ON" : "OFF",
+                    hwMatchOption(OH_CAPTURE_BUILD_ALL,opCaptureBuildAll) ? "ON" : "OFF",
                     captureHovered, TRUE);
 
     unitCapsRow = muiGameplayDisableUnitCapsRect(&layout);
     unitCapsHovered = muiPointIn(&unitCapsRow, mouseX, mouseY);
     muiDrawVideoRow(&unitCapsRow, "DISABLE UNIT CAPS",
                     "Remove total, class and per-ship construction limits; single-player only",
-                    opDisableUnitCaps ? "ON" : "OFF",
+                    hwMatchOption(OH_DISABLE_UNIT_CAPS,opDisableUnitCaps) ? "ON" : "OFF",
                     unitCapsHovered, TRUE);
 
     muiDrawButtonRect(&layout.cancel, "CANCEL", FALSE,
@@ -7746,6 +7765,8 @@ static void muiDrawGameplay(regionhandle region)
                     "0%: vanilla fleet-strength scaling.", muiBodyFont);
             muiText(x, y + uiScaleSize(98), muiMuted,
                     "100%: all authored resources appear.", muiBodyFont);
+            muiText(x, y + uiScaleSize(120), muiMuted,
+                    "10% restores a tenth of the removed resources.", muiBodyFont);
             muiText(x, y + uiScaleSize(142), muiCool,
                     "Start a fresh mission after changing this setting.", muiBodyFont);
             muiText(x, y + uiScaleSize(168), muiCool,
@@ -7918,7 +7939,7 @@ static udword muiGameplayProcess(regionhandle region, smemsize ID,
          event == RPE_WheelDown) &&
         muiPointIn(&superRow, mouseX, mouseY))
     {
-        opSuperSalvagers = !opSuperSalvagers;
+        if(!hwMatchActive())opSuperSalvagers = !opSuperSalvagers;
         muiGameplayApplyLive();
         regRecursiveSetDirty(region);
         return RPR_Redraw;
@@ -7928,7 +7949,7 @@ static udword muiGameplayProcess(regionhandle region, smemsize ID,
          event == RPE_WheelDown) &&
         muiPointIn(&captureRow, mouseX, mouseY))
     {
-        opCaptureBuildAll = !opCaptureBuildAll;
+        if(!hwMatchActive())opCaptureBuildAll = !opCaptureBuildAll;
         regRecursiveSetDirty(region);
         return RPR_Redraw;
     }
@@ -7937,7 +7958,7 @@ static udword muiGameplayProcess(regionhandle region, smemsize ID,
          event == RPE_WheelDown) &&
         muiPointIn(&unitCapsRow, mouseX, mouseY))
     {
-        opDisableUnitCaps = !opDisableUnitCaps;
+        if(!hwMatchActive())opDisableUnitCaps = !opDisableUnitCaps;
         regRecursiveSetDirty(region);
         return RPR_Redraw;
     }
@@ -7990,7 +8011,9 @@ static const char *muiAudioValue(sdword tab, sdword row,
             return "CUSTOM";
         case 2: return opVoiceComm ? "ON" : "OFF";
         case 3: return opVoiceStat ? "ON" : "OFF";
-        default: return opVoiceChat ? "ON" : "OFF";
+        case 4: return opVoiceChat ? "ON" : "OFF";
+        case 5: snprintf(buffer,count,"%d%%",opBattleChatter); return buffer;
+        default: return "";
     }
 }
 
@@ -8034,6 +8057,10 @@ static void muiAdjustAudio(sdword row, sdword direction)
             case 2: opVoiceComm = !opVoiceComm; break;
             case 3: opVoiceStat = !opVoiceStat; break;
             case 4: opVoiceChat = !opVoiceChat; break;
+            case 5:
+                opBattleChatter=muiClamp(opBattleChatter+direction,0,100);
+                battleChatterFrequencySet(opBattleChatter);
+                break;
             default: return;
         }
     }
@@ -8050,10 +8077,38 @@ static void muiExitAudio(bool32 apply)
     }
     else
     {
+        opRestoreAdvancedSettings();
         opRestoreSavedSettings();
     }
     feScreenDisappear(NULL, NULL);
     feScreenStart(ghMainRegion, inGame ? "Game_options" : "Main_game_screen");
+}
+
+static sdword muiAudioRows(void)
+{
+    return muiAudio.tab==0 ? MUI_ROW_COUNT : MUI_AUDIO_ROW_COUNT;
+}
+
+static void muiBuildAudioLayout(ModernUILayout *layout)
+{
+    sdword top,step,i;
+    muiBuildLayout(layout);
+    top=layout->content.y0+uiScaleSize(132);
+    step=(layout->apply.y0-uiScaleSize(16)-top)/muiAudioRows();
+    for(i=0;i<muiAudioRows();i++)
+        layout->rows[i]=muiRect(layout->content.x0+uiScaleSize(22),top+i*step,
+            layout->content.x1-uiScaleSize(22),top+(i+1)*step-uiScaleSize(4));
+}
+
+static void muiDrawChatterSlider(const rectangle *row,bool32 hovered)
+{
+    rectangle hit=muiGameplayCursorSliderRect(row),track=hit,thumb;
+    sdword x=hit.x0+(hit.x1-hit.x0)*muiClamp(opBattleChatter,0,100)/100;
+    track.y0=(hit.y0+hit.y1)/2-uiScaleSize(1);track.y1=track.y0+uiScaleSize(2);
+    muiFill(&track,muiLineSoft);
+    track.x1=x;muiFill(&track,hovered?muiSignal:muiCool);
+    thumb=muiRect(x-uiScaleSize(4),hit.y0,x+uiScaleSize(4),hit.y1);
+    muiFill(&thumb,hovered?muiSignal:muiPaper);
 }
 
 static void muiDrawAudio(regionhandle region)
@@ -8068,13 +8123,13 @@ static void muiDrawAudio(regionhandle region)
         "Live volume, channel capacity and voice allocation",
         "Playback quality, speaker profile and fleet speech"
     };
-    static const char *labels[MUI_AUDIO_TAB_COUNT][MUI_ROW_COUNT] = {
+    static const char *labels[MUI_AUDIO_TAB_COUNT][MUI_AUDIO_ROW_COUNT] = {
         {"MUSIC VOLUME", "SPEECH VOLUME", "SOUND EFFECTS", "VOICE CHANNELS", "AUTO CHANNEL MANAGEMENT"},
-        {"SOUND QUALITY", "SPEAKER PROFILE", "VOICE COMMANDS", "VOICE STATUS", "VOICE CHATTER"}
+        {"SOUND QUALITY", "SPEAKER PROFILE", "VOICE COMMANDS", "VOICE STATUS", "VOICE CHATTER", "BATTLE CHATTER FREQUENCY"}
     };
-    static const char *descriptions[MUI_AUDIO_TAB_COUNT][MUI_ROW_COUNT] = {
+    static const char *descriptions[MUI_AUDIO_TAB_COUNT][MUI_AUDIO_ROW_COUNT] = {
         {"Music master level", "Fleet and narrative speech level", "Weapons, engines and interface effects", "Maximum simultaneous voices", "Let the mixer adapt voice pressure automatically"},
-        {"High, automatic fallback or low processing", "EQ profile for the active playback system", "Command acknowledgements and order speech", "Unit status and operational callouts", "Ambient fleet chatter"}
+        {"High, automatic fallback or low processing", "EQ profile for the active playback system", "Command acknowledgements and order speech", "Unit status and operational callouts", "Ambient fleet chatter", "Vanilla frequency range; lower is quieter, higher is more frequent"}
     };
     ModernUILayout layout;
     rectangle marker;
@@ -8085,7 +8140,7 @@ static void muiDrawAudio(regionhandle region)
     (void)region;
 
     muiEnsureFonts();
-    muiBuildLayout(&layout);
+    muiBuildAudioLayout(&layout);
     muiDrawBackdrop(MUI_ART_CORVETTE);
     muiFill(&layout.canvas, colRGBA(4, 7, 10, 122));
     muiFill(&layout.rail, muiSurface);
@@ -8130,13 +8185,14 @@ static void muiDrawAudio(regionhandle region)
             layout.content.y0 + uiScaleSize(82), muiMuted,
             subheads[muiAudio.tab], muiBodyFont);
 
-    for (index = 0; index < MUI_ROW_COUNT; ++index)
+    for (index = 0; index < muiAudioRows(); ++index)
     {
         bool32 hovered = muiPointIn(&layout.rows[index], mouseX, mouseY);
         muiDrawVideoRow(&layout.rows[index], labels[muiAudio.tab][index],
                         descriptions[muiAudio.tab][index],
                         muiAudioValue(muiAudio.tab, index, value, sizeof(value)),
-                        hovered, TRUE);
+                        hovered, index!=5);
+        if(index==5)muiDrawChatterSlider(&layout.rows[index],hovered);
     }
 
     muiDrawButtonRect(&layout.cancel, "CANCEL", FALSE,
@@ -8175,6 +8231,16 @@ static udword muiAudioProcess(regionhandle region, smemsize ID,
     (void)ID;
     (void)data;
 
+    muiBuildAudioLayout(&layout);
+    if(muiAudio.tab==1 && (event==RPE_PressLeft || event==RPE_HoldLeft || event==RPE_ReleaseLeft) &&
+        muiPointIn(&layout.rows[5],mouseX,mouseY)) {
+        rectangle track=muiGameplayCursorSliderRect(&layout.rows[5]);
+        if(track.x1>track.x0) {
+            opBattleChatter=muiClamp((mouseX-track.x0)*100/(track.x1-track.x0),0,100);
+            battleChatterFrequencySet(opBattleChatter);
+        }
+        regRecursiveSetDirty(region);return RPR_Redraw;
+    }
     if (event == RPE_PressLeft)
     {
         regRecursiveSetDirty(region);
@@ -8189,7 +8255,6 @@ static udword muiAudioProcess(regionhandle region, smemsize ID,
         event != RPE_WheelDown)
         return 0;
 
-    muiBuildLayout(&layout);
     if (event == RPE_ReleaseLeft)
     {
         if (muiPointIn(&layout.apply, mouseX, mouseY))
@@ -8214,7 +8279,7 @@ static udword muiAudioProcess(regionhandle region, smemsize ID,
     }
 
     direction = event == RPE_WheelUp ? 1 : -1;
-    for (index = 0; index < MUI_ROW_COUNT; ++index)
+    for (index = 0; index < muiAudioRows(); ++index)
     {
         if (muiPointIn(&layout.rows[index], mouseX, mouseY))
         {
@@ -9344,7 +9409,7 @@ regionhandle modernUICreateOwnedScreen(regionhandle parent, fescreen *screen)
         regDrawFunctionSet(base, muiDrawAudio);
         input = regChildAlloc(base, (smemsize)screen, 0, 0,
                               MAIN_WindowWidth, MAIN_WindowHeight, 0,
-                              RPE_LeftClick | RPE_WheelUp | RPE_WheelDown);
+                              RPE_LeftClick | RPE_HoldLeft | RPE_WheelUp | RPE_WheelDown);
         regFunctionSet(input, muiAudioProcess);
         base->atom = &screen->atoms[0];
         screen->atoms[0].region = base;

@@ -1,3 +1,4 @@
+#include "../Network/MatchRules.h"
 /*=============================================================================
     Name    : researchgui.c
     Purpose : logic for the research manager
@@ -34,6 +35,7 @@
 #include "render.h"
 #include "ResearchGUI.h"
 #include "Scroller.h"
+#include "Sensors.h"
 #include "ShipDefs.h"
 #include "SinglePlayer.h"
 #include "SoundEvent.h"
@@ -45,6 +47,7 @@
 #include "Tutor.h"
 #include "UIControls.h"
 #include "Universe.h"
+#include "uiscale.h"
 
 #ifndef SW_Render
     #ifdef _WIN32
@@ -157,6 +160,8 @@ void rmResearchItem(char *string, featom *atom);
 void rmExitMenu(char *string, featom *atom);
 void rmTechListWindow(char *string, featom *atom);
 void rmExtendedInfo(char *string, featom *atom);
+static void rmDockDetailsDraw(regionhandle region);
+static udword rmDockDetailsProcess(regionhandle region, smemsize ID, udword event, udword data);
 
 // callbacks for user draw areas
 
@@ -676,7 +681,7 @@ void rmExitMenu(char *string, featom *atom)
         ioEnable();
 
     // enable rendering of main game screen
-    mrRenderMainScreen = TRUE;
+    mrRenderMainScreen = !smSensorsActive;
 
     /* play the exit sound */
     soundEvent(NULL, UI_ManagerExit);
@@ -1376,7 +1381,14 @@ char *getWord(char *dest, char *source)
     return(source);
 }
 
-char *getShipBuild(char *dest)
+static void rmAppendTechText(char *dest, size_t capacity, const char *text)
+{
+    size_t used=strlen(dest);
+    if(used<capacity && text!=NULL)
+        snprintf(dest+used,capacity-used,"%s",text);
+}
+
+static void rmAppendShipsUnlocked(char *dest, size_t capacity)
 {
     PlayerResearchInfo *researchinfo = &universe.curPlayerPtr->researchinfo;
     TechStatics        *techstat = researchinfo->techstat;
@@ -1401,23 +1413,22 @@ char *getShipBuild(char *dest)
                 {
                     if (!first)
                     {
-                        strcat(dest,", ");
+                        rmAppendTechText(dest,capacity,", ");
                     }
                     if (first)
                     {
-                        strcat(dest,"\n\n");
-                        strcat(dest,strGetString(strCanBuild));
-                        strcat(dest,"\n");
+                        rmAppendTechText(dest,capacity,"\n\n");
+                        rmAppendTechText(dest,capacity,strGetString(strCanBuild));
+                        rmAppendTechText(dest,capacity,"\n");
                     }
-                    strcat(dest," ");
-                    strcat(dest,ShipTypeToNiceStr(index));
+                    rmAppendTechText(dest,capacity," ");
+                    rmAppendTechText(dest,capacity,ShipTypeToNiceStr(index));
                     first = FALSE;
                 }
             }
         }
     }
 
-    return (dest);
 }
 
 /*-----------------------------------------------------------------------------
@@ -1455,6 +1466,7 @@ void rmExtendedInfo(char *string, featom *atom)
 {
     rmExtendedInfoActive = !rmExtendedInfoActive;
     rmDirtyTechInfo();
+    if(rmBaseRegion!=NULL)regRecursiveSetDirty(rmBaseRegion);
 }
 
 
@@ -1467,105 +1479,86 @@ void rmExtendedInfo(char *string, featom *atom)
 ----------------------------------------------------------------------------*/
 void rmTechInfoDraw(regionhandle region)
 {
-    fonthandle  currentFont;
-    sdword      x,y, width;
-    char       *pos, *oldpos;
-    char        oldline[100], line[100];
-    char        stringtoprint[650];
-    bool32        justified, done;
-
-    //rmTechInfoRegion = region;
-
-    //feStaticRectangleDraw(region); //draw standard rectangle
-
-    //currentFont = fontMakeCurrent(rmTechListFont);
-    currentFont = fontMakeCurrent(rmTechInfoFont);
-
-    x = region->rect.x0 + 15;
-    y = region->rect.y0 + 5;
-
-    if (techinfo != -1)
-    {
-        fontPrintf(x,y,FEC_ListItemStandard/*rmResearchingTextColor*/,"%s",
-                   RaceSpecificTechTypeToNiceString(techinfo, universe.curPlayerPtr->race));
-
-        y += RM_VertSpacing + fontHeight(" ");
-
-        //fontMakeCurrent(rmTechInfoFont);
-
-        // Bad bad design, my fault [Drew] doh!
-        if (techinfo==DDDFDFGFTech)
-            if (universe.curPlayerPtr->race==R1)
-                strcpy(stringtoprint,strGetString(strR1DDDFTechinfo));
-            else
-                strcpy(stringtoprint,strGetString(strR2DFGFTechinfo));
-        else if (techinfo==CloakDefenseFighter)
-            if (universe.curPlayerPtr->race==R1)
-                strcpy(stringtoprint,strGetString(strR1CloakFighterinfo));
-            else
-                strcpy(stringtoprint,strGetString(strR2DefenseFighterTechinfo));
-        else
-            if (universe.curPlayerPtr->race==R1)
-                strcpy(stringtoprint,strGetString(techinfo+strTechInfoOffsetR1));
-            else
-                strcpy(stringtoprint,strGetString(techinfo+strTechInfoOffsetR2));
-
-        getShipBuild(stringtoprint);
-
-        pos = stringtoprint;
-
-        done = FALSE;
-        while (!done)
-        {
-            justified = FALSE;
-            line[0]=0;
-            while (!justified)
-            {
-                strcpy(oldline, line);
-                oldpos = pos;
-                pos = getWord(line, pos);
-
-                if (pos[0] == '\n')
-                {
-                    if ((width = fontWidth(line)) > RM_InfoWidth - 15)
-                    {
-                        strcpy(line, oldline);
-                        pos = oldpos;
-                        while (pos[0] == ' ') pos++;
-                        justified = TRUE;
-                    }
-                    else
-                    {
-                        justified = TRUE;
-                        pos++;
-                        while ( pos[0] == ' ' ) pos++;
-                    }
-                }
-                else
-                {
-                    if ( (width=fontWidth(line)) > RM_InfoWidth - 15)
-                    {
-                        strcpy(line, oldline);
-                        pos = oldpos;
-                        while ( pos[0] == ' ' ) pos++;
-
-                        justified = TRUE;
-                    }
-                    if (pos[0]==0)
-                    {
-                        justified = TRUE;
-                        done      = TRUE;
-                    }
-                }
-            }
-
-            fontPrintf(x,y,rmStandardTextColor,"%s",line);
-            y += fontHeight(" ");
-            if (y > region->rect.y1 + fontHeight(" ")) done=TRUE;
-        }
+    fonthandle currentFont=fontMakeCurrent(rmTechInfoFont);
+    sdword x=region->rect.x0+uiScaleSize(12),y=region->rect.y0+uiScaleSize(8);
+    sdword width=region->rect.x1-x-uiScaleSize(12),height=fontHeight(" ");
+    char text[4096],*pos;
+    const char *description;
+    if(techinfo<0 || techinfo>=NumTechnologies || universe.curPlayerPtr==NULL) {
+        fontPrint(x,y,rmStandardTextColor,"Select a research topic to view its details.");
+        fontMakeCurrent(currentFont);return;
     }
-
+    fontPrintf(x,y,colRGB(236,174,60),"%s",
+        RaceSpecificTechTypeToNiceString(techinfo,universe.curPlayerPtr->race));
+    y+=height+uiScaleSize(12);
+    if(techinfo==DDDFDFGFTech)
+        description=strGetString(universe.curPlayerPtr->race==R1?strR1DDDFTechinfo:strR2DFGFTechinfo);
+    else if(techinfo==CloakDefenseFighter)
+        description=strGetString(universe.curPlayerPtr->race==R1?strR1CloakFighterinfo:strR2DefenseFighterTechinfo);
+    else
+        description=strGetString(techinfo+(universe.curPlayerPtr->race==R1?strTechInfoOffsetR1:strTechInfoOffsetR2));
+    snprintf(text,sizeof(text),"%s",description?description:"");
+    rmAppendShipsUnlocked(text,sizeof(text));
+    pos=text;
+    while(*pos && width>0 && y+height<=region->rect.y1) {
+        sdword length=0,wordbreak;
+        while(pos[length] && pos[length]!='\n' && length<511 && fontWidthN(pos,length+1)<=width)length++;
+        if(length==0 && *pos!='\n')length=1; /* Always progress, including narrow windows/long words. */
+        if(pos[length] && pos[length]!='\n' && pos[length]!=' ') {
+            for(wordbreak=length;wordbreak>0 && pos[wordbreak]!=' ';wordbreak--){}
+            if(wordbreak>0)length=wordbreak;
+        }
+        fontPrintN(x,y,rmStandardTextColor,pos,length);
+        pos+=length;
+        while(*pos==' ')pos++;
+        if(*pos=='\n')pos++;
+        y+=height;
+    }
     fontMakeCurrent(currentFont);
+}
+
+static void rmDockDetailsDraw(regionhandle region)
+{
+    rectangle body;
+    fonthandle oldFont;
+    sdword margin=uiScaleSize(12),width=uiScaleSize(380),left,top,bottom;
+    if(!rmGUIActive || !rmExtendedInfoActive || !mdManagerDockEnabled() || rmBaseRegion==NULL) {
+        region->rect.x0=region->rect.x1=region->rect.y0=region->rect.y1=0;
+        return;
+    }
+    left=rmBaseRegion->rect.x0-width-margin;
+    if(left<margin)left=margin;
+    if(left+width>MAIN_WindowWidth-margin)width=MAIN_WindowWidth-margin-left;
+    top=rmBaseRegion->rect.y0;
+    if(top<margin)top=margin;
+    bottom=rmBaseRegion->rect.y1;
+    if(bottom>MAIN_WindowHeight-margin)bottom=MAIN_WindowHeight-margin;
+    region->rect.x0=left;region->rect.x1=left+width;
+    region->rect.y0=top;region->rect.y1=bottom;
+    primRectSolid2(&region->rect,colRGB(9,21,29));
+    primRectOutline2(&region->rect,1,colRGB(236,174,60));
+    oldFont=fontMakeCurrent(rmTechListFont);
+    fontPrint(left+margin,top+margin,colRGB(236,174,60),"RESEARCH DETAILS");
+    fontPrint(region->rect.x1-uiScaleSize(24),top+margin,colRGB(221,224,211),"X");
+    fontMakeCurrent(oldFont);
+    body=region->rect;body.y0+=uiScaleSize(42);body.y1-=margin;
+    {
+        struct tagRegion textRegion=*region;
+        textRegion.rect=body;
+        rmTechInfoDraw(&textRegion);
+    }
+}
+
+static udword rmDockDetailsProcess(regionhandle region, smemsize ID, udword event, udword data)
+{
+    (void)ID;(void)data;
+    if(!rmExtendedInfoActive)return 0;
+    if(event==RPE_ReleaseLeft && mouseCursorY()<region->rect.y0+uiScaleSize(38) &&
+        mouseCursorX()>region->rect.x1-uiScaleSize(42)) {
+        rmExtendedInfoActive=FALSE;
+        regRecursiveSetDirty(rmBaseRegion);
+    }
+    return RPR_Redraw;
 }
 
 
@@ -2133,7 +2126,7 @@ sdword rmResearchGUIBegin(regionhandle region, smemsize ID, udword event, udword
 {
     sdword index;
 
-    if (playPackets || (universePause && !opPauseOrders) )
+    if (playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) )
     {
         return 0;
     }
@@ -2233,6 +2226,15 @@ sdword rmResearchGUIBegin(regionhandle region, smemsize ID, udword event, udword
 
     rmBaseRegion = feScreenStart(region, RM_ResearchScreen);  //add new regions as siblings of current one
     mdInstallManagerToggleKeys(rmBaseRegion);
+    if(mdManagerDockEnabled() && rmBaseRegion!=NULL) {
+        /* The dock deliberately hides the old tech-image region. Keep text
+           details on their own child so SP and MP do not depend on that image
+           callback, and closing research also deletes this panel. */
+        regionhandle details=regChildAlloc(rmBaseRegion,0,0,0,0,0,0,
+            RPE_DrawEveryFrame|RPE_LeftClick);
+        regDrawFunctionSet(details,rmDockDetailsDraw);
+        regFunctionSet(details,rmDockDetailsProcess);
+    }
 
     rmGUIActive = TRUE;
 

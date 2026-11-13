@@ -5,9 +5,9 @@ static bool32 dockCaptureBuildAllRaceCompatible(const Ship *ship,
        hull's intrinsic race.  Restrict only the player's mixed fleet and only
        while CAPTURE / BUILD ALL is enabled; mission AI scripts and multiplayer
        retain the original docking rules. */
-    if (!singlePlayerGame || !opCaptureBuildAll) return TRUE;
+    if ((!singlePlayerGame && !hwMatchActive()) || !hwMatchOption(OH_CAPTURE_BUILD_ALL,opCaptureBuildAll)) return TRUE;
     if (ship == NULL || dockwith == NULL) return FALSE;
-    if (ship->playerowner != universe.curPlayerPtr &&
+    if (!hwMatchActive() && ship->playerowner != universe.curPlayerPtr &&
         dockwith->playerowner != universe.curPlayerPtr)
         return TRUE;
     /* These neutral mission stations intentionally receive foreign visitors.

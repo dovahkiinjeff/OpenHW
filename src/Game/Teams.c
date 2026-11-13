@@ -8,6 +8,7 @@
 =============================================================================*/
 
 #include "Teams.h"
+#include "MatchRules.h"
 
 #include <stdio.h>
 
@@ -304,7 +305,7 @@ void teTeamColorsSet(sdword iTeam, color baseColor, color stripeColor)
 
     dbgAssertOrIgnore(iTeam >= 0 && iTeam < MAX_MULTIPLAYER_PLAYERS);
 
-    if (multiPlayerGame)
+    if (multiPlayerGame && !hwMatchActive())
     {                                                       //if somebody in a multiplayer game
         red = colUbyteToReal(colRed(baseColor));
         green = colUbyteToReal(colGreen(baseColor));
@@ -324,11 +325,11 @@ void teTeamColorsSet(sdword iTeam, color baseColor, color stripeColor)
     teColorSchemes[iTeam].tacticalColor =
         teColorAdjust(baseColor, &teTacticalColorize);
 #endif
-    customTrail = (iTeam == universe.curPlayerIndex &&
-                   utyEngineTrailColorOverride);
+    customTrail = hwMatchActive() ? (iTeam < hwMatchConfiguration()->players) :
+        (iTeam == universe.curPlayerIndex && utyEngineTrailColorOverride);
     if (customTrail)
     {
-        trailSeed = utyEngineTrailColor;
+        trailSeed = hwMatchActive() ? hwMatchConfiguration()->config.slots[iTeam].emission : utyEngineTrailColor;
     }
     else
     {

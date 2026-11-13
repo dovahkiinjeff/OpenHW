@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import shutil
+from release_compact import stage_copy
 from pathlib import Path
 from extract_remastered_big import extract
 from extract_vanilla_ship_textures import read_archive, entry_bytes
@@ -105,8 +106,8 @@ def stage(reader_path, archive, classic_archive, output, package_only=False):
         from openhw_presentation_events import stage_events
         hull_events=stage_events(hull.with_suffix('.events'),folder,'hull_events')
         if hull_events:lines.append('presentation Hull '+hull_events)
-        shutil.copy2(hull,folder/'hull.hod')
-        if has_mad:shutil.copy2(mad,folder/'animation.mad')
+        stage_copy(hull,folder/'hull.hod')
+        if has_mad:stage_copy(mad,folder/'animation.mad')
         names=[j['name'] for j in joints]
         for i,joint in enumerate(ENGINES.get(name,())):
             if names.count(joint)!=1:raise ValueError('Missing engine '+joint)
@@ -119,7 +120,7 @@ def stage(reader_path, archive, classic_archive, output, package_only=False):
         models=[ship['hull']]
         for a in ship['attachments']:
             ci=len(models);models.append(a['model']);file=f'component{ci}.hod'
-            shutil.copy2(source/a['model'],folder/file)
+            stage_copy(source/a['model'],folder/file)
             lines.append(f'attach {a["slot"]} {a["anchor"]} 2 {file}')
             events=stage_events((source/a['model']).with_suffix('.events'),folder,'component'+str(ci)+'_events')
             if events:lines.append('presentation '+a['slot']+' '+events)
@@ -140,7 +141,7 @@ def stage(reader_path, archive, classic_archive, output, package_only=False):
                     if not file.is_relative_to(materials) or hashlib.sha256(file.read_bytes()).hexdigest()!=record['sha256']:
                         raise ValueError('Unsafe/stale material output')
                     suffix='.lif' if kind=='bootstrap' else '.dds' if kind=='diffuse' else '_'+kind+'.dds'
-                    shutil.copy2(file,folder/(label+suffix))
+                    stage_copy(file,folder/(label+suffix))
                 stage_active_engine_variant(material, materials, folder, label)
         (folder/'visual.rmnative').write_text('\n'.join(lines)+'\n',encoding='ascii')
         audit=dict(race=race,type=name,identity=identity,source=ship['hull'],

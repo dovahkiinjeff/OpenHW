@@ -1,4 +1,4 @@
-"""Prepare an uninstalled, relocatable 1.0 installer from the reviewed WIP."""
+"""Prepare an uninstalled, relocatable release from reviewed source inputs."""
 import argparse,hashlib,json,re,shutil,zipfile
 from pathlib import Path
 
@@ -13,10 +13,13 @@ def defaults(text):
     lines=[line for line in text.splitlines() if not line.split() or line.split()[0].lower() not in omitted]
     return '\n'.join(lines).rstrip()+'\n\ndetectDisplayOnFirstBoot    1\n'
 
-def stage(repo, profile, destination, normal_build=None, diagnostic_build=None, tools_dir=None):
+def stage(repo, profile, destination, normal_build=None, diagnostic_build=None, tools_dir=None,
+          version='1.1', launcher=None, updater=None):
     from release_content_policy import verify_profile
     repo,profile,destination=map(lambda p:Path(p).resolve(),(repo,profile,destination))
     inventory=verify_profile(profile)
+    if not launcher or not updater:raise ValueError('Fresh releases require explicit Launcher.exe and Updater.exe inputs')
+    launcher,updater=Path(launcher).resolve(strict=True),Path(updater).resolve(strict=True)
     if destination.exists() and any(destination.iterdir()):raise ValueError('Release staging directory must be empty')
     if destination==profile or destination.is_relative_to(profile):raise ValueError('Never stage inside release input')
     destination.mkdir(parents=True,exist_ok=True);dev=destination/'Development';dev.mkdir()
@@ -35,6 +38,8 @@ def stage(repo, profile, destination, normal_build=None, diagnostic_build=None, 
     runtime=dev/'Runtime';runtime.mkdir()
     shutil.copyfile(normal/'HomeworldModern.exe',runtime/'OpenHW.exe')
     shutil.copyfile(diag/'HomeworldModern.exe',runtime/'OpenHW-Daignostics.exe')
+    shutil.copyfile(launcher,runtime/'Launcher.exe')
+    shutil.copyfile(updater,runtime/'Updater.exe')
     libraries=('SDL2.dll','avcodec-63.dll','avformat-63.dll','avutil-61.dll','swscale-10.dll',
        'DirectXTex.dll','libxess.dll','nvngx_dlss.dll','nvngx_dlssd.dll','nvngx_dlssg.dll',
        'sl.common.dll','sl.interposer.dll','sl.dlss.dll','sl.dlss_d.dll','sl.dlss_g.dll','sl.reflex.dll','sl.pcl.dll',
@@ -44,13 +49,13 @@ def stage(repo, profile, destination, normal_build=None, diagnostic_build=None, 
         shutil.copyfile(imports/name,runtime/name)
     (runtime/'Homeworld.cfg').write_text(defaults((profile/'defaults.cfg').read_text()))
     for path in (profile/'Presets').glob('*.cfg'):shutil.copyfile(path,runtime/path.name)
-    (runtime/'openhw.portable').write_text('OpenHW 1.0 portable installation\n')
+    (runtime/'openhw.portable').write_text('OpenHW '+version+' portable installation\n')
     (runtime/'mods').mkdir();(runtime/'mods/load-order.txt').write_text('# Enabled mods, one per line; no custom mods enabled by default.\n')
     shutil.copytree(profile/'Licenses',runtime/'Licenses',dirs_exist_ok=True)
     shutil.copyfile(repo/'src/ThirdParty/ThreeGoodGodRays/LICENSE',runtime/'Licenses/ThreeGoodGodRays-LICENSE.txt')
     shutil.copyfile(repo/'LICENSE.txt',runtime/'LICENSE.txt')
     shutil.copyfile(repo/'THIRD_PARTY_NOTICES.md',runtime/'THIRD_PARTY_NOTICES.md')
-    (runtime/'version.json').write_text(json.dumps({'version':'1.0','normal':sha(runtime/'OpenHW.exe'),'diagnostic':sha(runtime/'OpenHW-Daignostics.exe')},indent=2))
+    (runtime/'version.json').write_text(json.dumps({'version':version,'normal':sha(runtime/'OpenHW.exe'),'diagnostic':sha(runtime/'OpenHW-Daignostics.exe')},indent=2))
     with zipfile.ZipFile(dev/'runtime.zip','w',zipfile.ZIP_DEFLATED,compresslevel=6) as archive:
         for path in sorted(runtime.rglob('*')):
             if path.is_file():archive.write(path,path.relative_to(runtime).as_posix())
@@ -67,15 +72,16 @@ def stage(repo, profile, destination, normal_build=None, diagnostic_build=None, 
     shutil.copyfile(diag/'HomeworldModern.pdb',symbols/'OpenHW-Daignostics.pdb')
     records=[{'path':path.relative_to(destination).as_posix(),'size':path.stat().st_size,'sha256':sha(path)}
              for path in sorted(dev.rglob('*')) if path.is_file()]
-    manifest={'schema':1,'version':'1.0','install_location':'installer-directory','sky_size':1024,
+    manifest={'schema':1,'version':version,'install_location':'installer-directory','sky_size':1024,
       'executables':['OpenHW.exe','OpenHW-Daignostics.exe'],'diagnostic_directory':'Development','files':records,
       'content_policy':2,'content_inventory':'Development/content-inventory.json',
       'excluded_mods':['Custom_Kushan_Assault_Frigate'],
       'settings':'Reviewed presets; display dimensions/refresh/adapter IDs detected on first boot'}
     (dev/'release.json').write_text(json.dumps(manifest,indent=2))
-    (destination/'READ ME.txt').write_text('OpenHW 1.0\n\nRun OpenHW-Setup.exe and select your Homeworld Remastered Collection folder.\n'
+    (destination/'READ ME.txt').write_text('OpenHW '+version+'\n\nPut OpenHW-Setup.exe in a new writable game folder and select your Homeworld Remastered Collection folder.\n'
       'Installation stays beside this installer, including saves, settings, imports and caches.\n'
       'Run OpenHW.exe for no logging, or OpenHW-Daignostics.exe for full logging in Development.\n'
+      'Launcher.exe and Updater.exe are included. No earlier OpenHW patches are required.\n'
       'Resolution and refresh rate detect on first boot. Setup does not launch the game.\n'
       'Retail data is imported locally. Approved concept art and upscaled Classic textures are inventoried separately.\n')
     print('Release staged:',len(records),'files;',sum(r['size'] for r in records),'bytes')
@@ -85,4 +91,6 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     for key in ('repo','profile','output'):p.add_argument('--'+key,type=Path,required=True)
     for key in ('normal-build','diagnostic-build','tools-dir'):p.add_argument('--'+key,type=Path)
-    a=p.parse_args();stage(a.repo,a.profile,a.output,a.normal_build,a.diagnostic_build,a.tools_dir)
+    p.add_argument('--version',default='1.1')
+    for key in ('launcher','updater'):p.add_argument('--'+key,type=Path,required=True)
+    a=p.parse_args();stage(a.repo,a.profile,a.output,a.normal_build,a.diagnostic_build,a.tools_dir,a.version,a.launcher,a.updater)

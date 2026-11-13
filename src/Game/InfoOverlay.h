@@ -52,6 +52,7 @@ void ioBringToFront(void);
 
 void ioEnable(void);
 bool32 ioDisable(void);
+void ioHideHudRegions(void);
 
 void ioStartup(void);
 void ioShutdown(void);

@@ -23,7 +23,7 @@ class MissionStartLaunchContract(unittest.TestCase):
         dock = (ROOT / "src/Game/Dock.c").read_text()
         launch = dock.split("void RemoveShipFromLaunching(", 1)[1].split("\n}", 1)[0]
         self.assertIn("bitClear(ship->specialFlags,SPECIAL_STAY_TILL_EXPLICITLAUNCH", launch)
-        manual = source.split("void clLaunchShip(", 1)[1].split("void clLaunchMultipleShips(", 1)[0]
+        manual = source.split("void clLaunchShip(", 1)[1].split('#include "LaunchMultipleShips.inc"', 1)[0]
         self.assertNotIn("SPECIAL_STAY_TILL_EXPLICITLAUNCH", manual)
 
     def test_setting_is_saved_and_cancel_restores_it(self):

@@ -1,3 +1,4 @@
+#include "../Network/MatchRules.h"
 #include "ResCollect.h"
 
 #include <stdlib.h>
@@ -617,9 +618,9 @@ bool32 CollectResources(Ship *ship,Resource *resource)
                Dock transfer applies the same multiplier to the collected cargo,
                so a deposit yields exactly 1x-4x total RUs while collectors fill
                at the selected rate instead of merely rewriting asset values. */
-            if (singlePlayerGame)
+            if (singlePlayerGame || hwMatchActive())
             {
-                multiplier = (sdword)opResourceMultiplier;
+                multiplier = (sdword)hwMatchOption(OH_RESOURCE_MULTIPLIER,opResourceMultiplier);
                 if (multiplier < 1) multiplier = 1;
                 if (multiplier > 4) multiplier = 4;
                 harvestAmount *= multiplier;

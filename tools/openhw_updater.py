@@ -18,9 +18,10 @@ import urllib.parse
 import uuid
 import zipfile
 
-UPDATER_VERSION = '1.0.1'
-PROTOCOL = 2
-MANIFEST_URL = 'https://raw.githubusercontent.com/dovahkiinjeff/OpenHW/main/updates/stable.json'
+UPDATER_VERSION = '1.1.0'
+PROTOCOL = 3
+MANIFEST_URL = 'https://openhw.tech/updates/stable.json'
+FALLBACK_MANIFEST_URL = 'https://raw.githubusercontent.com/dovahkiinjeff/OpenHW/main/updates/stable.json'
 REPOSITORY_DOWNLOAD = 'https://github.com/dovahkiinjeff/OpenHW/releases/download/'
 FOOTER = struct.Struct('<16sQQ32s')
 MAX_JSON = 4 * 1024 * 1024
@@ -29,6 +30,7 @@ MAX_JSON = 4 * 1024 * 1024
 class UpdateError(RuntimeError): pass
 class Cancelled(UpdateError): pass
 class CollectionRequired(UpdateError): pass
+class FreshInstallRequired(UpdateError): pass
 
 
 def version_key(value):
@@ -111,10 +113,13 @@ def official_url(url, manifest=False):
     parsed = urllib.parse.urlsplit(url)
     if parsed.scheme != 'https' or parsed.username or parsed.password or parsed.fragment:
         raise UpdateError('Only official HTTPS downloads are supported')
+    decoded = urllib.parse.unquote(parsed.path)
+    if '\\' in decoded or any(part in ('.','..') for part in decoded.split('/')):
+        raise UpdateError('Unsafe official download path')
     if manifest:
-        valid = parsed.hostname == 'raw.githubusercontent.com' and parsed.path.startswith('/dovahkiinjeff/OpenHW/')
+        valid = (parsed.netloc == 'raw.githubusercontent.com' and parsed.path.startswith('/dovahkiinjeff/OpenHW/')) or (parsed.netloc == 'openhw.tech' and parsed.path == '/updates/stable.json')
     else:
-        valid = url.startswith(REPOSITORY_DOWNLOAD)
+        valid = url.startswith(REPOSITORY_DOWNLOAD) or (parsed.netloc == 'openhw.tech' and parsed.path.startswith('/downloads/'))
     if not valid: raise UpdateError('The update feed points outside the official OpenHW repository')
     return url
 
@@ -123,7 +128,7 @@ class HttpsRedirects(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, request, fp, code, msg, headers, newurl):
         parsed = urllib.parse.urlsplit(newurl)
         host = parsed.hostname or ''
-        if parsed.scheme != 'https' or not (host == 'github.com' or host.endswith('.githubusercontent.com')):
+        if parsed.scheme != 'https' or parsed.username or parsed.password or parsed.port not in (None,443) or not (host == 'github.com' or host.endswith('.githubusercontent.com') or (parsed.netloc == 'openhw.tech' and parsed.path.startswith(('/downloads/','/updates/')))):
             raise UpdateError('Unexpected download redirect')
         return super().redirect_request(request, fp, code, msg, headers, newurl)
 
@@ -135,15 +140,25 @@ def network_open(url, headers=None):
 
 
 def fetch_manifest(url=MANIFEST_URL):
-    official_url(url, manifest=True)
-    with network_open(url+'?check='+str(int(time.time()))) as stream:
-        data = stream.read(MAX_JSON+1)
-    if len(data) > MAX_JSON: raise UpdateError('Update feed is too large')
-    return json.loads(data.decode('utf-8-sig'))
+    urls=[url,FALLBACK_MANIFEST_URL] if url==MANIFEST_URL else [url]
+    failures=[]
+    for endpoint in urls:
+        official_url(endpoint, manifest=True)
+        try:
+            with network_open(endpoint+'?check='+str(int(time.time()))) as stream:
+                data=stream.read(MAX_JSON+1)
+            if len(data)>MAX_JSON: raise UpdateError('Update feed is too large')
+            return validate_manifest(json.loads(data.decode('utf-8-sig')))
+        except (OSError,ValueError,KeyError,UpdateError) as error:
+            failures.append(str(error))
+    raise UpdateError('Cannot read the OpenHW or GitHub update feed: '+'; '.join(failures))
 
 
 def validate_download(row):
     official_url(row.get('url'))
+    mirrors=row.get('mirrors',[])
+    if not isinstance(mirrors,list) or len(mirrors)>4: raise UpdateError('Invalid download mirrors')
+    for mirror in mirrors: official_url(mirror)
     sha = row.get('sha256', '')
     if len(sha) != 64 or any(c not in '0123456789abcdef' for c in sha): raise UpdateError('Missing SHA-256 in update feed')
     if not isinstance(row.get('size'), int) or not 0 < row['size'] <= 64*1024**3:
@@ -156,6 +171,11 @@ def validate_manifest(manifest):
     updater = manifest.get('updater')
     if updater:
         version_key(updater['version']); validate_download(updater)
+    fresh=manifest.get('fresh_install')
+    if fresh:
+        version_key(fresh['version']); validate_download(fresh)
+        if compare_versions(fresh['version'], manifest['latest']) > 0:
+            raise UpdateError('Fresh installer is newer than the published release')
     patches = manifest.get('patches', [])
     if not isinstance(patches, list) or len(patches) > 4096: raise UpdateError('Invalid update chain')
     seen = set()
@@ -227,7 +247,9 @@ def download(row, cache, progress, cancelled):
     final = inside(cache, row['sha256']+'.exe')
     if final.is_file() and final.stat().st_size == row['size'] and digest(final) == row['sha256']: return final
     pending = inside(cache, row['sha256']+'.part')
-    for attempt in range(3):
+    urls = list(dict.fromkeys(row.get('mirrors', []) + [row['url']]))
+    attempts = max(3, len(urls))
+    for attempt in range(attempts):
         try:
             offset = pending.stat().st_size if pending.is_file() else 0
             if offset > row['size']: pending.unlink(); offset = 0
@@ -235,7 +257,7 @@ def download(row, cache, progress, cancelled):
                 if digest(pending) != row['sha256']: pending.unlink(); offset = 0
                 else: os.replace(pending, final); return final
             headers = {'Range':f'bytes={offset}-'} if offset else {}
-            with network_open(row['url'], headers) as incoming:
+            with network_open(urls[min(attempt,len(urls)-1)], headers) as incoming:
                 if offset and (incoming.status != 206 or not incoming.headers.get('Content-Range','').startswith(f'bytes {offset}-')):
                     offset = 0
                 with pending.open('ab' if offset else 'wb') as output:
@@ -250,8 +272,10 @@ def download(row, cache, progress, cancelled):
             if digest(pending) != row['sha256']:
                 pending.unlink(); raise UpdateError('Download checksum failed. This patch was not installed.')
             os.replace(pending, final); return final
-        except (OSError, urllib.error.URLError):
-            if attempt == 2: raise UpdateError('Download interrupted. Run the updater again to resume.')
+        except Cancelled:
+            raise
+        except (OSError, urllib.error.URLError, UpdateError):
+            if attempt == attempts-1: raise UpdateError('Both download hosts failed or returned damaged data. No update was installed. Run the updater again to resume.')
             time.sleep(attempt+1)
 
 
@@ -464,7 +488,14 @@ def update(root, progress, cancelled=lambda: False, select_collection=lambda: No
             return 'restart'
         if manifest.get('minimum_protocol',1) > PROTOCOL: raise UpdateError('A newer updater is required; see the official release page')
         validate_manifest(manifest)
-        installed = detect_version(root); route = update_plan(manifest, installed)
+        installed = detect_version(root)
+        fresh=manifest.get('fresh_install')
+        if fresh and compare_versions(installed,fresh['version'])<0:
+            raise FreshInstallRequired('OpenHW '+fresh['version']+' requires a NEW installation in a separate empty folder. '
+                'Your existing game, saves and settings have not been replaced. Download the new installer from '
+                'https://openhw.tech or https://github.com/dovahkiinjeff/OpenHW/releases/latest. '
+                'After installing, use the Launcher and Updater supplied with the new installation.')
+        route = update_plan(manifest, installed)
         if not route: return installed
         for index, patch in enumerate(route, 1):
             if cancelled(): raise Cancelled('Update paused. Run the updater again to continue.')
@@ -510,6 +541,8 @@ def run_gui(root):
                 value = update(root, progress, cancel.is_set, select_collection)
                 messages.put(('restart' if value == 'restart' else 'done',
                     'Restarting the updated updater...' if value == 'restart' else 'OpenHW '+value+' is up to date. You can start the game.', None))
+            except FreshInstallRequired as error:
+                messages.put(('fresh',str(error),None))
             except Exception as error:
                 import traceback
                 traceback.print_exc(); messages.put(('error',str(error),None))
@@ -532,7 +565,10 @@ def run_gui(root):
             else:
                 finished = True; bar.stop(); bar.configure(mode='determinate'); bar['value'] = 100 if kind == 'done' else 0
                 if kind == 'restart': window.after(150,window.destroy)
-                else: tk.Button(window,text='Close',command=close,bg='#24363e',fg='#e4e8e7',padx=28).pack(pady=16)
+                else:
+                    if kind == 'fresh':
+                        tk.Button(window,text='Open 1.1 downloads',command=lambda:os.startfile('https://openhw.tech/#/download'),bg='#dfa934',fg='#0d171c',padx=18).pack(pady=4)
+                    tk.Button(window,text='Close',command=close,bg='#24363e',fg='#e4e8e7',padx=28).pack(pady=8)
         if not finished: window.after(100,poll)
     window.protocol('WM_DELETE_WINDOW',close)
     threading.Thread(target=worker,daemon=False).start(); window.after(100,poll); window.mainloop(); log.close()

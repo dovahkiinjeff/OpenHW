@@ -202,7 +202,10 @@ void RenderNAVLights(Ship *ship)
                 NAVLightStatic positioned=*navLightStatic;
                 NAVLightStatic *source=navLightStatic;
                 char semantic[32];
-                if (ship->objtype==OBJ_ShipType && ship->shiprace==R1 && ship->shiptype==AdvanceSupportFrigate) {
+                /* Native hulls own the lamp positions, including animated
+                   collector lamps. Missing bindings retain the classic point;
+                   explicit authoring markers still have first priority. */
+                if (ship->objtype==OBJ_ShipType) {
                     snprintf(semantic,sizeof(semantic),"nav_%s",source->name);
                     meshRemasteredMarkerPosition(ship,semantic,&positioned.position);
                 }

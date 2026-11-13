@@ -1,22 +1,37 @@
-# OpenHW 1.0.7
+# OpenHW 1.1
 
 **The best of both worlds: high-fidelity Homeworld Remastered assets and original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets with modern rendering and in-game creation tools to build the ultimate classic Homeworld experience.
 
 [![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-[Base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe)  [1.0.1 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.1/OpenHW-Patch-1.0.1.exe)  [1.0.2 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.2/OpenHW-Patch-1.0.2.exe)  [1.0.3 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.3/OpenHW-Patch-1.0.3.exe)  [1.0.4 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4/OpenHW-Patch-1.0.4.exe)  [1.0.4.5 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.4.5/OpenHW-Patch-1.0.4.5.exe)  [1.0.5 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.5/OpenHW-Patch-1.0.5.exe)  [1.0.6 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.6/OpenHW-Patch-1.0.6.exe)   [1.0.7 patch](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.7/OpenHW-Patch-1.0.7.exe)   [Installation and controls](docs/USER_GUIDE.md)   [Editors](docs/EDITING_GUIDE.md)   [Modding](docs/MODDING.md)   [Build the installer](BUILD_INSTALLER.md)
+[**Download OpenHW 1.1**](https://openhw.tech/downloads/v1.1/OpenHW-Setup.exe) · [GitHub downloads / fallback](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1) · [Complete 1.1 source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1/OpenHW-1.1-Source.zip) · [Release notes](docs/RELEASE_NOTES_1.1.md) · [Installation and controls](docs/USER_GUIDE.md) · [Editors](docs/EDITING_GUIDE.md) · [Modding](docs/MODDING.md) · [Build the installer](BUILD_INSTALLER.md)
+
+**1.1 requires a fresh installation in a separate folder. Do not apply the old 1.0 patch chain to it.** Put OpenHW-Setup.exe in the new folder, select your owned Homeworld Remastered Collection, and let setup build the game there. Your old installation, saves and settings are not overwritten. Launcher.exe and Updater.exe are included.
 
 > [!IMPORTANT]
-> **Use AMD technology for 1.0. AMD FSR upscaling and AMD FSR frame generation are the recommended, working options.** DLSS currently has known visual issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.** Bundled vendor libraries or development code do not imply supported release features.
+> **Use AMD technology for 1.1. AMD FSR upscaling and AMD FSR frame generation are the recommended, working options.** DLSS currently has known visual issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.** Bundled vendor libraries or development code do not imply supported release features.
 
-> [!WARNING]
-> **Disk space:** allow approximately **120 GB free during conversion** as a conservative planning estimate; the exact peak of this compact installer has not been measured. The download is about 473 MB and the main generated game archive is about 34 GB, plus loose resources and user data. Setup reads the original Collection archives directly, stages selected HW1 resources and removes intermediate conversion caches. The original Collection and source-build dependencies occupy separate space.
+> **OpenHW 1.1 release:** Shift+F11/F12 live map, lighting and texture authoring menus are disabled in both game executables. Authored environments still load normally. The reference below describes the developer tools; source builds can explicitly enable them with `-DHW_ENABLE_LIVE_MAP_AUTHORING=ON`. The ship and parade editors are separate tools.
+
+## OpenHW 1.1 - dedicated multiplayer and a new installation pipeline
+
+Create and join online matches through the OpenHW server. The match host selects the map, teams, AI players and shared gameplay rules. The server runs the authoritative simulation and AI; players connect to it over HTTPS. Direct piloting, EVE-style Command control, formation spread and individual ship appearance remain integrated with the multiplayer command path. See [multiplayer setup, controls and current limits](docs/MULTIPLAYER_PREVIEW.md).
+
+**Diagnostics** in the main menu opens a report window. Use your Homeworld/modding-community alias as the report name, describe the issue in the comment field, choose the logs and optionally a saved game, then upload. Reports are private to the OpenHW team. The window lists what will be included and returns a report ID; nothing uploads automatically. Logs can contain local file paths. The same window is available under the launcher's Ship Systems page.
+
+The installer reads selected files from your owned Collection archives and builds the runtime locally. The 1.1 pipeline releases disposable conversion files as they are packed, avoiding a second complete loose copy beside the final game archive. See [installation disk-space details](BUILD_INSTALLER.md); the full-install peak varies with the selected source and has not been measured end to end for every configuration.
+
+This release also includes the community corrections to salvage delivery and Khar-Selim attachment points, tutorial progression, Sensor Manager menu transitions, HUD visibility, research descriptions, starting resource fleets, battle chatter and native navigation-light/engine attachment positions. [Full 1.1 notes](docs/RELEASE_NOTES_1.1.md).
 
 ## Automatic updates
 
-Download [**Updater.exe**](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.7/Updater.exe), put it beside **OpenHW.exe** after installing the base game, close the game, and run it. It detects that folder’s version and downloads, verifies and installs its missing patches in the required order. Current and future stable patches come from the official GitHub update feed; the updater can update itself too.
+The launcher and [**Updater.exe**](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1/Updater.exe) prefer **openhw.tech** for the update feed and downloads, with **GitHub as a fallback**. Downloads are checked against published SHA-256 hashes before installation. Close the game before installing updates. Files, backups and logs stay in the OpenHW folder under Development.
 
-Saves, settings, mods and authored maps are preserved. Downloads, backups, logs and temporary files stay under **Development**. No separate Python installation or administrator access is required. See [updater details and recovery](docs/UPDATER.md). Manual patch downloads remain available below.
+**Already have the old updater?** Run it in your existing installation. Its GitHub feed supplies the new updater automatically. The new updater explains the separate fresh-install requirement for 1.1 and links to its download; it does not overwrite a 1.0 installation. After installing 1.1, use the included launcher/updater for subsequent updates. Manual downloads remain available on GitHub. [Updater documentation](docs/UPDATER.md).
+
+## Previous 1.0 releases
+
+The following section and feature tour document the previous release. Their old patch prerequisites apply only to the historical 1.0 line; new 1.1 installations use the full installer above.
 
 ## 1.0.7 - Fleet Command launcher, new menus and community fixes
 
@@ -121,7 +136,7 @@ The salvage corvette illustrates the project goal: higher-fidelity imported mode
 
 **Single-ship colours**
 
-Select one owned ship and open COLORS beside PILOT. Override hull/base, stripes, engine trails/bulbs, navigation lights, resource beam and hyperspace independently. Unchecked channels inherit fleet appearance; Reset All clears overrides. This screenshot predates the input correction: 1.0.7 fixes the controls, Apply, Reset, Cancel and nested picker routing. Paint is saved for that individual ship; it is a local visual customization, not a new synchronized multiplayer command.
+Select one owned ship and open COLORS beside PILOT. Override hull/base, stripes, engine trails/bulbs, navigation lights, resource beam and hyperspace independently. Unchecked channels inherit fleet appearance; Reset All clears overrides. This screenshot predates the input correction: 1.0.7 fixes the controls, Apply, Reset, Cancel and nested picker routing. Paint is saved for that individual ship. In 1.1 online matches, ship-colour changes use the synchronized server command path.
 
 ![Single-ship colours](docs/media/2026-11-12-ui-review/14-ship-colors-before-input-fix.png)
 
@@ -218,11 +233,11 @@ This patch corrects the startup splash artwork path, removes in-engine cinematic
 
 ## Installation
 
-1. Install your legally owned **Homeworld Remastered Collection**, including Homeworld 1 Classic and the required English data archives.
-2. Download the [**OpenHW-Setup.exe** base installer](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.0/OpenHW-Setup.exe). Put it in the writable folder where you want OpenHW installed, for example `D:\Games\OpenHW`.
-3. Run it and select the Collection installation. The Collection root, `HomeworldRM`, or its `Data` directory can be selected; setup also locates the Collection's Classic data.
-4. Let extraction, conversion, package building and validation finish. Setup installs **beside itself** and leaves the original Collection untouched. There is no manual music/voice-copy step.
-5. Run **Updater.exe** beside **OpenHW.exe** to install the required patches automatically. Alternatively, apply **1.0.1**, **1.0.2**, **1.0.3**, **1.0.4**, **1.0.4.5**, **1.0.5**, **1.0.6**, and **1.0.7** manually in that order. Then use **Launcher.exe** or start **OpenHW.exe**. Setup does not automatically start the game. The first launch detects your display resolution and refresh rate.
+1. Install your legally owned **Homeworld Remastered Collection**, including Homeworld 1 Classic and the required English archives.
+2. Download [**OpenHW-Setup.exe 1.1**](https://openhw.tech/downloads/v1.1/OpenHW-Setup.exe) ([GitHub fallback](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1)). Put it in a **new writable folder**, separate from any previous OpenHW installation.
+3. Run it and select the Collection installation. The Collection root, HomeworldRM, or its Data directory can be selected; setup also locates Classic data.
+4. Let conversion, package building and validation finish. Setup installs **beside itself** and leaves the original Collection untouched. All application files stay in this folder. See [disk budget and conversion details](BUILD_INSTALLER.md#installation-disk-budget).
+5. Start **Launcher.exe** or **OpenHW.exe**. Both Launcher.exe and Updater.exe are installed automatically. **No old patches are required for 1.1.** The first launch detects your display resolution and refresh rate. Setup does not start the game automatically.
 
 All application-owned settings, saves, mods, exports and working files stay inside the OpenHW folder. `Development` contains setup work, diagnostics, logs, caches and receipts. Successful setup removes its temporary `SetupSources` and `SetupWork` conversion copies; a failed setup keeps work for recovery. Windows and graphics-driver system caches remain under those components' control.
 
@@ -358,9 +373,9 @@ Download **OpenHW-1.0.5-Source.zip** for the full cumulative working source from
 
 The next priorities are **fully implementing and stabilizing NVIDIA DLSS and Intel technologies**, and **fixing bugs and visual glitches reported by people playing OpenHW**. For 1.0, stick to AMD FSR upscaling and AMD FSR frame generation.
 
-**Cataclysm and fully supported online multiplayer remain planned** as more issues are ironed out and performance continues to improve. Patch 1.0.2 repairs local skirmish and adds network pilot input; it does not certify online services or complete multi-computer compatibility. No delivery date is announced for the remaining work.
+**Cataclysm support remains planned. OpenHW 1.1 introduces server-hosted multiplayer**, which will continue to improve with community testing and performance work. The current service supports one active battle, with no in-battle reconnect, save/resume or host migration. See the [multiplayer guide](docs/MULTIPLAYER_PREVIEW.md) before organizing a match. No delivery date is announced for remaining work.
 
-Player reports matter: they reveal mission, hardware and gameplay combinations that development testing can miss. Please report problems to the project author through [GitHub Issues](https://github.com/dovahkiinjeff/OpenHW/issues), with reproducible steps and useful evidence.
+Player reports matter: they reveal mission, hardware and gameplay combinations that development testing can miss. Please report problems to the project author through [GitHub Issues](https://github.com/dovahkiinjeff/OpenHW/issues), with reproducible steps and useful evidence. The Diagnostics upload window can submit selected logs and a save privately; include its report ID in your issue.
 
 ## Reporting problems
 

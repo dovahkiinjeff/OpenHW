@@ -1,0 +1,33 @@
+[Unit]
+Description=OpenHW private diagnostics report intake
+After=network.target
+
+[Service]
+Type=simple
+User=openhw-game
+Group=openhw-game
+WorkingDirectory=/srv/openhw-game/app
+Environment=OPENHW_REPORTS_ROOT=/srv/openhw-reports
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 /srv/openhw-game/app/diagnostics.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+KillMode=control-group
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/srv/openhw-reports
+UMask=0077
+MemoryMax=384M
+TasksMax=16
+LimitNOFILE=128
+
+[Install]
+WantedBy=multi-user.target

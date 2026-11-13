@@ -1,3 +1,4 @@
+#include "../Network/MatchRules.h"
 // =============================================================================
 //  CommandWrap.c
 //  - Wrapper functions for calling/sending CommandLayer commands across network
@@ -88,7 +89,7 @@ void SpeechEventsForFuel(SelectCommand *selectcom)
 
 void clWrapMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to)
 {
-    if (playPackets || (universePause && !opPauseOrders) ) return;
+    if (playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) ) return;
 
 //   0  1
 // 0 0  0
@@ -167,7 +168,7 @@ void clWrapMpHyperspace(CommandLayer *comlayer,SelectCommand *selectcom,vector f
 
 void clWrapAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom)
 {
-    if (playPackets || (universePause && !opPauseOrders) ) return;
+    if (playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) ) return;
 
     makeShipsControllable(selectcom,COMMAND_ATTACK);
     if (selectcom->numShips == 0) return;
@@ -196,7 +197,7 @@ void clWrapAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand 
 
 void clWrapFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation formation)
 {
-    if (playPackets || (universePause && !opPauseOrders) ) return;
+    if (playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) ) return;
 
     makeShipsControllable(selectcom,COMMAND_NULL);
     if (selectcom->numShips == 0) return;
@@ -230,7 +231,7 @@ void clWrapFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfForma
 
 void clWrapDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType dockType,ShipPtr dockwith)
 {
-    if (playPackets || (universePause && !opPauseOrders) ) return;
+    if (playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) ) return;
 
     //Although research ships have docking capabilities, they aren't allowed to be
     //ordered to dock:
@@ -362,7 +363,7 @@ void clWrapBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,
 
 void clWrapCollectResource(CommandLayer *comlayer,SelectCommand *selectcom,ResourcePtr resource)
 {
-    if (playPackets || (universePause && !opPauseOrders) ) return;
+    if (playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) ) return;
 
     makeShipsControllable(selectcom,COMMAND_COLLECT_RESOURCES);
     if (selectcom->numShips == 0) return;
@@ -393,7 +394,7 @@ void clWrapCollectResource(CommandLayer *comlayer,SelectCommand *selectcom,Resou
 
 void clWrapProtect(CommandLayer *comlayer,SelectCommand *selectcom,ProtectCommand *protectcom)
 {
-    if (playPackets || (universePause && !opPauseOrders) ) return;
+    if (playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) ) return;
 
     makeShipsControllable(selectcom,COMMAND_NULL);
     if (selectcom->numShips == 0) return;
@@ -424,7 +425,7 @@ void clWrapSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialComman
     SelectCommand *copycom=NULL;
     sdword sizeofcopycom;
 	Ship *salptr = NULL;
-    if (playPackets || (universePause && !opPauseOrders) ) return;
+    if (playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) ) return;
 
     makeShipsControllable(selectcom,COMMAND_SPECIAL);
     if (selectcom->numShips == 0) return;
@@ -550,7 +551,7 @@ nonormalsalevent:;
 
 void clWrapHalt(CommandLayer *comlayer,SelectCommand *selectcom)
 {
-    if (playPackets || (universePause && !opPauseOrders) ) return;
+    if (playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) ) return;
 
     makeShipsControllable(selectcom,COMMAND_HALT);
     if (selectcom->numShips == 0) return;
@@ -645,7 +646,7 @@ void clWrapLaunchMultipleShips(CommandLayer *comlayer,SelectCommand *selectcom,S
 
 void clWrapFormationSpread(CommandLayer *comlayer,SelectCommand *selectcom,udword ticks)
 {
-    if (playPackets || (universePause && !opPauseOrders)) return;
+    if (playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders))) return;
     if (!multiPlayerGame && !recordFakeSendPackets)
         formationSetSpreadForSelection(comlayer,selectcom,ticks);
     else
@@ -654,7 +655,7 @@ void clWrapFormationSpread(CommandLayer *comlayer,SelectCommand *selectcom,udwor
 
 void clWrapSetTactics(CommandLayer *comlayer,SelectCommand *selectcom,TacticsType tacticstype)
 {
-    if (playPackets || (universePause && !opPauseOrders) ) return;
+    if (playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) ) return;
 
     if (!universe.aiplayerProcessing)
     {
@@ -719,7 +720,7 @@ void clWrapSetKamikaze(CommandLayer *comlayer,SelectCommand *selectcom)
 
 void clWrapSetMilitaryParade(CommandLayer *comlayer,SelectCommand *selectcom)
 {
-    if (playPackets || (universePause && !opPauseOrders) ) return;
+    if (playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) ) return;
 
     makeShipsControllable(selectcom,COMMAND_NULL);
     if (selectcom->numShips == 0) return;

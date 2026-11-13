@@ -24,6 +24,7 @@
 #include "Nebulae.h"
 #include "Options.h"
 #include "ResourceScalingPolicy.h"
+#include "MatchRules.h"
 #include "Ping.h"
 #include "Randy.h"
 #include "ResearchAPI.h"
@@ -653,7 +654,7 @@ static void scriptSetResourcesCB(char *directory,char *field,void *dataToFillIn)
         rotatedposition = position;
     }
 
-    numAsteroids = resourceCountForFleet(numAsteroids, singlePlayerGame,
+    numAsteroids = hwMatchActive() ? (udword)((uint64_t)numAsteroids*hwMatchOption(OH_RESOURCE_POPULATION,100)/100u) : resourceCountForFleet(numAsteroids, singlePlayerGame,
         attributes, spFleetModifier, opDisableSPResourceScaling, opSPResourcePopulationPercent);
 
     if (strcmp(layoutstr,"Sphere") == 0)
@@ -2238,7 +2239,7 @@ void levelPreInit(char *directory,char *pickedMission)
 
     for (index = 0; index < MAX_MULTIPLAYER_PLAYERS; index++)
     {                                                       //for all players
-        if (index < numPlayers && universe.players[index].aiPlayer == NULL)
+        if (index < numPlayers && (hwMatchActive() || universe.players[index].aiPlayer == NULL))
         {                                                   //if this is a human player
             teColorSchemes[index] = playerSchemes[index];   //restore this player's color scheme
         }

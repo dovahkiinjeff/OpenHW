@@ -86,7 +86,10 @@ static udword muiShipPaintProcess(regionhandle region,smemsize ID,udword event,u
     }
     if(y>=panel.y1-uiScaleSize(62) && y<panel.y1-uiScaleSize(20)){
         if(x<panel.x0+uiScaleSize(130)){muiShipPaint.pending.mask=0;return RPR_Redraw;}
-        if(x>=panel.x1-uiScaleSize(130))shipAppearanceApply(muiShipPaint.target,&muiShipPaint.pending);
+        if(x>=panel.x1-uiScaleSize(130)) {
+            if(hwMatchActive())clSendShipAppearance(muiShipPaint.target,&muiShipPaint.pending);
+            else shipAppearanceApply(muiShipPaint.target,&muiShipPaint.pending);
+        }
         muiShipPaintClose();
     }
     return RPR_Redraw;

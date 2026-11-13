@@ -9,6 +9,8 @@ extern "C" {
    data root, the portable loose-file override root, and the per-user settings
    directory.  Returns zero when the user cancels or validation fails. */
 int hwWindowsInstallPrepare(void);
+/* Opens the player-approved report window supplied by the portable launcher. */
+int hwWindowsDiagnosticsReportOpen(void);
 
 #ifdef __cplusplus
 }

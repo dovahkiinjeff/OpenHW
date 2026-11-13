@@ -931,7 +931,10 @@ void gcStartup(void)
         textentrypos.x1     = gcScreenHandle->atoms[1].x+gcScreenHandle->atoms[1].width;
         textentrypos.y1     = gcScreenHandle->atoms[1].y+gcScreenHandle->atoms[1].height;
 
-        chatdrawregion = regChildAlloc(ghMainRegion, (sdword)&chatdrawatom, chatdrawatom.x, chatdrawatom.y,
+        /* The user ID is dereferenced as a featom by feUserRegionDraw.
+           Keep the full address on 64-bit builds, including after reattaching
+           this persistent region for another multiplayer match. */
+        chatdrawregion = regChildAlloc(ghMainRegion, (smemsize)&chatdrawatom, chatdrawatom.x, chatdrawatom.y,
                                        chatdrawatom.width, chatdrawatom.height, 0, 0);
         chatdrawatom.region = (void*)chatdrawregion;
         regDrawFunctionSet(chatdrawregion, feUserRegionDraw);

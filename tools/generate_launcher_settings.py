@@ -46,7 +46,8 @@ def generate():
             row['choices']={str(i):name for i,name in names.items()}
         if key in ('screenWidth','screenHeight'): row.update(min=320,max=32768,default='1024' if key=='screenWidth' else '768')
         elif key=='refreshRate': row.update(max=2000,help='Borderless and windowed use the Windows desktop refresh rate.')
-        elif key=='SPResourcePopulationPercent': row.update(max=100,help='0 = vanilla resource scaling; 100 = all authored harvestable resources.')
+        elif key=='SPResourcePopulationPercent': row.update(max=100,help='0 = vanilla fleet-strength resource scaling; 100 = all authored resources. Intermediate values restore that percentage of the resources removed by vanilla scaling, not multiply RU income. Takes effect on fresh missions; existing saves keep stored resource counts.')
+        elif key=='opBattleChatter': row.update(label='Battle chatter frequency (%)',min=0,max=100,help='Original battle-callout frequency range; lower is quieter, higher is more frequent. Voice Chatter must also be enabled. Does not change mission dialogue.')
         elif key=='keyboardLayout': row.update(help='Shortcut letters follow this layout. Text entry continues to use Windows.')
         elif key=='language': row.update(help='Original localized strings/subtitles; new OpenHW interface labels remain English.')
         elif key=='voiceLanguage': row.update(help='Only complete, checksum-matched installed voice packs are offered.')

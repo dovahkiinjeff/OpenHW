@@ -1,3 +1,13 @@
+# Hosted updates in OpenHW 1.1
+
+The launcher and updater prefer `https://openhw.tech/updates/stable.json` and verified files under `https://openhw.tech/downloads/`. If that feed is unavailable or invalid, they read the official GitHub feed. Each download tries its hosted mirrors and then the canonical GitHub release asset. Both hosts use HTTPS; the same published size and SHA-256 apply. No arbitrary mirror domains are accepted.
+
+**1.1 is a fresh-install boundary.** Existing GitHub-only updaters self-update using the canonical GitHub URL before checking the new protocol. They then direct 1.0 users to the separate 1.1 installer without changing their game files. New 1.1 installations include Launcher.exe and Updater.exe. Ordinary later patches retain the versioned update graph.
+
+Release maintainers: retain the GitHub `url` in `OpenHW-Updater.json` for older clients and add the hosted URL in `mirrors`. For a new full installer, publish `OpenHW-Install.json` with `version`, canonical GitHub `url`, `mirrors`, `size` and `sha256`, matching the published `OpenHW-Setup.exe` asset. The feed generator selects it as `fresh_install` and sets the fresh-install boundary independently of patch prerequisites. Publish the identical generated feed to GitHub and openhw.tech, with the hosted files present first. Publishing a GitHub release alone does not deploy hosted files.
+
+## Previous updater behavior and patch format
+
 # Portable automatic updater
 
 Install the OpenHW base game first. Download [Updater.exe](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.0.7/Updater.exe), place it beside `OpenHW.exe`, close both game executables and Launcher.exe, and run it. No Python installation, administrator prompt or separate installation path is required. The updater only changes the OpenHW installation in its own folder; it does not search for or patch other copies on the computer.

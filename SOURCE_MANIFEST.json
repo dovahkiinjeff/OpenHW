@@ -1,16 +1,11 @@
 {
   "schema": 1,
-  "version": "1.0.7",
-  "snapshot": "Complete cumulative OpenHW 1.0 through 1.0.7 engine, launcher, updater, shaders, editors, installer, tests and illustrated documentation",
+  "version": "1.1",
+  "snapshot": "Complete current build inputs",
   "excluded": [
-    "retail archives/models/audio",
-    "unchanged retail textures",
-    "build outputs/dependency caches",
-    "personal logs/saves",
-    "Git worktree pointer/history",
-    "unused Kharak textures",
-    "Retired beta release file: RELEASE_NOTES_0.92.0_BETA1.md",
-    "Retired beta release file: Windows/package-0.92.0-beta.1.ps1"
+    "generated out/ and .deps/",
+    "personal logs/saves and originating Git worktree metadata",
+    "retail data and unused Kharak textures"
   ],
   "files": [
     {
@@ -22725,8 +22720,8 @@
     },
     {
       "path": "assets/Release/content-inventory.json",
-      "size": 2762908,
-      "sha256": "11b4d23e1dc81ddc50cd2cc0ef6b0b42eb44cbc8f692260f36d7b56ba7e273fd"
+      "size": 2762906,
+      "sha256": "1339527a44248ed34ccf7bb0a91fde66e61a8574ecc7da8f1d566662f7b8a20c"
     },
     {
       "path": "assets/Release/defaults.cfg",
@@ -22900,8 +22895,8 @@
     },
     {
       "path": "BUILD_INSTALLER.md",
-      "size": 5936,
-      "sha256": "9881d47a9d2a28bcb30fb2fcbfc8f1d34f334aa2a99a25c6a0f6d70141793ff6"
+      "size": 6260,
+      "sha256": "94755891495c9131044a3ae23f4c0e2814774d67505a88e44dc0e98eb18c1dcd"
     },
     {
       "path": "CHANGELOG",
@@ -22915,8 +22910,8 @@
     },
     {
       "path": "CMakeLists.txt",
-      "size": 77255,
-      "sha256": "2f98253e58302a8288cf33d2cebab6d3f409f862dfdd5df1c9513bbc98442f9d"
+      "size": 80726,
+      "sha256": "e0e87a63287c6665070221c05a189d6f4185a851192d614545196a4f0bae98cf"
     },
     {
       "path": "CMakePresets.json",
@@ -22944,14 +22939,19 @@
       "sha256": "9f50e4b55abb7587fd2963b392aae31aaa530710256e72017fe2b99de6539945"
     },
     {
+      "path": "docs/COMMUNITY_FIXES_2026_11_13.md",
+      "size": 3134,
+      "sha256": "9e779f8001b8d43a2659c56222494f74f13d7923fa3dea223ac75fb1ccebc04b"
+    },
+    {
       "path": "docs/DX11_COMPATIBILITY.md",
       "size": 2847,
       "sha256": "fabcd2389972631b90a19c3e0ae710c5f5a15244dfceb94ca1e76d73fb6cb430"
     },
     {
       "path": "docs/EDITING_GUIDE.md",
-      "size": 6870,
-      "sha256": "17c3d9391f31c9d214692e8a2a9a5829f99b25cd5de91d17bb70fd58865eca35"
+      "size": 7156,
+      "sha256": "0b7199ed8f67f76fe6c038f57c59f408b665af1f73d04c792ac626727f5e10d6"
     },
     {
       "path": "docs/ENGINE_MATERIAL_STATES.md",
@@ -23099,6 +23099,11 @@
       "sha256": "de0f79771fc51387364b573ebcb14aaa2cda7e659da7f1554b554f8d10ef7ae6"
     },
     {
+      "path": "docs/MULTIPLAYER_PREVIEW.md",
+      "size": 4593,
+      "sha256": "f375534607a1649ea6a5c582ef765b5d5b80dd6ace96aa2151da8e376e46c81c"
+    },
+    {
       "path": "docs/NATIVE_BENTUSI.md",
       "size": 1151,
       "sha256": "002ff0ea5777da02bb173c2fc427e5a13f1d64e3c9119c944db83b2c110d4c18"
@@ -23184,6 +23189,11 @@
       "sha256": "1d1b637bf93e1831079a1d500ff5885b0e6da4fac52f7791298775fdfc611f23"
     },
     {
+      "path": "docs/RELEASE_NOTES_1.1.md",
+      "size": 6144,
+      "sha256": "2612e6a8daf84bc8cfe48477184812aeb7ec225cbe6aa13389b530802b4e0074"
+    },
+    {
       "path": "docs/REMASTERED_WEAPON_FX.md",
       "size": 8303,
       "sha256": "89f722efe27e0082d5de499c7c70a0ae7f60e68e827e657faeb8723d5ded2ba3"
@@ -23225,13 +23235,13 @@
     },
     {
       "path": "docs/UPDATER.md",
-      "size": 5730,
-      "sha256": "4c632cf8d130320c0aae857424a3e642cbeda14bf877f0fa705d548dce3e1af9"
+      "size": 7108,
+      "sha256": "c07ec8ca2aeb4f2bdf85a5d17cc7fb9a884a34725c2c1fa8d75a1747ffe9b96c"
     },
     {
       "path": "docs/USER_GUIDE.md",
-      "size": 8905,
-      "sha256": "2725db3ce58877d2f184f12d9f7073198a29a0c40343fac013468de7149a590c"
+      "size": 11668,
+      "sha256": "6cf02becda90748d09e7de62ea455e04714f72cdafb79748b71190fc26e325cf"
     },
     {
       "path": "docs/WEAPON_FX_UPSCALING.md",
@@ -23295,8 +23305,13 @@
     },
     {
       "path": "README.md",
-      "size": 38605,
-      "sha256": "b606653cd3302d7e6d2908e6c1f62deb3979d4b1ff906466717713f57ffec266"
+      "size": 40007,
+      "sha256": "156c5c7cc2df7cfb344d63750b040808ff22fa270b9869c809738bbaa43da5ba"
+    },
+    {
+      "path": "RELEASE_NOTES_0.92.0_BETA1.md",
+      "size": 4505,
+      "sha256": "c2dbd37cc1e80c392395c4871fffa4c78ec3b5e10431def4d618469bf73cf85f"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -23344,14 +23359,129 @@
       "sha256": "ad9d4d434d9a3cb18d184833aa56eadf39a821e6931253dbb246110579cd8ee5"
     },
     {
+      "path": "RELEASE_NOTES_1.1.md",
+      "size": 146,
+      "sha256": "7b28d2bc0f7e4956c8d92aaf0c2c7f3d01c552063c3cd2add100715c5097dbda"
+    },
+    {
       "path": "SECURITY.md",
       "size": 629,
       "sha256": "c500efc0328bf68bc92b56c4dd1013eaa421e8fb117aacea125c4886dad579fd"
     },
     {
-      "path": "SOURCE_PROFILE_FILTER.json",
-      "size": 21390,
-      "sha256": "a4072ba3f95c1b81c8d4232e20161d9f4f06a76c7d7e1aaafb53e3ee87c34b01"
+      "path": "server/build_private_content.py",
+      "size": 3700,
+      "sha256": "df3d6ef0b278025396a4fdfa22443f0f6ff9ee5d77972bd4747e2c48f02307b8"
+    },
+    {
+      "path": "server/configure_diagnostics.py",
+      "size": 3950,
+      "sha256": "f45fdd782528e25726275f313a3a1282e01e36ace62621765e5b8e517124a122"
+    },
+    {
+      "path": "server/configure_downloads.py",
+      "size": 1422,
+      "sha256": "57c4c83e079c906e789c798932e147d95901ef76f2580267151fb6c8366962aa"
+    },
+    {
+      "path": "server/configure_host.py",
+      "size": 2590,
+      "sha256": "563f322e6800cfa8fe58eb57a8da338422c72ae2909e8ff57a65ec2a2ac0f820"
+    },
+    {
+      "path": "server/coordinator.py",
+      "size": 11658,
+      "sha256": "66b54dc8015403539032df83e6abe223104bfd16a98807c23902ca3c73476a36"
+    },
+    {
+      "path": "server/diagnostics.py",
+      "size": 20266,
+      "sha256": "a13f577d4dc4d3fa8c2e2192ac78c8594287f9390259ae933dd941faf494194b"
+    },
+    {
+      "path": "server/lobby.py",
+      "size": 7764,
+      "sha256": "10851761e91be2c755551a75c6a2b2d4fa24484b0985fbb74da15f8fc1dd0543"
+    },
+    {
+      "path": "server/mirror_updates.py",
+      "size": 3861,
+      "sha256": "d24d140a0db3ef42ce91c230e54498015a339e737d34ddf120bf16201a4dd881"
+    },
+    {
+      "path": "server/openhw-diagnostics.service",
+      "size": 753,
+      "sha256": "ecb16c6c925b03dfafd0c1304294b34cfaebcfc467b5cff5b628dcca9a6c3fc8"
+    },
+    {
+      "path": "server/openhw-multiplayer.service",
+      "size": 716,
+      "sha256": "ed0ce6c9aca2c13612e581576412eb9c4a47a217ba78750a22468533bccd9feb"
+    },
+    {
+      "path": "server/openhw-update-mirror.service",
+      "size": 485,
+      "sha256": "5565d3bae3bf5351de3a6bbfdeada786042ea82b66e1e337c0ae94afadd4c475"
+    },
+    {
+      "path": "server/openhw-update-mirror.timer",
+      "size": 175,
+      "sha256": "f257769258eeee1c6e5a43e79c99755f22e78ab6b3cc237b5b75eace69a95979"
+    },
+    {
+      "path": "server/probe_worker.py",
+      "size": 3981,
+      "sha256": "9498ea9d678db5a8590f77b96c38c5e56eb13ce02470bf9c5e54b9d9dafb05d9"
+    },
+    {
+      "path": "server/protocol.py",
+      "size": 4332,
+      "sha256": "6e974b495b2e7a7ca5ceb77179f93a6233e90bbfef5c2449aca26a4376f02e12"
+    },
+    {
+      "path": "server/README.md",
+      "size": 12045,
+      "sha256": "0ae006282e78a097db6aba5ac57897ba19196ddf7338b4aa36d18eb032191a75"
+    },
+    {
+      "path": "server/requirements.txt",
+      "size": 17,
+      "sha256": "13736dada95353b5651ccbd61f2f65588c165c0f74bdaf08e8ebebf93fd68e24"
+    },
+    {
+      "path": "server/test_chat_overlay.py",
+      "size": 1558,
+      "sha256": "28768c65f2dac70022a277e19b8f3ddc35cc5ca0054b4eb4f511d81015eab651"
+    },
+    {
+      "path": "server/test_coordinator.py",
+      "size": 1884,
+      "sha256": "a0c718d71a32a8e47b50e1f525a057131f828d74cbac5517b7ba19deb47e8c83"
+    },
+    {
+      "path": "server/test_diagnostics.py",
+      "size": 13574,
+      "sha256": "99fb4aed99885b87bbdae3ff58be401f10619d780034c889a3ab55027d934d46"
+    },
+    {
+      "path": "server/test_live.py",
+      "size": 13381,
+      "sha256": "5aef91b73049903d1c832bd27012acfe6e1e7e6859110f3bcfc8297f0ab22c06"
+    },
+    {
+      "path": "server/test_loading_gate.py",
+      "size": 1547,
+      "sha256": "609ac31d867e15daba34bfaf09b5e7ff8afc696cc0f2047192d2918bc6d79da9"
+    },
+    {
+      "path": "server/test_lobby.py",
+      "size": 4312,
+      "sha256": "9b55c8a8528aa1f3430af913b9f67f0565aac9e46c70c69b634edfbf4e8fc4fc"
+    },
+    {
+      "path": "server/test_mirror_updates.py",
+      "size": 1901,
+      "sha256": "ceaa23789b1a3cec4904b25c6b18fb39f57b34e84d02f29023f78e6d3a523365"
     },
     {
       "path": "src/Game/AIAttackMan.c",
@@ -23430,8 +23560,8 @@
     },
     {
       "path": "src/Game/AIPlayer.c",
-      "size": 71912,
-      "sha256": "8b14574b2aa2a5e62c7d552107ebe37fafca225b98d8e15a2ba2600f21a58d06"
+      "size": 72040,
+      "sha256": "4dfa2368718912a44565b7d7adcd750df913be93f608ed080ddb1fbb55163b8b"
     },
     {
       "path": "src/Game/AIPlayer.h",
@@ -23770,18 +23900,18 @@
     },
     {
       "path": "src/Game/CommandNetwork.c",
-      "size": 96343,
-      "sha256": "79351aea17335f9f0e4a33b3b434268dbf525cbf4ee47a026f1f349f4c77fff6"
+      "size": 97994,
+      "sha256": "c90aa1dab6271f1792bec7b9364656387492240194275de1dbfec8cb97b141f3"
     },
     {
       "path": "src/Game/CommandNetwork.h",
-      "size": 17951,
-      "sha256": "7257b6a87824c9ca235a7e6eaa9d3a6e723d0312e343315155fdb2e498eb3f8a"
+      "size": 18242,
+      "sha256": "6ae98b38de68c1e21c74cc807facff240748d3e01a7b298a9a586d888ede1507"
     },
     {
       "path": "src/Game/CommandWrap.c",
-      "size": 20394,
-      "sha256": "58d5cc98359303a2090f224ae02a0f88ff064ba6423f1443da20d907f93d4cca"
+      "size": 21529,
+      "sha256": "305f9f6ff32cf205c7658faa03b84d5087b7f89ab4938988b24bfe760df22c20"
     },
     {
       "path": "src/Game/CommandWrap.h",
@@ -23789,9 +23919,14 @@
       "sha256": "03c9e2811ef2fb00c2c222a6b5e2a10cc488a1d325ca17a8909860363d384409"
     },
     {
+      "path": "src/Game/CompactHud.inc",
+      "size": 2498,
+      "sha256": "326d2fa1d65b70abb49c69b74e258d336a4d1fcc523692486e03c57cb5a00568"
+    },
+    {
       "path": "src/Game/ConsMgr.c",
-      "size": 162320,
-      "sha256": "09975d96a7e666fddccf2990a65b9fedef9b995b60435fbbf68ca325b4f53a42"
+      "size": 167753,
+      "sha256": "93faab13b09343f1a251f98ff05480c313f56c9f9e20a8b50c4030fb5f3878d7"
     },
     {
       "path": "src/Game/ConsMgr.h",
@@ -23845,8 +23980,8 @@
     },
     {
       "path": "src/Game/Dock.c",
-      "size": 260709,
-      "sha256": "9cb3500e030392fdddbb88b74c9c4e6ddfafe758256fab9daa3accd37378f1b8"
+      "size": 260802,
+      "sha256": "4373b7730bbbac84cc7982d624a7bf7c6d883e1adc62da091864bd9acacbd4c3"
     },
     {
       "path": "src/Game/Dock.h",
@@ -23855,8 +23990,8 @@
     },
     {
       "path": "src/Game/DockEligibility.inc",
-      "size": 3781,
-      "sha256": "419bcd63ff7013b3113dc289a6eed642d3c7e44264558df3dff8f24765a2ec20"
+      "size": 3859,
+      "sha256": "44df230b510f8052d4644c538155e0aecc2ad4142f7be76e64eb375fd893732a"
     },
     {
       "path": "src/Game/EditorInstanceScale.h",
@@ -23875,8 +24010,8 @@
     },
     {
       "path": "src/Game/EngineTrailAnchor.h",
-      "size": 1064,
-      "sha256": "cb6f9a306611c1fb12278d838bcab01eb015eb651ca0f03a1174db5f54bd968e"
+      "size": 1414,
+      "sha256": "0aa84c17d11e9e49c128ce89e35c03a70629182b49d6049cfb8a35ceef3ee504"
     },
     {
       "path": "src/Game/ETG.c",
@@ -23965,13 +24100,13 @@
     },
     {
       "path": "src/Game/Formation.c",
-      "size": 152179,
-      "sha256": "6361f49c1f5299e83b34ed8e0739738ae28eb7f7a48b07c7aaeaacc53e9cb3db"
+      "size": 152507,
+      "sha256": "942adb62ea3b657cbfb087792c0c30092b2b9e2d8eb93bbcc0289dd4f81e33e7"
     },
     {
       "path": "src/Game/Formation.h",
-      "size": 8225,
-      "sha256": "36e1b81c0342215872bb582b3ffe326b24c13e95892b6553b122b5799206d989"
+      "size": 8301,
+      "sha256": "744109d2f21fd64a73ac69db7d0055d1eb9d3e8099721b5017c6f3ac222604a6"
     },
     {
       "path": "src/Game/FormationDefs.h",
@@ -23990,8 +24125,8 @@
     },
     {
       "path": "src/Game/FormationSpreadUI.inc",
-      "size": 7560,
-      "sha256": "1859cf78b443255550388e2eb43f77ce147056164655cf44308d4d875d15e075"
+      "size": 7622,
+      "sha256": "3d76ec9cb7a087234eb049c2d9067c9450a40025391a412e42ec7a68dbec3e9f"
     },
     {
       "path": "src/Game/FrontendMenuLayout.inc",
@@ -24020,8 +24155,8 @@
     },
     {
       "path": "src/Game/GameChat.c",
-      "size": 29170,
-      "sha256": "c1d0d2a66d13927076f2dc075068cf607e7fdac8508d90c7fe48a4fd01bc4cb6"
+      "size": 29391,
+      "sha256": "52ab75adefc3a077a71518d62660e56023b51d628c20cbcef3f8eb29aef8b03a"
     },
     {
       "path": "src/Game/GameChat.h",
@@ -24055,8 +24190,8 @@
     },
     {
       "path": "src/Game/Gun.c",
-      "size": 80695,
-      "sha256": "ed0c0f2bc6764b0ad23ee1629aa8f049496ab599f376368c956040d17c2e0a4a"
+      "size": 80761,
+      "sha256": "20a40cbba587e9b2943ed21142a3f63142302eaf54d3593d08139f00f36514fd"
     },
     {
       "path": "src/Game/Gun.h",
@@ -24075,8 +24210,8 @@
     },
     {
       "path": "src/Game/HorseRace.c",
-      "size": 53710,
-      "sha256": "6fa2f386d5ba6badcd9f97254792b14f92efe3868c3633fccf2effe0c9cd61e3"
+      "size": 54287,
+      "sha256": "a743b73c3674bd0e83226b898ba7a359272e653d57207988b8fd7f7848b86377"
     },
     {
       "path": "src/Game/HorseRace.h",
@@ -24094,14 +24229,19 @@
       "sha256": "1a7d0f3bbbf827cad9502d504c1e6311a3fdf8ae5b892039331fbdf699f53705"
     },
     {
+      "path": "src/Game/HudVisibilityPolicy.h",
+      "size": 393,
+      "sha256": "75f2913aaf5367c1e61468b1d18582d636ebcad45f91869cf71bfde5e420da29"
+    },
+    {
       "path": "src/Game/InfoOverlay.c",
-      "size": 10767,
-      "sha256": "e97168cda1cfed925eaac174115c7bdab2a2e55230d607da0556465993b7c919"
+      "size": 11263,
+      "sha256": "20b93e0eeb5c83b192c61518c64faff9a01562254386f97eee74525543e99955"
     },
     {
       "path": "src/Game/InfoOverlay.h",
-      "size": 1632,
-      "sha256": "210b14120b212e327975bd39a8b69040d48481eb2821a62a17d376e7169c17d4"
+      "size": 1661,
+      "sha256": "899265048be88e07324d7e7d79ec4dfeb6059ee76ec61e698609e576078824d9"
     },
     {
       "path": "src/Game/KAS.c",
@@ -24170,13 +24310,13 @@
     },
     {
       "path": "src/Game/LaunchManagerLifecycle.inc",
-      "size": 836,
-      "sha256": "7705911e8bc6724640a307c1a8b2feb6695bf4d0bfd96012f0977965042d257c"
+      "size": 848,
+      "sha256": "cf37f0ecd3e43039a4b2bed3cd8a7e94a688761f5c11177abb78e09da17d3237"
     },
     {
       "path": "src/Game/LaunchMgr.c",
-      "size": 64141,
-      "sha256": "f247eb3ce23055ff40667f7574dd6d8cdcbd0b62a7a18a59b6682040b15093b3"
+      "size": 64242,
+      "sha256": "31f03c66c73f4910d24471006d853f65dc1faf613ddf5e9afca2a6f8d7440376"
     },
     {
       "path": "src/Game/LaunchMgr.h",
@@ -24190,8 +24330,8 @@
     },
     {
       "path": "src/Game/LevelLoad.c",
-      "size": 86297,
-      "sha256": "76166278066914ae4865118cbc5559d7a901893623ac6d16cedc9c74e4bb8d3a"
+      "size": 86443,
+      "sha256": "2bd7def0f6a7672d5638bf00cbf8df863e38c0848e02440573b716ddd0ae0e28"
     },
     {
       "path": "src/Game/LevelLoad.h",
@@ -24217,6 +24357,11 @@
       "path": "src/Game/LinkedList.h",
       "size": 3264,
       "sha256": "dfd1b11d17a38ae250edbf5941c392fe73096fcf8d7c66d34cde028443addbd1"
+    },
+    {
+      "path": "src/Game/LiveMapAuthoringPolicy.h",
+      "size": 422,
+      "sha256": "033ed90dc93e460629b989dd8a0a8b12d84dbcd6b1d4d921f2f9199699501d3b"
     },
     {
       "path": "src/Game/LoadingArtwork.inc",
@@ -24255,8 +24400,8 @@
     },
     {
       "path": "src/Game/ManagerDock.c",
-      "size": 12589,
-      "sha256": "67adde8902c65a292fffe54232f655f789553ef6c8d410406d3d25ec2eeaa650"
+      "size": 12838,
+      "sha256": "0c5fb6f7524c4016d455d7a48923cc3f5f4cd3852498a2be315c1ba2b377f594"
     },
     {
       "path": "src/Game/ManagerDock.h",
@@ -24300,8 +24445,8 @@
     },
     {
       "path": "src/Game/Mesh.c",
-      "size": 202552,
-      "sha256": "69cd44b347f8f6a81880fcdf4b38b362f57496012aa1c89f7d8e2c8fb92fe29d"
+      "size": 208016,
+      "sha256": "65131b475876911d62512cfaab866cae0de65f2b403fdbe54c9c0a0fe19706e6"
     },
     {
       "path": "src/Game/Mesh.h",
@@ -24400,8 +24545,8 @@
     },
     {
       "path": "src/Game/ModernMapEditor.c",
-      "size": 199578,
-      "sha256": "54b6573db00606075d2ba0149119d81cd5b9f4b11edb645371ab6b97128d7c36"
+      "size": 199758,
+      "sha256": "5e136b1d307594ff9350d2a3fd0c6a8dbccc685beee0e6c4ab205dfac6e2d7ec"
     },
     {
       "path": "src/Game/ModernMapEditor.h",
@@ -24417,6 +24562,11 @@
       "path": "src/Game/ModernMissionBackdrop.h",
       "size": 3380,
       "sha256": "98f3925235efe2fca7c11bf578d9284280cbecafc2ab5267d96ba44094908b0f"
+    },
+    {
+      "path": "src/Game/ModernOnlineLobby.inc",
+      "size": 15893,
+      "sha256": "0caf7d821b2ed2dd0cfbaf76d93c052b5ac0bc6dbb605453a25f4a5bd23f8ccc"
     },
     {
       "path": "src/Game/ModernParticleFields.c",
@@ -24455,8 +24605,8 @@
     },
     {
       "path": "src/Game/ModernUI.c",
-      "size": 404448,
-      "sha256": "3e3d1dd33f8b9ad5e89462e36ce8d2927513037bc6c949aa62a97176a5eae2b0"
+      "size": 407909,
+      "sha256": "be5ae3c496ef690da20670920b3a33562872d11901edbda32d7c609e604cf1c0"
     },
     {
       "path": "src/Game/ModernUI.h",
@@ -24520,8 +24670,8 @@
     },
     {
       "path": "src/Game/NavLights.c",
-      "size": 8916,
-      "sha256": "cf1a0ece41506739dd77b530284fa90b7eede5965bb70627a15278b869c20156"
+      "size": 9083,
+      "sha256": "87520b399731cc722aefa8caee85da6252bf51a7c6f5f1ca31688da93a2629c3"
     },
     {
       "path": "src/Game/NavLights.h",
@@ -24595,8 +24745,8 @@
     },
     {
       "path": "src/Game/Options.h",
-      "size": 5554,
-      "sha256": "2d315bc2f08cb0650e7150830bfdc48fdf3f096e4f1013f965d6caea4f411554"
+      "size": 5593,
+      "sha256": "33e3333cd6d98d1901074a6b7a58d9d53171fc9f9801546aa97e94d732e477ee"
     },
     {
       "path": "src/Game/Particle.c",
@@ -24615,8 +24765,8 @@
     },
     {
       "path": "src/Game/Physics.c",
-      "size": 48095,
-      "sha256": "f2f4eff8ec02c35ab97a7b1963577d18151e77d8fe3d05ebedf9cb92c37e9613"
+      "size": 49621,
+      "sha256": "f2dedc6b9a3508f12d94f1a25bd23e4f2dcc2f15b881ea126fadee98171094c2"
     },
     {
       "path": "src/Game/Physics.h",
@@ -24760,8 +24910,8 @@
     },
     {
       "path": "src/Game/ResCollect.c",
-      "size": 46348,
-      "sha256": "b26f3a0fd4a093e197f7f93529b860f11c64c41bc68e952f03b748e37ec81b1d"
+      "size": 47734,
+      "sha256": "42dde107a95547e461e87dd07902b01df7aba29d113e1b3ab5d1876779b98098"
     },
     {
       "path": "src/Game/ResCollect.h",
@@ -24780,8 +24930,8 @@
     },
     {
       "path": "src/Game/ResearchGUI.c",
-      "size": 82966,
-      "sha256": "76c9848fef013e0e44c5f5cc356cbfb4214a99a46f07a39bdb62f689d6f707df"
+      "size": 87085,
+      "sha256": "ccdf7e577984745c5fe74d65fb6a59c250032fe9529c2a5cb8a3647dd537c1b8"
     },
     {
       "path": "src/Game/ResearchGUI.h",
@@ -24795,8 +24945,8 @@
     },
     {
       "path": "src/Game/ResourceUnits.h",
-      "size": 1096,
-      "sha256": "b3b028a328dc455f2fa8610d5b287e962bc093d914ae5b57817152ee4395fd76"
+      "size": 1126,
+      "sha256": "d69e7618e86a29b2572c28e22706d8aa962e8b53ee53a9192eb15b276985b63c"
     },
     {
       "path": "src/Game/SaveGame.c",
@@ -24850,8 +25000,8 @@
     },
     {
       "path": "src/Game/Select.c",
-      "size": 124189,
-      "sha256": "a930019c44ab28cf1345e29b73dfb600a1e2daad22c7bc35b435ff27805fd61d"
+      "size": 127067,
+      "sha256": "1022743dace5d9ac8f3bd16905d994b9bdf32a9a3b2ff903715afecbb8a67dfe"
     },
     {
       "path": "src/Game/Select.h",
@@ -24860,8 +25010,8 @@
     },
     {
       "path": "src/Game/Sensors.c",
-      "size": 199017,
-      "sha256": "0da227cb7ef52dae4aef4e1245083ebf8794367421a268560c6a94410469d0c8"
+      "size": 199432,
+      "sha256": "e40fb21fddbdffffaa40272772eade2ba8823cdcca3f4d4ac47745dd39893575"
     },
     {
       "path": "src/Game/Sensors.h",
@@ -24905,8 +25055,8 @@
     },
     {
       "path": "src/Game/ShipAppearanceUI.inc",
-      "size": 6744,
-      "sha256": "afd42897345062543cde650608bef6ff5fa0c8e103498da6e4a08896a8eb1658"
+      "size": 6870,
+      "sha256": "a224227159538a136816d93f67a2073859943597f3c65c800b395ee1c9e8bfca"
     },
     {
       "path": "src/Game/ShipAuthoring.c",
@@ -25010,13 +25160,13 @@
     },
     {
       "path": "src/Game/SinglePlayer.c",
-      "size": 161664,
-      "sha256": "0968d754bf9361331a7a7bb9e8658810e48f6b54a8d868b278f123736185bd1a"
+      "size": 162815,
+      "sha256": "b2b55862dedf68b1ef9bc898cb8e7c11cd386393d6f74e88910230a779ce406d"
     },
     {
       "path": "src/Game/SinglePlayer.h",
-      "size": 8184,
-      "sha256": "326300fa7a5a44b213530c6b0983fcffa7c0109b8599bf8f8bba8da8da59ce5e"
+      "size": 8248,
+      "sha256": "32fdf996b8aad95edea1da50fb23dc203241138bc5f92dd5711648e5f9ecdac2"
     },
     {
       "path": "src/Game/SoundEvent.c",
@@ -25150,8 +25300,8 @@
     },
     {
       "path": "src/Game/Tactics.c",
-      "size": 101288,
-      "sha256": "bebdee2812687ec5a4227d9534edad617b03e2370a3661ab0e163ce2930ad79a"
+      "size": 103643,
+      "sha256": "b64740135a8dd760600e7e3478459186934e203f84b0ee866425fee949098a06"
     },
     {
       "path": "src/Game/Tactics.h",
@@ -25170,18 +25320,18 @@
     },
     {
       "path": "src/Game/TaskBar.c",
-      "size": 77580,
-      "sha256": "536d302baaea42e006185190cc3221bb55b8cd364e02df5a102f946ce3dd2823"
+      "size": 78740,
+      "sha256": "89e143e9a4b774cc8127c6bc2388fc155723d5bc7bfc6ea69c66df5089be8c50"
     },
     {
       "path": "src/Game/TaskBar.h",
-      "size": 6018,
-      "sha256": "21eacd959e8ea532b77ad27da159123f4411ed293cd41fd64682f0449ee42efa"
+      "size": 6076,
+      "sha256": "3abd4ae093a9d0646c73b6e501efa26a5788cdf9930f0e0af1c9406bd45292a6"
     },
     {
       "path": "src/Game/Teams.c",
-      "size": 14535,
-      "sha256": "bd4eee3c4042786e54362c1e934d8e41febabad8bda8abcba6e1d1d96cc4326d"
+      "size": 14703,
+      "sha256": "b083159d49b324a233af5e4ba4a84821f2660fcf781c4f95d70b19dac368ce23"
     },
     {
       "path": "src/Game/Teams.h",
@@ -25240,8 +25390,8 @@
     },
     {
       "path": "src/Game/Trails.c",
-      "size": 95993,
-      "sha256": "ead435c627eee1cdcfcd60cd518da926ee33ba47096dff264df0b349e512b58d"
+      "size": 96238,
+      "sha256": "44a3dbc9addb68ad7e9762f38284c2299db2a506f7b8fa8e5b66875aeca45300"
     },
     {
       "path": "src/Game/Trails.h",
@@ -25260,13 +25410,18 @@
     },
     {
       "path": "src/Game/Tutor.c",
-      "size": 65566,
-      "sha256": "965d1b1817718c528deba0051463611e47fc1c1f458a373f73965fec199561db"
+      "size": 64514,
+      "sha256": "610f5880d5ae3f9f9828535f22a1f8b80c5b8a26a49e8d6b8263b74632f3711a"
     },
     {
       "path": "src/Game/Tutor.h",
-      "size": 6742,
-      "sha256": "90e97fddddad085c55fa8e920ea8aa01e21be28d74fc27acde7a9a570a9798c7"
+      "size": 6780,
+      "sha256": "225e2cb5740d6fda67feec24696ef2cd9f8e39c51c5527c67bf35ae6a4669e53"
+    },
+    {
+      "path": "src/Game/TutorialControls.inc",
+      "size": 4081,
+      "sha256": "986d3a5423b841c278196961994c159fa182b73be67203673c934c05eefa4765"
     },
     {
       "path": "src/Game/Tweak.c",
@@ -25325,8 +25480,8 @@
     },
     {
       "path": "src/Game/Universe.c",
-      "size": 237807,
-      "sha256": "16f45d3778d7e76132f6ae7f59bedd65d5154637beb5105855a8f25caa99a467"
+      "size": 237988,
+      "sha256": "bd5792833a4937a2ca00a76097546422960d32c527c04e1320ec70e962b8bf05"
     },
     {
       "path": "src/Game/Universe.h",
@@ -25335,8 +25490,8 @@
     },
     {
       "path": "src/Game/UnivUpdate.c",
-      "size": 290786,
-      "sha256": "045f89f71b5f8755c0f1c4ce78fd6407e9fceff89f9cc5b633216c7bde32a81a"
+      "size": 291261,
+      "sha256": "fc77c2581764e73b7900d1d9812050b7ef753d5b04165bc69043200854e89599"
     },
     {
       "path": "src/Game/UnivUpdate.h",
@@ -25355,8 +25510,8 @@
     },
     {
       "path": "src/Game/Veterancy.c",
-      "size": 4274,
-      "sha256": "253ee530012b66bf1b868690fc09ed20c74f91bd5ba6627f91d89f22da123ffb"
+      "size": 4540,
+      "sha256": "b07f2fa9d3fe2845150959c52eeb7f090261e543f365170917fea8e8022b4fe5"
     },
     {
       "path": "src/Game/Veterancy.h",
@@ -25940,8 +26095,8 @@
     },
     {
       "path": "src/Modern/RemasteredVisualPackage.cpp",
-      "size": 25992,
-      "sha256": "6ff93bd0671157bdf5efb0803c83c6b93007d94ce0ae21d962e2a6f620acfe06"
+      "size": 26787,
+      "sha256": "717013de0dace31dde06865d5892052faae7f857e7bf58c85d32b860ed04c1d8"
     },
     {
       "path": "src/Modern/RemasteredVisualPackage.h",
@@ -26015,13 +26170,13 @@
     },
     {
       "path": "src/Modern/WindowsInstall.cpp",
-      "size": 20677,
-      "sha256": "41ef6b41a08536e4086e11a7c809f509e44f4243f249fc968c222d1ae8ab91a3"
+      "size": 21799,
+      "sha256": "045bf5b9877e7875a3d55b30db137789d44f7abeadc949944af4576c6b108068"
     },
     {
       "path": "src/Modern/WindowsInstall.h",
-      "size": 415,
-      "sha256": "3a6518265c3c5a6371813653e76963d02027a7dc228e79863945dba17930d1b5"
+      "size": 538,
+      "sha256": "0879eeb22978cf1c646f0626a74833eac5b3f92c7c8bd827783a5e5b98ab0084"
     },
     {
       "path": "src/Modern/WindowsSplash.cpp",
@@ -26042,6 +26197,56 @@
       "path": "src/Modern/WindowsStartupTasks.inc",
       "size": 5518,
       "sha256": "8631b83fd09f6eec96a9539006563985b8c1b7385b83ff0110c2022049cd3be4"
+    },
+    {
+      "path": "src/Network/CommandValidation.c",
+      "size": 6537,
+      "sha256": "31bb3cf701ae126446a0b8636e4e0695c7a83a51a3db582fd27d5a1e4e20d670"
+    },
+    {
+      "path": "src/Network/CommandValidation.h",
+      "size": 178,
+      "sha256": "29f165e0d9ade89fc6b6ad312aab8792bdd64784568a15d93cafcb8b4e0ce37c"
+    },
+    {
+      "path": "src/Network/DedicatedServer.c",
+      "size": 15431,
+      "sha256": "774e158616c7564e0a82a3361bf807ff9574e4d16eabe6d1e25414edb75d253e"
+    },
+    {
+      "path": "src/Network/DedicatedServer.h",
+      "size": 300,
+      "sha256": "6cd193cafd6887f70db9e554266d10b9d2b7b4e2d2291aa7b348b383c5da7389"
+    },
+    {
+      "path": "src/Network/MatchRules.c",
+      "size": 8371,
+      "sha256": "3e7f6529c53275c8bf601df2b583f0c787f500262099709eb4b3ac4221a038ad"
+    },
+    {
+      "path": "src/Network/MatchRules.h",
+      "size": 590,
+      "sha256": "b486422a336aa54bbc75ded9a66218049f69fe11b6a0f996c25e7ce3290ad2b3"
+    },
+    {
+      "path": "src/Network/OnlineClient.h",
+      "size": 811,
+      "sha256": "b26adc772b868f125e29103e31119e68a13eb063f52024e2884ef0124501feb4"
+    },
+    {
+      "path": "src/Network/OnlineGame.c",
+      "size": 4151,
+      "sha256": "d10670270504fb26bdcf370a99f50d32338e411ec55cbea85022c89760f9ab44"
+    },
+    {
+      "path": "src/Network/OnlineProtocol.h",
+      "size": 2272,
+      "sha256": "9d41768844e3943e2d40e2e5908363c9a6d3ed056ee06c4980e96d65d94c3d12"
+    },
+    {
+      "path": "src/Network/OnlineSocket.cpp",
+      "size": 9766,
+      "sha256": "2ce0588484bce6a62ce48ea87ddcfef7bafe7466825afb7402623be6f7306c67"
     },
     {
       "path": "src/SDL/AudioBus.h",
@@ -26075,8 +26280,8 @@
     },
     {
       "path": "src/SDL/DockOrders.inc",
-      "size": 915,
-      "sha256": "1ca05036a3d0ec042a93b857508baa3d80fa70c41772d18e6066cf3e9581c481"
+      "size": 946,
+      "sha256": "f8f6170cea7ee9afe265c827758939a26c1e9dd18cf71cbaa3c69cc992fcff83"
     },
     {
       "path": "src/SDL/DockOrderTarget.inc",
@@ -26135,8 +26340,8 @@
     },
     {
       "path": "src/SDL/main.c",
-      "size": 100336,
-      "sha256": "75f6a9b193db029524167a60f78db0ec51e45e716f9710251dee268f46d3dabc"
+      "size": 100621,
+      "sha256": "01fbe38db0f5779041819666a89731cd48fddb86144a360ae2adc48339675f44"
     },
     {
       "path": "src/SDL/main.h",
@@ -26145,8 +26350,8 @@
     },
     {
       "path": "src/SDL/mainrgn.c",
-      "size": 237343,
-      "sha256": "919b648c012adc2cd85ffcd2641896c988c054b57939fc8dda8cd1256e6a09bf"
+      "size": 238805,
+      "sha256": "392763ba5ac2d28f9e15d50694f149b661d621ff0303c45ec494c8b246443f80"
     },
     {
       "path": "src/SDL/mainrgn.h",
@@ -26375,8 +26580,8 @@
     },
     {
       "path": "src/SDL/TitanInterfaceC.h",
-      "size": 15407,
-      "sha256": "4ca4729317af49bcf8549841750d6638eca92dbbfe827fb4884ed7e8f3f1c795"
+      "size": 15520,
+      "sha256": "b28a714347b41ccf6c077189f12685c11787a1097be80b56b7688cef530e4027"
     },
     {
       "path": "src/SDL/uiscale.c",
@@ -26390,8 +26595,8 @@
     },
     {
       "path": "src/SDL/utility.c",
-      "size": 183010,
-      "sha256": "9042602dac234d8d14725544cf2b3c5b748e3aee015298c1d7a19d7854ed3f6b"
+      "size": 185750,
+      "sha256": "c3681f766320c337aa38982050bb9c4a7779ba88b260c502b41ecd0e81de6926"
     },
     {
       "path": "src/SDL/utility.h",
@@ -26765,13 +26970,28 @@
     },
     {
       "path": "src/Ships/SalCapCorvette.c",
-      "size": 139857,
-      "sha256": "544d849c79d0d0294f1321cdbaa37861bf9a5c376034c193964a7e6001dbb0a4"
+      "size": 133521,
+      "sha256": "11513968d8e227546ec3eba4ca8c26a26b4dad584699324ccfe0da77f98f6f83"
     },
     {
       "path": "src/Ships/SalCapCorvette.h",
       "size": 2387,
       "sha256": "9214274c65ff9510b43e5e432692355a0f16670b862a0c924a97f4275a1d5b79"
+    },
+    {
+      "path": "src/Ships/SalvageApproach.inc",
+      "size": 2127,
+      "sha256": "7a9d9f6c0f476dfce0de85edd8be241b70568bfd72a42a2941cc4828a483a8a5"
+    },
+    {
+      "path": "src/Ships/SalvageContact.inc",
+      "size": 4381,
+      "sha256": "c496a0c47cda5bbcf74fb3ad83108a2836e87932ea0f1f997b498ee58b29b2fe"
+    },
+    {
+      "path": "src/Ships/SalvageDelivery.inc",
+      "size": 2062,
+      "sha256": "d7a93ee940d18202370b4bb6f9d651be3d94208c4fb6e4dac04789ea368971f2"
     },
     {
       "path": "src/Ships/SensorArray.c",
@@ -27040,8 +27260,8 @@
     },
     {
       "path": "tests/EngineTrailAnchorTests.cpp",
-      "size": 2110,
-      "sha256": "b57cc7c5d50d5f7563ac05e25f8283000e6033afb20d8d752c94f02f6cc10aeb"
+      "size": 2639,
+      "sha256": "5642d526a21e243bc8c223f9a0969f9509695e110aba8e0c5b510754a2b45c3f"
     },
     {
       "path": "tests/FGEffectGuidesTests.cpp",
@@ -27114,14 +27334,19 @@
       "sha256": "d2c97204daa9b3afc300d4406f23ba96863d3b99b99d1b1a57e21b3da91fae9a"
     },
     {
+      "path": "tests/HudVisibilityTests.c",
+      "size": 791,
+      "sha256": "e6c46ad0fec3d01b42c6a6188ef6ac205ce889577f9b38875ec0116809c034d2"
+    },
+    {
       "path": "tests/KeyboardLayoutTests.c",
       "size": 2341,
       "sha256": "cfc7595362245bf15f35353cb01dbef010a473e460bcc2a8546e1f2f8daf6556"
     },
     {
       "path": "tests/LaunchManagerTests.c",
-      "size": 5745,
-      "sha256": "cb52823c249f7f2dfff025dfc71da8d740d96912c23f0302bfd063b833c7ebb8"
+      "size": 5812,
+      "sha256": "e87f9995f966c30492d43d938751ba54b7cb6c10a2d2cbd138a1803c70c4c26c"
     },
     {
       "path": "tests/LoadingArtworkTests.c",
@@ -27205,8 +27430,8 @@
     },
     {
       "path": "tests/NativeShipHodTests.cpp",
-      "size": 136573,
-      "sha256": "b1685cc1a540b159983697cfde78b3bfce8573dc1ebf0cfa44e3aa2250cc7cb4"
+      "size": 140644,
+      "sha256": "57818d239d237e77b0f4cd83af8e2f306f1aaecba39feef893902405fac020b5"
     },
     {
       "path": "tests/NativeShipMadTests.cpp",
@@ -27334,6 +27559,11 @@
       "sha256": "fa7787290a2e1c0518058407ecfce3593aa3b04bab05a4ba19c2e12cb3cdbba3"
     },
     {
+      "path": "tests/SalvageContactTests.c",
+      "size": 7517,
+      "sha256": "ee8ddf1e707caf9da9a6190225f52486ae8beb14d4edc164eb8773e332f3f140"
+    },
+    {
       "path": "tests/SamplerFeedbackGpuTests.cpp",
       "size": 17626,
       "sha256": "8e8771c4f500d8e3bdfcee2c386515bed79cbe52ac74fb22fff7ac4bb3f15fc2"
@@ -27419,6 +27649,11 @@
       "sha256": "ca6c63160a1d6bb49c5eece3e78885303844cd3b8a4c0f5a319286c368fcb454"
     },
     {
+      "path": "tests/test_campaign_report_fixes.py",
+      "size": 8461,
+      "sha256": "03fa724d33b9e68b338000a166265649b628881b41fcfec134566e44c803473d"
+    },
+    {
       "path": "tests/test_capture_effect_cleanup.py",
       "size": 6089,
       "sha256": "2e04455323daaaf3a0c5ef325460ea5d343ed1e9237b13fb1a0256df224adb2e"
@@ -27439,6 +27674,11 @@
       "sha256": "bcd53891e105e7e454e8b33c3bef2f591a1bc895378a55d8cb348887a77889f2"
     },
     {
+      "path": "tests/test_compact_installer_disk.py",
+      "size": 9757,
+      "sha256": "5c8693fb9a5c819f3b318c5277a1bc35c694fc0dc013ba42ea84b73a84dbe146"
+    },
+    {
       "path": "tests/test_control_group_tabs_contract.py",
       "size": 1624,
       "sha256": "210b4ad23ce2455aaacc0685acf0e453ff19717c17928fe1bd18d58e8761db00"
@@ -27452,6 +27692,11 @@
       "path": "tests/test_detached_ship_cleanup.py",
       "size": 3867,
       "sha256": "b4c3c1d1748b4e4b4f8e0630b69250ccdd20f69ab1e5e26fb621af80bff0cebe"
+    },
+    {
+      "path": "tests/test_diagnostics_reports.py",
+      "size": 4064,
+      "sha256": "e884b88b2a403c23528a3a0d3b0202ddbf474e1d6112b4bda4158eba980952d5"
     },
     {
       "path": "tests/test_dust_field_visibility.py",
@@ -27524,6 +27769,11 @@
       "sha256": "513ddc5180df72c489bb756f41420c1b48f87c7257247d62cd041b39ad4071f0"
     },
     {
+      "path": "tests/test_hosted_updates.py",
+      "size": 6171,
+      "sha256": "d55d22aa0d414cae492e9e90d639b884a4bde05a7686d53104055e11f7b2935a"
+    },
+    {
       "path": "tests/test_hyperspace_steering.py",
       "size": 7540,
       "sha256": "c4e3290c4d8759595969c98cb520c4e3c63c5e1931b4a58ee6499c8b7f568757"
@@ -27555,13 +27805,13 @@
     },
     {
       "path": "tests/test_manager_dock_input.py",
-      "size": 1088,
-      "sha256": "29288c11e853981277669a29b2b0161426571623ae81f1728914534896dad9d3"
+      "size": 1137,
+      "sha256": "60451df567f747781091272b7b5eac478a3dc8fa1506755d82b36e0a3064d543"
     },
     {
       "path": "tests/test_military_parade_editor.py",
-      "size": 14793,
-      "sha256": "60c7b14d629c252e61303f03971dbb7f59a449d0f3c930bbed31109a34f33422"
+      "size": 14844,
+      "sha256": "a30094c5ed9f9c7bb345952e29839c8d6cf4e84e5e4058eb4253779420315af9"
     },
     {
       "path": "tests/test_mission6_skip_contract.py",
@@ -27580,8 +27830,8 @@
     },
     {
       "path": "tests/test_mission_start_launch_contract.py",
-      "size": 2114,
-      "sha256": "999cda57216edb78050097ce38996743902430f66e90ba1d30bca3491536bbc3"
+      "size": 2121,
+      "sha256": "9d7808752101e85f0481635d8607fdf1b9938e2122d81bf8622185c3354d9671"
     },
     {
       "path": "tests/test_mission_tuning_contract.py",
@@ -27650,13 +27900,18 @@
     },
     {
       "path": "tests/test_release_installer.py",
-      "size": 3395,
-      "sha256": "ff0879aa9b9ed9212a66f640186f93799fe0544ae71fb07eed4a7992d9c91c61"
+      "size": 5097,
+      "sha256": "17a70aa539156ab01a726d2cbd165f1293f78c04e62b102cf34093c964285cda"
     },
     {
       "path": "tests/test_release_mission_authoring.py",
       "size": 3383,
       "sha256": "53dc88710e4bb1eb14dc1991137a11e1c64cede888c528584035a518786e4af7"
+    },
+    {
+      "path": "tests/test_release_source_export.py",
+      "size": 3371,
+      "sha256": "18bebab7658460bb67d7a6f6bb77d3e0be5bf960cd5f0831dcd62de19bf1e8b8"
     },
     {
       "path": "tests/test_remastered_background.py",
@@ -27799,6 +28054,11 @@
       "sha256": "a97498e452d6814b1fdabf8182d173ec05fa6b641a190341e49a5d3c0ffea22e"
     },
     {
+      "path": "tests/TutorialControlsTests.c",
+      "size": 3683,
+      "sha256": "99b0584f84b6f7af820564cb6db73e54bb6057c85533e6d1ab6cf54ae6eb4683"
+    },
+    {
       "path": "tests/UIListLifetimeTests.c",
       "size": 3213,
       "sha256": "408406fd955696615fd40b3bae3dfa1af2c78981196367b1040776bbb900914c"
@@ -27839,6 +28099,11 @@
       "sha256": "09067dc5188af0b0d07fcbcfa48ac2c0286696bcfa3181f1de6ea3cf8f8d6965"
     },
     {
+      "path": "tools/audit_community_emitters.py",
+      "size": 2390,
+      "sha256": "3156e318ea7c3d0dd216847fb2b5b2058e1a3f5917140cd21a0ade3dfc339751"
+    },
+    {
       "path": "tools/audit_explosion_sprites.py",
       "size": 775,
       "sha256": "4df8e700276079f96488071acf5ac4e5c340f2a4309a30c1db46527141febb79"
@@ -27875,8 +28140,8 @@
     },
     {
       "path": "tools/audit_release_bundle.py",
-      "size": 5335,
-      "sha256": "83961c2c508f6a96be2539914d75be30e783713a4c6d985a9ac289528b2572a9"
+      "size": 5477,
+      "sha256": "493df076870e2729137278e08a18f214afb993a4b2c710d2eb94647e32c9e1f9"
     },
     {
       "path": "tools/audit_system_fx_bindings.py",
@@ -27925,8 +28190,8 @@
     },
     {
       "path": "tools/build_release_setup.py",
-      "size": 3380,
-      "sha256": "3167d5b641877762ba0b89f93784bfd835c7ff156ec2b3f982ec72525bbd99da"
+      "size": 3789,
+      "sha256": "faa6b4aa4a60b6378abce526216411cbfb700223dea34a79437a0c58ae0b3b86"
     },
     {
       "path": "tools/build_weapon_fx_textures.py",
@@ -28000,8 +28265,8 @@
     },
     {
       "path": "tools/export_release_source.py",
-      "size": 4344,
-      "sha256": "9e4ed1e7d00cc24f35cb19bcaa91305ddf606bc85deabfe4466820551f8e0643"
+      "size": 5219,
+      "sha256": "eecaee4cf7cd997567107a5043031ab8583aea40838ddff9ae9115ae0908781f"
     },
     {
       "path": "tools/extract_classic_big.py",
@@ -28030,8 +28295,8 @@
     },
     {
       "path": "tools/generate_launcher_settings.py",
-      "size": 7076,
-      "sha256": "94da0a489cd1603b6969028ef11d1ced60e4b674dc26f8fe4053f36d71267353"
+      "size": 7529,
+      "sha256": "09f1d968e7670bf7e7aecd53710ea35201e81685ff6a985f3fcde79809dc3c01"
     },
     {
       "path": "tools/generate_mission_skies.py",
@@ -28075,8 +28340,8 @@
     },
     {
       "path": "tools/inspect_native_crash.py",
-      "size": 5015,
-      "sha256": "4b63418b4bb4fb2a4d35bc4d0dca5dde2d762173be22979f1d50a79066df6566"
+      "size": 6081,
+      "sha256": "67e4156bac4de6b34c10d751449c5e0a907c9ae4fb02025d44fa6ac3ebb7c8bc"
     },
     {
       "path": "tools/inspect_remastered_scene.py",
@@ -28125,8 +28390,8 @@
     },
     {
       "path": "tools/launcher_settings.py",
-      "size": 81683,
-      "sha256": "ad5fa669606a7416dba5a47dbce2c523ac118dc5ec621ac8600156fc538f25b9"
+      "size": 82073,
+      "sha256": "23931e9df45d2b18a2968465b7b142fe549838b457fe7b936ec46d830ccc5018"
     },
     {
       "path": "tools/migrate_openhw_ship_documents.py",
@@ -28149,24 +28414,29 @@
       "sha256": "cba1721920868504efb47d58a0d829c966595d4d2ca8ff1eadb86ad1d434a5e2"
     },
     {
+      "path": "tools/openhw_diagnostics.py",
+      "size": 11605,
+      "sha256": "680ee1f8820db57833bfbea89b62a78ce3132c4acbde5db9741eb41f5f49f8ad"
+    },
+    {
       "path": "tools/openhw_fx_presentation.py",
       "size": 20559,
       "sha256": "db0af04463399d765deba6bfb69ad9a7c9c22b2b5ad2671b089ec0697c57f311"
     },
     {
       "path": "tools/openhw_launcher.py",
-      "size": 9453,
-      "sha256": "8027e291a79a15582b24e751930251da1bd4f6fb5c2947f8029d60b7029f4ef0"
+      "size": 9655,
+      "sha256": "83df66bd75ba5500fa47522b6ecf39e8a4083441568274b864849dcc8d7fc158"
     },
     {
       "path": "tools/openhw_launcher_ui.py",
-      "size": 39504,
-      "sha256": "22b9a2160bb86424aed96d79e2555b52a75eca8044251cb50a1484095c66002f"
+      "size": 39910,
+      "sha256": "f25251c7a0acde5a863c812cdfc1a3aa93735f77210e11d67332bdc2bf96903b"
     },
     {
       "path": "tools/openhw_obig.py",
-      "size": 3879,
-      "sha256": "ee5a50317fa057753c521c67b882408aa5f6281494831c1b06e5b3f32d2c4127"
+      "size": 11601,
+      "sha256": "a3754c9ab4bc442711010c63eda0cfacacb590784d02c49d9c458105116a19e9"
     },
     {
       "path": "tools/openhw_presentation_events.py",
@@ -28185,8 +28455,8 @@
     },
     {
       "path": "tools/openhw_updater.py",
-      "size": 29896,
-      "sha256": "2cdbc0a5aee84a3f468509cd6c92a5ca12f92c39b23e03bb47cce1a852364ffb"
+      "size": 32512,
+      "sha256": "58a441b98b51668671f021d8cc20a62c1be45378e6da549ede0fde1117124d8c"
     },
     {
       "path": "tools/openhw_weapon_presentation.py",
@@ -28210,8 +28480,8 @@
     },
     {
       "path": "tools/package_release_installer.py",
-      "size": 2468,
-      "sha256": "4e689de6b6957d053f2a71b4eb300d9838668e4cc93cfcebc554e5566880ab1d"
+      "size": 2482,
+      "sha256": "7bf1bc7230a2a2976a207142279cc7ad5efaae3d15c7d8f686fac9bcf7a249a8"
     },
     {
       "path": "tools/package_release_patch.py",
@@ -28225,8 +28495,8 @@
     },
     {
       "path": "tools/package_updater.py",
-      "size": 6178,
-      "sha256": "0b60fa6476a66d107da019a835ffcc1f293043354407badb5d67c148526265b6"
+      "size": 6199,
+      "sha256": "15a15ee5a35cf971eebd2a9f1757a7cf39bd05bac5dd68eb8605125fe01b569f"
     },
     {
       "path": "tools/plan_kushan_hod_bindings.py",
@@ -28235,8 +28505,8 @@
     },
     {
       "path": "tools/portable_convert.py",
-      "size": 13653,
-      "sha256": "0709e3cfa302450c6ad3fdf5668abd51d6f763e8541ffea75f6710e09616534f"
+      "size": 16125,
+      "sha256": "3f47e624ca75b7fb8f8ea6add409a64181772f6d3072fa23ffa33eea32eb8da4"
     },
     {
       "path": "tools/portable_setup.py",
@@ -28250,8 +28520,8 @@
     },
     {
       "path": "tools/publish_update_manifest.py",
-      "size": 4532,
-      "sha256": "c0570558701c494d1f4004b657a9a38927440f2bdcd53239fcf7aa04162a07e1"
+      "size": 6041,
+      "sha256": "c492ef094b95851ae569ba4bdc49d5802d80406cb2c17d78dfab59b336853c8c"
     },
     {
       "path": "tools/rebuild_installer_asteroid_path.py",
@@ -28260,13 +28530,13 @@
     },
     {
       "path": "tools/release_bootstrap.cpp",
-      "size": 16760,
-      "sha256": "53c3811fdf2352867c6198b9f4e077b01cd3b39fea80e6c31c31c749f1c9b041"
+      "size": 16652,
+      "sha256": "2ff084dc944d332fefd1aac7b1f3c58e2625758a32460ad502459b1550b518cf"
     },
     {
       "path": "tools/release_compact.py",
-      "size": 6174,
-      "sha256": "d41d205490ef337abe7111f97f88d21f1588fef8f3b8e6bfb95cd4e73e3f5d20"
+      "size": 7119,
+      "sha256": "18978ca43b92abd90035daf068e875b1dd25bfbfc98481a54f6171f35e474e3e"
     },
     {
       "path": "tools/release_content_policy.py",
@@ -28280,8 +28550,8 @@
     },
     {
       "path": "tools/release_import.py",
-      "size": 5808,
-      "sha256": "4737c1b58c53f354b71e67da933331d6358c3289dd846ccdf0d895a3fc5b6476"
+      "size": 5393,
+      "sha256": "4ef0221f980be673d22087175b4ef3180774c845a36ae7bba69d7a2c0668fe3e"
     },
     {
       "path": "tools/release_local_art.py",
@@ -28300,8 +28570,8 @@
     },
     {
       "path": "tools/release_setup.py",
-      "size": 11197,
-      "sha256": "79838268b17d81474a6ea123f2296ce498cb92ddbbbf61bb3acdbedcc63b643d"
+      "size": 12902,
+      "sha256": "7c4f8ca76782004e6eb73df4af50ed9d5b141ab78487138cb067e31140b87bbe"
     },
     {
       "path": "tools/release_sky_lighting.py",
@@ -28310,8 +28580,8 @@
     },
     {
       "path": "tools/release_source_manifest.py",
-      "size": 1392,
-      "sha256": "de2c0753d0ce0c81fdd3f98b2b79bd82ff9ba53a982efcdeec2b9c8aa6d9ff0d"
+      "size": 1465,
+      "sha256": "beb97d510b62810602bf3dd6afa97fd9c59567eb64c07baf877a0b57cf336200"
     },
     {
       "path": "tools/remaster_cutscenes.py",
@@ -28375,8 +28645,8 @@
     },
     {
       "path": "tools/stage_bentusi_native.py",
-      "size": 5468,
-      "sha256": "368d8f18b83bb3f26669511ee5a058a13c62976967acd8440bdc582584051b36"
+      "size": 5502,
+      "sha256": "68b8b9fba2daeb54d55824fabfd65f962f1fe146ba03b83f85bcdee26f13f20a"
     },
     {
       "path": "tools/stage_classic_harvest_update.py",
@@ -28385,13 +28655,13 @@
     },
     {
       "path": "tools/stage_council_native.py",
-      "size": 4289,
-      "sha256": "12729ded909c0c28994cb6cfc63f263f3069cb4b391747f373d745543a472c93"
+      "size": 4320,
+      "sha256": "e0384e672f5415993379ffc83a412fda1d16092a86c992f3a8bd2e7f50d8d6c6"
     },
     {
       "path": "tools/stage_ghostship_native.py",
-      "size": 5510,
-      "sha256": "36b4bd5413b69f39b340ea1af8b0c68a20c91e60be1d7fa411b8d77e4cfb6592"
+      "size": 5544,
+      "sha256": "f262ba402f3403f6e18e50aa56ee00b8223721a02f52af31c518a236e0a65b32"
     },
     {
       "path": "tools/stage_installed_material_controls.py",
@@ -28410,8 +28680,8 @@
     },
     {
       "path": "tools/stage_junkyardhq_native.py",
-      "size": 5801,
-      "sha256": "86c3c354fb789ae7a8ab5a420668e5f360d211e3763f0a1e5bd826ad4d87f310"
+      "size": 5835,
+      "sha256": "90f15e5fed2790ea0290a96c7746e0db673f440d925c3f8db1a7ab19d5407199"
     },
     {
       "path": "tools/stage_kadeshi_native.py",
@@ -28420,13 +28690,13 @@
     },
     {
       "path": "tools/stage_kushan_native_materials.py",
-      "size": 12695,
-      "sha256": "92c862a79d154c2a732cce46ad9b724316d7ed53aa21f91cd0e9c7b1cfc471e6"
+      "size": 12732,
+      "sha256": "afb065200f28dcaeb6a368411f1f63573c67f0826927e4b219e2bbfe7d5bbc8f"
     },
     {
       "path": "tools/stage_kushan_native_packages.py",
-      "size": 12184,
-      "sha256": "d520a28e6ba32588b7060ee035ed6a18e1d79fff1a45e4f215bdf3b4aaf61469"
+      "size": 12215,
+      "sha256": "3e8942ea307183f2bba597679bb19146d78959a431a6f1830c620e05c6ea0549"
     },
     {
       "path": "tools/stage_local_import_release.py",
@@ -28435,8 +28705,8 @@
     },
     {
       "path": "tools/stage_miningbase_native.py",
-      "size": 5869,
-      "sha256": "34fea5a51bde01b77d340b3616f0b3bf9db6b11fc5ce21323578c49d6bf1523f"
+      "size": 5903,
+      "sha256": "68f6202d5baf376d49e15274930753b20544d229f6586af9af9bf2dff5864c19"
     },
     {
       "path": "tools/stage_native_scaffold.py",
@@ -28460,18 +28730,18 @@
     },
     {
       "path": "tools/stage_raiders_derelicts_native.py",
-      "size": 10465,
-      "sha256": "54ac6fed0e7cca2a7e56c2a92efe8b70142561a88c18ae5eaf911a3e43d11e0f"
+      "size": 10496,
+      "sha256": "ebfab8a85f5ac73e2e30e3d13e8ba3f76b70db32df86510aa944b3df9836a2af"
     },
     {
       "path": "tools/stage_release.py",
-      "size": 6821,
-      "sha256": "25fc5b740c77638a013141ddabe6475be2e19272c82f37ef5deb43dc4ba5394a"
+      "size": 7509,
+      "sha256": "d705dfae76c0ded2c4dfc343d576e398fa22e10fd762d6b34a3aba52b2c7031f"
     },
     {
       "path": "tools/stage_research_station_native.py",
-      "size": 6025,
-      "sha256": "5d062d0bd746067419915fef66ad8f4cb098b8014c58eaa17086db0dfcc54a6b"
+      "size": 6059,
+      "sha256": "c2b1feab7865f760dd193a51b3539bcd798de626ba8956cba87d10e01b1cb116"
     },
     {
       "path": "tools/stage_taiidan_native.py",
@@ -28521,7 +28791,7 @@
     {
       "path": "tools/UpdaterVersion.h",
       "size": 52,
-      "sha256": "536f10c611864ac62dadc99148d20854850030d55fb831dba82eba29b403cfef"
+      "sha256": "e3606354e908f0242d72fd3bdbe621ca231ae03c22ff5d0fbb7171ec9d303575"
     },
     {
       "path": "tools/validate_presenter_shaders.ps1",
@@ -28535,8 +28805,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 3881,
-      "sha256": "88fea1cb67e496dbe93ab8e56fbe1fe07b82048979885411b63807a783716e8f"
+      "size": 3745,
+      "sha256": "8349d2a7592afd806113a95e454908c22ae95ced8e40d30935a0488fc833715f"
     },
     {
       "path": "vcpkg.json",
@@ -28550,8 +28820,8 @@
     },
     {
       "path": "Windows/build-release.ps1",
-      "size": 5322,
-      "sha256": "b1e5260368f46278b5c1b225c51fd4d4c7327ccc9be782021d334535b75b4a81"
+      "size": 7255,
+      "sha256": "d997ef10655e32c97f5bc75b64adfd52f1bfc3cf8a74a335a0967e98f9d52039"
     },
     {
       "path": "Windows/build.ps1",
@@ -28574,6 +28844,11 @@
       "sha256": "3cc5db3cb4f1e35580435ecd7234844fe34f82f2a7dd10282375522824bc7283"
     },
     {
+      "path": "Windows/package-0.92.0-beta.1.ps1",
+      "size": 3842,
+      "sha256": "1e41613a510bd8b60975be174573f63568e9cd0553690b5990525b57012474ba"
+    },
+    {
       "path": "Windows/release-python-requirements.txt",
       "size": 66,
       "sha256": "6ca273bcbd0c4ca9db4b5d2f6dbb0613de1897df32914b1fa876f2e93c0797cf"
@@ -28585,13 +28860,8 @@
     },
     {
       "path": "WINDOWS_SOURCE_PACKAGE.md",
-      "size": 450,
-      "sha256": "f9544e5c7ddbba6acb890c74c15b969b4789c8b507454869d3c934d012d1870e"
+      "size": 934,
+      "sha256": "2ce9151b448e6f69ad9e1e282e835302f96d3786f2fd682293c42f662ed0d81b"
     }
-  ],
-  "components": {
-    "game": "1.0.7",
-    "launcher": "1.0.1",
-    "updater": "1.0.1"
-  }
+  ]
 }

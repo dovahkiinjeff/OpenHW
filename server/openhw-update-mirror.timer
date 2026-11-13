@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh official OpenHW update mirror
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+RandomizedDelaySec=30
+Persistent=true
+
+[Install]
+WantedBy=timers.target

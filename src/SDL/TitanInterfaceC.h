@@ -1,5 +1,7 @@
 #ifndef ___TITANINTERFACEC_H
 #define ___TITANINTERFACEC_H
+#include "../Network/MatchRules.h"
+#include "../Network/DedicatedServer.h"
 
 #ifdef __APPLE__
     #include <stdlib.h>
@@ -454,7 +456,7 @@ extern int            WaitingForGame;
 extern int            GameCreator;
 
 extern signed int captainIndex;
-#define IAmCaptain  (sigsPressedStartGame ? (sigsPlayerIndex == captainIndex) : (GameCreator))
+#define IAmCaptain  (hwMatchActive() ? hwDedicatedMode : (sigsPressedStartGame ? (sigsPlayerIndex == captainIndex) : (GameCreator)))
 #define CaptainNotDefined (captainIndex == -1)
 
 extern wchar_t GameWereInterestedIn[MAX_TITAN_GAME_NAME_LEN];

@@ -1,6 +1,33 @@
-"""OpenHW 1.0: read-only Collection import into the installer's own folder."""
+"""OpenHW 1.1: read-only Collection import into a new portable game folder."""
 import argparse,datetime,hashlib,json,os,shutil,sys,threading,queue,zipfile,subprocess
 from pathlib import Path
+
+RELEASE_VERSION='1.1'
+
+def validate_destination(root):
+    """Allow only a fresh folder or the same payload's interrupted installation."""
+    root=Path(root).resolve()
+    if (root/'setup-complete.json').exists():
+        raise ValueError('This folder already contains an installed OpenHW game. Put the 1.1 installer in a new folder; existing files were preserved.')
+    payload=root/'Development/release.json'
+    payload_hash=hashlib.sha256(payload.read_bytes()).hexdigest()
+    session=root/'Development/setup-session.json'
+    if session.exists():
+        try:state=json.loads(session.read_text())
+        except (OSError,ValueError) as error:raise ValueError('The setup resume record is invalid. Use a new folder; existing files were preserved.') from error
+        if state.get('schema')!=1 or state.get('version')!=RELEASE_VERSION or state.get('payloadSha256')!=payload_hash:
+            raise ValueError('This folder belongs to a different setup payload. Resume with the original installer or use a new folder; existing files were preserved.')
+        return state
+    if any((root/name).exists() for name in ('OpenHW.exe','OpenHW-Daignostics.exe','OpenHW-HW1.obig','version.json')):
+        raise ValueError('An existing OpenHW installation was detected, even though its completion receipt is missing. Put the 1.1 installer in a new folder; existing files were preserved.')
+    return {'schema':1,'version':RELEASE_VERSION,'payloadSha256':payload_hash}
+
+def begin_install(root):
+    state=validate_destination(root)
+    session=Path(root)/'Development/setup-session.json'
+    if not session.exists():
+        pending=session.with_suffix('.pending');pending.write_text(json.dumps(state,indent=2));pending.replace(session)
+    return state
 
 def root_directory():
     if not getattr(sys,'frozen',False):return Path.cwd().resolve()
@@ -28,7 +55,7 @@ def local_environment(root):
 
 def verify_payload(root):
     manifest=json.loads((root/'Development/release.json').read_text())
-    if manifest.get('schema')!=1 or manifest.get('version')!='1.0':raise ValueError('Unrecognized release payload')
+    if manifest.get('schema')!=1 or manifest.get('version')!=RELEASE_VERSION:raise ValueError('Unrecognized release payload')
     if manifest.get('content_policy')!=2:raise ValueError('Installer predates the reviewed content inventory; rebuild it.')
     seen=set()
     for record in manifest['files']:
@@ -45,9 +72,10 @@ def verify_payload(root):
 def install(root,selected):
     from portable_setup import collection_paths,import_sources,sha256
     from portable_convert import convert
-    if (root/'setup-complete.json').is_file():raise ValueError('This folder is already installed; no files were changed.')
+    validate_destination(root)
     collection_paths(selected)  # Reject an invalid selection before changing runtime files.
     manifest=verify_payload(root);dev=root/'Development'
+    begin_install(root)
     from release_compact import import_compact
     import_compact(selected,dev)
     # Never overwrite a returning user's settings, saves, authored maps or mods.
@@ -69,7 +97,7 @@ def install(root,selected):
     authored=verify_published_missions(dev/'Content/missions',root)
     (dev/'installed-mission-authoring.json').write_text(json.dumps(authored,indent=2))
     result['authoredMaps']=authored['maps'];result['authoredLighting']=authored['lighting']
-    result.update(schema=1,status='ready',version='1.0',archive='OpenHW-HW1.obig',sha256=sha256(root/'OpenHW-HW1.obig'))
+    result.update(schema=1,status='ready',version=RELEASE_VERSION,archive='OpenHW-HW1.obig',sha256=sha256(root/'OpenHW-HW1.obig'))
     pending=root/'setup-complete.pending';pending.write_text(json.dumps(result,indent=2));pending.replace(root/'setup-complete.json')
     shutil.copyfile(dev/'SetupSources/source-receipt.json',dev/'build-source-receipt.json')
     print('Validated game package; removing temporary conversion copies…',flush=True)
@@ -119,8 +147,9 @@ def main():
     import tkinter as tk
     from tkinter import ttk,filedialog,messagebox
     window=tk.Tk();window.withdraw()
-    if (root/'setup-complete.json').exists():
-        messagebox.showinfo('OpenHW','This folder is already installed. Start OpenHW.exe.\n\nNo settings or saved games have been changed.');window.destroy();return
+    try:validate_destination(root)
+    except (OSError,ValueError) as error:
+        messagebox.showerror('OpenHW setup',str(error));window.destroy();return
     selected=filedialog.askdirectory(title='Select your Homeworld Remastered Collection folder',parent=window)
     if not selected:window.destroy();return
     from portable_setup import collection_paths
@@ -135,8 +164,8 @@ def main():
             if text.strip():messages.put(('progress',text.strip()[-400:]))
         def flush(self):log.flush()
         def fileno(self):return log.fileno()
-    sys.stdout=sys.stderr=Progress();window.deiconify();window.title('OpenHW 1.0 setup');window.geometry('720x300')
-    ttk.Label(window,text='Installing OpenHW 1.0',font=('Segoe UI',17)).pack(pady=18)
+    sys.stdout=sys.stderr=Progress();window.deiconify();window.title('OpenHW '+RELEASE_VERSION+' setup');window.geometry('720x300')
+    ttk.Label(window,text='Installing OpenHW '+RELEASE_VERSION,font=('Segoe UI',17)).pack(pady=18)
     ttk.Label(window,text='Installation folder: '+str(root),wraplength=680).pack()
     status=tk.StringVar(value='Checking installer and importing your Collection files…')
     ttk.Label(window,textvariable=status,wraplength=680).pack(pady=18)

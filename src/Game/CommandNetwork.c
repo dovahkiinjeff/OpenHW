@@ -8,6 +8,7 @@
 // =============================================================================
 
 #include "CommandNetwork.h"
+#include "../Network/OnlineClient.h"
 #include "ShipPilot.h"
 
 #include "AutoDownloadMap.h"
@@ -607,6 +608,10 @@ AttackCommand *convertNetAttackSelectionToAttackCommand(NetAttackSelection *neta
 bool32 packetSendToCaptain(ubyte *packet,udword sizeofPacket)
 {
     dbgAssertOrIgnore(((HWPacketHeader *)packet)->type == PACKETTYPE_COMMAND);
+    if(hwMatchActive() && !hwDedicatedMode) {
+        hwOnlineSend(OH_COMMAND,packet,sizeofPacket);
+        return TRUE;
+    }
 
     if (playPackets)
     {
@@ -1026,6 +1031,20 @@ void clSendPilotFrame(const ShipPilotFrame *input)
     command->commandType=COMMANDTYPE_SHIP_PILOT|(sigsPlayerIndex<<8);
     memcpy((ubyte *)command+sizeof(*command),input,sizeof(*input));
     if(packetSendToCaptain((ubyte *)packet,size))memFree(packet);
+}
+
+void clSendShipAppearance(Ship *ship,const ShipAppearance *appearance)
+{
+    udword size=sizeof(HWPacketHeader)+sizeof(HWCommandHeader)+sizeof(NetShipAppearanceCommand);
+    HWPacketHeader *packet;HWCommandHeader *command;NetShipAppearanceCommand payload={0};
+    if(!ship || !appearance || appearance->mask>=64 || ship->playerowner!=universe.curPlayerPtr)return;
+    packet=memAlloc(size,"appearancepacket",0);memset(packet,0,size);
+    packet->type=PACKETTYPE_COMMAND;packet->from=(uword)sigsPlayerIndex;packet->numberOfCommands=1;
+    command=(HWCommandHeader*)((ubyte*)packet+sizeof(*packet));
+    command->commandType=COMMANDTYPE_SHIP_APPEARANCE|(sigsPlayerIndex<<8);
+    payload.ship=ship->shipID;payload.appearance=*appearance;
+    memcpy((ubyte*)command+sizeof(*command),&payload,sizeof(payload));
+    if(packetSendToCaptain((ubyte*)packet,size))memFree(packet);
 }
 
 void clSendMisc(CommandLayer *comlayer,SelectCommand *selectcom,uword miscCommand,udword miscData)
@@ -1798,6 +1817,17 @@ void clProcessSyncPacket(CommandLayer *comlayer,ubyte *packet,udword sizeofPacke
                 NetResearchCommand *researchcommand = (NetResearchCommand *)curpacket;
                 clSetResearch((udword)researchcommand->ResearchMsgType, (udword)researchcommand->playerindex, (udword)researchcommand->labnum, (udword)researchcommand->tech);
                 curpacket+=sizeofNetResearchCommand;
+            }
+            break;
+
+            case COMMANDTYPE_SHIP_APPEARANCE:
+            {
+                NetShipAppearanceCommand input;Ship *ship;
+                if(curpacket>packet+sizeofPacket || (size_t)(packet+sizeofPacket-curpacket)<sizeof(input))return;
+                memcpy(&input,curpacket,sizeof(input));curpacket+=sizeof(input);
+                ship=ShipIDtoShip(input.ship,TRUE);
+                if(ship && from<universe.numPlayers && ship->playerowner==&universe.players[from] && !input.reserved)
+                    shipAppearanceApply(ship,&input.appearance);
             }
             break;
 

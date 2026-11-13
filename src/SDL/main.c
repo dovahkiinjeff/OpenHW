@@ -1,4 +1,6 @@
 #include "../Modern/DiagnosticPolicy.h"
+#include "../Network/DedicatedServer.h"
+#include "../Network/OnlineClient.h"
 /*============================================================================
     MAIN.C: Main Windows interface for Homeworld game code, including message
         handling and window set-up.
@@ -2530,6 +2532,8 @@ int EMSCRIPTEN_KEEPALIVE main_postinit(int argc, char* argv[]) {
 int main (int argc, char* argv[])
 {
 #endif
+    if (hwDedicatedRequested(argc, argv)) return hwDedicatedMain(argc, argv);
+    if (hwOnlineProbeRequested(argc, argv)) return hwOnlineProbeMain();
 #ifdef _WIN32
     hwWindowsSplashStart();
     hwWindowsSplashTaskBegin("main.install", "Checking installed game data");
@@ -2782,6 +2786,7 @@ int main (int argc, char* argv[])
 #ifdef _WIN32
             hwModernBenchmarkCpuBegin(0);
 #endif
+            hwOnlineGamePump();
             utyTasksDispatch(); // execute all tasks
 #ifdef _WIN32
             hwModernBenchmarkCpuEnd(0);
@@ -2809,6 +2814,7 @@ int main (int argc, char* argv[])
     }
 
     /* Stay clean and fresh... */
+    hwOnlineDisconnect();
 #ifdef _WIN32
     // Cancellation before the first menu Present still owns a splash thread.
     hwWindowsSplashFinish();

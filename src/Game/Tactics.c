@@ -1,3 +1,4 @@
+#include "../Network/MatchRules.h"
 /*=============================================================================
     Tactics.c: Control Functions for Homeworld Tactics
 
@@ -1780,8 +1781,7 @@ void tacticsManeuvUpdate(Ship *ship)
     real32 manMult;
 
     manMult = 1.0f;
-    if (singlePlayerGame && opSuperSalvagers &&
-        ship->playerowner == universe.curPlayerPtr &&
+    if (hwMatchPlayerOption(OH_SUPER_SALVAGERS,opSuperSalvagers,ship->playerowner->playerIndex) &&
         ship->shiptype == SalCapCorvette)
     {
         /* Forward/lateral/reverse thrust, rotational authority and turn speed
@@ -2198,8 +2198,7 @@ real32 tacticsGetShipsMaxVelocity(Ship *ship)
         return ProbeGetMaxVelocity(ship) * veteranMult;
     }
 
-    if (singlePlayerGame && opSuperSalvagers &&
-        ship->playerowner == universe.curPlayerPtr &&
+    if (hwMatchPlayerOption(OH_SUPER_SALVAGERS,opSuperSalvagers,ship->playerowner->playerIndex) &&
         ship->shiptype == SalCapCorvette)
     {
         superSalvagerMult = 2.0f;

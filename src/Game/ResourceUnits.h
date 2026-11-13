@@ -2,6 +2,7 @@
 #define HW_RESOURCE_UNITS_H
 #include "Universe.h"
 #include "Options.h"
+#include "../Network/MatchRules.h"
 #include "Globals.h"
 #include <stdio.h>
 
@@ -9,8 +10,7 @@
    scaling, harvesting, saves and scripted RU values keep their real amounts. */
 static bool32 resourceUnitsUnlimited(const Player *player)
 {
-    return singlePlayerGame && opUnlimitedRUs && player &&
-        player == universe.curPlayerPtr;
+    return player && hwMatchPlayerOption(OH_UNLIMITED_RUS,opUnlimitedRUs,player->playerIndex);
 }
 static bool32 resourceUnitsCanAfford(const Player *player, sdword cost)
 {

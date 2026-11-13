@@ -8,10 +8,13 @@ from release_content_policy import verify_profile, digest, UI_PLATES
 
 CODE_EXTENSIONS={'.c','.cpp','.h','.hlsl','.inc','.json','.md','.txt','.kas',
                  '.kash','.l','.y','.ps1','.manifest','.in','.cmake','.py','.omwfx',
-                 '.yml','.yaml','.cfg'}
+                 '.yml','.yaml','.cfg','.rc','.cmd'}
+SOURCE_DIRECTORIES=('src','tools','tests','cmake','Windows','docs','documentation',
+                    'deferred','.github','updates','server')
+SERVER_EXTENSIONS={'.py','.md','.txt','.service','.timer'}
 
 
-def export(repo, output, profile=None):
+def export(repo, output, profile=None, version='1.1'):
     repo,output=Path(repo).resolve(),Path(output).resolve()
     if output.exists() and any(output.iterdir()):raise ValueError('Source destination must be empty')
     if output==repo or output.is_relative_to(repo):raise ValueError('Use a separate source destination')
@@ -22,18 +25,24 @@ def export(repo, output, profile=None):
         if path.is_symlink():raise ValueError('Source export refuses symlinks: '+str(path))
         target=output/path.relative_to(repo);target.parent.mkdir(parents=True,exist_ok=True)
         shutil.copyfile(path,target)
-    for directory in ('src','tools','tests','cmake','Windows','docs','documentation','deferred','.github','updates'):
+    for directory in SOURCE_DIRECTORIES:
         for path in (repo/directory).rglob('*'):
             if not path.is_file() or '__pycache__' in path.parts or '.texture-tools' in path.parts:continue
-            if path.suffix.lower() in CODE_EXTENSIONS or path.name in {'LICENSE','COPYING','NOTICE'}:copy(path)
+            # The public server tree contains code and its service unit only.
+            # Private state/configuration, logs, Wine prefixes and game data are
+            # installation outputs and must never become source release inputs.
+            extensions=SERVER_EXTENSIONS if directory=='server' else CODE_EXTENSIONS
+            if directory=='server' and any(part.lower() in {'state','logs','game','data','venv','.venv'} for part in path.relative_to(repo/'server').parts):continue
+            if path.suffix.lower() in extensions or path.name in {'LICENSE','COPYING','NOTICE'}:copy(path)
     for path in repo.iterdir():
-        if path.is_file() and path.name not in ('.git','CMakeUserPresets.json') and (
+        if path.is_file() and path.name not in ('.git','CMakeUserPresets.json','SOURCE_MANIFEST.json') and (
             path.suffix.lower() in {'.md','.txt','.json'} or path.name in {
                 'CMakeLists.txt','CHANGELOG','.clang-format','.gitattributes','.gitignore'}):copy(path)
     shutil.copytree(profile,output/'assets/Release',dirs_exist_ok=True)
     if (repo/'assets/Launcher').is_dir():
         shutil.copytree(repo/'assets/Launcher',output/'assets/Launcher',dirs_exist_ok=True)
-    for path in (repo/'docs/media').rglob('*.png'):copy(path)
+    for path in (repo/'docs/media').rglob('*'):
+        if path.is_file() and path.suffix.lower() in {'.png','.jpg','.jpeg','.webp','.svg'}:copy(path)
     if (profile/'Content/cursors').is_dir():
         shutil.copytree(profile/'Content/cursors',output/'assets/Cursors',dirs_exist_ok=True)
     for part in ('Missions','DustClouds','Parades'):
@@ -56,8 +65,8 @@ def export(repo, output, profile=None):
         (folder/'LOCAL_IMPORT.txt').write_text('Retail resources are generated from the selected Collection during setup.\n')
     files=[{'path':p.relative_to(output).as_posix(),'size':p.stat().st_size,'sha256':digest(p)}
            for p in sorted(output.rglob('*')) if p.is_file()]
-    (output/'SOURCE_MANIFEST.json').write_text(json.dumps({'schema':1,'version':'1.0',
-       'snapshot':'Full current engine, shaders, tests, importer, packaging tools and release profile',
+    (output/'SOURCE_MANIFEST.json').write_text(json.dumps({'schema':1,'version':version,
+       'snapshot':'Full current engine, shaders, tests, dedicated server, importer, packaging tools and release profile',
        'excluded':['retail archives/models/audio','unchanged retail textures','build outputs/dependency caches',
                    'personal logs/saves','Git worktree pointer/history','unused Kharak textures'],
        'files':files},indent=2))
@@ -66,4 +75,5 @@ def export(repo, output, profile=None):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--repo',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
-    a=p.parse_args();export(a.repo,a.output)
+    p.add_argument('--profile',type=Path);p.add_argument('--version',default='1.1')
+    a=p.parse_args();export(a.repo,a.output,a.profile,a.version)

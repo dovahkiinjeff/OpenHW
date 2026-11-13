@@ -23,6 +23,9 @@
 #include "InfoOverlay.h"
 #include "ModernUI.h"
 #include "LaunchMgr.h"
+#include "ManagerDock.h"
+#include "NIS.h"
+#include "HudVisibilityPolicy.h"
 #include "main.h"
 #include "mainrgn.h"
 #include "Memory.h"
@@ -726,6 +729,8 @@ real32 tbTimeOutSelect;
 
 void tbSetupHyperspace(void);
 
+#include "CompactHud.inc"
+
 
 /*=============================================================================
     Functions:
@@ -742,6 +747,7 @@ void tbSetupHyperspace(void);
 ----------------------------------------------------------------------------*/
 udword tbBumperProcess(regionhandle region, smemsize ID, udword event, udword data)
 {
+    if (gameIsRunning && !tbFullHudVisible()) return 0;
     if (tbDisable)
     {
         if (tbRegionsAttached)
@@ -862,6 +868,27 @@ void tbForceTaskbar(bool32 On)
 
 void tbEnsurePersistentInfo(void)
 {
+    tbCompactUpdate();
+    /* The legacy center taskbar is drawn independently from the modern
+       left/right deck. Detach it too during NIS and user-hidden HUD modes. */
+    if (gameIsRunning && !tbFullHudVisible())
+    {
+        ioHideHudRegions();
+        tbHudOverlayWasHidden=TRUE;
+        if(tbRegionsAttached && tbBaseRegion != NULL)
+        {
+            regRegionScroll(tbBumperRegion, 0, tbBumpFullHeight);
+            regMoveLinkChild(tbBaseRegion, NULL);
+            tbRegionsAttached=FALSE;
+            tbTaskBarEnd();
+        }
+        return;
+    }
+    if (tbHudOverlayWasHidden && tbFullHudVisible())
+    {
+        tbHudOverlayWasHidden=FALSE;
+        ioUpdateShipTotals();
+    }
     if (!gameIsRunning ||
         !(mrRenderMainScreen || (smSensorsActive && !smFleetIntel)) || tbDisable ||
         tutorial == TUTORIAL_ONLY || tbBumperRegion == NULL ||
@@ -877,7 +904,7 @@ void tbEnsurePersistentInfo(void)
 
 bool32 tbInfoBarVisible(void)
 {
-    return tbBaseRegion != NULL && tbRegionsAttached && !tbDisable;
+    return tbBaseRegion != NULL && tbRegionsAttached && !tbDisable && tbFullHudVisible();
 }
 
 void tbGetInfoBarRect(rectangle *rect)
@@ -1118,6 +1145,9 @@ void tbStartup(void)
 
 //    tbFileHeader = feScreensLoad(TB_FileName);
 
+    tbHudMode=HW_HUD_FULL;
+    tbHudOverlayWasHidden=FALSE;
+    tbCompactRegion=NULL; tbCompactAttached=FALSE;
     tbHypObjState = TB_Both;
     screen = feScreenFind(TB_ScreenName);
     tbScreen = screen;
@@ -1262,6 +1292,7 @@ void tbStartup(void)
     }
 
     modernUICommandBarStartup();
+    tbCompactStartup();
 }
 
 /*-----------------------------------------------------------------------------
@@ -1275,6 +1306,8 @@ void tbShutdown(void)
 {
     sdword index;
 
+    if(tbCompactRegion) { regRegionDelete(tbCompactRegion); tbCompactRegion=NULL; }
+    tbCompactAttached=FALSE;
     modernUICommandBarShutdown();
     PossiblyResetTaskbar();
 

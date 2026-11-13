@@ -1,3 +1,5 @@
+#include "../Network/MatchRules.h"
+#include "../Network/DedicatedServer.h"
 /*=============================================================================
     Name    : univupdate
     Purpose : updates the universe, main game loop
@@ -3048,9 +3050,8 @@ bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoun
              target = (SpaceObjRotImpTarg *) ((Ship *) target)->slaveinfo->Master;            //potential reprocussions
          }
     }
-    if (singlePlayerGame && opSuperSalvagers &&
-        target->objtype == OBJ_ShipType &&
-        ((Ship *)target)->playerowner == universe.curPlayerPtr &&
+    if (target->objtype == OBJ_ShipType &&
+        hwMatchPlayerOption(OH_SUPER_SALVAGERS,opSuperSalvagers,((Ship *)target)->playerowner->playerIndex) &&
         ((Ship *)target)->shiptype == SalCapCorvette)
     {
         /* Suppress all collision-origin damage, including a kamikaze impact.
@@ -7317,7 +7318,7 @@ void univUpdateMinorRenderList()
         distsqr = vecMagnitudeSquared(distvec);
 
 #ifdef HW_MODERN_INFINITE_DRAW_DISTANCE
-        if (!opRestoreFogOfWar || distsqr < RENDER_VIEWABLE_DISTANCE_SQR)
+        if (!hwMatchOption(OH_FOG_OF_WAR,opRestoreFogOfWar) || distsqr < RENDER_VIEWABLE_DISTANCE_SQR)
 #else
         if (distsqr < RENDER_VIEWABLE_DISTANCE_SQR)
 #endif
@@ -7400,7 +7401,7 @@ void univUpdateRenderList()
         else
         {                                                   //else check if object should be in render list
 #ifdef HW_MODERN_INFINITE_DRAW_DISTANCE
-            if (!opRestoreFogOfWar)
+            if (!hwMatchOption(OH_FOG_OF_WAR,opRestoreFogOfWar))
             {
                 if ((obj->flags & SOF_Hide) == 0)
                 {
@@ -7702,13 +7703,18 @@ static bool32 univUpdateImpl(real32 phystimeelapsed)
             }
         }
 
-        if ((multiPlayerGame) && (IAmCaptain))
+        if ((multiPlayerGame) && (IAmCaptain) && !hwMatchActive())
         {
             usequittime += 5.0f;    // give a extra 5s so we transmit some more sync pkts other people so they quit too...
         }
 
         if (universe.totaltimeelapsed >= usequittime)
         {
+            /* A dedicated worker has no front end to return to. Its owner
+               sends the match result and disposes of the process. Online
+               clients use the same quit deadline, without the legacy local
+               captain's extra five seconds. */
+            if (hwDedicatedMode) return TRUE;
             // quit the game here
             spMainScreen();
 

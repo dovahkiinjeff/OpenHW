@@ -663,6 +663,64 @@ int main(int argc,char**argv) {
             }
             return 0;
         }
+        if(argc==3 && !std::strcmp(argv[1],"--collector-nav-check")) {
+            auto bytes=readBytes(argv[2]);char error[512];
+            auto *asset=hwRmVisualAssetCreate(bytes.data(),bytes.size(),nullptr,0,error,sizeof(error));
+            require(asset!=nullptr,error);
+            auto *instance=hwRmVisualInstanceCreate(asset);
+            require(instance!=nullptr,"collector navigation audit instance failed");
+            // Authored native coordinates, expressed in the HW1 local basis.
+            const char *names[]={"nav_botcaution","nav_frntcaution","nav_sidecaution1","nav_sidecaution2"};
+            const float expected[][3]={{-13.0357237f,-.153111f,49.0333252f},
+                {-11.5f,-.004921f,64.8692627f},{-2.45f,-10.2960596f,48.86026f},
+                {-2.45f,10.300251f,48.8212738f}};
+            const float scale=2.1735079f;
+            for(unsigned i=0;i<4;++i) {
+                float matrix[16];
+                require(hwRmVisualInstanceMarker(instance,names[i],scale,matrix,error,sizeof(error))!=0,error);
+                for(unsigned axis=0;axis<3;++axis)
+                    require(std::abs(matrix[12+axis]-expected[i][axis]*scale)<.001f,
+                        "collector lamp did not follow native hull basis/scale");
+                std::printf("%s %.3f %.3f %.3f\n",names[i],matrix[12],matrix[13],matrix[14]);
+            }
+            float missing[16];
+            require(!hwRmVisualInstanceMarker(instance,"nav_missing",scale,missing,error,sizeof(error)),
+                "missing native lamp must preserve the classic fallback");
+            hwRmVisualInstanceFree(instance);hwRmVisualAssetFree(asset);
+            return 0;
+        }
+        if(argc==4 && !std::strcmp(argv[1],"--salvage-grip-check")) {
+            for(unsigned race=0;race<2;++race) {
+                const auto path=std::filesystem::path(argv[race+2]);
+                auto root=path.parent_path();auto *scene=readScene(argv[race+2]);
+                const HwRmHodJoint *grip=nullptr;
+                for(unsigned i=0;i<hwRmHodSceneJointCount(scene);++i)
+                    if(!std::strcmp(hwRmHodSceneJoint(scene,i)->name,"SalvageOrientation"))grip=hwRmHodSceneJoint(scene,i);
+                require(grip && !std::strcmp(grip->parent,"Root"),"native grip root marker missing");
+                const std::string type=race?"Taiidan_SalCapCorvette":"SalCapCorvette";
+                for(unsigned format=0;format<2;++format) {
+                    const auto manifestBytes=readBytes((root/"visual.rmnative").string().c_str());
+                    std::string manifest(manifestBytes.begin(),manifestBytes.end());
+                    if(format) {
+                        manifest.replace(0,manifest.find('\n'),"OPENHW_SHIP_1");
+                        manifest+="\ngameplay gameplay.shp\n";
+                    }
+                    char error[512];auto *package=hwRmVisualPackageRead(type.c_str(),manifest.data(),manifest.size(),
+                        packageFileRead,packageFileRelease,packageFixtureConfigure,&root,error,sizeof(error));
+                    require(package!=nullptr,error);auto *asset=hwRmVisualPackageTakeAsset(package);
+                    auto *instance=hwRmVisualInstanceCreate(asset);float matrix[16];
+                    const float scale=hwRmVisualPackageScale(package);
+                    require(hwRmVisualInstanceMarker(instance,"salvage_grip",scale,matrix,error,sizeof(error))!=0,error);
+                    const float expected[]={grip->position[1]*scale,-grip->position[0]*scale,grip->position[2]*scale};
+                    for(unsigned axis=0;axis<3;++axis)
+                        require(std::abs(matrix[12+axis]-expected[axis])<.001f,"native salvage grip basis mismatch");
+                    std::printf("%s format %u grip %.3f %.3f %.3f\n",type.c_str(),format,matrix[12],matrix[13],matrix[14]);
+                    hwRmVisualInstanceFree(instance);hwRmVisualAssetFree(asset);hwRmVisualPackageFree(package);
+                }
+                hwRmHodSceneFree(scene);
+            }
+            return 0;
+        }
 
         HwHodShip ship{}; char error[256]; auto data=sample();
         packageTests();

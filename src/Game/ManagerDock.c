@@ -80,7 +80,11 @@ static void mdPrepareBase(featom *atom, HWManagerDockKind kind)
 {
     /* FIB managers are modal in Classic. A docked panel must not clear the
        region event mask for the world and its gameplay hotkeys. */
-    bitClear(atom->flags, FAF_Modal | FAF_Popup | FAF_Draggable);
+    bitClear(atom->flags, FAF_Modal | FAF_Draggable);
+    /* Keep the underlying gameplay screen on the frontend stack. Without
+       Popup, feScreenStart replaces Sensors (same ghMainRegion parent),
+       leaving its camera/render state alive after its viewport is deleted. */
+    bitSet(atom->flags, FAF_Popup);
     mdSetHidden(atom, FALSE);
     if (kind == HW_MANAGER_DOCK_BUILD)
     {

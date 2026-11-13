@@ -283,6 +283,28 @@ void prepareLocalAssetImport(const std::wstring &root, const std::wstring &logs)
 }
 }
 
+extern "C" int hwWindowsDiagnosticsReportOpen(void)
+{
+    const auto root = moduleDirectory();
+    const auto application = root + L"\\Launcher.exe";
+    if (!regularFile(application)) {
+        MessageBoxW(nullptr, L"Launcher.exe is missing. Restore it from the OpenHW installer to send a diagnostic report.",
+                    L"OpenHW Diagnostics", MB_OK | MB_ICONINFORMATION);
+        return 0;
+    }
+    std::wstring command = L"\"" + application + L"\" --diagnostics-report";
+    STARTUPINFOW startup = {}; startup.cb = sizeof(startup);
+    PROCESS_INFORMATION process = {};
+    if (!CreateProcessW(application.c_str(), command.data(), nullptr, nullptr, FALSE,
+                        CREATE_NO_WINDOW, nullptr, root.c_str(), &startup, &process)) {
+        MessageBoxW(nullptr, L"Could not open Diagnostics. Please restart the launcher and try again.",
+                    L"OpenHW Diagnostics", MB_OK | MB_ICONERROR);
+        return 0;
+    }
+    CloseHandle(process.hThread); CloseHandle(process.hProcess);
+    return 1;
+}
+
 extern "C" int hwWindowsInstallPrepare(void)
 {
     const bool portable = regularFile(moduleDirectory() + L"\\openhw.portable");
@@ -469,5 +491,6 @@ extern "C" int hwWindowsInstallPrepare(void)
 #else
 
 extern "C" int hwWindowsInstallPrepare(void) { return 1; }
+extern "C" int hwWindowsDiagnosticsReportOpen(void) { return 0; }
 
 #endif

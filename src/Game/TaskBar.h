@@ -120,6 +120,8 @@ extern bool32 tbDisable;
 //startup/shutdown
 void tbStartup(void);
 void tbShutdown(void);
+void tbCycleHudMode(void);
+bool32 tbFullHudVisible(void);
 void PossiblyResetTaskbar(void);
 
 //create/remove task bar buttons

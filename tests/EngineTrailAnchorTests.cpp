@@ -20,6 +20,15 @@ int main()
     near(engineGlowRadius(100,10,1,1,.82f,.2f),radius);
     near(engineFuelPodNozzleZ(-100.6593628f,2.89153451f),-75.83929f);
     near(engineGlowOriginOffset(0,8,0),2.575f);
+    // The native Scouts already have a small authored hull/nozzle gap.
+    // Only the added gap is reduced; a non-native/classic hull is unchanged.
+    for(float authoredGap:{2.85846654f,2.99002659f}) {
+        const float extra=engineGlowOriginOffset(0,8,radius);
+        near(engineGlowNozzleSpacing(extra,0),extra);
+        near(engineGlowNozzleSpacing(extra,1),extra*.5f);
+        const float gap=authoredGap+engineGlowNozzleSpacing(extra,1);
+        if(!(gap>authoredGap && gap<authoredGap+extra))return 1;
+    }
     for(float ratio:{0.f,.02f,.5f,1.f,2.f})for(float pulse:{.95f,1.f})
     {
         float rad=engineGlowRadius(10,-1,ratio,pulse,.82f,.2f);

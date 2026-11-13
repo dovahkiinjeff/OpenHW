@@ -1,3 +1,4 @@
+#include "../Network/MatchRules.h"
 /*=============================================================================
     Name    : Physics.c
     Purpose : Implements space physics of Homeworld
@@ -36,9 +37,8 @@ static real32 physMaximumRotationSpeed(const SpaceObj *obj,
                                        const StaticHeader *staticheader)
 {
     real32 maximum = staticheader->maxrot;
-    if (!multiPlayerGame && opSuperSalvagers &&
-        obj->objtype == OBJ_ShipType &&
-        ((const Ship *)obj)->playerowner == universe.curPlayerPtr &&
+    if (obj->objtype == OBJ_ShipType &&
+        hwMatchPlayerOption(OH_SUPER_SALVAGERS,opSuperSalvagers,((const Ship *)obj)->playerowner->playerIndex) &&
         ((const Ship *)obj)->shiptype == SalCapCorvette)
     {
         maximum *= 2.0f;
@@ -333,7 +333,7 @@ void physUpdateObjPosVel(SpaceObj *obj,real32 phystimeelapsed)
             /* This is deliberately below command/AI processing and above the
                legacy burn/low-fuel state machine.  Flight plans, attack-pass
                distances, docking logic and ship statistics are untouched. */
-            if (opUnlimitedFuel && !multiPlayerGame &&
+            if (hwMatchOption(OH_UNLIMITED_FUEL,opUnlimitedFuel) && (!multiPlayerGame || hwMatchActive()) &&
                 shipstaticinfo->maxfuel != 0.0f)
             {
                 ((Ship *)obj)->fuel = shipstaticinfo->maxfuel;
@@ -375,7 +375,7 @@ void physUpdateObjPosVel(SpaceObj *obj,real32 phystimeelapsed)
                         wasAboveLowFuel = FALSE;
                     }
 
-                    if (!(opUnlimitedFuel && !multiPlayerGame) &&
+                    if (!(hwMatchOption(OH_UNLIMITED_FUEL,opUnlimitedFuel) && (!multiPlayerGame || hwMatchActive())) &&
                         ((singlePlayerGame) ||
                          (bitTest(tpGameCreated.flag,MG_FuelBurnEnabled))))
                     {
@@ -627,7 +627,7 @@ void physUpdateObjPosVelShip(Ship *obj,real32 phystimeelapsed)
         shipstaticinfo = (ShipStaticInfo *)((Ship *)obj)->staticinfo;
         if ((obj->flags & SOF_Dead) == 0)
         {
-            if (opUnlimitedFuel && !multiPlayerGame &&
+            if (hwMatchOption(OH_UNLIMITED_FUEL,opUnlimitedFuel) && (!multiPlayerGame || hwMatchActive()) &&
                 shipstaticinfo->maxfuel != 0.0f)
             {
                 obj->fuel = shipstaticinfo->maxfuel;
@@ -669,7 +669,7 @@ void physUpdateObjPosVelShip(Ship *obj,real32 phystimeelapsed)
                         wasAboveLowFuel = FALSE;
                     }
 
-                    if (!(opUnlimitedFuel && !multiPlayerGame) &&
+                    if (!(hwMatchOption(OH_UNLIMITED_FUEL,opUnlimitedFuel) && (!multiPlayerGame || hwMatchActive())) &&
                         ((singlePlayerGame) ||
                          (bitTest(tpGameCreated.flag,MG_FuelBurnEnabled))))
                     {

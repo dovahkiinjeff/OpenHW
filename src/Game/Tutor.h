@@ -162,6 +162,7 @@ sdword tutNextButtonClicked(void);
 void tutShowBackButton(void);
 void tutHideBackButton(void);
 void tutShowPrevButton(void);
+void tutProcessDeferredRestart(void);
 void tutShowImages(char *szImages);
 void tutHideImages(void);
 

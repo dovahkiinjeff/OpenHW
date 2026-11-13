@@ -7,7 +7,8 @@ ROOT=Path(__file__).resolve().parents[1]
 class DockInputTests(unittest.TestCase):
     def test_base_is_non_modal(self):
         text=(ROOT/'src/Game/ManagerDock.c').read_text()
-        self.assertIn('bitClear(atom->flags, FAF_Modal | FAF_Popup | FAF_Draggable)',text)
+        self.assertIn('bitClear(atom->flags, FAF_Modal | FAF_Draggable)',text)
+        self.assertIn('bitSet(atom->flags, FAF_Popup)',text)
         self.assertIn('regFilterGet(baseRegion) & ~RPE_ModalBreak',text)
         self.assertIn('return tutorial != TUTORIAL_ONLY',text)
 

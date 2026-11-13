@@ -1,3 +1,4 @@
+#include "../Network/MatchRules.h"
 /*=============================================================================
     Name    : Gun.c
     Purpose : Handles gun firing
@@ -1208,7 +1209,7 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
             break;
     }
 
-    if (opShipRecoil)
+    if (hwMatchOption(OH_SHIP_RECOIL,opShipRecoil))
     {
         if (!shipstatic->staticheader.immobile)     // if ship isn't immobile, apply recoil (opposite force)
         {

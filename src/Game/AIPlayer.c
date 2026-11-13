@@ -7,6 +7,8 @@
 // =============================================================================
 
 #include "AIPlayer.h"
+#include "../Network/MatchRules.h"
+#include "../Network/DedicatedServer.h"
 
 #include "AIAttackMan.h"
 #include "AIDefenseMan.h"
@@ -831,6 +833,7 @@ void aiplayerUpdateAll(void)
     uword i;
     AIPlayer *aiplayer;
 
+    if(hwMatchActive() && hwDedicatedMode!=1)return;
     if (gameIsRunning)
     {
         if (singlePlayerGame)

@@ -50,7 +50,7 @@ static void createProgress(){
 #elif defined(OPENHW_PATCH_INSTALLER)
         L"OpenHW 1.0.7 patch",
 #else
-        L"OpenHW 1.0 setup",
+        L"OpenHW 1.1 setup",
 #endif
         WS_OVERLAPPED|WS_CAPTION|WS_VISIBLE,
         CW_USEDEFAULT,CW_USEDEFAULT,560,165,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
@@ -227,7 +227,11 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
 #endif
         const DWORD result=launch(engine.wstring(),
 #ifdef OPENHW_UPDATER
-            L"--root "+quote(root.wstring())+(quiet?L" --verify-payload":L""),
+            L"--root "+quote(root.wstring())+(quiet?L" --verify-payload":L"")
+#ifdef OPENHW_LAUNCHER
+            +(wcsstr(GetCommandLineW(),L"--diagnostics-report")?L" --diagnostics-report":L"")
+#endif
+            ,
 #elif defined(OPENHW_PATCH_INSTALLER)
             L"--apply-hotfix",
 #else

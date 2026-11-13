@@ -22,5 +22,5 @@ static void lmDismiss(void)
         soundEvent(NULL,UI_SoundOfSpace);
         tbDisable=FALSE;
     }
-    mrRenderMainScreen=TRUE;
+    mrRenderMainScreen=!smSensorsActive;
 }

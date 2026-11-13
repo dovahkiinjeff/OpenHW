@@ -276,6 +276,16 @@ extern "C" HwRmVisualPackage *hwRmVisualPackageRead(const char *type,const void 
             }
         }
         for(const auto& m:markers) if(!hwRmVisualAssetBindMarker(package->asset.get(),m.semantic.c_str(),m.slot.c_str(),m.joint.c_str(),error,errorSize)) return nullptr;
+        // RM salvage contacts lie on the target's surface. The corvette's
+        // origin is behind its own forward grip; retain that authored offset
+        // when the classic salvage controller attaches to a native contact.
+        // Older installed manifests lack this semantic. An explicit mod
+        // mapping wins, and a custom hull without this joint keeps fallback.
+        if((std::strcmp(type,"SalCapCorvette")==0 || std::strcmp(type,"Taiidan_SalCapCorvette")==0) &&
+           std::none_of(markers.begin(),markers.end(),[](const Marker& marker){return marker.semantic=="salvage_grip";})) {
+            char optionalError[256];
+            hwRmVisualAssetBindMarker(package->asset.get(),"salvage_grip","Hull","SalvageOrientation",optionalError,sizeof(optionalError));
+        }
         if(definition) {
             for(const auto& gun:guns)if(!hwRmVisualAssetBindGun(package->asset.get(),gun.index,gun.slot.c_str(),
                 gun.azimuth=="-"?nullptr:gun.azimuth.c_str(),gun.declination=="-"?nullptr:gun.declination.c_str(),

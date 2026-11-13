@@ -53,7 +53,7 @@ static rectangle muiFormationSpreadTrack(const rectangle *panel)
 static void muiFormationSpreadSend(CommandToDo *command, bool32 force)
 {
     Uint32 now=SDL_GetTicks();
-    if (playPackets || (universePause && !opPauseOrders)) return;
+    if (playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders))) return;
     if (muiFormationSpreadPending==muiFormationSpreadSent) return;
     if (!force && now-muiFormationSpreadLastSend<33) return;
     if (muiSelectedFormation()!=command) return;
@@ -125,7 +125,7 @@ static udword muiFormationSpreadProcess(regionhandle region, smemsize ID, udword
     CommandToDo *command=muiSelectedFormation();
     rectangle panel,track;
     (void)ID;(void)data;
-    if (!command || playPackets || (universePause && !opPauseOrders)) return 0;
+    if (!command || playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders))) return 0;
     if (muiFormationSpreadDragging && (command!=muiFormationSpreadDragCommand ||
         command->selection->ShipPtr[0]!=muiFormationSpreadDragLeader)) muiFormationSpreadDragging=FALSE;
     panel=muiFormationSpreadPanel();track=muiFormationSpreadTrack(&panel);

@@ -1,3 +1,4 @@
+#include "../Network/MatchRules.h"
 #include "../Modern/DiagnosticPolicy.h"
 #include "Veterancy.h"
 
@@ -85,7 +86,7 @@ ubyte veterancyRankForScore(udword shipClass, udword score)
 real32 veterancyFactor(const Ship *ship)
 {
     ubyte rank = ship != NULL ? ship->veterancyRank : 0;
-    if (!opRankSystem) return 1.0f;
+    if (!hwMatchOption(OH_RANK_SYSTEM,opRankSystem)) return 1.0f;
     if (rank > VETERANCY_MAX_RANK) rank = VETERANCY_MAX_RANK;
     return veterancyFactors[rank];
 }
@@ -100,11 +101,11 @@ void veterancyCreditKill(Ship *attacker, Ship *victim)
     {
         ++diagnosticCount;
         HW_DIAG_FPRINTF(stderr,"[Veterancy] fatal-hit credit attempt: enabled=%u attacker=%p victim=%p attackerPlayer=%p victimPlayer=%p.\n",
-            (unsigned)opRankSystem,(void *)attacker,(void *)victim,
+            (unsigned)hwMatchOption(OH_RANK_SYSTEM,opRankSystem),(void *)attacker,(void *)victim,
             attacker ? (void *)attacker->playerowner : NULL,
             victim ? (void *)victim->playerowner : NULL);
     }
-    if (!opRankSystem) return;
+    if (!hwMatchOption(OH_RANK_SYSTEM,opRankSystem)) return;
     if (attacker == NULL || victim == NULL || attacker == victim) return;
     if (attacker->playerowner == NULL || victim->playerowner == NULL) return;
     if (attacker->playerowner == victim->playerowner) return;

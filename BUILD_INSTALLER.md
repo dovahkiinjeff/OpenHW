@@ -1,90 +1,113 @@
-# Build OpenHW 1.0 and its installer
+# Build OpenHW 1.1 and its fresh installer
 
-This is the current complete engine/build source, not a patch against another
-checkout. It includes the C/C++ engine, HLSL shaders, mission code, third-party
-code and notices, tests, import/conversion code, and the reviewed release profile
-under `assets/Release`. The profile contains the approved defaults, map/cloud
-authoring and native ship/subsystem definitions from the current working game.
-The extra-turret Assault Frigate mod is not part of it.
+This is the complete cumulative source: Windows x64 engine, shaders, missions,
+dedicated multiplayer server, tests, importer, launcher/updater and reviewed
+release profile. No 1.0 patch chain is needed. The extra-turret Kushan Assault
+Frigate mod is excluded.
 
-Authored mission defaults use the WIP's actual runtime priority: maps from
-`Dev/RTXExports/Maps` when loose mode is enabled, otherwise `RTXExports/Maps`,
-then `Data/Missions`; lighting from `RTXLighting`, then `Data/Missions`.
-`assets/Release/mission-authoring.json` records the selected files and hashes.
-Setup writes these files to the physical `Data/Missions` directory used by
-the runtime's archive-bypassing loaders and verifies them before reporting
-installation complete. Root `missions` or archive-only copies are insufficient.
+## Build from source
 
-## Prerequisites
+Use Windows x64, Visual Studio 2022 or 2026 with Desktop development with C++ and
+a Windows SDK, Git, CMake 3.25 or newer and Python 3.12 x64 with Tk and venv.
+Python 3.9 is insufficient. Internet access is needed for pinned dependencies.
+Use paths without spaces for FFmpeg/vcpkg.
 
-- Windows x64, Visual Studio 2022 or 2026 with Desktop development with C++ and a
-  Windows SDK; Git; CMake 3.25 or newer; Python 3.12 x64 with Tk and venv.
-- Internet access for the pinned public build dependencies. The build script
-  creates its Python environment, downloads/caches and output below this tree.
-- Use a source path without spaces for FFmpeg/vcpkg, such as `F:\OpenHW1\Source`.
-  This build does not require the developer's WIP directory or installed game.
-- Running the finished installer requires the user's own HWRM Collection,
-  including Homeworld 1 Classic and the English archives listed by
-  `tools/portable_setup.py`. The selected installation is read-only.
+From the source folder:
 
-From this source folder in PowerShell:
+~~~powershell
+.\Windows\build-release.ps1 -Python python -ReleaseVersion 1.1
+~~~
 
-```powershell
-.\Windows\build-release.ps1 -Python python
-```
+This builds/tests both game variants and utility bootstraps, freezes the current
+importer, packages Launcher.exe/Updater.exe, stages reviewed content, exports
+clean cumulative source and audits the nested runtime.
 
-The script builds both Release variants, runs their tests, builds the native
-import tools, freezes the setup engine, stages only inventoried release content,
-checks the nested runtime archive, and creates:
+Output: out/distribution/OpenHW-Setup.exe. Source defaults to the sibling
+OpenHW-Source-1.1 directory, which must be empty or absent. Override with
+-OutputDirectory and -SourceDirectory. The source build needs no installed game:
+utilities reuse the newly frozen setup dependency image. Reuse verified caches
+with -SkipBootstrap, -VcpkgRoot, -VcpkgInstalledRoot and -SdkRoot.
 
-`out\distribution\OpenHW-Setup.exe`
+Both public variants explicitly use HW_ENABLE_LIVE_MAP_AUTHORING=OFF.
+Shift+F11/F12 live map/lighting menus are unavailable; authored mission settings
+still load. Developers can configure a separate CMake build with
+-DHW_ENABLE_LIVE_MAP_AUTHORING=ON. The release script disables it.
 
-That single executable is the download. The adjacent `.payload.zip` and `.json`
-are build/audit artifacts, not additional files users need to download. To choose
-another output folder, pass `-OutputDirectory`.
+## Assemble already-built current inputs
 
-Existing verified SDK/vcpkg caches can be reused with `-SkipBootstrap`,
-`-VcpkgRoot`, `-VcpkgInstalledRoot`, and `-SdkRoot`. These are optional build
-parameters; no machine-specific cache path is required by the source.
+Maintainers can reuse a trusted installed setup dependency image while replacing
+application modules with current source. The helper must include current
+release_setup, conversion/import modules and SQLite support. Never copy an
+older frozen importer unchanged. The normal build freezes current source
+directly and needs no installed game.
 
-## Installed layout
+With current game builds, utility EXEs, importer tools and a current frozen setup:
 
-- `OpenHW.exe`: diagnostics/logging compiled out.
-- `OpenHW-Daignostics.exe`: full diagnostics (intentional requested spelling).
-- `Development`: setup components, logs, captures, symbols, cache and receipts.
-- Settings, saves, imported retail resources and all other application-owned
-  files stay in the folder containing the installer.
-- Defaults use the captured current options, including global Non-PT glow 29%.
-  Resolution, refresh and adapter identity are detected on first boot.
-- Setup does not launch the game.
+~~~powershell
+python tools/stage_release.py --repo . --profile assets/Release --output out/release-stage-1.1 --normal-build out/build/release-no-diagnostics/Release --diagnostic-build out/build/deploy-x64-clean/Release --tools-dir out/import-tools --version 1.1 --launcher out/release-1.1/Launcher.exe --updater out/release-1.1/Updater.exe
 
-## Content boundary and source snapshot
+python tools/export_release_source.py --repo . --output F:/OpenHW1/Source-1.1 --version 1.1
 
-`assets/Release/content-inventory.json` enumerates every shipped presentation
-file and its SHA-256. The project owner explicitly approved supplied concept
-art and the upscaled Classic texture set. Those exceptions are identified;
-they are not described as public domain or as containing no game-derived art.
-The owner confirmed that the replacement asteroid models/textures are their
-own work; these are included and identified separately. Unused Kharak textures
-are excluded as requested.
-Unchanged Classic LIFs, retail archives, HOD/MAD meshes, original audio, and
-converted Remastered material files are excluded. Setup imports/builds them
-from the selected installation, including compiled event data.
+python tools/package_release_installer.py --stage out/release-stage-1.1 --frozen out/release-installer-freeze/OpenHW-Setup --bootstrap out/build/deploy-x64-clean/Release/OpenHWSetupBootstrap.exe --output out/distribution/OpenHW-Setup.exe
 
-`SOURCE_MANIFEST.json` lists the snapshot's files and hashes. Build/dependency
-caches, retail data, personal saves/logs, and the originating Git worktree
-pointer/history are not source inputs and are excluded. Original repository
-source and license notices are preserved; this is not a license reclassification.
+python tools/audit_release_bundle.py --installer out/distribution/OpenHW-Setup.exe --source F:/OpenHW1/Source-1.1 --output out/distribution/Release-Audit.json
 
-The existing cloud adaptation has an explicit upstream permission-status note
-in `src/ThirdParty/OpenMWVolumetricClouds/PROVENANCE.md`. That note remains
-unresolved by this packaging work. No permission or public-domain status is
-inferred merely from a repository being publicly accessible. Publication does not resolve that upstream permission-status note.
+python -m zipfile -c F:/OpenHW1/OpenHW-Source-1.1.zip F:/OpenHW1/Source-1.1
+~~~
 
-## Installation disk budget
+Use Python 3.12. Staging/source destinations must be new. Audit the exported
+snapshot, not the developer's whole worktree. The manifest excludes itself from
+its own hashes. Adjacent .payload.zip/.json and Release-Audit.json are build/audit
+artifacts, not extra required downloads.
 
-Running the generated installer has exceeded 200 GB of temporary destination-drive usage. Recommend at least 250 GB free, with additional margin; this is not a guaranteed maximum. The approximately 473 MB download locally builds a roughly 34 GB main archive plus loose data and caches. Build dependencies and source compilation require separate space. See docs/USER_GUIDE.md.
+## Fresh installation and portable layout
 
-## Build the 1.0.7 utilities and patch
+Put setup in a new writable final game folder and select an owned Remastered
+Collection. Required Classic/English archives are listed in portable_setup.py.
+The Collection stays read-only. Setup rejects old installations even without a
+completion receipt. A matching interrupted 1.1 setup can resume using its
+recorded payload checksum; this is not a 1.0.x upgrade installer.
 
-The 1.0.7 patch uses the same checked normal/diagnostics Release outputs and includes Launcher.exe. Build both game variants, then build OpenHWPatchBootstrap from the main project and OpenHWUpdaterBootstrap / OpenHWLauncherBootstrap from `tools/updater`. `tools/package_updater.py --launcher` packages the launcher; without that flag it packages Updater.exe. Both use the selected completed installation's frozen installer support, supplied through `--installed`. `tools/package_release_patch.py` accepts `--source`, `--installed`, `--normal`, `--diagnostic`, `--bootstrap`, `--launcher`, `--output`, `--work`, and `--pyinstaller-modules`. The launcher argument must point at the newly packaged Launcher.exe. No developer machine paths are required. See [Launcher build instructions](docs/LAUNCHER.md) for the utility commands. The base installer remains the starting point; install the published patch chain to reach 1.0.7.
+- OpenHW.exe: logging compiled out; multiplayer preview included.
+- OpenHW-Daignostics.exe: full diagnostics (intentional spelling).
+- Launcher.exe and Updater.exe: installed automatically.
+- Development: setup support, logs, captures, symbols, cache and receipts.
+- Settings, saves, mods and application-owned data remain in this folder.
+
+Setup never launches the game. Display size/refresh detect on first boot; other
+defaults come from reviewed presets, including global Non-PT Glow at 29%.
+
+The main generated archive is about 33.61 GB before loose files, runtime,
+shader caches and user content. Conversion needs additional working space.
+The compact importer selects required HW1 entries instead of duplicating all
+retail archives. Consuming final packing and early cleanup reduce overlapping
+temporary copies. Exact full installation peak remains unmeasured. Until
+measured, allow approximately 80 GB free on NTFS with hard links, or 100 GB when
+hard links are unavailable. These are conservative planning estimates, not a
+measured requirement or guaranteed maximum. Old 200-250 GB advice concerns
+the superseded broad-extraction installer. Source builds need separate space.
+
+## Content and source boundary
+
+assets/Release/content-inventory.json records shipped presentation files and
+hashes. Supplied concept art, approved upscaled Classic textures and the owner's
+asteroids are identified exceptions, not public-domain claims. Retail archives,
+HOD/MAD models, unchanged textures, original speech/music/movies and converted
+Remastered materials are imported/generated locally. Unused Kharak textures are
+excluded.
+
+Mission files follow effective WIP priority: loose exports when enabled, then
+RTXExports/Maps, then Data/Missions; lighting uses RTXLighting, then Data/Missions.
+mission-authoring.json records selected hashes. Setup publishes/verifies the
+physical Data/Missions loader path; archive-only copies are insufficient.
+
+The source exporter includes server Python, service/timer units, requirements
+and guides. Private server state/configuration, credentials, owned game data,
+Wine prefixes and logs stay out. Curated docs/media illustrations, launcher
+art/fonts and notices are included. SOURCE_MANIFEST.json lists files and hashes.
+Build caches, personal saves/logs and Git worktree history/pointers are excluded.
+Original notes/licenses remain; begin with current documentation.
+
+The cloud adaptation keeps its upstream permission-status note in
+src/ThirdParty/OpenMWVolumetricClouds/PROVENANCE.md. Packaging does not resolve
+that note or change upstream licensing.

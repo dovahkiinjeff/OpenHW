@@ -1,4 +1,7 @@
 #include "../Modern/DiagnosticPolicy.h"
+#include "../Network/DedicatedServer.h"
+#include "../Network/MatchRules.h"
+#include "../Network/OnlineClient.h"
 /*=============================================================================
     UTILITY.C: General utilities for Windows interface of Homeworld
 
@@ -1752,7 +1755,10 @@ void gameStart(char *loadfilename)
             else
             {
                 universe.players[i].race = tpGameCreated.playerInfo[i].race;
-                if (i == 1 && cpColorsPicked)
+                if(hwMatchActive()) {
+                    teTeamColorsSet(i,tpGameCreated.playerInfo[i].baseColor,tpGameCreated.playerInfo[i].stripeColor);
+                }
+                else if (i == 1 && cpColorsPicked)
                 {                                           //if second player is computer and player picked colors
                     if (universe.players[1].race == R1)
                     {                                       //choose color appropriate to that race
@@ -1768,6 +1774,7 @@ void gameStart(char *loadfilename)
                     teTeamColorsSet(i, teColorSchemes[i].textureColor.base,teColorSchemes[i].textureColor.detail);
                 }
                 sprintf(playerNames[i], "%s %i", strGetString(strComputerName), i-sigsNumPlayers+1);
+                if(hwMatchActive())snprintf(playerNames[i],sizeof(playerNames[i]),"%s",tpGameCreated.playerInfo[i].PersonalName);
             }
 #if UTY_PLAYER_LOGGING
             logfileLogf("PlayerStart.log", "%u %u 0x%x 0x%x %s\n", i, tpGameCreated.playerInfo[i].race, teColorSchemes[i].textureColor.base, teColorSchemes[i].textureColor.detail, tpGameCreated.playerInfo[i].PersonalName);
@@ -1963,15 +1970,16 @@ void gameStart(char *loadfilename)
                 if (singlePlayerGame)
                     player->aiPlayer = aiplayerInit(player,AI_ADVANCED);
                 else
-                    player->aiPlayer = aiplayerInit(player,ConvertSliderToAIPlayerDifficulty(tpGameCreated.aiplayerDifficultyLevel));
+                    player->aiPlayer = aiplayerInit(player,hwMatchActive() ?
+                        (AIPlayerLevel)hwMatchConfiguration()->config.slots[i].difficulty :
+                        ConvertSliderToAIPlayerDifficulty(tpGameCreated.aiplayerDifficultyLevel));
 
             }
             player->timeMoShipAttacked = universe.totaltimeelapsed;
         }
     }
 
-    trailsRecolorize();
-    mistrailsRecolorize();
+    if (!hwDedicatedMode) { trailsRecolorize(); mistrailsRecolorize(); }
 
     tmClearTechs();
 
@@ -1979,6 +1987,7 @@ void gameStart(char *loadfilename)
     {
         univupdateReset();                                      //reset univupdate
         ranStartup();                                           //restart the random-number generator
+        hwMatchSeedRandom();
     }
     else
     {
@@ -2080,7 +2089,11 @@ void gameStart(char *loadfilename)
     {
         udword techLevel = 0;
 
-        dbgMessagef("SYNC NUMBER: %u",gamerand());
+        /* A log expression must not advance online simulation RNG: the normal
+           executable compiles logging arguments away, the diagnostic one does
+           not. Preserve the existing offline sequence. */
+        if(hwMatchActive()) { udword syncNumber=ranNumberGet(RANDOM_GAME);dbgMessagef("SYNC NUMBER: %u",syncNumber); }
+        else dbgMessagef("SYNC NUMBER: %u",gamerand());
 
         if ((!singlePlayerGame) && (!bitTest(tpGameCreated.flag,MG_ResearchEnabled)))
         {
@@ -2092,6 +2105,9 @@ void gameStart(char *loadfilename)
             rmAddTechToPlayer(&universe.players[i], techLevel);
         }
 
+        hwMatchApplyTeams();
+        if(hwMatchActive())for(i=0;i<universe.numPlayers;i++)spCompleteStartingResourceFleetFor(&universe.players[i]);
+        hwMatchInitialDocking();
         for (i=0;i<universe.numPlayers;i++)
         {
             player = &universe.players[i];
@@ -2108,6 +2124,7 @@ void gameStart(char *loadfilename)
 
     if (!hrAbortLoadingGame)
         HorseRaceLoadingPhaseComplete(HR_LOAD_WORLD);
+    if (hwDedicatedMode) { bobInitProperties();gameIsRunning=TRUE;return; }
     HorseRaceLoadingPhaseBegin(HR_LOAD_EFFECTS, etgHasBeenStarted
         ? "Resetting loaded mission effects" : "Loading mission effects");
     HorseRaceLoadingRefresh();
@@ -3212,6 +3229,7 @@ void utyGameQuit(char *name, featom *atom)
 void utyGameQuitToMain(char *name, featom *atom)
 {
     bool32 networkgame = multiPlayerGame;
+    hwOnlineGameEnded();
     dbgMessagef("Quit to main menu!");
 
     feAllScreensDelete();
@@ -3966,7 +3984,7 @@ char* utyGameSystemsPreInit(void)
 #endif
 
     // check data dir on HD...
-    if (!fileExists(utyMusicFilename, 0))
+    if (!hwDedicatedMode && !fileExists(utyMusicFilename, 0))
     {
         // check first CDROM drive...
         if (!fileExists(utyMusicFilename, FF_CDROM))
@@ -3977,7 +3995,7 @@ char* utyGameSystemsPreInit(void)
     }
 
     // check data dir on HD...
-    if (!fileExists(utyVoiceFilename, 0))
+    if (!hwDedicatedMode && !fileExists(utyVoiceFilename, 0))
     {
         // check first CDROM drive...
         if (!fileExists(utyVoiceFilename, FF_CDROM))
@@ -4091,6 +4109,30 @@ char* utyGameSystemsPreInit(void)
     Outputs     :
     Return      : NULL on success, string pointing to error message on error
 ----------------------------------------------------------------------------*/
+char *utyDedicatedSystemsInit(void)
+{
+    /* CPU interfaces only: no window, audio device or rendering task. */
+    strLoadLanguage((strLanguageType)strCurLanguage);
+    utyTimerDivisor=1000/UTY_TimerResolutionMax;
+    taskStartup((udword)(1000/utyTimerDivisor));
+    if(regStartup()!=OKAY) return "Unable to initialize server regions";
+    trStartup();lightStartup();mrStartup();ioStartup();
+    taskCallBackInit();universeInit();
+    InitQueue(&ProcessSyncPktQ,50000);InitQueue(&ProcessCmdPktQ,50000);
+    InitQueue(&ProcessRequestedSyncPktQ,20000);InitQueue(&ProcessCaptaincyPktQ,10000);
+    InitLastSyncPktsQ();gunStartup();selStartup();uicStartup();meshStartup();
+    if(feStartup()!=OKAY) return "Unable to initialize server script interfaces";
+    fprintf(stderr,"SERVER CPU frontend registrations\n");fflush(stderr);
+    utyFrontEndDataLoad();tacticsStartUp();lmStartup();tmStartup();rmAPIStartup();
+    smStartup();svStartup();pingStartup();battleChatterStartup();
+    teStartup();cpStartup(&utyBaseColor,&utyStripeColor);subStartup();tutStartup();
+    animStartup();spStartup();gpStartup();mgStartup();lgStartup();mgGameTypeScriptInit();
+    cmStartup();ranStartup();bsStartup();nisStartup();udStartup();toStartup();
+    dmgStartup();cloudStartup();shStartup();nebStartup();btgStartup();alodStartup();
+    partStartup();pieStartup();trailStartup();prim3dStartup();
+    return NULL;
+}
+
 char *utyGameSystemsInit(void)
 {
     rndinitdata renderData;
@@ -4977,6 +5019,7 @@ void utyTasksDispatch(void)
     Uint32 timer;
     Uint32 difference, remainder;
 
+    tutProcessDeferredRestart();
     timer = SDL_GetTicks();                                 //get counter, let's assume it works
     difference = timer - utyTimerLast;                      //get difference of this frame to last frame
     utyNFrameTicks = (udword)(difference / utyTimerDivisor);

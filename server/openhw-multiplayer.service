@@ -1,0 +1,29 @@
+[Unit]
+Description=OpenHW dedicated multiplayer gateway and simulation
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=openhw-game
+Group=openhw-game
+WorkingDirectory=/srv/openhw-game/app
+Environment=OPENHW_SERVER_CONFIG=/srv/openhw-game/state/server-config.json
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/srv/openhw-game/venv/bin/python /srv/openhw-game/app/coordinator.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+KillMode=control-group
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/openhw-game/state /srv/openhw-game/logs
+UMask=0077
+MemoryMax=10G
+TasksMax=256
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

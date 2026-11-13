@@ -13,6 +13,13 @@ static float engineGlowOriginOffset(float spriteOffset, float xAdjust, float rad
        displacement left a detached glow well behind small native hulls. */
     return .5f*(.6f*xAdjust + spriteOffset + fmaxf(.35f,radius*.38f));
 }
+static float engineGlowNozzleSpacing(float offset, int nativeScout)
+{
+    /* Both RM Scout nozzle joints already sit one source unit aft of the
+       visible hull. Retain that authored gap and halve only our extra spacing.
+       The live bulb and ribbon history continue to share this one anchor. */
+    return nativeScout ? .5f*offset : offset;
+}
 /* RM fuel-pod EngineMainDrive sits behind its visible hull. The imported
    hull's aft extent is z=-26.228043 while that marker is z=-34.811745 in
    source units; preserve X/Y and scale the correction with the native mesh. */

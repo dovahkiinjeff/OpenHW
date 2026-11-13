@@ -1,3 +1,4 @@
+#include "../Network/MatchRules.h"
 // =============================================================================
 //  ConsMgr.c
 //  - construction manager
@@ -1403,8 +1404,8 @@ static bool32 cmBuildRosterRaceSupported(ShipRace race)
 
 static bool32 cmIsForeignProductionShip(const Ship *ship)
 {
-    if (!singlePlayerGame || ship == NULL || ship->playerowner == NULL ||
-        ship->playerowner != universe.curPlayerPtr)
+    if ((!singlePlayerGame && !hwMatchActive()) || ship == NULL || ship->playerowner == NULL ||
+        (!hwMatchActive() && ship->playerowner != universe.curPlayerPtr))
     {
         return FALSE;
     }
@@ -1429,7 +1430,7 @@ bool32 cmCaptureBuildAllFactoryEnabled(const Ship *ship)
 {
     /* The Gameplay option is authoritative for exposing foreign production
        in the Build Manager and for accepting new exceptional captures. */
-    return opCaptureBuildAll != 0 && cmCapturedForeignFactory(ship);
+    return hwMatchOption(OH_CAPTURE_BUILD_ALL,opCaptureBuildAll) != 0 && cmCapturedForeignFactory(ship);
 }
 
 ShipRace cmFactoryBuildRace(const Ship *ship)
@@ -2109,7 +2110,7 @@ void cmClose(char *string, featom *atom)
 
     // The main view never stopped in docked mode; this is harmless and keeps
     // the legacy/tutorial close path explicit.
-    mrRenderMainScreen = TRUE;
+    mrRenderMainScreen = !smSensorsActive;
 
     /* play the exit sound */
     soundEvent(NULL, UI_ManagerExit);
@@ -4050,7 +4051,7 @@ sdword cmConstructionBegin(regionhandle region, smemsize ID, udword event, udwor
     sdword status = 0;
     ShipPtr bship=NULL;
 
-    if (playPackets || (universePause && !opPauseOrders) )
+    if (playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) )
     {
         return 0;
     }
@@ -4683,7 +4684,7 @@ bool32 cmDeterministicSanityCheck(cmDetermProgress_t* dprog)
     //factory's native race, but only from that native production roster.
     if (dprog->shipRace != player->race)
     {
-        if (!singlePlayerGame ||
+          if ((!singlePlayerGame && !hwMatchActive()) ||
             dprog->creator == NULL ||
             dprog->creator->playerowner != player ||
             !cmCapturedForeignFactory(dprog->creator) ||

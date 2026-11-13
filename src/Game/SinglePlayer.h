@@ -13,6 +13,7 @@
 #include "LinkedList.h"
 #include "MissionEnum.h"
 #include "Types.h"
+void spCompleteStartingResourceFleetFor(struct Player *player);
 
 /*=============================================================================
     Switches:

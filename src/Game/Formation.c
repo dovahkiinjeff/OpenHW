@@ -3129,7 +3129,7 @@ bool32 shipInMilitaryParade(ShipPtr ship)
     return FALSE;
 }
 
-void setMilitaryParade(struct CommandToDo *command)
+static void setMilitaryParadeShips(struct CommandToDo *command, Ship *onlyShip)
 {
     MilitaryParadeCommand *militaryParade = command->militaryParade;
     Ship *leader = militaryParade->aroundShip;
@@ -3179,7 +3179,7 @@ void setMilitaryParade(struct CommandToDo *command)
         for (subslot=0;subslot<=thisslot->highestSlotUsed;subslot++)
         {
             ship = thisslot->subslots[subslot].ship;
-            if (ship != NULL)
+            if (ship != NULL && (onlyShip == NULL || ship == onlyShip))
             {
                 vector customPosition=positionat,customHeading,customUp,customRight;
                 bool32 custom=paradeCustomPose(militaryParade,ship,&customPosition,&customHeading,&customUp);
@@ -3223,6 +3223,17 @@ void setMilitaryParade(struct CommandToDo *command)
             vecAddTo(positionat,positionchange);
         }
     }
+}
+
+void setMilitaryParade(struct CommandToDo *command)
+{
+    setMilitaryParadeShips(command, NULL);
+}
+
+void setMilitaryParadeShip(struct CommandToDo *command, Ship *ship)
+{
+    if (command != NULL && ship != NULL)
+        setMilitaryParadeShips(command, ship);
 }
 
 void FreeMilitaryParadeContents(MilitaryParadeCommand *militaryParade)

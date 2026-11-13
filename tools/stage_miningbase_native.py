@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 import shutil
+from release_compact import stage_copy
 from pathlib import Path
 from PIL import Image
 import numpy as np
@@ -41,7 +42,7 @@ def main():
     cache=root/'material-cache/v1'
     report=json.loads((cache/'manifest.json').read_text()) if args.package_only else materials(reader,source,plan,cache,allowed_races=('Traders',))
     folder=root/'package-cache/v2/Traders/MiningBase/RMNative';folder.mkdir(parents=True,exist_ok=True)
-    shutil.copy2(source/model,folder/'hull.hod')
+    stage_copy(source/model,folder/'hull.hod')
     lines=['type MiningBase',f'scale {scale:.9g}','hull hull.hod','mad -']
     # Keep the classic weapon/engine markers until separately reviewed; this
     # package changes geometry/materials only, never Lua gameplay settings.
@@ -75,8 +76,8 @@ def main():
                 # a costly image-codec decode just to recognize a constant mask.
                 if np.all(pixels==pixels[0]):
                     target.write_bytes(dds_rgba(Image.new('RGBA',(1,1),tuple(data[128:132]))))
-                else:shutil.copy2(path,target)
-            else:shutil.copy2(path,target)
+                else:stage_copy(path,target)
+            else:stage_copy(path,target)
     current=args.game_root/'Data/traders/miningbase/rmnative/ship.owshipdef'
     text=current.read_text(encoding='latin1')
     if not text.startswith('OPENHW_SHIP_2') or '[Ship]' not in text:raise ValueError('Unrecognized installed definition')
