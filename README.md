@@ -1,4 +1,4 @@
-# OpenHW 1.1.1
+# OpenHW 1.1
 
 **The best of both worlds: high-fidelity Homeworld Remastered assets and original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets with modern rendering and in-game creation tools to build the ultimate classic Homeworld experience.
 
@@ -13,7 +13,6 @@
 
 > **OpenHW 1.1 release:** Shift+F11/F12 live map, lighting and texture authoring menus are disabled in both game executables. Authored environments still load normally. The reference below describes the developer tools; source builds can explicitly enable them with `-DHW_ENABLE_LIVE_MAP_AUTHORING=ON`. The ship and parade editors are separate tools.
 
-**Latest patch: [OpenHW 1.1.1](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.1)** fixes Diagnostics folders/uploads and Launcher update checks. Install the fresh 1.1 base first, close Launcher and the game, then apply the patch. [Patch notes](docs/RELEASE_NOTES_1.1.1.md).
 
 ## OpenHW 1.1 - dedicated multiplayer and a new installation pipeline
 

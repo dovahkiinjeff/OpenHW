@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.1.1",
+  "version": "1.1",
   "snapshot": "Complete current build inputs",
   "excluded": [
     "generated out/ and .deps/",
@@ -23189,11 +23189,6 @@
       "sha256": "1d1b637bf93e1831079a1d500ff5885b0e6da4fac52f7791298775fdfc611f23"
     },
     {
-      "path": "docs/RELEASE_NOTES_1.1.1.md",
-      "size": 2281,
-      "sha256": "80ed8d2a617bd112a3ab148d57e918215266c926154bb485e304cc3a3e68c0ad"
-    },
-    {
       "path": "docs/RELEASE_NOTES_1.1.md",
       "size": 7095,
       "sha256": "f85c8c910034c62c8699a5f3eb59435b95e862c4616464e71919f1fcc36e31d2"
@@ -23310,8 +23305,8 @@
     },
     {
       "path": "README.md",
-      "size": 40578,
-      "sha256": "37fb1c9412ca8cf290f9bd75a2f4d64fad3078d5ea482f3fad2e6a80d3f180c7"
+      "size": 40291,
+      "sha256": "cf1909a03a672ec42dc466fb2b03bfaa22c28faacc5d8e76e9e9fa3937418f40"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -28820,8 +28815,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 5389,
-      "sha256": "9665cde169c71a41c96da0223166655ff3976ccaf80e478bd013fac7ab0c00a2"
+      "size": 4938,
+      "sha256": "106752374d1ed91da2b75efa1b2516a6edc42e4edcf01c94ddbdb07ebb844b89"
     },
     {
       "path": "vcpkg.json",
