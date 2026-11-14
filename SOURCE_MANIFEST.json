@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.1.7",
+  "version": "1.1.8",
   "snapshot": "Complete current build inputs",
   "excluded": [
     "generated out/ and .deps/",
@@ -60,8 +60,8 @@
     },
     {
       "path": "CMakeLists.txt",
-      "size": 81668,
-      "sha256": "ca7beb299cd37b82f43c1812423cf99c4831d2b722bea335ae5bc8b31cc8f468"
+      "size": 82205,
+      "sha256": "be7ec58cceb802610631a29fe94ce7d9a93c57b0d161244df305252f5843f9fc"
     },
     {
       "path": "CMakePresets.json",
@@ -171,7 +171,7 @@
     {
       "path": "Windows/build-release.ps1",
       "size": 7256,
-      "sha256": "509c8ed4aa3c35c954e516abfb24e54ed14a7497b27ff263b5f8c952a4c7b202"
+      "sha256": "79a9a1cee41eb674db324c77e35f228eb4c3a642dae92f9f037b35e2320c4305"
     },
     {
       "path": "Windows/build.ps1",
@@ -23239,6 +23239,11 @@
       "sha256": "8fc89ee64daf87853989595017a6b4ce8b6d46992628b5d0c5f3afa461bd5c56"
     },
     {
+      "path": "docs/FLEET_BADGES.md",
+      "size": 2081,
+      "sha256": "f1534361941b3049419a57073c076854aecb79cda63e0da7c6a4baec5ba0caa1"
+    },
+    {
       "path": "docs/FRONTEND.md",
       "size": 3524,
       "sha256": "2c919a6d55d8e96c623f8ad9a44e344d9d509d443b1470fd8602f57d2756a705"
@@ -23295,13 +23300,13 @@
     },
     {
       "path": "docs/NATIVE_INTERCEPTOR_HOD_TEST.md",
-      "size": 1683,
-      "sha256": "623663f9980352a61abb0c63ac86549f5413a7ca2bd38a85e10638c808ec168a"
+      "size": 1966,
+      "sha256": "70c183742a9b576070c91f96e7d48793e012c9e978dc53aa9feaba9696530f02"
     },
     {
       "path": "docs/NATIVE_KUSHAN_FLEET_STAGING.md",
-      "size": 20810,
-      "sha256": "24be2d2244049b6b208cbfcd8b68c1f81d23add15598ee88bcbab9c08d45569e"
+      "size": 21093,
+      "sha256": "18f7188fb4d268ea113ddcc4aa1143c8eae39c7fe719b73c4f695628f04b507e"
     },
     {
       "path": "docs/NATIVE_MATERIAL_CONTROLS.md",
@@ -23402,6 +23407,11 @@
       "path": "docs/RELEASE_NOTES_1.1.7.md",
       "size": 1233,
       "sha256": "566b6a2ec08036ff7b2fd408b091098d25fe715ecdf67e14985f1d04a325fc2b"
+    },
+    {
+      "path": "docs/RELEASE_NOTES_1.1.8.md",
+      "size": 1846,
+      "sha256": "807e36a41109f92c8f7e5253679180c77a8f752254627dcbfeecf13002045279"
     },
     {
       "path": "docs/RELEASE_NOTES_1.1.md",
@@ -23640,8 +23650,8 @@
     },
     {
       "path": "server/coordinator.py",
-      "size": 12544,
-      "sha256": "3687c5d508397374234266290a34c4985b3455a7200bdbcb64cedbd120312ae8"
+      "size": 13754,
+      "sha256": "23755ec8514367f4beac3410007a3ed070cf841b5691d7a7aa21155b9d678159"
     },
     {
       "path": "server/diagnostics.py",
@@ -23650,8 +23660,8 @@
     },
     {
       "path": "server/lobby.py",
-      "size": 8365,
-      "sha256": "c35609dd106baf149cf0125107797a68415ad123a669bd09f31d249b6b14965d"
+      "size": 8414,
+      "sha256": "91df18626f0d766075977d3dbe9c6899b0d10171a1723a1b0af86e36c710fa99"
     },
     {
       "path": "server/mirror_updates.py",
@@ -23685,13 +23695,18 @@
     },
     {
       "path": "server/protocol.py",
-      "size": 4410,
-      "sha256": "02878e4c80232cf2af7345203c9c2f8ac56be91b5f061066cea0b3759b9774f4"
+      "size": 4725,
+      "sha256": "a6d0148d07106f57707d14b09a0094d8d6fd60478dd2db709768eed6c1fad91b"
     },
     {
       "path": "server/requirements.txt",
       "size": 17,
       "sha256": "13736dada95353b5651ccbd61f2f65588c165c0f74bdaf08e8ebebf93fd68e24"
+    },
+    {
+      "path": "server/test_badges.py",
+      "size": 2456,
+      "sha256": "3186596ad7a974773a76a8dfe0481c9a6a97bedbdb5f03c2200735ea3b5f8aba"
     },
     {
       "path": "server/test_chat_overlay.py",
@@ -24705,8 +24720,8 @@
     },
     {
       "path": "src/Game/Mesh.c",
-      "size": 202943,
-      "sha256": "1b620323c9d7fca1390d35e59431070a6a8612280928bc8c49fe4d7ebe24b0b5"
+      "size": 203599,
+      "sha256": "95e27fb0404a8bfc8427df356574eb48c7087c4bd5bcc1560cad935bfda6c11d"
     },
     {
       "path": "src/Game/Mesh.h",
@@ -24724,9 +24739,19 @@
       "sha256": "efb464323ecb95a0e315c80b71c1eac5de1aaa865ecb1af6c1eb20ea16c84eb6"
     },
     {
+      "path": "src/Game/MeshBadgeOverlay.c",
+      "size": 6411,
+      "sha256": "8c9e00aab5b98099138013d43406bdfc17f924e722e6521bf6c0e1f9a8dd42f9"
+    },
+    {
+      "path": "src/Game/MeshBadgeOverlay.h",
+      "size": 336,
+      "sha256": "fa48c13479209eb70f637910928529e1f5c7c800290ce33676f5ce235c5b592b"
+    },
+    {
       "path": "src/Game/MeshMenuPreview.inc",
-      "size": 3445,
-      "sha256": "1e2aedeac5f5c5ef57241fcc00ab959e4a1b53334bd2b4fd8f49ebee1724e8a1"
+      "size": 3613,
+      "sha256": "bfba7c93ce2fa45d9a7c881e37c6bdc861627885d2e86d148718641f09018575"
     },
     {
       "path": "src/Game/MeshSurfaceCache.inc",
@@ -24860,8 +24885,8 @@
     },
     {
       "path": "src/Game/ModernUI.c",
-      "size": 414315,
-      "sha256": "f473ff30567fc259b64726bec762f7ab0f58763e60773e4fc85c31b79609d288"
+      "size": 419527,
+      "sha256": "7bf24c034bcea43f845fb9e1d828d335087c49f562976f83ef132bcbfa857c1c"
     },
     {
       "path": "src/Game/ModernUI.h",
@@ -25125,8 +25150,8 @@
     },
     {
       "path": "src/Game/RemasteredMeshBridge.c",
-      "size": 14714,
-      "sha256": "a7218fca4fddea1f8adcc785ddf74bd03e65630ff780dca23813b4d750fb26b6"
+      "size": 14851,
+      "sha256": "c6949c1894b447710ba8e37582a47f3c7a9abae9a24e4a3c893deb35b0a1f077"
     },
     {
       "path": "src/Game/RemasteredMusicPaths.h",
@@ -25914,6 +25939,16 @@
       "sha256": "58ca56124a9f15289d47a1408b10acd20a612ad16be6532be5e75c7b50bb5d6d"
     },
     {
+      "path": "src/Modern/BadgeLibrary.cpp",
+      "size": 16685,
+      "sha256": "4cc542f58a291e38b83283ba576c347aec4769e588fdd959a9808e42132386c8"
+    },
+    {
+      "path": "src/Modern/BadgeLibrary.h",
+      "size": 1025,
+      "sha256": "f23c0770b62adad2ea26a01bcf4d6cf7060183f0a4c9179424ed3d5e5f4f2529"
+    },
+    {
       "path": "src/Modern/BenchmarkCapture.inc",
       "size": 23605,
       "sha256": "deaa010c0e3c146360e6b0faf97654ba96bcc740acdfd7dbc535e06e6401299d"
@@ -26480,18 +26515,18 @@
     },
     {
       "path": "src/Network/OnlineClient.h",
-      "size": 901,
-      "sha256": "90aa716ef2511a1bfdd5bf10237e73dcb1af708366eeac6e62b55b73b34fb86e"
+      "size": 934,
+      "sha256": "94b596c9ddf4068c20b3b523b3e1fefb42e83bc1d0ff533ba12369000dc39b3b"
     },
     {
       "path": "src/Network/OnlineGame.c",
-      "size": 5439,
-      "sha256": "931f70133b3aa692911c097d864ab7036eecee38fcf2c98162bf827f2afb05fd"
+      "size": 6296,
+      "sha256": "82a273846c0fbba6159351c64e42b019b0f8ea384af8f1a190755500e72f65f0"
     },
     {
       "path": "src/Network/OnlineProtocol.h",
-      "size": 2453,
-      "sha256": "f7b53fc42d231a2bbda1b3b11ca2eea1d02fd8e242b7b7de65f00d8dedcb345c"
+      "size": 2487,
+      "sha256": "01fc0651ab874a42fb079e685414854ba2ed87a63817d464b06d038dca522de0"
     },
     {
       "path": "src/Network/OnlineSocket.cpp",
@@ -26680,8 +26715,8 @@
     },
     {
       "path": "src/SDL/main.c",
-      "size": 100621,
-      "sha256": "01fbe38db0f5779041819666a89731cd48fddb86144a360ae2adc48339675f44"
+      "size": 100741,
+      "sha256": "931680cab87d17c003f8aafa0ef75cc79d5084a7e1d1a6b45b329659c8d140cb"
     },
     {
       "path": "src/SDL/main.h",
@@ -27434,6 +27469,11 @@
       "sha256": "0839049428d63688c54f7f06e3365ee08c0377388afff93a23fa3eb0ba520ca6"
     },
     {
+      "path": "tests/BadgeOverlayTests.c",
+      "size": 4543,
+      "sha256": "f366de78c00160b3b1d9c17fe46153ff867d91b481cecc575c01245f2aa92f03"
+    },
+    {
       "path": "tests/BenchmarkCaptureTests.cpp",
       "size": 9147,
       "sha256": "d4e0597bfa4326273fd97df8593e71c0b41a28fb1bbd0c2e463fccb470cf6c8b"
@@ -27785,8 +27825,8 @@
     },
     {
       "path": "tests/RemasteredMeshBridgeTests.cpp",
-      "size": 26827,
-      "sha256": "b08d5b7b17f1e68cff61f3ac3e5d0e2b894bf977e70b345199ebf42ff9ed248b"
+      "size": 27546,
+      "sha256": "cceefe7b16a55e6f64a38c97a199a3e77c21f11d8e7b2d99883788bdaf370dfe"
     },
     {
       "path": "tests/RemasteredPcmStreamTests.c",
@@ -28780,8 +28820,8 @@
     },
     {
       "path": "tools/package_release_patch.py",
-      "size": 6332,
-      "sha256": "63c55029111ed24eac9964c930f730f0f4457187fdb9084f74f2d337a9709734"
+      "size": 6356,
+      "sha256": "9b80d5d659719e69e7f83efe85f165b30b7e083a8c0dda0e2d101eaa1fa91489"
     },
     {
       "path": "tools/package_ship_document_update.py",
@@ -28825,8 +28865,8 @@
     },
     {
       "path": "tools/release_bootstrap.cpp",
-      "size": 22701,
-      "sha256": "55e1137602a7c288ae31139f56f85553ef07d34d09063f4ad68fc02385cb70f5"
+      "size": 23046,
+      "sha256": "06b89b2b8f1f16d2543067207439af51a9023b36ac0acd6efcea2d950c5ecf48"
     },
     {
       "path": "tools/release_compact.py",
@@ -28899,9 +28939,14 @@
       "sha256": "7f0cfa6aac889a8fa0e0fdd55b98178266e4a10db8d7931909f9eec0ec8614dd"
     },
     {
+      "path": "tools/release_patch118.py",
+      "size": 3677,
+      "sha256": "97d67b121c0fe9dd330c4d0fe436ae9f09c1430c1bedad7e1f80afee26f13280"
+    },
+    {
       "path": "tools/release_setup.py",
       "size": 12708,
-      "sha256": "050fddf7ac5cefe4be28bd6017a06930d5c36e7cf2791016353dca89d8cfeac8"
+      "sha256": "d3f64f572d68b983e9b871c1d246f6ab718e92fe522cde561cb636b782bf9be6"
     },
     {
       "path": "tools/release_sky_lighting.py",
@@ -29051,7 +29096,7 @@
     {
       "path": "tools/stage_release.py",
       "size": 7417,
-      "sha256": "8cd622d0f083b673af6e0fbf4569c7c6443ea6fec3d86cf37c35169a1396eb3e"
+      "sha256": "ffb58c5a57765ab7f24f1a6c63d1d84f0b47223866b72a2681cb56b79b40c077"
     },
     {
       "path": "tools/stage_research_station_native.py",
@@ -29115,8 +29160,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 7185,
-      "sha256": "68cabf48051f7af9557550971d623bf757388348bf23982bb676d0176ac490aa"
+      "size": 7506,
+      "sha256": "2dca501f7793eee22fb78e342862fe77409ff7122bc53cb7f87d78b8ca34f9ea"
     },
     {
       "path": "vcpkg.json",

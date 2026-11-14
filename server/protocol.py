@@ -13,6 +13,8 @@ LOAD_PREFIX = struct.Struct('<IBBBB')
 HELLO_MSG, CREATE, JOIN, LEAVE, CONFIGURE, ADD_AI, REMOVE_SLOT, READY, START, LOADED, COMMAND = range(1,12)
 PAUSE = 12
 LIST_ROOMS = 13
+BADGE_UPLOAD = 14
+BADGE = 108
 ROOM_LIST = 107
 ROOM_SUMMARY = struct.Struct('<8s48s64sBBBB')
 WELCOME, LOBBY, ERROR, LOAD, SYNC, STOP = range(100,106)
@@ -83,3 +85,10 @@ def parse_config(payload, maps):
                           base=base,stripe=stripe,emission=emission,name=text(raw,47)))
     return dict(map=name,rules=rules,fleet=fleet,resources=resources,bounty=bounty,flags=flags,
         injection_interval=interval,injection_amount=amount,lump_time=lump_time,lump_amount=lump_amount,slots=slots)
+
+
+def validate_badge(payload):
+    # A fixed raw RGBA transfer avoids archive/image decoding in the service.
+    if payload and (len(payload)!=4+96*96*4 or struct.unpack_from('<HH',payload)!=(96,96)):
+        raise ValueError('Invalid badge: expected 96 x 96 RGBA')
+    return payload

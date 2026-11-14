@@ -6,6 +6,7 @@
 #include "File.h"
 #include "Vector.h"
 #include "Mesh.h"
+#include "MeshBadgeOverlay.h"
 #include "CRC32.h"
 #include "RemasteredSubsystem.h"
 #ifdef HW_ENABLE_D3D12_NATIVE_RASTER
@@ -175,6 +176,8 @@ meshdata *meshCreateRemasteredHierarchy(HwRmSubsystemInstance *instance,
             else n = *(vector *)&obj->pNormalList[obj->nPolygons + indices[0]].x;
             memcpy(&obj->pNormalList[j].x, &n, 3 * sizeof(float));
         }
+        meshBadgeRegister(obj,node->part,
+            strstr(node->material->shader,"badge")!=NULL,scale);
         ++materialIndex;
     }
     materialIndex = 0;

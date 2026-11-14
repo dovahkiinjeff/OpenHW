@@ -16,6 +16,8 @@ class Member:
     slot: int = -1
     loaded: bool = False
     signature: bytes = b''
+    badge: bytes = b''
+    last_badge: float = 0
     tokens: float = 80
     last_request: float = field(default_factory=time.monotonic)
 

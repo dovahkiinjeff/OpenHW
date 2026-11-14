@@ -2,6 +2,7 @@
 #include "../Modern/WindowsInstall.h"
 #include "LiveMapAuthoringPolicy.h"
 #include "ModernUI.h"
+#include "../Modern/BadgeLibrary.h"
 #include "../Network/OnlineClient.h"
 #include "../Network/MatchRules.h"
 #include "ScenPick.h"
@@ -79,7 +80,7 @@ static void muiEditorColorBringToFront(void);
 #define MUI_AUDIO_TAB_COUNT 2
 #define MUI_MAIN_SETTINGS_COUNT 4
 #define MUI_KEYS_VISIBLE_ROWS 19
-#define MUI_COLOR_TAB_COUNT 6
+#define MUI_COLOR_TAB_COUNT 7
 #define MUI_ROW_COUNT 5
 #define MUI_AUDIO_ROW_COUNT 6
 #define MUI_VIDEO_ROW_COUNT 7
@@ -157,6 +158,8 @@ typedef struct ModernUIColorState
     color nav;
     color resourceBeam;
     color hyperspace;
+    char initialBadge[65];
+    sdword badgePage;
     bool32 engineOverride;
     bool32 navOverride;
     bool32 resourceBeamOverride;
@@ -9134,9 +9137,41 @@ static void muiFleetPreviewRects(const ModernUILayout *layout,rectangle *view,re
     *thrust=muiRect(view->x0,view->y1+uiScaleSize(12),view->x1,view->y1+uiScaleSize(48));
 }
 
+typedef struct MUIBadgeThumb {char id[65];unsigned texture,stamp;} MUIBadgeThumb;
+static MUIBadgeThumb muiBadgeThumbs[12];
+static unsigned muiBadgeStamp;
+static unsigned muiBadgeThumb(const char *id){unsigned i,w,h;const unsigned char *p;
+    for(i=0;i<12;i++)if(!strcmp(muiBadgeThumbs[i].id,id)){muiBadgeThumbs[i].stamp=++muiBadgeStamp;return muiBadgeThumbs[i].texture;}
+    {unsigned j;i=0;for(j=1;j<12;j++)if(muiBadgeThumbs[j].stamp<muiBadgeThumbs[i].stamp)i=j;}
+    muiBadgeThumbs[i].stamp=++muiBadgeStamp;
+    p=hwBadgePixels(id,&w,&h);if(!p)return 0;
+    if(muiBadgeThumbs[i].texture)trRGBTextureDelete(muiBadgeThumbs[i].texture);
+    snprintf(muiBadgeThumbs[i].id,65,"%s",id);return muiBadgeThumbs[i].texture=trRGBTextureCreate((color*)p,w,h,TRUE);
+}
+static rectangle muiBadgeButton(const ModernUILayout *l,int i){sdword gap=uiScaleSize(7),w=(l->content.x1-l->content.x0-uiScaleSize(44)-gap*3)/4;
+    return muiRect(l->content.x0+uiScaleSize(22)+i*(w+gap),l->content.y0+uiScaleSize(80),l->content.x0+uiScaleSize(22)+i*(w+gap)+w,l->content.y0+uiScaleSize(114));}
+static rectangle muiBadgeTile(const ModernUILayout *l,int i){sdword gap=uiScaleSize(8),w=(l->content.x1-l->content.x0-uiScaleSize(44)-gap*2)/3,h=(l->content.y1-l->content.y0-uiScaleSize(225))/3;
+    return muiRect(l->content.x0+uiScaleSize(22)+(i%3)*(w+gap),l->content.y0+uiScaleSize(128)+(i/3)*(h+gap),l->content.x0+uiScaleSize(22)+(i%3)*(w+gap)+w,l->content.y0+uiScaleSize(128)+(i/3)*(h+gap)+h);}
+static void muiBadgeBrowser(const ModernUILayout *l){char selected[65],status[256],text[180];int i,count=hwBadgeCount(),pages=MAX2(1,(count+8)/9),x=mouseCursorX(),y=mouseCursorY();
+    hwBadgeStatus(status,sizeof(status));
+    const char*labels[]={"CUSTOM IMAGE","RESCAN","PREVIOUS","NEXT"};hwBadgeSelected(selected,sizeof(selected));muiColor.badgePage=muiClamp(muiColor.badgePage,0,pages-1);
+    for(i=0;i<4;i++){rectangle r=muiBadgeButton(l,i);muiDrawButtonRect(&r,labels[i],i==0,muiPointIn(&r,x,y));}
+    for(i=0;i<9;i++){char id[65],label[180];rectangle tile=muiBadgeTile(l,i),image=tile,caption=tile;unsigned texture;
+        hwBadgeInfo(muiColor.badgePage*9+i,id,sizeof(id),label,sizeof(label));if(!id[0])continue;
+        muiFill(&tile,muiSurfaceRaised);image.x0+=uiScaleSize(4);image.x1-=uiScaleSize(4);image.y0+=uiScaleSize(4);image.y1-=uiScaleSize(25);
+        texture=muiBadgeThumb(id);if(texture){glPushAttrib(GL_ALL_ATTRIB_BITS);glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);muiDrawTextureInRect(texture,256,256,&image);glPopAttrib();}
+        if(!strcmp(id,selected)||muiPointIn(&tile,x,y))primRectOutline2(&tile,!strcmp(id,selected)?2:1,!strcmp(id,selected)?muiSignal:muiLine);
+        if(muiPointIn(&tile,x,y))snprintf(status,sizeof(status),"%s",label);
+        {char *source=strstr(label," / ");if(source)*source=0;}caption.y0=image.y1;caption.x0+=uiScaleSize(4);caption.x1-=uiScaleSize(4);muiTextLeftAdaptiveFull(&caption,muiPaper,label,muiCompactFont,muiTinyFont,muiTinyFont,0);
+    }
+    snprintf(text,sizeof(text),"PAGE %d / %d   -   %d BADGES",muiColor.badgePage+1,pages,count);muiText(l->content.x0+uiScaleSize(22),l->content.y1-uiScaleSize(100),muiCool,text,muiCompactFont);
+    muiText(l->content.x0+uiScaleSize(22),l->content.y1-uiScaleSize(79),muiMuted,status,muiTinyFont);
+    {rectangle none=muiRect(l->content.x0+uiScaleSize(22),l->content.y1-uiScaleSize(60),l->content.x0+uiScaleSize(145),l->content.y1-uiScaleSize(28));muiDrawButtonRect(&none,"NO BADGE",!selected[0],muiPointIn(&none,x,y));}
+}
+
 static void muiDrawColorPicker(regionhandle region)
 {
-    static const char *tabs[MUI_COLOR_TAB_COUNT]={"HULL BASE","STRIPE / MARKING","ENGINE EMISSION","NAV LIGHTS","HARVEST BEAM","HYPERSPACE"};
+    static const char *tabs[MUI_COLOR_TAB_COUNT]={"HULL BASE","STRIPE / MARKING","ENGINE EMISSION","NAV LIGHTS","HARVEST BEAM","HYPERSPACE","BADGE"};
     ModernUILayout layout;rectangle palette,value,toggle,cursor,swatch,view,thrust;
     color active=*muiActivePlayerColor();float hue,sat,val;sdword i;
     int x=mouseCursorX(),y=mouseCursorY();char text[100];
@@ -9158,9 +9193,11 @@ static void muiDrawColorPicker(regionhandle region)
         label=muiRect(swatch.x1+uiScaleSize(8),layout.tabs[i].y0,layout.tabs[i].x1-uiScaleSize(4),layout.tabs[i].y1);
         muiTextLeftAdaptiveFull(&label,selected?muiPaper:muiMuted,tabs[i],muiBodyFont,muiCompactFont,muiTinyFont,0);
     }
-    muiText(layout.content.x0+uiScaleSize(22),layout.content.y0+uiScaleSize(22),muiSignal,"COLOUR PALETTE",muiBodyFont);
+    muiText(layout.content.x0+uiScaleSize(22),layout.content.y0+uiScaleSize(22),muiSignal,muiColor.mode==6?"BADGE LIBRARY":"COLOUR PALETTE",muiBodyFont);
     {rectangle label=muiRect(layout.content.x0+uiScaleSize(22),layout.content.y0+uiScaleSize(50),layout.content.x1-uiScaleSize(18),layout.content.y0+uiScaleSize(84));
      muiTextLeftAdaptiveFull(&label,muiPaper,tabs[muiColor.mode],muiHeadingFont,muiBodyFont,muiCompactFont,0);}
+    if(muiColor.mode==6)muiBadgeBrowser(&layout);
+    else {
     muiDrawHueSaturation(&palette,1);muiDrawValueRamp(&value,hue,sat);
     primRectOutline2(&palette,1,muiLine);primRectOutline2(&value,1,muiLine);
     {sdword px=palette.x0+(sdword)(hue*(palette.x1-palette.x0)),py=palette.y1-(sdword)(sat*(palette.y1-palette.y0)),d=uiScaleSize(4);
@@ -9171,6 +9208,7 @@ static void muiDrawColorPicker(regionhandle region)
         muiDrawButtonRect(&toggle,enabled?"CUSTOM COLOUR / ON":"USE AUTHORED COLOUR",enabled,muiPointIn(&toggle,x,y));
     }
     else muiText(toggle.x0,toggle.y0+uiScaleSize(10),muiMuted,"Choose hue, saturation and brightness.",muiCompactFont);
+    }
     muiDrawButtonRect(&layout.cancel,"CANCEL",FALSE,muiPointIn(&layout.cancel,x,y));
     muiDrawButtonRect(&layout.apply,"APPLY",TRUE,muiPointIn(&layout.apply,x,y));
     muiText(layout.preview.x0+uiScaleSize(18),layout.preview.y0+uiScaleSize(20),muiSignal,"LIVE SHIP PREVIEW",muiBodyFont);
@@ -9189,6 +9227,7 @@ static void muiColorApplyPoint(const rectangle *palette,
 {
     color *active = muiActivePlayerColor();
     real32 hue, sat, val;
+    if(muiColor.mode==6)return;
     muiColorHSV(*active, &hue, &sat, &val);
     if (muiPointIn(palette, mouseX, mouseY))
     {
@@ -9215,6 +9254,8 @@ static void muiColorApplyPoint(const rectangle *palette,
 
 static void muiExitColorPicker(bool32 apply)
 {
+    if(apply){char id[65];hwBadgeSelected(id,sizeof(id));hwBadgeSelect(id,1);hwOnlinePublishBadge();}
+    else hwBadgeSelect(muiColor.initialBadge,0);
     if (apply)
     {
         cpModernColorsCommit(muiColor.base, muiColor.stripe);
@@ -9254,6 +9295,7 @@ static udword muiColorProcess(regionhandle region, smemsize ID,
         return RPR_Redraw;
     }
     muiBuildFleetColorLayout(&layout);
+    if(muiColor.mode==6&&(event==RPE_WheelUp||event==RPE_WheelDown)&&muiPointIn(&layout.content,mouseX,mouseY)){muiColor.badgePage+=event==RPE_WheelUp?-1:1;return RPR_Redraw;}
     muiColorRects(&layout, &palette, &value, &toggle);
     muiFleetPreviewRects(&layout,&view,&thrust);
     if(muiShipPreviewInput(&view,event))return RPR_Redraw;
@@ -9281,6 +9323,13 @@ static udword muiColorProcess(regionhandle region, smemsize ID,
     }
     if (event == RPE_ReleaseLeft)
     {
+        if(muiColor.mode==6){
+            for(index=0;index<4;index++){rectangle button=muiBadgeButton(&layout,index);if(muiPointIn(&button,mouseX,mouseY)){
+                if(index==0){if(hwBadgeCustomImage()){char selected[65];int k;hwBadgeSelected(selected,sizeof(selected));for(k=0;k<hwBadgeCount();k++){char id[65];hwBadgeInfo(k,id,sizeof(id),NULL,0);if(!strcmp(id,selected)){muiColor.badgePage=k/9;break;}}}}else if(index==1)hwBadgeDiscover();else muiColor.badgePage+=index==2?-1:1;return RPR_Redraw;}}
+            for(index=0;index<9;index++){rectangle tile=muiBadgeTile(&layout,index);if(muiPointIn(&tile,mouseX,mouseY)){char id[65];hwBadgeInfo(muiColor.badgePage*9+index,id,sizeof(id),NULL,0);if(id[0])hwBadgeSelect(id,0);return RPR_Redraw;}}
+            {rectangle none=muiRect(layout.content.x0+uiScaleSize(22),layout.content.y1-uiScaleSize(60),layout.content.x0+uiScaleSize(145),layout.content.y1-uiScaleSize(28));if(muiPointIn(&none,mouseX,mouseY)){hwBadgeSelect("",0);return RPR_Redraw;}}
+        }
+
         if (muiPointIn(&layout.apply, mouseX, mouseY))
         {
             muiExitColorPicker(TRUE);
@@ -9291,7 +9340,7 @@ static udword muiColorProcess(regionhandle region, smemsize ID,
             muiExitColorPicker(FALSE);
             return RPR_Redraw;
         }
-        if (muiColor.mode >= 2 && muiPointIn(&toggle, mouseX, mouseY))
+        if (muiColor.mode >= 2 && muiColor.mode<6 && muiPointIn(&toggle, mouseX, mouseY))
         {
             if (muiColor.mode == 2)
                 muiColor.engineOverride = !muiColor.engineOverride;
@@ -9435,6 +9484,7 @@ regionhandle modernUICreateOwnedScreen(regionhandle parent, fescreen *screen)
         muiEnsureFonts();
         memset(&muiColor, 0, sizeof(muiColor));
         muiColor.active = TRUE;
+        hwBadgeInit();hwBadgeSelected(muiColor.initialBadge,sizeof(muiColor.initialBadge));hwBadgeDiscover();
         cpModernColorsSnapshot(&muiColor.base, &muiColor.stripe);
         muiColor.engine = utyEngineTrailColor;
         muiColor.nav = utyNavLightColor;

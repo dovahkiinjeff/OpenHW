@@ -26,3 +26,7 @@ contain `[NativeShipHOD]` to distinguish successful native loading from fallback
 
 No source HOD, extracted shaders or converted copyrighted assets are repository
 assets. The installed archives remain untouched.
+
+## Badge support after this staging report
+
+OpenHW 1.1.8 adds the authored secondary-UV badge overlay and persistent badge library. Earlier omissions described in this historical staging report are superseded for models with authored badge UVs. See [Fleet badges](FLEET_BADGES.md).

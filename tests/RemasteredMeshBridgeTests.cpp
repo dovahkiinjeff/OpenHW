@@ -16,6 +16,13 @@ extern "C" {
 #include "Mesh.h"
 }
 #include "RemasteredSubsystem.h"
+static unsigned badgeParts,badgeTriangles;
+extern "C" void meshBadgeRegister(void*,const void*source,int badge,float){
+ if(!badge)return;const auto*part=(const HwRmHodPart*)source;
+ if(!(part->vertexMask&16))return;++badgeParts;
+ for(unsigned i=0;i<part->indexCount;i+=3){const auto&a=part->vertices[part->indices[i]],&b=part->vertices[part->indices[i+1]],&c=part->vertices[part->indices[i+2]];
+  float area=(b.badgeUv[0]-a.badgeUv[0])*(c.badgeUv[1]-a.badgeUv[1])-(b.badgeUv[1]-a.badgeUv[1])*(c.badgeUv[0]-a.badgeUv[0]);if(std::isfinite(area)&&std::fabs(area)>.0000001f)++badgeTriangles;}
+}
 #include "NativeShipHodFixture.h"
 #include "TextureResolution.h"
 #ifdef HW_ENABLE_D3D12_NATIVE_RASTER
@@ -368,6 +375,7 @@ int main(int argc,char **argv) {
             auto root=std::filesystem::path(argv[1]);if(root.filename()=="ship") root=root.parent_path();
             auditFleet(root,argv[2]);
         }
+        if(argc>1)std::printf("Authored badge coverage: %u parts / %u nondegenerate UV triangles\n",badgeParts,badgeTriangles);
         std::puts("Native hierarchy renderer bridge tests passed");return 0;
     } catch(const std::exception& e) {std::fprintf(stderr,"%s\n",e.what());return 1;}
 }

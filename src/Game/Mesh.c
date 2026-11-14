@@ -46,6 +46,8 @@ static unsigned paintSurfaceVariant(unsigned scheme);
 #include "SpaceObj.h"
 #include "Universe.h"
 #include "Mesh.h"
+#include "MeshBadgeOverlay.h"
+static bool32 meshBadgePreview=FALSE;
 #include "RemasteredShipHod.h"
 #include "RemasteredSubsystem.h"
 #include "NativeVisualRegistry.h"
@@ -295,6 +297,7 @@ void meshSetEngineMaterialOwner(const void *owner)
         ? shipMotionIdentityAcquire(&meshMotionIdentities, ship,
                                     ship->shipID.shipNumber) : 0;
     hwglCaptureEngineIdle(-1.0f);
+    meshBadgeSetMotionOwner(meshMotionOwner);
 #endif
     if(ship) {
         meshEngineFadeState *state=&meshEngineFades[ship->shipID.shipNumber];
@@ -1266,6 +1269,7 @@ void meshStartup()
 ----------------------------------------------------------------------------*/
 void meshShutdown()
 {
+    meshBadgeShutdown();
 #ifdef HW_ENABLE_D3D12_BACKEND
     shipMotionIdentityClear(&meshMotionIdentities);
     meshMotionOwner = 0;
@@ -3208,6 +3212,7 @@ void meshFree(meshdata *mesh)
         hwglForgetImmutableMesh(mesh->object[index].pPolygonList);
 #endif
     meshFreeEngineMaterials(mesh);
+    meshBadgeForget(mesh);
     meshNativeVisualReleaseMesh(mesh);
     paintForgetMesh(mesh);
 
@@ -4725,6 +4730,10 @@ void meshObjectRenderR(polygonobject *object, materialentry *materials, sdword i
     }
 
     MESH_OBJECT_RENDER(object, materials, iColorScheme)
+    if(paintOwner && paintOwner->playerowner)
+        meshBadgeDraw(object,paintOwner->playerowner->playerIndex,
+            paintOwner->playerowner->playerIndex==universe.curPlayerIndex);
+    else if(meshBadgePreview)meshBadgeDraw(object,0,1);
 
     shPopLightMatrix();
     glPopMatrix();
@@ -4815,6 +4824,10 @@ mhlocalbinding *meshObjectRenderHierarchy(mhlocalbinding *binding, polygonobject
         binding = meshObjectRenderHierarchy(binding, daughter, materials, iColorScheme);     //render all daughter objects
     }
     MESH_OBJECT_RENDER(object, materials, iColorScheme)
+    if(paintOwner && paintOwner->playerowner)
+        meshBadgeDraw(object,paintOwner->playerowner->playerIndex,
+            paintOwner->playerowner->playerIndex==universe.curPlayerIndex);
+    else if(meshBadgePreview)meshBadgeDraw(object,0,1);
     shPopLightMatrix();
     glPopMatrix();
     return(binding);

@@ -1,3 +1,4 @@
+#include "../Modern/BadgeLibrary.h"
 #include "../Modern/DiagnosticPolicy.h"
 #include "../Network/DedicatedServer.h"
 #include "../Network/OnlineClient.h"
@@ -2532,6 +2533,7 @@ int EMSCRIPTEN_KEEPALIVE main_postinit(int argc, char* argv[]) {
 int main (int argc, char* argv[])
 {
 #endif
+    if(argc>1&&!strcmp(argv[1],"--badge-probe"))return hwBadgeProbeMain(argc,argv);
     if (hwDedicatedRequested(argc, argv)) return hwDedicatedMain(argc, argv);
     if (hwOnlineProbeRequested(argc, argv)) return hwOnlineProbeMain();
 #ifdef _WIN32

@@ -2,7 +2,7 @@
 import argparse,datetime,hashlib,json,os,shutil,sys,threading,queue,zipfile,subprocess
 from pathlib import Path
 
-RELEASE_VERSION='1.1.7'
+RELEASE_VERSION='1.1.8'
 
 def validate_destination(root):
     """Allow only a fresh folder or the same payload's interrupted installation."""

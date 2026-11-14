@@ -47,6 +47,13 @@ class Gateway:
             self.send(m,LOBBY,room.snapshot(m)) for m in tuple(room.members.values())),return_exceptions=True)
         return results
 
+    async def badges(self,room,recipient=None):
+        by_slot={m.slot:m.badge for m in room.members.values()}
+        for slot in range(8):
+            payload=bytes([slot])+by_slot.get(slot,b'')
+            if recipient:await self.send(recipient,BADGE,payload)
+            else:await self.broadcast(room,BADGE,payload)
+
     async def stop_match(self, room, reason):
         if room.state==3:return
         room.state=3
@@ -146,6 +153,14 @@ class Gateway:
                     if kind==LIST_ROOMS:
                         if payload:raise LobbyError('Unexpected room-list payload')
                         await self.send(member,ROOM_LIST,self.lobby.directory());continue
+                    elif kind==BADGE_UPLOAD:
+                        validate_badge(payload)
+                        if payload!=member.badge:
+                            now=time.monotonic()
+                            if now-member.last_badge<2:raise LobbyError('Please wait before changing your badge again')
+                            member.badge=payload;member.last_badge=now
+                            if room:await self.broadcast(room,BADGE,bytes([member.slot])+payload)
+                        continue
                     elif kind==CREATE:
                         if payload:raise LobbyError('Unexpected create payload')
                         room=self.lobby.create(member)
@@ -180,6 +195,10 @@ class Gateway:
                         room.commands.append((member.slot,payload));continue
                     else:raise LobbyError('Unknown request')
                     await self.broadcast(room)
+                    if kind in (CREATE,JOIN):
+                        await self.badges(room,member)
+                        await self.broadcast(room,BADGE,bytes([member.slot])+member.badge)
+                    elif kind==REMOVE_SLOT:await self.broadcast(room,BADGE,payload[:1])
                 except ValueError as error:
                     await self.send(member,ERROR,str(error).encode('utf-8')[:512])
         except (ConnectionClosed,TimeoutError,ValueError) as error:
@@ -193,8 +212,10 @@ class Gateway:
         room=member.room
         if not room:return
         if room.state in (1,2):await self.stop_match(room,f'{member.name} disconnected; match ended')
+        old_slot=member.slot
         room.remove_member(member)
-        if room.members:await self.broadcast(room)
+        if room.members:
+            await self.broadcast(room);await self.broadcast(room,BADGE,bytes([old_slot]))
         else:
             if room.task and not room.task.done() and not room.task.cancelling():room.task.cancel()
             self.lobby.rooms.pop(room.code,None)

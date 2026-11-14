@@ -1,4 +1,5 @@
 #include "OnlineClient.h"
+#include "../Modern/BadgeLibrary.h"
 #include "MatchRules.h"
 #include "ModernMapEditor.h"
 #include "ModernUI.h"
@@ -23,6 +24,14 @@ int hwOnlineRoomList(OHRoomSummary *rooms,int capacity) {
     unsigned count=capacity>0 && (unsigned)capacity<roomCount?(unsigned)capacity:roomCount;
     if(!hwOnlineConnected() || !rooms || capacity<=0)return 0;
     memcpy(rooms,roomList,count*sizeof(*rooms));return (int)count;
+}
+void hwOnlinePublishBadge(void){
+    unsigned w,h,x,y;char id[65];const unsigned char*p;static unsigned char bytes[4+96*96*4];uint16_t size=96;
+    if(!hwOnlineConnected())return;hwBadgeSelected(id,sizeof(id));p=hwBadgePixels(id,&w,&h);
+    if(!p){hwOnlineSend(OH_BADGE_UPLOAD,NULL,0);return;}
+    memcpy(bytes,&size,2);memcpy(bytes+2,&size,2);
+    for(y=0;y<96;y++)for(x=0;x<96;x++)memcpy(bytes+4+(y*96+x)*4,p+((y*h/96)*w+x*w/96)*4,4);
+    hwOnlineSend(OH_BADGE_UPLOAD,bytes,sizeof(bytes));
 }
 void hwOnlineRequestRooms(void){if(hwOnlineConnected() && !hwMatchActive())hwOnlineSend(OH_LIST_ROOMS,NULL,0);}
 
@@ -63,7 +72,11 @@ void hwOnlineGamePump(void)
     if(wasConnected && !connected){hasLobby=0;roomCount=0;if(hwMatchActive())stopMatch("Connection to gameplay server lost");}
     wasConnected=connected;
     while((length=sizeof(bytes)),hwOnlineReceive(&type,bytes,&length)) {
-        if(type==OH_WELCOME){message[0]=0;hasLobby=0;roomCount=0;hwOnlineRequestRooms();}
+        if(type==OH_WELCOME){message[0]=0;hasLobby=0;roomCount=0;hwBadgeClearRemote();hwOnlinePublishBadge();hwOnlineRequestRooms();}
+        else if(type==OH_BADGE && length>=1 && bytes[0]<8){
+            if(length==1)hwBadgeSetRemote(bytes[0],NULL,0,0);
+            else if(length==5+96*96*4){uint16_t w,h;memcpy(&w,bytes+1,2);memcpy(&h,bytes+3,2);if(w==96&&h==96)hwBadgeSetRemote(bytes[0],bytes+5,w,h);}
+        }
         else if(type==OH_ROOM_LIST && length>=4) {
             uint32_t count;unsigned i;OHRoomSummary next[OH_MAX_ROOMS];
             memcpy(&count,bytes,4);

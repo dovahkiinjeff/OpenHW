@@ -303,3 +303,7 @@ hidden metadata, and actual mothership door samples reaching per-ship bindings.
 All 13 MAD companions passed source sampling; valid hull animations also passed
 composition and reversal checks, including explicit heavy-corvette hull-anchor
 aliases. These tests are not a substitute for visible gameplay.
+
+## Badge support after this staging report
+
+OpenHW 1.1.8 adds the authored secondary-UV badge overlay and persistent badge library. Earlier omissions described in this historical staging report are superseded for models with authored badge UVs. See [Fleet badges](FLEET_BADGES.md).

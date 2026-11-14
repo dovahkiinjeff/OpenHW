@@ -41,10 +41,11 @@ void meshRenderMenuPreview(meshdata *mesh,real32 engineBlend)
 {
     uword flags[256];sdword i,count=mesh->nLocalMaterials+mesh->nPublicMaterials;
     real32 savedBlend=meshEngineBlend;
+    bool32 savedBadgePreview=meshBadgePreview;meshBadgePreview=TRUE;
     const Ship *savedPaint=paintOwner;
 #ifdef HW_ENABLE_D3D12_BACKEND
     uint64_t savedMotion=meshMotionOwner;
-    meshMotionOwner=0;
+    meshMotionOwner=0;meshBadgeSetMotionOwner(0);
 #endif
     /* Do not assign the synthetic preview ship a live fleet identity. */
     paintSetOwner(NULL);meshEngineBlend=engineBlend;
@@ -54,9 +55,9 @@ void meshRenderMenuPreview(meshdata *mesh,real32 engineBlend)
     }
     meshRender(mesh,0);
     if(count<=256)for(i=0;i<count;++i)mesh->localMaterial[i].flags=flags[i];
-    meshEngineBlend=savedBlend;paintSetOwner(savedPaint);
+    meshEngineBlend=savedBlend;meshBadgePreview=savedBadgePreview;paintSetOwner(savedPaint);
 #ifdef HW_ENABLE_D3D12_BACKEND
-    meshMotionOwner=savedMotion;hwglCaptureEngineIdle(-1.0f);
+    meshMotionOwner=savedMotion;meshBadgeSetMotionOwner(savedMotion);hwglCaptureEngineIdle(-1.0f);
 #endif
 }
 

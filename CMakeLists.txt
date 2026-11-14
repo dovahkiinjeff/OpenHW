@@ -18,7 +18,7 @@ if(WIN32)
     target_link_libraries(OpenHWPatchBootstrap PRIVATE comctl32 bcrypt crypt32 shell32 ole32)
     add_executable(OpenHWCurrentPatchBootstrap WIN32 EXCLUDE_FROM_ALL tools/release_bootstrap.cpp)
     target_compile_features(OpenHWCurrentPatchBootstrap PRIVATE cxx_std_17)
-    target_compile_definitions(OpenHWCurrentPatchBootstrap PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN OPENHW_PATCH_INSTALLER OPENHW_PATCH_117)
+    target_compile_definitions(OpenHWCurrentPatchBootstrap PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN OPENHW_PATCH_INSTALLER OPENHW_PATCH_118)
     target_link_libraries(OpenHWCurrentPatchBootstrap PRIVATE comctl32 bcrypt crypt32 shell32 ole32)
     if(MSVC)
         set_property(TARGET OpenHWCurrentPatchBootstrap PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -252,6 +252,7 @@ set(HW_THIRD_PARTY_SOURCES
     "${HW_SOURCE_DIR}/src/ThirdParty/LZSS/LZSS.c")
 
 set(HW_MODERN_SOURCES
+    "${HW_SOURCE_DIR}/src/Modern/BadgeLibrary.cpp"
     "${HW_SOURCE_DIR}/src/Modern/MissionLoadProgress.cpp"
     "${HW_SOURCE_DIR}/src/Modern/RemasteredPresentationEvents.cpp"
     "${HW_SOURCE_DIR}/src/Modern/RemasteredWeaponPresentation.cpp"
@@ -650,6 +651,7 @@ endif()
 target_link_libraries(homeworld PRIVATE
     SDL2::SDL2
     advapi32
+    bcrypt
     cabinet
     dbghelp
     comdlg32
@@ -1336,4 +1338,13 @@ if(BUILD_TESTING)
     target_include_directories(live_map_authoring_policy_tests PRIVATE src/Game src/Network)
     target_compile_features(live_map_authoring_policy_tests PRIVATE c_std_11)
     add_test(NAME offline_only_map_authoring COMMAND live_map_authoring_policy_tests)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(badge_overlay_tests tests/BadgeOverlayTests.c src/Game/MeshBadgeOverlay.c)
+    target_include_directories(badge_overlay_tests PRIVATE ${_hw_save_includes})
+    target_compile_definitions(badge_overlay_tests PRIVATE ${_hw_save_defines})
+    target_compile_features(badge_overlay_tests PRIVATE c_std_11)
+    target_link_libraries(badge_overlay_tests PRIVATE SDL2::SDL2)
+    add_test(NAME badge_overlay COMMAND badge_overlay_tests)
 endif()
