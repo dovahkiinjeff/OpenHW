@@ -109,23 +109,27 @@ static void selDrawVeterancyStars(Ship *ship, sdword barLeftX, sdword healthY)
     static const float pointX[10] = {0,2,6,3,4,0,-4,-3,-6,-2};
     static const float pointY[10] = {-6,-2,-2,1,6,3,6,1,-2,-2};
     sdword rank=ship->veterancyRank,star,edge;
-    bool32 textureOn;
+    bool32 textureOn,cullOn;
     if(!hwMatchOption(OH_RANK_SYSTEM,opRankSystem)||rank<=0)return;
     if(rank>VETERANCY_MAX_RANK)rank=VETERANCY_MAX_RANK;
     /* Compact six-pixel insignia: no purple border, drop shadow or texture
        halo. Four ranks occupy 27 pixels instead of 56 beside a small ship. */
     textureOn=rndTextureEnable(FALSE);
+    /* HUD fans must not inherit the world mesh's back-face culling. */
+    cullOn=(bool32)glIsEnabled(GL_CULL_FACE);
+    glDisable(GL_CULL_FACE);
     glColor4ub(200,188,148,255);
     for(star=0;star<rank;++star){
         float cx=(float)(barLeftX+3+star*7),cy=(float)(healthY-6);
         glBegin(GL_TRIANGLE_FAN);
         glVertex2f(primScreenToGLX(cx),primScreenToGLY(cy));
-        for(edge=0;edge<=10;++edge){sdword point=edge%10;
+        for(edge=0;edge<=10;++edge){sdword point=(10-edge)%10;
             glVertex2f(primScreenToGLX(cx+pointX[point]*.46f),
                        primScreenToGLY(cy+pointY[point]*.46f));
         }
         glEnd();
     }
+    if(cullOn)glEnable(GL_CULL_FACE);
     rndTextureEnable(textureOn);
 }
 

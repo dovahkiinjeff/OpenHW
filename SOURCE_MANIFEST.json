@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.1.6",
+  "version": "1.1.7",
   "snapshot": "Complete current build inputs",
   "excluded": [
     "generated out/ and .deps/",
@@ -61,7 +61,7 @@
     {
       "path": "CMakeLists.txt",
       "size": 81668,
-      "sha256": "1d4a54fd9e8888086bfab4c56f9cc23e5d6a0ab781e17d14ec1f2ad7478d78e4"
+      "sha256": "ca7beb299cd37b82f43c1812423cf99c4831d2b722bea335ae5bc8b31cc8f468"
     },
     {
       "path": "CMakePresets.json",
@@ -171,7 +171,7 @@
     {
       "path": "Windows/build-release.ps1",
       "size": 7256,
-      "sha256": "85b1cdb39bdf6f97da1659b5cc6c178f405735c45c7b13ef09d2c228ed589b63"
+      "sha256": "509c8ed4aa3c35c954e516abfb24e54ed14a7497b27ff263b5f8c952a4c7b202"
     },
     {
       "path": "Windows/build.ps1",
@@ -23399,6 +23399,11 @@
       "sha256": "39fe48dd579aacb3667224aa175648b8c5c417f92519ca5c8ebfaedd9ae27df0"
     },
     {
+      "path": "docs/RELEASE_NOTES_1.1.7.md",
+      "size": 1233,
+      "sha256": "566b6a2ec08036ff7b2fd408b091098d25fe715ecdf67e14985f1d04a325fc2b"
+    },
+    {
       "path": "docs/RELEASE_NOTES_1.1.md",
       "size": 7095,
       "sha256": "f85c8c910034c62c8699a5f3eb59435b95e862c4616464e71919f1fcc36e31d2"
@@ -25245,8 +25250,8 @@
     },
     {
       "path": "src/Game/Select.c",
-      "size": 121633,
-      "sha256": "523c6f004271f14956f60ea538f466e6d3fa165cb3a41ad0adbdd91d58fde029"
+      "size": 121830,
+      "sha256": "52e42ac648cdb34ddedb5ed84daf96931e24d22110965ca88e6b12012c575e16"
     },
     {
       "path": "src/Game/Select.h",
@@ -28775,8 +28780,8 @@
     },
     {
       "path": "tools/package_release_patch.py",
-      "size": 6308,
-      "sha256": "d63c505a564b38fd826c1b01602f3930d298b11c3da05580f13988f725b37175"
+      "size": 6332,
+      "sha256": "63c55029111ed24eac9964c930f730f0f4457187fdb9084f74f2d337a9709734"
     },
     {
       "path": "tools/package_ship_document_update.py",
@@ -28820,8 +28825,8 @@
     },
     {
       "path": "tools/release_bootstrap.cpp",
-      "size": 22356,
-      "sha256": "0732d5ed3eed4a5f4b01b0daba8248005e096b33ec6308b88dc22b4dc2b72430"
+      "size": 22701,
+      "sha256": "55e1137602a7c288ae31139f56f85553ef07d34d09063f4ad68fc02385cb70f5"
     },
     {
       "path": "tools/release_compact.py",
@@ -28889,9 +28894,14 @@
       "sha256": "25d3bac3e6dc79d3c2772a024260176ebee3cff1dd9ee176f3f58a1fd6f9a789"
     },
     {
+      "path": "tools/release_patch117.py",
+      "size": 3677,
+      "sha256": "7f0cfa6aac889a8fa0e0fdd55b98178266e4a10db8d7931909f9eec0ec8614dd"
+    },
+    {
       "path": "tools/release_setup.py",
       "size": 12708,
-      "sha256": "8274c8955629e1e9657cb56a7fa66fded6c67f702c3f23d35f24771b86743872"
+      "sha256": "050fddf7ac5cefe4be28bd6017a06930d5c36e7cf2791016353dca89d8cfeac8"
     },
     {
       "path": "tools/release_sky_lighting.py",
@@ -29041,7 +29051,7 @@
     {
       "path": "tools/stage_release.py",
       "size": 7417,
-      "sha256": "50b11e1c2d1170be335b9292cb94dff55c847edf1039142d5dafaf0640337a5e"
+      "sha256": "8cd622d0f083b673af6e0fbf4569c7c6443ea6fec3d86cf37c35169a1396eb3e"
     },
     {
       "path": "tools/stage_research_station_native.py",
@@ -29105,8 +29115,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 6864,
-      "sha256": "bccc139d83a467708c99257989da25ce61c350580586b28e3b7d311edbd73be9"
+      "size": 7185,
+      "sha256": "68cabf48051f7af9557550971d623bf757388348bf23982bb676d0176ac490aa"
     },
     {
       "path": "vcpkg.json",
