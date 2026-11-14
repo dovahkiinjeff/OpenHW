@@ -239,6 +239,16 @@ int main(int argc,char **argv) {
     hwTextureResolutionDimensions(&textureWidth,&textureHeight,0);
     require(textureWidth==4096 && textureHeight==2048,"source resolution reduced");
     const unsigned char black[]={0,0,0,255},glow[]={20,50,80,255},dim[]={1,0,0,255},partial[]={20,50,80,80};
+    require(meshRemasteredEmissionDimensionsValid(1,1,4096,2048),"constant Ghost Ship no-glow mask rejected");
+    require(meshRemasteredEmissionDimensionsValid(4096,2048,4096,2048),"full-size emission rejected");
+    require(!meshRemasteredEmissionDimensionsValid(2,1,4096,2048),"mismatched nonconstant emission accepted");
+    require(!meshRemasteredEmissionDimensionsValid(1,1,0,2048),"empty hull accepted");
+    for(unsigned pixel: {0u,4095u,8388607u}){
+        const unsigned char *texel=meshRemasteredEmissionTexel(black,1,1,pixel);
+        require(texel==black&&meshRemasteredEmissionCoverage(texel,255)==0,"constant black mask did not override emissive hull fallback");
+    }
+    {unsigned char texels[8]={1,2,3,4,5,6,7,8};
+        require(meshRemasteredEmissionTexel(texels,2,1,1)==texels+4,"full-size emission sampling changed");}
     require(meshRemasteredEmissionCoverage(black,255)==0,"black hull protected from lighting");
     require(meshRemasteredEmissionCoverage(glow,255)==80,"glow protection must follow brightness");
     require(meshRemasteredEmissionCoverage(dim,255)==1,"dim glow must not exempt opaque hull");

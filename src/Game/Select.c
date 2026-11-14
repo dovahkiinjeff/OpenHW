@@ -104,96 +104,29 @@ fonthandle selGroupFont3;
 
 real32 SEL_MinSelectionRadius;
 real32 selMinSelectionRadius;
-static udword selVeterancyStarTexture = 0;
-
-static bool32 selLoadVeterancyStar(void)
-{
-    char path[1024];
-    char *basePath = SDL_GetBasePath();
-    void *encoded = NULL;
-    size_t encodedSize = 0;
-    unsigned int width = 0, height = 0;
-    unsigned char *rgba = NULL;
-
-    if (basePath != NULL)
-    {
-        snprintf(path, sizeof(path), "%sData/UI/veterancy_star.dds", basePath);
-        encoded = SDL_LoadFile(path, &encodedSize);
-        SDL_free(basePath);
-    }
-    if (encoded == NULL)
-    {
-        encoded = SDL_LoadFile("assets/UI/veterancy_star.dds", &encodedSize);
-    }
-    if (encoded == NULL ||
-        !hwModernGraphicsDecodeDds(encoded, (unsigned int)encodedSize,
-                                   &width, &height, &rgba))
-    {
-        if (encoded != NULL) SDL_free(encoded);
-        return FALSE;
-    }
-    SDL_free(encoded);
-    selVeterancyStarTexture = trRGBTextureCreate((color *)rgba,
-                                                  (sdword)width,
-                                                  (sdword)height, TRUE);
-    hwModernGraphicsFreeDecodedDds(rgba);
-    return selVeterancyStarTexture != 0;
-}
-
 static void selDrawVeterancyStars(Ship *ship, sdword barLeftX, sdword healthY)
 {
-    static const sdword pointX[10] = { 0, 2, 6, 3, 4, 0, -4, -3, -6, -2 };
-    static const sdword pointY[10] = {-6,-2,-2, 1, 6, 3,  6,  1, -2, -2 };
-    const color shadowColor = colRGB(42, 8, 64);
-    const color starColor = colRGB(224, 144, 255);
-    sdword rank = ship->veterancyRank;
-    sdword firstX;
-    sdword star;
-    sdword edge;
-
-    if (!hwMatchOption(OH_RANK_SYSTEM,opRankSystem) || rank <= 0) return;
-    if (rank > VETERANCY_MAX_RANK) rank = VETERANCY_MAX_RANK;
-    firstX = barLeftX + 7;
-
-    for (star = 0; star < rank; ++star)
-    {
-        sdword cx = firstX + star * 14;
-        sdword cy = healthY - 10;
-        if (selVeterancyStarTexture != 0)
-        {
-            bool32 textureOn;
-            bool32 blendOn;
-            bool32 alphaTestOn;
-            trRGBTextureMakeCurrent(selVeterancyStarTexture);
-            textureOn = rndTextureEnable(TRUE);
-            blendOn = (bool32)glIsEnabled(GL_BLEND);
-            alphaTestOn = (bool32)glIsEnabled(GL_ALPHA_TEST);
-            if (!blendOn) glEnable(GL_BLEND);
-            if (alphaTestOn) glDisable(GL_ALPHA_TEST);
-            rndAdditiveBlends(FALSE);
-            rndTextureEnvironment(RTE_Modulate);
-            glColor4ub(255, 255, 255, 255);
-            glBegin(GL_TRIANGLE_STRIP);
-            glTexCoord2f(0.0f, 0.0f); glVertex2f(primScreenToGLX(cx - 7), primScreenToGLY(cy - 7));
-            glTexCoord2f(0.0f, 1.0f); glVertex2f(primScreenToGLX(cx - 7), primScreenToGLY(cy + 7));
-            glTexCoord2f(1.0f, 0.0f); glVertex2f(primScreenToGLX(cx + 7), primScreenToGLY(cy - 7));
-            glTexCoord2f(1.0f, 1.0f); glVertex2f(primScreenToGLX(cx + 7), primScreenToGLY(cy + 7));
-            glEnd();
-            rndTextureEnable(textureOn);
-            if (!blendOn) glDisable(GL_BLEND);
-            if (alphaTestOn) glEnable(GL_ALPHA_TEST);
-            continue;
+    static const float pointX[10] = {0,2,6,3,4,0,-4,-3,-6,-2};
+    static const float pointY[10] = {-6,-2,-2,1,6,3,6,1,-2,-2};
+    sdword rank=ship->veterancyRank,star,edge;
+    bool32 textureOn;
+    if(!hwMatchOption(OH_RANK_SYSTEM,opRankSystem)||rank<=0)return;
+    if(rank>VETERANCY_MAX_RANK)rank=VETERANCY_MAX_RANK;
+    /* Compact six-pixel insignia: no purple border, drop shadow or texture
+       halo. Four ranks occupy 27 pixels instead of 56 beside a small ship. */
+    textureOn=rndTextureEnable(FALSE);
+    glColor4ub(200,188,148,255);
+    for(star=0;star<rank;++star){
+        float cx=(float)(barLeftX+3+star*7),cy=(float)(healthY-6);
+        glBegin(GL_TRIANGLE_FAN);
+        glVertex2f(primScreenToGLX(cx),primScreenToGLY(cy));
+        for(edge=0;edge<=10;++edge){sdword point=edge%10;
+            glVertex2f(primScreenToGLX(cx+pointX[point]*.46f),
+                       primScreenToGLY(cy+pointY[point]*.46f));
         }
-        for (edge = 0; edge < 10; ++edge)
-        {
-            sdword next = (edge + 1) % 10;
-            primLine2(cx + pointX[edge] + 1, cy + pointY[edge] + 1,
-                      cx + pointX[next] + 1, cy + pointY[next] + 1, shadowColor);
-            primLine2(cx + pointX[edge], cy + pointY[edge],
-                      cx + pointX[next], cy + pointY[next], starColor);
-        }
-        primLine2(cx - 1, cy, cx + 1, cy, starColor);
+        glEnd();
     }
+    rndTextureEnable(textureOn);
 }
 
 #if PIE_MOVE_NEARTO
@@ -240,7 +173,6 @@ void selStartup(void)
     selGroupFont1 = frFontRegister(selFontName1);
     selGroupFont2 = frFontRegister(selFontName2);
     selGroupFont3 = frFontRegister(selFontName3);
-    selLoadVeterancyStar();
 }
 
 /*-----------------------------------------------------------------------------
@@ -252,11 +184,6 @@ void selStartup(void)
 ----------------------------------------------------------------------------*/
 void selShutdown(void)
 {
-    if (selVeterancyStarTexture != 0)
-    {
-        trRGBTextureDelete(selVeterancyStarTexture);
-        selVeterancyStarTexture = 0;
-    }
 }
 
 /*-----------------------------------------------------------------------------

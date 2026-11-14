@@ -591,13 +591,14 @@ static bool32 meshModernTryRegisterLoosePng(
                 hwModernGraphicsDecodeModelDds(emissionFile, (unsigned int)emissionSize,
                     emissionName, mainTextureResolution,
                     &emissionWidth, &emissionHeight, &emissionPixels) &&
-                emissionWidth == (unsigned int)width &&
-                emissionHeight == (unsigned int)height)
+                meshRemasteredEmissionDimensionsValid(emissionWidth,emissionHeight,
+                    (unsigned int)width,(unsigned int)height))
             {
                 sdword emissionIndex;
                 for (emissionIndex = 0; emissionIndex < width * height; ++emissionIndex)
                 {
-                    const unsigned char *p = emissionPixels + emissionIndex * 4;
+                    const unsigned char *p = meshRemasteredEmissionTexel(
+                        emissionPixels,emissionWidth,emissionHeight,(unsigned)emissionIndex);
                     /* A cutout cannot emit into pixels where the hull is absent. */
                     ubyte alpha = meshRemasteredEmissionCoverage(
                         p, pixels[emissionIndex * 4 + 3]);
