@@ -184,12 +184,12 @@
   },
   "fresh_install": {
     "schema": 1,
-    "version": "1.1",
-    "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1/OpenHW-Setup.exe",
+    "version": "1.1.1",
+    "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.1/OpenHW-Setup.exe",
     "mirrors": [
-      "https://openhw.tech/downloads/v1.1/OpenHW-Setup.exe"
+      "https://openhw.tech/downloads/v1.1.1/OpenHW-Setup.exe"
     ],
-    "size": 491673490,
-    "sha256": "37e2bceb0db80cd0073d66fa102c1a5ab8019589cabd5b6ae69ec000da3f7d17"
+    "size": 521175421,
+    "sha256": "5861947f800d82305f218bdb01dabea02a5269bfe0ce3f6066d71ee1f5f2d33c"
   }
 }
