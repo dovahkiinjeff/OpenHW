@@ -18,7 +18,7 @@ import urllib.parse
 import uuid
 import zipfile
 
-UPDATER_VERSION = '1.1.2'
+UPDATER_VERSION = '1.1.3'
 PROTOCOL = 3
 MANIFEST_URL = 'https://openhw.tech/updates/stable.json'
 FALLBACK_MANIFEST_URL = 'https://raw.githubusercontent.com/dovahkiinjeff/OpenHW/main/updates/stable.json'
@@ -190,6 +190,8 @@ def validate_manifest(manifest):
     updater = manifest.get('updater')
     if updater:
         version_key(updater['version']); validate_download(updater)
+    if manifest.get('launcher'):
+        version_key(manifest['launcher']['version']); validate_download(manifest['launcher'])
     fresh=manifest.get('fresh_install')
     if fresh:
         version_key(fresh['version']); validate_download(fresh)
@@ -466,7 +468,7 @@ try {
   $pending=$Target+'.new'
   Copy-Item -LiteralPath $Candidate -Destination $pending -Force
   Move-Item -LiteralPath $pending -Destination $Target -Force
-  Start-Process -FilePath $Target -WorkingDirectory $Root
+  Start-Process -FilePath $Target -WorkingDirectory $Root -ArgumentList @('--launcher-update') -WindowStyle Hidden
 } catch { $_ | Out-File -LiteralPath (Join-Path $Root 'Development/Logs/updater-self-update.log') }
 ''', encoding='utf-8')
     powershell = Path(os.environ['SystemRoot'])/'System32/WindowsPowerShell/v1.0/powershell.exe'
@@ -515,14 +517,36 @@ def update(root, progress, cancelled=lambda: False, select_collection=lambda: No
                 'https://openhw.tech or https://github.com/dovahkiinjeff/OpenHW/releases/latest. '
                 'After installing, use the Launcher and Updater supplied with the new installation.')
         route = update_plan(manifest, installed)
-        if not route: return installed
         for index, patch in enumerate(route, 1):
             if cancelled(): raise Cancelled('Update paused. Run the updater again to continue.')
             progress(f'Patch {index} of {len(route)}: {installed} → {patch["to"]}', None)
             package = download(patch, inside(root,'Development/Updater/Downloads'), progress, cancelled)
             if cancelled(): raise Cancelled('Update paused. Run the updater again to continue.')
             installed = apply_patch(root, patch, package, progress, select_collection)
+        install_launcher_component(root, manifest, progress, cancelled)
         return installed
+
+
+def install_launcher_component(root, manifest, progress, cancelled=lambda: False):
+    row = manifest.get('launcher')
+    if not row: return
+    validate_download(row)
+    target = inside(root, 'Launcher.exe')
+    if target.is_file() and digest(target) == row['sha256']: return
+    if launcher_running(): raise UpdateError('The Launcher has not finished its automatic restart handoff yet.')
+    candidate = download(row, inside(root, 'Development/Updater/Downloads'), progress, cancelled)
+    if cancelled(): raise Cancelled('Update cancelled before replacing the Launcher')
+    if digest(candidate) != row['sha256']: raise UpdateError('Launcher download failed verification')
+    if target.exists():
+        backup = inside(root, 'Development/Updater/ComponentBackups/'+digest(target)+'/Launcher.exe')
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        if not backup.exists(): shutil.copyfile(target, backup)
+    pending = inside(root, 'Launcher.exe.update-pending')
+    try:
+        shutil.copyfile(candidate, pending)
+        if digest(pending) != row['sha256']: raise UpdateError('Launcher copy failed verification')
+        os.replace(pending, target)
+    finally: pending.unlink(missing_ok=True)
 
 
 def run_gui(root, manifest=None):
@@ -599,13 +623,28 @@ def main(bundled_manifest=None):
     parser.add_argument('--root',type=Path,required=True)
     parser.add_argument('--verify-payload',action='store_true')
     parser.add_argument('--check-update-feed',action='store_true')
+    parser.add_argument('--launcher-update',action='store_true')
+    parser.add_argument('--wait-engine',type=int,default=0)
+    parser.add_argument('--wait-bootstrap',type=int,default=0)
     args = parser.parse_args()
     if args.check_update_feed:
         check_update_feed(args.root, 'Updater')
     elif args.verify_payload:
         import ssl
         from release_sky_lighting import ensure
+        if args.launcher_update:
+            from openhw_launcher_ui import wait_for_launcher_exit
+            wait_for_launcher_exit([args.wait_engine,args.wait_bootstrap])
         atomic_json(args.root/'Development/Updater/self-check.json', dict(status='passed', version=UPDATER_VERSION,
-            protocol=PROTOCOL, tls=ssl.OPENSSL_VERSION, noNetwork=True, noGameUpdate=True))
-    else: run_gui(args.root, read_json(inside(args.root,bundled_manifest)) if bundled_manifest else None)
+            protocol=PROTOCOL, tls=ssl.OPENSSL_VERSION, noNetwork=True, noGameUpdate=True, handoff=args.launcher_update, wait_engine=args.wait_engine))
+    else:
+        from openhw_launcher_ui import run_update
+        bootstrap_feed=None
+        if bundled_manifest and not args.launcher_update:
+            candidate=validate_manifest(read_json(inside(args.root,bundled_manifest)))
+            installed=detect_version(args.root)
+            component=candidate.get('launcher')
+            needs_repair=component and (not (args.root/'Launcher.exe').is_file() or digest(args.root/'Launcher.exe')!=component['sha256'])
+            if compare_versions(installed,candidate['latest'])<0 or (compare_versions(installed,candidate['latest'])==0 and needs_repair):bootstrap_feed=candidate
+        run_update(args.root, [args.wait_engine,args.wait_bootstrap], bootstrap_feed)
 

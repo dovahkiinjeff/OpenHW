@@ -34,6 +34,7 @@ def public_json(asset):
 
 def generate(releases, metadata=public_json, prior=None):
     games = []; updater = (prior or {}).get('updater'); fresh = (prior or {}).get('fresh_install')
+    launcher=(prior or {}).get('launcher')
     boundaries = [fresh['version']] if fresh else []
     for release in releases:
         if release.get('draft') or release.get('prerelease'): continue
@@ -41,6 +42,9 @@ def generate(releases, metadata=public_json, prior=None):
         if 'OpenHW-Updater.json' in assets:
             candidate = metadata(assets['OpenHW-Updater.json'])
             if not updater or version_key(candidate['version']) >= version_key(updater['version']): updater=candidate
+        if 'OpenHW-Launcher.json' in assets:
+            candidate=metadata(assets['OpenHW-Launcher.json'])
+            if not launcher or version_key(candidate['version']) >= version_key(launcher['version']):launcher=candidate
         match = re.fullmatch(r'v(\d+(?:\.\d+)+)',release['tag_name'])
         if not match: continue
         version = match[1]; name = 'OpenHW-Patch-'+version+'.exe'
@@ -77,6 +81,7 @@ def generate(releases, metadata=public_json, prior=None):
         if version_key(fresh['version']) > version_key(previous): previous=fresh['version']
         minimum=max(minimum,3)
     feed = dict(schema=1,channel='stable',latest=previous,minimum_protocol=minimum,patches=patches)
+    if launcher:feed['launcher']=launcher
     if updater: feed['updater']=updater
     if fresh: feed['fresh_install']=fresh
     validate_manifest(feed)

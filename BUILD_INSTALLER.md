@@ -111,3 +111,7 @@ Original notes/licenses remain; begin with current documentation.
 The cloud adaptation keeps its upstream permission-status note in
 src/ThirdParty/OpenMWVolumetricClouds/PROVENANCE.md. Packaging does not resolve
 that note or change upstream licensing.
+
+## One-time 1.1.1 updater recovery package
+
+Build the utilities and the utility-only 1.1.1 patch first. Generate the offline recovery inputs with `python tools/create_repair_bundle.py --patch <OpenHW-Patch-1.1.1.exe> --launcher <Launcher.exe> --output <bundle-folder>`. Then run the existing `tools/package_updater.py` packaging command with `--bundle <bundle-folder>` to produce the one-time replacement Updater.exe. This bundles only the verified patch and Launcher component, never an entire retail extraction. The resulting replacement also supports future server-driven updates; bundled recovery is selected only for installations that still need it. The utility's internal revision is distinct from the game patch version.

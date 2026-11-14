@@ -50,7 +50,7 @@ def sync(root=ROOT):
         if feed.get('updater') and previous.get('updater') and compare_versions(feed['updater']['version'],previous['updater']['version'])<0:
             raise ValueError('Upstream updater is older than the hosted updater; existing feed retained')
     floor=feed.get('fresh_install',{}).get('version','1.0')
-    rows=[r for r in (feed.get('updater'),feed.get('fresh_install')) if r]
+    rows=[r for r in (feed.get('updater'),feed.get('launcher'),feed.get('fresh_install')) if r]
     rows += [p for p in feed.get('patches',[]) if compare_versions(p['to'],floor)>0]
     root.mkdir(exist_ok=True,parents=True)
     for row in rows:

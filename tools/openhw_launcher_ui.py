@@ -170,7 +170,7 @@ class App:
         self.style=ttk.Style();self.style.theme_use('clam');self.configure_styles()
         self.config=backend.Configuration(self.root);self.mods=backend.read_mods(self.root)
         self.variables={};self.original={};self.widgets={};self.wraps=[];self.choices={}
-        self.messages=queue.Queue();self.responses=queue.Queue();self.busy=False;self.tab='play';self.modal=None
+        self.messages=queue.Queue();self.responses=queue.Queue();self.busy=False;self.channel_fetching=False;self.tab='play';self.modal=None
         self.version=backend.updater.detect_version(self.root);self.status=tk.StringVar(value='READY FOR DEPLOYMENT')
         self.chrome=Chrome(self.window,self.close,title='OPENHW   /   FLEET COMMAND',main=True)
         self.shell=tk.Frame(self.window,bg=PANEL);self.shell.pack(fill='both',expand=True,padx=2)
@@ -192,7 +192,7 @@ class App:
         self.window.minsize(980,650);self.window.update_idletasks()
         if not preview:
             self.window.deiconify();self.window.update_idletasks();self.chrome.taskbar();self.window.after(120,self.chrome.taskbar)
-            self.window.after(100,self.poll)
+            self.window.after(100,self.poll);self.window.after(1200,self.check_channel)
     def configure_styles(self):
         s=self.style;s.configure('.',background=PANEL,foreground=INK,font=BODY,borderwidth=0)
         s.configure('TCombobox',fieldbackground=RAISED,background=RAISED,foreground=INK,arrowcolor=GOLD,bordercolor=LINE,lightcolor=LINE,darkcolor=LINE,padding=8,arrowsize=16)
@@ -374,11 +374,15 @@ class App:
         subprocess.Popen([str(self.root/'Launcher.exe'),'--diagnostics-report'],cwd=self.root,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
     def make_footer(self):
-        foot=tk.Frame(self.window,bg=BG,height=82);foot.pack(side='bottom',before=self.shell,fill='x',padx=2,pady=(0,2));foot.pack_propagate(False)
+        foot=tk.Frame(self.window,bg=BG,height=124);foot.pack(side='bottom',before=self.shell,fill='x',padx=2,pady=(0,2));foot.pack_propagate(False)
         line=tk.Frame(foot,bg=LINE,height=1);line.pack(fill='x')
         label(foot,'SYSTEM STATUS',size=('Share Tech Mono',-10),color=GOLD,bg=BG).place(x=24,y=13)
         status=tk.Label(foot,textvariable=self.status,font=SMALL,fg=INK,bg=BG,anchor='w',justify='left',wraplength=1050)
         status.place(x=24,y=31,relwidth=1,width=-80,height=35)
+        self.channel_status=tk.StringVar(value='UPDATE SERVER / Checking for available updates...')
+        self.channel_label=label(foot,'',size=SMALL,color=CYAN,bg=BG,textvariable=self.channel_status,wraplength=760)
+        self.channel_label.place(x=24,y=72,relwidth=1,width=-300,height=38)
+        self.update_now=Button(foot,'UPDATE NOW',lambda:self.guarded(self.update),primary=True,width=220,height=38,bg=BG)
         self.progress=tk.Canvas(foot,height=3,bg='#17313a',highlightthickness=0);self.progress.pack(side='bottom',fill='x',padx=24,pady=(0,7))
         self.progress.bind('<Configure>',lambda e:self.draw_progress());self.amount=0;self.tick=0
     def draw_progress(self):
@@ -401,11 +405,30 @@ class App:
         self.api.updater.stop_if_game_running();self.save();self.api.save_mods(self.root,self.mods);self.busy=True;self.amount=None;self.status.set('CONTACTING UPDATE CHANNEL...')
         def worker():
             try:
-                version=self.api.updater.update(self.root,lambda text,value=None:self.messages.put(('progress',text,value)),self_update=False,
-                    select_collection=lambda:(self.messages.put(('collection','',None)),self.responses.get())[1])
-                self.messages.put(('done','OPENHW '+version+' / All available updates installed.',1))
+                command=self.api.prepare_launcher_update(self.root,lambda text,value=None:self.messages.put(('progress',text,value)))
+                if command:self.messages.put(('handoff',command,0))
+                else:self.messages.put(('done','OPENHW '+self.version+' / All available updates installed.',1))
             except Exception as error:self.messages.put(('error',str(error),0))
         threading.Thread(target=worker,daemon=False).start()
+    def check_channel(self):
+        if not self.busy and not self.channel_fetching:
+            self.channel_fetching=True
+            def worker():
+                try:self.messages.put(('feed','',self.api.updater.fetch_manifest()))
+                except Exception as error:self.messages.put(('feed-error',str(error),None))
+            threading.Thread(target=worker,daemon=True).start()
+        self.window.after(300000,self.check_channel)
+    def receive_channel(self,feed):
+        self.channel_fetching=False
+        game_new=self.api.updater.compare_versions(feed['latest'],self.version)>0
+        component=feed.get('launcher')
+        launcher_new=component and self.api.updater.compare_versions(component['version'],self.api.VERSION)>0
+        if game_new or launcher_new:
+            self.channel_status.set('UPDATE AVAILABLE / OpenHW '+feed['latest']+' - ready to download and install.')
+            self.update_now.place(relx=1,x=-244,y=72,width=220,height=38)
+        else:
+            self.channel_status.set('UPDATE SERVER ONLINE / OpenHW '+self.version+' is up to date.')
+            self.update_now.place_forget()
     def cache(self):
         if self.dialog('REBUILD SHADER LIBRARY','Back up the current local cache? OpenHW will rebuild it at the next startup.',confirm=True):self.status.set(self.api.rebuild_shader_cache(self.root))
     def import_voice(self):
@@ -424,6 +447,11 @@ class App:
             while True:
                 try:kind,text,value=self.messages.get_nowait()
                 except queue.Empty:break
+                if kind=='feed':self.receive_channel(value);continue
+                if kind=='feed-error':
+                    self.channel_fetching=False;self.channel_status.set('UPDATE SERVER / Temporarily unavailable; retrying automatically.');continue
+                if kind=='handoff':
+                    self.api.start_update_handoff(self.root,text);self.window.destroy();return
                 if kind=='collection':
                     self.responses.put(filedialog.askdirectory(parent=self.window,title='Select Homeworld Remastered Collection'));continue
                 self.status.set(text);self.amount=value
@@ -433,7 +461,9 @@ class App:
             self.busy=False;self.amount=0
             self.status.set('UPDATE INTERRUPTED / '+str(error)+'. You can retry or close the Launcher.')
         finally:
-            self.window.after(100,self.poll)
+            try:
+                if self.window.winfo_exists():self.window.after(100,self.poll)
+            except tk.TclError:pass
     def finish_update(self,kind,text,value):
         # Network errors belong in the status area. A borderless modal error
         # window can end up behind its parent and trap all input in a grab.
@@ -509,3 +539,86 @@ class App:
 def run(root):
     import openhw_launcher as backend
     app=App(root,backend);app.window.mainloop()
+
+def wait_for_launcher_exit(process_ids, timeout=60):
+    """Wait on handles, never terminate a game or another user process."""
+    if os.name != 'nt':return
+    import time
+    kernel=ctypes.WinDLL('kernel32',use_last_error=True)
+    kernel.OpenProcess.argtypes=[wintypes.DWORD,wintypes.BOOL,wintypes.DWORD];kernel.OpenProcess.restype=wintypes.HANDLE
+    kernel.WaitForSingleObject.argtypes=[wintypes.HANDLE,wintypes.DWORD];kernel.WaitForSingleObject.restype=wintypes.DWORD
+    kernel.CloseHandle.argtypes=[wintypes.HANDLE]
+    deadline=time.monotonic()+timeout
+    for identity in process_ids:
+        if not identity:continue
+        if identity==os.getpid():raise RuntimeError('Invalid update handoff process')
+        handle=kernel.OpenProcess(0x00100000,False,identity)
+        if not handle:
+            if ctypes.get_last_error()==87:continue
+            raise RuntimeError('Cannot confirm the old Launcher has closed')
+        try:
+            remaining=max(0,int((deadline-time.monotonic())*1000))
+            if kernel.WaitForSingleObject(handle,remaining)!=0:
+                raise RuntimeError('The old Launcher is still closing. Retry the update shortly.')
+        finally:kernel.CloseHandle(handle)
+
+
+def run_update(root, process_ids=(), manifest=None):
+    """Launcher-styled automatic handoff; no manual external-updater step."""
+    import subprocess
+    import openhw_updater as updater
+    root=Path(root).resolve();load_fonts(root/'Development/Launcher/Theme')
+    window=tk.Tk();window.withdraw();window.configure(bg=LINE);window.title('OpenHW / Updating')
+    messages=queue.Queue();responses=queue.Queue();cancel=threading.Event();busy=False
+    status=tk.StringVar(value='Preparing your update...');amount=[None];tick=[0]
+    def reopen():
+        subprocess.Popen([str(root/'Launcher.exe')],cwd=root,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+        window.destroy()
+    def close():
+        if busy:cancel.set();status.set('Stopping after the current safe step...')
+        else:reopen()
+    chrome=Chrome(window,close,title='OPENHW / FLEET SYSTEMS UPDATE')
+    body=tk.Frame(window,bg=PANEL,padx=30,pady=24);body.pack(fill='both',expand=True,padx=2,pady=(0,2))
+    label(body,'KEEPING THE FLEET READY',size=HEADING,color=GOLD).pack(anchor='w')
+    label(body,'Updates are verified before installation. Your settings and saves are kept.',size=SMALL,color=MUTED).pack(anchor='w',pady=(8,20))
+    label(body,'',textvariable=status,size=BODY,wraplength=680,justify='left').pack(fill='x',pady=10)
+    bar=tk.Canvas(body,height=6,bg=BG,highlightthickness=0);bar.pack(fill='x',pady=16)
+    buttons=tk.Frame(body,bg=PANEL);buttons.pack(side='bottom',fill='x')
+    retry=Button(buttons,'RETRY UPDATE',lambda:start(),primary=True,width=240)
+    back=Button(buttons,'RETURN TO LAUNCHER',close,width=250);back.pack(side='right')
+    logdir=updater.inside(root,'Development/Logs');logdir.mkdir(parents=True,exist_ok=True)
+    def progress(text,value=None):messages.put(('progress',text,value))
+    def start():
+        nonlocal busy
+        if busy:return
+        busy=True;cancel.clear();retry.pack_forget();status.set('Preparing the automatic update handoff...')
+        def worker():
+            with (logdir/'launcher-update.log').open('a',encoding='utf-8',buffering=1) as log:
+                def record(text,value=None):log.write(text+'\n');progress(text,value)
+                try:
+                    wait_for_launcher_exit(process_ids)
+                    version=updater.update(root,record,cancel.is_set,
+                        lambda:(messages.put(('collection','',None)),responses.get())[1],manifest=manifest)
+                    messages.put(('restart' if version=='restart' else 'done',version,1))
+                except Exception as error:
+                    import traceback
+                    traceback.print_exc(file=log);messages.put(('error',str(error),0))
+        threading.Thread(target=worker,daemon=False).start()
+    def poll():
+        nonlocal busy
+        try:
+            while True:
+                kind,text,value=messages.get_nowait()
+                if kind=='collection':responses.put(filedialog.askdirectory(parent=window,title='Select your owned Homeworld Remastered Collection'));continue
+                if kind=='done':busy=False;reopen();return
+                if kind=='restart':window.destroy();return
+                status.set(text);amount[0]=value
+                if kind=='error':busy=False;retry.pack(side='left')
+        except queue.Empty:pass
+        bar.delete('all');width=bar.winfo_width();tick[0]+=8
+        if busy and amount[0] is None:
+            x=tick[0]%(width+120)-120;bar.create_rectangle(x,0,x+120,6,fill=GOLD,outline='')
+        elif amount[0]:bar.create_rectangle(0,0,width*amount[0],6,fill=GOLD,outline='')
+        window.after(100,poll)
+    window.geometry(f'780x370+{max(0,(window.winfo_screenwidth()-780)//2)}+{max(0,(window.winfo_screenheight()-370)//2)}')
+    window.deiconify();window.update_idletasks();chrome.taskbar();window.lift();window.after(100,poll);window.after(200,start);window.mainloop()

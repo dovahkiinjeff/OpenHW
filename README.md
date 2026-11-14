@@ -1,12 +1,11 @@
-# OpenHW 1.1
+# OpenHW 1.1.1
+
+[**Download the required 1.1.1 Updater.exe**](https://openhw.tech/downloads/v1.1.1/Updater.exe) · [GitHub fallback](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.1) · [1.1.1 patch notes](docs/RELEASE_NOTES_1.1.1.md)
 
 > [!IMPORTANT]
-> **Required update for OpenHW 1.1: one-time manual updater repair before future Launcher updates.**
-> The corrected **1.1.1 recovery is being tested and is not available yet**. The earlier 1.1.1 release has been withdrawn; OpenHW 1.1 remains the current public download.
+> **OpenHW 1.1 requires this one-time updater replacement.** Close the game and Launcher, download the 1.1.1 **Updater.exe**, and place it beside **OpenHW.exe**, replacing the old Updater.exe. **Run it once** to install 1.1.1 and open the updated Launcher. A full game reinstall is not required.
 >
-> When the corrected recovery is released, close OpenHW and Launcher.exe, download the replacement **Updater.exe** from the official release, and put it beside **OpenHW.exe**, replacing the old Updater.exe. **Run it once** to install 1.1.1 and open the corrected Launcher. A full game reinstall is not required for this repair.
->
-> After that one-time repair, the Launcher's server update ticker and **Update now** button handle future updates, including updating its own Launcher and Updater and reopening the Launcher when needed. Automatic checks notify you; they do not silently install updates. [Watch the official release page for the corrected recovery download](https://github.com/dovahkiinjeff/OpenHW/releases).
+> Afterward, the Launcher's server update ticker and **Update now** button handle future updates, including its own Launcher and Updater, and reopen Launcher when needed. Automatic checks notify you; they do not silently install updates.
 
 **The best of both worlds: high-fidelity Homeworld Remastered assets and original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets with modern rendering and in-game creation tools to build the ultimate classic Homeworld experience.
 

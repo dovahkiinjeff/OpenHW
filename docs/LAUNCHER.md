@@ -66,3 +66,9 @@ Open **Diagnostics** from the game main menu or **Ship Systems > Report an issue
 Click **Upload all new logs** to upload every log/crash dump under Development/Logs that has not already been acknowledged. There is no newest-file limit or manual file selection. Nested folders and duplicate basenames are supported. Large files are split into 32 MiB chunks and at most 60 chunks are sent per bounded batch. Changed files are eligible again; previously acknowledged chunks are skipped. If a batch fails, retry the upload: successful earlier batches remain recorded.
 
 The folder identity, private upload credential, saved comment and content hashes are stored only in Development/Reports/profiles.json. Keep that file when moving an installation to preserve saved folders and upload history. No upload runs in the background during normal gameplay. Logs can contain local paths; reports are private to the OpenHW team.
+
+## Launcher updates after the 1.1.1 recovery
+
+The 1.1 base needs a one-time replacement of Updater.exe. Close Launcher and the game, replace that file in the installation root, and run it. The recovery is bundled and verified, installs 1.1.1, and reopens Launcher. Later runs use the live update channel rather than forcing the bundled old patch over a newer installation.
+
+The footer checks the server at startup and every five minutes without installing anything. When an update is available, Update now appears. Launcher downloads verified updates before automatically handing installation to the themed helper and reopening itself. The helper waits for the old Launcher and its bootstrap to exit; it never kills those processes. Failed downloads leave Launcher open. Failed installation offers Retry and Return to Launcher. Transactional patch recovery and file backups remain active.

@@ -15,7 +15,7 @@ import openhw_updater as updater
 from launcher_settings import SETTINGS
 import launcher_languages
 
-VERSION = '1.1.2'
+VERSION = '1.1.3'
 MOD_NAME = re.compile(r'[A-Za-z0-9_-]{1,64}\Z')
 LANGUAGES = ('English', 'French', 'German', 'Spanish', 'Italian')
 
@@ -171,6 +171,36 @@ def start_game(root, diagnostics=False):
 def run_gui(root):
     from openhw_launcher_ui import run
     run(root)
+
+
+def prepare_launcher_update(root, progress):
+    """Verify/cache everything before handing off the locked Launcher EXE."""
+    root=Path(root).resolve();updater.stop_if_game_running()
+    with updater.update_lock(root):
+        feed=updater.fetch_manifest();installed=updater.detect_version(root)
+        route=updater.update_plan(feed,installed)
+        component=feed.get('launcher')
+        if not route and (not component or updater.compare_versions(VERSION,component['version'])>=0):return None
+        for patch in route:updater.download(patch,updater.inside(root,'Development/Updater/Downloads'),progress,lambda:False)
+        if component:updater.download(component,updater.inside(root,'Development/Updater/Downloads'),progress,lambda:False)
+        own=feed.get('updater')
+        if not own:raise updater.UpdateError('The server has not published its update helper yet.')
+        candidate=updater.download(own,updater.inside(root,'Development/Updater/Downloads'),progress,lambda:False)
+        target=updater.inside(root,'Updater.exe')
+        if not target.exists() or updater.digest(target)!=own['sha256']:
+            if target.exists():backup(root,target)
+            pending=updater.inside(root,'Updater.exe.update-pending')
+            try:
+                shutil.copyfile(candidate,pending)
+                if updater.digest(pending)!=own['sha256']:raise updater.UpdateError('Update helper failed verification')
+                os.replace(pending,target)
+            finally:pending.unlink(missing_ok=True)
+        return [str(target),'--launcher-update','--wait-engine',str(os.getpid()),
+                '--wait-bootstrap',os.environ.get('OPENHW_UPDATER_BOOTSTRAP_PID','0')]
+
+
+def start_update_handoff(root, command):
+    return subprocess.Popen(command,cwd=root,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
 
 
 def main():

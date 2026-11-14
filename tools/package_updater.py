@@ -23,7 +23,7 @@ def main():
     from PyInstaller.archive.readers import CArchiveReader
     from PyInstaller.archive.writers import CArchiveWriter
     from PyInstaller.loader.pyimod01_archive import ZlibArchiveReader
-    version = '1.1.2'
+    version = '1.1.3'
     source = args.source.resolve(); args.work.mkdir(parents=True, exist_ok=True)
     for path in (('tools/openhw_launcher.py' if args.launcher else 'tools/openhw_updater.py'),'tools/UpdaterVersion.h'):
         if version not in (source/path).read_text(encoding='utf-8'): raise ValueError('Updater version mismatch')
@@ -35,7 +35,7 @@ def main():
     required = ('urllib.request','ssl','tkinter','zipfile','ctypes','generate_mission_skies')
     if any(module not in pyz.toc for module in required): raise ValueError('Installer runtime is missing required modules')
     modules=['openhw_updater','release_sky_lighting']
-    if args.launcher: modules+=['openhw_launcher','openhw_launcher_ui','launcher_settings','launcher_languages','openhw_diagnostics']
+    modules+=['openhw_launcher','openhw_launcher_ui','launcher_settings','launcher_languages','openhw_diagnostics']
     replacements = {module:compile((source/'tools'/(module+'.py')).read_text(encoding='utf-8'),module+'.py','exec')
                     for module in modules}
     # Some build runtimes ship an SSL policy certificate beside ssl.py.
@@ -47,16 +47,15 @@ def main():
                       Path(sysconfig.get_path('stdlib'))/'codex-rejected-cas.pem')
         ssl_policy = next((path for path in candidates if path.is_file()), None)
         if ssl_policy is None: raise ValueError('The frozen SSL module requires its build-runtime certificate policy file')
-    if args.launcher:
-        for module in ('tkinter.ttk','tkinter.messagebox','tkinter.filedialog','tkinter.simpledialog','tkinter.commondialog','extract_vanilla_ship_textures'):
-            if module not in pyz.toc: raise ValueError('Launcher runtime is missing '+module)
-        # The installer never used the native color picker, so its frozen
-        # standard library does not include this module. Bundle it explicitly.
-        for module in ('tkinter.colorchooser','tkinter.font','ctypes.wintypes'):
-            if module not in pyz.toc:
-                relative=module.replace('.','/')+'.py'
-                library=Path(sysconfig.get_path('stdlib'))/relative
-                replacements[module]=compile(library.read_text(encoding='utf-8'),relative,'exec')
+    for module in ('tkinter.ttk','tkinter.messagebox','tkinter.filedialog','tkinter.simpledialog','tkinter.commondialog','extract_vanilla_ship_textures'):
+        if module not in pyz.toc: raise ValueError('Launcher runtime is missing '+module)
+    # The installer never used the native color picker, so its frozen
+    # standard library does not include this module. Bundle it explicitly.
+    for module in ('tkinter.colorchooser','tkinter.font','ctypes.wintypes'):
+        if module not in pyz.toc:
+            relative=module.replace('.','/')+'.py'
+            library=Path(sysconfig.get_path('stdlib'))/relative
+            replacements[module]=compile(library.read_text(encoding='utf-8'),relative,'exec')
     new = io.BytesIO(); new.write(raw[:17]); toc = []
     for module,(kind,start,size) in pyz.toc.items():
         data = zlib.compress(marshal.dumps(replacements.pop(module)),6) if module in replacements else raw[start:start+size]
@@ -98,11 +97,11 @@ except Exception:
                 if path.is_file():out.write(path,path.relative_to(args.bundle).as_posix())
         if ssl_policy:
             out.write(ssl_policy,'Development/'+('Launcher' if args.launcher else 'Updater')+'/Runtime/'+version+'/Development/codex-rejected-cas.pem')
-        if args.launcher:
-            theme=source/'assets/Launcher'
-            for asset in sorted(theme.iterdir()):
-                if asset.is_file() and asset.suffix in ('.png','.ttf','.txt','.json','.ico'):
-                    out.write(asset,'Development/Launcher/Theme/'+asset.name)
+        # Both utilities provide the same themed update interface.
+        theme=source/'assets/Launcher'
+        for asset in sorted(theme.iterdir()):
+            if asset.is_file() and asset.suffix in ('.png','.ttf','.txt','.json','.ico'):
+                out.write(asset,'Development/Launcher/Theme/'+asset.name)
     payload = archive.read_bytes(); bootstrap = args.bootstrap.read_bytes()
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_bytes(bootstrap+payload+struct.pack('<16sQQ32s',b'OPENHW1SETUPZIP\0',len(bootstrap),len(payload),hashlib.sha256(payload).digest()))

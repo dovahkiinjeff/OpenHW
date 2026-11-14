@@ -90,6 +90,15 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
     const bool verify=args && std::wstring(args).find(L"--verify-payload")!=std::wstring::npos;
     const bool checkFeed=args && std::wstring(args).find(L"--check-update-feed")!=std::wstring::npos;
     const bool quiet=verify || checkFeed;
+    std::wstring handoffArgs;
+    if(args && wcsstr(args,L"--launcher-update")){
+        handoffArgs=L" --launcher-update";
+        const std::wstring input(args);
+        const std::wregex pattern(L"--wait-(engine|bootstrap)\\s+([0-9]{1,10})");
+        for(std::wsregex_iterator it(input.begin(),input.end(),pattern),end;it!=end;++it)
+            handoffArgs+=L" --wait-"+(*it)[1].str()+L" "+(*it)[2].str();
+    }
+
     HANDLE source=INVALID_HANDLE_VALUE,output=INVALID_HANDLE_VALUE,log=INVALID_HANDLE_VALUE;
     BCRYPT_ALG_HANDLE algorithm=nullptr;BCRYPT_HASH_HANDLE hash=nullptr;
     HANDLE preparationMutex=nullptr;
@@ -271,7 +280,7 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
 #endif
         const DWORD result=launch(engine.wstring(),
 #ifdef OPENHW_UPDATER
-            L"--root "+quote(root.wstring())+(verify?L" --verify-payload":checkFeed?L" --check-update-feed":L"")
+            L"--root "+quote(root.wstring())+handoffArgs+(verify?L" --verify-payload":checkFeed?L" --check-update-feed":L"")
 #ifdef OPENHW_LAUNCHER
             +(wcsstr(GetCommandLineW(),L"--diagnostics-report")?L" --diagnostics-report":L"")
 #endif
