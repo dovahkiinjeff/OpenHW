@@ -1,5 +1,7 @@
 #include "OnlineClient.h"
 #include "MatchRules.h"
+#include "ModernMapEditor.h"
+#include "ModernUI.h"
 #include "Globals.h"
 #include "Universe.h"
 #include "CommandNetwork.h"
@@ -87,6 +89,7 @@ void hwOnlineGamePump(void)
         else if(type==OH_LOAD && length==sizeof(OHLoad) && !gameIsRunning && !hwMatchActive()) {
             OHLoad load;unsigned i;memcpy(&load,bytes,sizeof(load));
             for(i=0;i<(unsigned)spScenarioListLength;i++)if(!strcmp(load.config.map,spScenarios[i].fileSpec))break;
+            modernMapEditorClose();modernUICloseLightingEditor();
             if(i==(unsigned)spScenarioListLength || !hwMatchInstall(&load)) {
                 hwOnlineSend(OH_LEAVE,NULL,0);snprintf(message,sizeof(message),"Server map or match setup is incompatible");continue;
             }

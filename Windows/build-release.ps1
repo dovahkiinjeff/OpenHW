@@ -6,7 +6,7 @@ param(
     [string]$SdkRoot,
     [string]$OutputDirectory,
     [string]$SourceDirectory,
-    [string]$ReleaseVersion = '1.1.2',
+    [string]$ReleaseVersion = '1.1.3',
     [switch]$SkipBootstrap,
     [switch]$SkipTests
 )
@@ -46,7 +46,7 @@ foreach ($variant in @(@{Path=$normalBuild; Logging='OFF'},@{Path=$diagnosticBui
         "-DCMAKE_TOOLCHAIN_FILE=$VcpkgRoot\scripts\buildsystems\vcpkg.cmake",
         "-DVCPKG_INSTALLED_DIR=$VcpkgInstalledRoot",'-DVCPKG_TARGET_TRIPLET=x64-windows',
         "-DHW_STREAMLINE_ROOT=$SdkRoot\streamline","-DHW_FIDELITYFX_ROOT=$SdkRoot\fidelityfx","-DHW_XESS_ROOT=$SdkRoot\xess",
-        "-DHW_ENABLE_DIAGNOSTICS=$($variant.Logging)",'-DHW_ENABLE_LIVE_MAP_AUTHORING=OFF','-DBUILD_TESTING=ON')
+        "-DHW_ENABLE_DIAGNOSTICS=$($variant.Logging)",'-DHW_ENABLE_LIVE_MAP_AUTHORING=ON','-DBUILD_TESTING=ON')
     # Build every test executable before ctest, plus the import-only targets.
     Run-Checked $cmake @('--build',$variant.Path,'--config','Release','--parallel',
         '--','/v:minimal','/clp:ErrorsOnly;Summary')

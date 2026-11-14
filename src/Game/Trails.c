@@ -1299,6 +1299,8 @@ void trailDrawBillboardedSquareThingz(shiptrail* trail, trailsegment* seg, real3
     }
 
     rad = trailBulbRadius(trail, ship);
+    /* Size correction only: the shared nozzle/ribbon anchor remains physical. */
+    if (ship->shiprace == R1 && ship->shiptype == RepairCorvette) rad *= 0.5f;
 
     depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
     glGetBooleanv(GL_DEPTH_WRITEMASK, &depthWriteWasEnabled);

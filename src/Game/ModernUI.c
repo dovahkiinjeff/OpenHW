@@ -229,6 +229,9 @@ typedef struct ModernUICommandState
     regionhandle ruleRegion;
     regionhandle controlGroupRegion;
     sdword rosterScroll;
+    sdword rosterHeight;
+    bool32 rosterResizing;
+    bool32 rosterResizeConsumeRelease;
     sdword iconScroll;
     bool32 infoOverlayWasRunning;
     bool32 backdropAttempted;
@@ -791,6 +794,7 @@ static ModernUIArtKind muiArtworkForScreen(const char *name)
     udword hash = 2166136261u;
     const char *cursor = name;
     if (name == NULL) return MUI_ART_GALAXY;
+    if(strstr(name,"Quit_game"))return MUI_ART_CHAMBER;
     if(strstr(name,"In_game_")||strstr(name,"Pause")||strstr(name,"Escape"))return MUI_ART_BENTUSI_STUDY;
     if(strstr(name,"Construction")||strstr(name,"Build"))return MUI_ART_DOCK;
     if(strstr(name,"Research"))return MUI_ART_SCIENCE;
@@ -1669,6 +1673,22 @@ static rectangle muiCommandIconRect(const rectangle *tray, sdword index,
     return muiRect(x0, y0, x0 + iconSize, y0 + iconSize);
 }
 
+static sdword muiCommandRosterRows(const rectangle *roster)
+{
+    return muiClamp((roster->y1-roster->y0-uiScaleSize(24))/MAX2(1,uiScaleSize(12)),1,64);
+}
+static void muiCommandRosterHeightStore(bool32 save)
+{
+    char *base=SDL_GetBasePath();char folder[1024],path[1100];FILE *file;int height;
+    if(!base)return;
+    if(save){snprintf(folder,sizeof(folder),"%sDevelopment",base);fileMakeDirectory(folder);snprintf(folder,sizeof(folder),"%sDevelopment/UI",base);fileMakeDirectory(folder);}
+    snprintf(path,sizeof(path),"%sDevelopment/UI/selected-ships-height.txt",base);SDL_free(base);
+    file=fopen(path,save?"wt":"rt");if(!file)return;
+    if(save)fprintf(file,"%d\n",muiCommand.rosterHeight);
+    else if(fscanf(file,"%d",&height)==1 && height>=0 && height<=4000)muiCommand.rosterHeight=height;
+    fclose(file);
+}
+
 static void muiCommandLayoutCompute(ModernUICommandLayout *layout)
 {
     rectangle infoRect;
@@ -1736,7 +1756,7 @@ static void muiCommandLayoutCompute(ModernUICommandLayout *layout)
     layout->left = muiRect(0, MAIN_WindowHeight - hudHeight,
                            leftWidth, MAIN_WindowHeight);
     layout->right = muiRect(MAIN_WindowWidth - rightWidth,
-                            MAIN_WindowHeight - hudHeight,
+                            MAIN_WindowHeight - muiClamp(muiCommand.rosterHeight>0?uiScaleSize(muiCommand.rosterHeight):hudHeight,uiScaleSize(72),MAIN_WindowHeight*3/4),
                             MAIN_WindowWidth, MAIN_WindowHeight);
     muiCommandIconTrayMetrics(&layout->right, selSelected.numShips,
                               &layout->iconTray, NULL, NULL, NULL, NULL);
@@ -1797,7 +1817,7 @@ static void muiCommandLayoutCompute(ModernUICommandLayout *layout)
                                  layout->right.y1 - margin);
 
     rowHeight = (layout->roster.y1 - layout->roster.y0 - uiScaleSize(22)) /
-                MUI_COMMAND_ROSTER_ROWS;
+                muiCommandRosterRows(&layout->roster);
     if (rowHeight < uiScaleSize(12)) rowHeight = uiScaleSize(12);
     layout->rosterUp = muiRect(layout->roster.x1 - uiScaleSize(18),
                                layout->roster.y0 + uiScaleSize(22),
@@ -2629,20 +2649,27 @@ static void muiCommandRightDraw(regionhandle region)
     /* The lower-right roster supersedes the legacy upper-right Info Overlay. */
     if (ioRunning) ioDisable();
     muiEnsureFonts();
+    if(muiCommand.rosterResizing){
+        sdword height=muiClamp(MAIN_WindowHeight-mouseCursorY(),uiScaleSize(72),MAIN_WindowHeight*3/4);
+        muiCommand.rosterHeight=height*1000/MAX2(1,uiScaleSize(1000));
+        if(!mouseLeftButton()){muiCommand.rosterResizing=FALSE;muiCommandRosterHeightStore(TRUE);}
+    }
     muiCommandLayoutCompute(&layout);
     region->rect = layout.right;
     muiCommandSummaryUpdate();
     groupCount = muiCommandBuildRosterGroups(groupTypes, groupCounts,
                                               TOTAL_NUM_SHIPS);
     pageCount = groupCount > 0
-        ? (groupCount + MUI_COMMAND_ROSTER_PAGE_CAPACITY - 1) /
-          MUI_COMMAND_ROSTER_PAGE_CAPACITY : 1;
+        ? (groupCount + (muiCommandRosterRows(&layout.roster)*MUI_COMMAND_ROSTER_COLUMNS) - 1) /
+          (muiCommandRosterRows(&layout.roster)*MUI_COMMAND_ROSTER_COLUMNS) : 1;
     if (muiCommand.rosterScroll < 0) muiCommand.rosterScroll = 0;
     if (muiCommand.rosterScroll >= pageCount) muiCommand.rosterScroll = pageCount - 1;
     pageIndex = muiCommand.rosterScroll;
 
     muiCommandDrawBackdropSegment(&layout.right);
     primRectOutline2(&layout.right, 1, muiLineSoft);
+    {sdword middle=(layout.right.x0+layout.right.x1)/2;rectangle grip=muiRect(middle-uiScaleSize(22),layout.right.y0+1,middle+uiScaleSize(22),layout.right.y0+uiScaleSize(4));muiFill(&grip,muiCommand.rosterResizing?muiSignal:muiLine);}
+
     muiText(layout.roster.x0 + uiScaleSize(5), layout.roster.y0 + uiScaleSize(3),
             muiSignal, "SELECTED SHIPS", muiBodyFont);
     snprintf(text, sizeof(text), "%d", muiCommand.summary.count);
@@ -2660,16 +2687,16 @@ static void muiCommandRightDraw(regionhandle region)
     }
     else
     {
-        start = pageIndex * MUI_COMMAND_ROSTER_PAGE_CAPACITY;
+        start = pageIndex * (muiCommandRosterRows(&layout.roster)*MUI_COMMAND_ROSTER_COLUMNS);
         visibleCount = groupCount - start;
-        if (visibleCount > MUI_COMMAND_ROSTER_PAGE_CAPACITY)
-            visibleCount = MUI_COMMAND_ROSTER_PAGE_CAPACITY;
+        if (visibleCount > (muiCommandRosterRows(&layout.roster)*MUI_COMMAND_ROSTER_COLUMNS))
+            visibleCount = (muiCommandRosterRows(&layout.roster)*MUI_COMMAND_ROSTER_COLUMNS);
         rowsThisPage = (visibleCount + MUI_COMMAND_ROSTER_COLUMNS - 1) /
                        MUI_COMMAND_ROSTER_COLUMNS;
         if (rowsThisPage < 1) rowsThisPage = 1;
-        if (rowsThisPage > MUI_COMMAND_ROSTER_ROWS) rowsThisPage = MUI_COMMAND_ROSTER_ROWS;
+        if (rowsThisPage > muiCommandRosterRows(&layout.roster)) rowsThisPage = muiCommandRosterRows(&layout.roster);
         rowHeight = (layout.roster.y1 - (layout.roster.y0 + uiScaleSize(22))) /
-                    MUI_COMMAND_ROSTER_ROWS;
+                    muiCommandRosterRows(&layout.roster);
         if (rowHeight < uiScaleSize(12)) rowHeight = uiScaleSize(12);
         rosterList = muiRect(layout.roster.x0 + uiScaleSize(4),
                              layout.roster.y0 + uiScaleSize(23),
@@ -2780,6 +2807,16 @@ static udword muiCommandRightProcess(regionhandle region, smemsize ID,
     (void)data;
 
     if (!muiCommandBarVisible()) return 0;
+    muiCommandLayoutCompute(&layout);
+    if(event==RPE_PressLeft && mouseCursorX()>=layout.right.x0 && mouseCursorX()<=layout.right.x1 &&
+       mouseCursorY()>=layout.right.y0 && mouseCursorY()<=layout.right.y0+uiScaleSize(10)){
+        muiCommand.rosterResizing=TRUE;muiCommand.rosterResizeConsumeRelease=TRUE;muiCommand.rosterScroll=0;return RPR_Redraw;
+    }
+    if(event==RPE_ReleaseLeft && muiCommand.rosterResizeConsumeRelease){
+        muiCommand.rosterResizing=FALSE;muiCommand.rosterResizeConsumeRelease=FALSE;
+        muiCommandRosterHeightStore(TRUE);return RPR_Redraw;
+    }
+    if(muiCommand.rosterResizing)return RPR_Redraw;
     if (event == RPE_PressLeft)
     {
         regRecursiveSetDirty(region);
@@ -2790,8 +2827,8 @@ static udword muiCommandRightProcess(regionhandle region, smemsize ID,
     groupCount = muiCommandBuildRosterGroups(groupTypes, groupCounts,
                                               TOTAL_NUM_SHIPS);
     pageCount = groupCount > 0
-        ? (groupCount + MUI_COMMAND_ROSTER_PAGE_CAPACITY - 1) /
-          MUI_COMMAND_ROSTER_PAGE_CAPACITY : 1;
+        ? (groupCount + (muiCommandRosterRows(&layout.roster)*MUI_COMMAND_ROSTER_COLUMNS) - 1) /
+          (muiCommandRosterRows(&layout.roster)*MUI_COMMAND_ROSTER_COLUMNS) : 1;
     maxPage = pageCount - 1;
 
     muiCommandIconTrayMetrics(&layout.right, selSelected.numShips,
@@ -2874,17 +2911,17 @@ static udword muiCommandRightProcess(regionhandle region, smemsize ID,
        retains only those nine ships. */
     if (groupCount > 0)
     {
-        start = muiCommand.rosterScroll * MUI_COMMAND_ROSTER_PAGE_CAPACITY;
+        start = muiCommand.rosterScroll * (muiCommandRosterRows(&layout.roster)*MUI_COMMAND_ROSTER_COLUMNS);
         visibleCount = groupCount - start;
-        if (visibleCount > MUI_COMMAND_ROSTER_PAGE_CAPACITY)
-            visibleCount = MUI_COMMAND_ROSTER_PAGE_CAPACITY;
+        if (visibleCount > (muiCommandRosterRows(&layout.roster)*MUI_COMMAND_ROSTER_COLUMNS))
+            visibleCount = (muiCommandRosterRows(&layout.roster)*MUI_COMMAND_ROSTER_COLUMNS);
         rowsThisPage = (visibleCount + MUI_COMMAND_ROSTER_COLUMNS - 1) /
                        MUI_COMMAND_ROSTER_COLUMNS;
         if (rowsThisPage < 1) rowsThisPage = 1;
-        if (rowsThisPage > MUI_COMMAND_ROSTER_ROWS)
-            rowsThisPage = MUI_COMMAND_ROSTER_ROWS;
+        if (rowsThisPage > muiCommandRosterRows(&layout.roster))
+            rowsThisPage = muiCommandRosterRows(&layout.roster);
         rowHeight = (layout.roster.y1 - (layout.roster.y0 + uiScaleSize(22))) /
-                    MUI_COMMAND_ROSTER_ROWS;
+                    muiCommandRosterRows(&layout.roster);
         if (rowHeight < uiScaleSize(12)) rowHeight = uiScaleSize(12);
         rosterList = muiRect(layout.roster.x0 + uiScaleSize(4),
                              layout.roster.y0 + uiScaleSize(23),
@@ -3057,6 +3094,7 @@ static void muiCommandRuleDraw(regionhandle region)
     if (!muiCommandBarVisible()) return;
     muiCommandLayoutCompute(&layout);
     region->rect = layout.topRule;
+    layout.topRule.x1=layout.right.x0;
     muiFill(&layout.topRule, muiLineSoft);
     leftAccent = layout.topRule;
     leftAccent.x1 = layout.left.x1;
@@ -3065,6 +3103,8 @@ static void muiCommandRuleDraw(regionhandle region)
     rightAccent.x0 = layout.iconTray.x1 > layout.iconTray.x0
         ? layout.iconTray.x0 : layout.right.x0;
     muiFill(&rightAccent, muiSignal);
+    rightAccent=muiRect(layout.right.x0,layout.right.y0,layout.right.x1,layout.right.y0+1);
+    muiFill(&rightAccent,muiSignal);
 }
 
 void modernUICommandBarStartup(void)
@@ -3075,6 +3115,7 @@ void modernUICommandBarStartup(void)
         return;
     }
     memset(&muiCommand, 0, sizeof(muiCommand));
+    muiCommandRosterHeightStore(FALSE);
     muiCommand.infoOverlayWasRunning = ioDisable();
     muiCommandLayoutCompute(&layout);
     muiCommandEnsureBackdrop();
@@ -5984,6 +6025,28 @@ void modernUIPrepareScreen(fescreen *screen)
                 atom->height = (sword)newHeight;
                 break;
             }
+        }
+    }
+
+    if(muiNameIs(screen->name,"Quit_game") || muiNameIs(screen->name,"Quit_game2")) {
+        featom *buttons[4];rectangle oldRects[4],newRects[4];sdword count=0,j;
+        sdword width=MIN2(MAIN_WindowWidth-uiScaleSize(32),uiScaleSize(440));
+        sdword height=MIN2(MAIN_WindowHeight-uiScaleSize(32),uiScaleSize(220));
+        layout.outer=muiRect((MAIN_WindowWidth-width)/2,(MAIN_WindowHeight-height)/2,(MAIN_WindowWidth+width)/2,(MAIN_WindowHeight+height)/2);
+        for(index=1;index<screen->nAtoms && count<4;++index)if(muiAtomIsButtonLike(&screen->atoms[index])){
+            featom *a=&screen->atoms[index];buttons[count]=a;oldRects[count]=muiRect(a->x,a->y,a->x+a->width,a->y+a->height);count++;
+        }
+        for(j=0;j<count;j++){
+            sdword gap=uiScaleSize(12),w=MIN2(uiScaleSize(130),(width-uiScaleSize(40)-gap*(count-1))/MAX2(1,count));
+            sdword x=(MAIN_WindowWidth-count*w-gap*(count-1))/2+j*(w+gap),y=layout.outer.y1-uiScaleSize(54);
+            newRects[j]=muiRect(x,y,x+w,y+uiScaleSize(34));buttons[j]->x=(sword)x;buttons[j]->y=(sword)y;buttons[j]->width=(sword)w;buttons[j]->height=(sword)uiScaleSize(34);
+        }
+        for(index=1;index<screen->nAtoms;++index){
+            featom *a=&screen->atoms[index];if(muiAtomIsButtonLike(a))continue;
+            if(a->type!=FA_StaticText){bitSet(a->flags,FAF_Hidden);continue;}
+            for(j=0;j<count;j++)if(muiPointIn(&oldRects[j],a->x+a->width/2,a->y+a->height/2))break;
+            if(j<count){a->x=(sword)newRects[j].x0;a->y=(sword)newRects[j].y0;a->width=(sword)(newRects[j].x1-newRects[j].x0);a->height=(sword)(newRects[j].y1-newRects[j].y0);}
+            else {a->x=(sword)(layout.outer.x0+uiScaleSize(20));a->y=(sword)(layout.outer.y0+uiScaleSize(96));a->width=(sword)(width-uiScaleSize(40));a->height=(sword)uiScaleSize(38);}
         }
     }
 
@@ -9656,7 +9719,7 @@ void modernUIDrawBase(regionhandle region)
         return;
     }
 
-    if (kind == MUI_SCREEN_INGAME)
+    if (kind == MUI_SCREEN_INGAME || kind == MUI_SCREEN_POPUP)
     {
         muiDrawArtworkInRect(muiArtworkForScreen(screen?screen->name:NULL), &region->rect);
         muiFill(&region->rect, colRGBA(15, 25, 32, 204));

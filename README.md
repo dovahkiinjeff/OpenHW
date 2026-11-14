@@ -1,6 +1,6 @@
-# OpenHW 1.1.2
+# OpenHW 1.1.3
 
-**Latest update:** [1.1.2 — mixed fleet spread, concept panels and room browser](docs/RELEASE_NOTES_1.1.2.md). Existing 1.1.1 players: choose **Update now** in Launcher. Update before joining multiplayer. [Website update entry](https://openhw.tech/#/updates/v1.1.2).
+**Latest update:** [1.1.3 — editors restored offline](docs/RELEASE_NOTES_1.1.3.md). Shift+F11/F12 map, lighting and texture editors work in single-player and local multiplayer; they are blocked online. Choose **Update now** in Launcher. [Website update entry](https://openhw.tech/#/updates/v1.1.3).
 
 [**Download the full OpenHW 1.1.1 installer**](https://openhw.tech/downloads/v1.1.1/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.1) · [1.1.1 release notes](docs/RELEASE_NOTES_1.1.1.md)
 
@@ -22,7 +22,7 @@
 > [!IMPORTANT]
 > **Use AMD technology for 1.1. AMD FSR upscaling and AMD FSR frame generation are the recommended, working options.** DLSS currently has known visual issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.** Bundled vendor libraries or development code do not imply supported release features.
 
-> **OpenHW 1.1.1 release:** Shift+F11/F12 live map, lighting and texture authoring menus are disabled in both game executables. Authored environments still load normally. The reference below describes the developer tools; source builds can explicitly enable them with `-DHW_ENABLE_LIVE_MAP_AUTHORING=ON`. The ship and parade editors are separate tools.
+> **Live editors in 1.1.3:** Shift+F11/F12 authoring is enabled for single-player and local multiplayer and blocked during online server matches. Authored environments still load.
 
 
 **Publication:** compiled downloads are hosted on openhw.tech. GitHub hosts source code and release notes; its update feed is a metadata fallback only.
