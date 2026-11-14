@@ -8,7 +8,7 @@ The dedicated server runs the existing OpenHW CPU simulation and AI, validates p
 
 The source build generates `server-fingerprint.txt` and the client's embedded build fingerprint. Install a matching worker and fingerprint whenever the simulation changes. Normal and diagnostic builds use the same compatibility identity. Before tick zero, the service also compares a pointer-free signature of the loaded initial world and core ship gameplay parameters. This is not a complete hash of every mod file; arbitrary mod synchronization is outside this preview.
 
-The worker advances the original 16 Hz simulation in pairs of ticks and produces eight canonical command frames per second. AI updates run on the authority only. Human commands are bounded and checked against the connection's assigned player and owned ships. The public gateway never accepts worker inspection requests, arbitrary process commands or filesystem paths from clients.
+The worker advances 64 physics ticks per second in pairs and produces 32 canonical command frames per second. AI updates run on the authority only. Human commands are bounded and checked against the connection's assigned player and owned ships. The public gateway never accepts worker inspection requests, arbitrary process commands or filesystem paths from clients.
 
 ## Private Ubuntu deployment
 
@@ -51,7 +51,7 @@ handle /multiplayer/v1 {
 }
 ```
 
-Keep this handler before the website's fallback handler. The gateway itself listens only on `127.0.0.1`; no separate public game port is needed. `OPENHW_SERVER_CONFIG` selects the administrator-owned JSON configuration. `max_matches` currently defaults to one. Raising it requires measuring the CPU and memory budget for simultaneous battles.
+Keep this handler before the website's fallback handler. The gateway itself listens only on `127.0.0.1`; no separate public game port is needed. `OPENHW_SERVER_CONFIG` selects the administrator-owned JSON configuration. `max_matches` defaults to 10 simultaneous loading/running battles, with one authoritative worker per battle. `max_connections` defaults to 128, allowing ten full eight-player battles plus lobby connections. The room directory remains capped at 16 rooms. An eleventh concurrent battle is rejected until capacity is released. Actual simulation throughput depends on battle size and host resources.
 
 ## Operate the service
 

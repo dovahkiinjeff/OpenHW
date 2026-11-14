@@ -62,7 +62,7 @@ class Gateway:
         worker=None;reserved=False
         try:
             async with self.lock:
-                if self.active>=self.settings.get('max_matches',1): raise LobbyError('Server is running its maximum number of matches')
+                if self.active>=self.settings.get('max_matches',10): raise LobbyError('Server is running its maximum number of matches')
                 self.active+=1
                 reserved=True
             log_dir=Path(self.settings['log_dir']);log_dir.mkdir(parents=True,exist_ok=True)
@@ -131,7 +131,7 @@ class Gateway:
         member=None
         if connection.request.path!='/multiplayer/v1':
             await connection.close(1008,'Unknown endpoint');return
-        if len(self.connections)>=64:
+        if len(self.connections)>=self.settings.get('max_connections',128):
             await connection.close(1013,'Server connection limit');return
         self.connections.add(connection)
         try:
@@ -206,7 +206,8 @@ async def main():
     async with serve(gateway.handler,'127.0.0.1',settings.get('port',8767),compression=None,
         max_size=MAX_MESSAGE+HEADER.size,max_queue=16,write_limit=131072,
         ping_interval=15,ping_timeout=30,open_timeout=10,close_timeout=5):
-        LOG.info('Dedicated gateway listening on loopback')
+        LOG.info('Dedicated gateway listening on loopback; battle limit=%s, connection limit=%s',
+            settings.get('max_matches',10),settings.get('max_connections',128))
         await asyncio.Future()
 
 if __name__=='__main__':asyncio.run(main())

@@ -23615,8 +23615,8 @@
     },
     {
       "path": "server/README.md",
-      "size": 14245,
-      "sha256": "a66e056c00beb0fa52f1a42ce37c9945a238f99f6c88d7aae367a048d5668ebd"
+      "size": 14504,
+      "sha256": "110a6b1ca63efd9d5710027dbe4599377ae9df385fc8149524a885f7b1ebbbb4"
     },
     {
       "path": "server/build_private_content.py",
@@ -23635,13 +23635,13 @@
     },
     {
       "path": "server/configure_host.py",
-      "size": 2590,
-      "sha256": "563f322e6800cfa8fe58eb57a8da338422c72ae2909e8ff57a65ec2a2ac0f820"
+      "size": 2611,
+      "sha256": "356412f14d0c82f12fbd9fdf3d68753f1ef71f4e1b56faf0b2e9a23de06ee3bf"
     },
     {
       "path": "server/coordinator.py",
-      "size": 12387,
-      "sha256": "8ee14c162ea987b53e135d18cceffe0ef050a65fd7ce1939e132e529f5e70363"
+      "size": 12544,
+      "sha256": "3687c5d508397374234266290a34c4985b3455a7200bdbcb64cedbd120312ae8"
     },
     {
       "path": "server/diagnostics.py",
@@ -23700,8 +23700,8 @@
     },
     {
       "path": "server/test_coordinator.py",
-      "size": 1884,
-      "sha256": "a0c718d71a32a8e47b50e1f525a057131f828d74cbac5517b7ba19deb47e8c83"
+      "size": 4389,
+      "sha256": "c615e1b59b85e371e1db0e17ca3d678050e1dc9ac6f19181a342e1658b38d3ba"
     },
     {
       "path": "server/test_coordinator_clock.py",

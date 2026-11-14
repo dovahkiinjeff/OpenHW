@@ -18,7 +18,7 @@ for line in (root/'state/maps.log').read_text().splitlines():
     fields=line.split('\t')
     if len(fields)==4 and fields[0]=='MAP':maps[fields[1]]=[int(fields[2]),int(fields[3])]
 if not maps:raise SystemExit('No validated maps')
-config=dict(maps=maps,fingerprint=fingerprint,port=8767,max_matches=1,
+config=dict(maps=maps,fingerprint=fingerprint,port=8767,max_matches=10,max_connections=128,
     worker_command=['/usr/lib/wine/wine64',str(root/'game/OpenHW-Server.exe'),'--dedicated-worker'],
     game_directory=str(root/'game'),log_dir=str(root/'logs'),
     worker_environment=dict(WINEPREFIX=str(root/'state/wine'),WINEDEBUG='-all',
