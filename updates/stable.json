@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channel": "stable",
-  "latest": "1.1",
+  "latest": "1.1.1",
   "minimum_protocol": 3,
   "patches": [
     {
@@ -147,17 +147,31 @@
       "mirrors": [
         "https://openhw.tech/downloads/v1.0.7/OpenHW-Patch-1.0.7.exe"
       ]
+    },
+    {
+      "to": "1.1.1",
+      "format": "openhw-exe-zip-v1",
+      "post_actions": [],
+      "from": [
+        "1.1"
+      ],
+      "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.1/OpenHW-Patch-1.1.1.exe",
+      "size": 15591334,
+      "sha256": "9e48566cc0ebd11bb26cfaef03080ffc1ddeaa6cf4544e658b0cadb80b2f649a",
+      "mirrors": [
+        "https://openhw.tech/downloads/v1.1.1/OpenHW-Patch-1.1.1.exe"
+      ]
     }
   ],
   "updater": {
-    "version": "1.1.0",
+    "version": "1.1.3",
     "protocol": 3,
-    "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1/Updater.exe",
+    "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.1/Updater.exe",
+    "size": 34918519,
+    "sha256": "528504bb41b7a5d21ebe3176f104a0d847af1cf3bb7129b4fb1f259cfc13d6f7",
     "mirrors": [
-      "https://openhw.tech/downloads/v1.1/Updater.exe"
-    ],
-    "size": 5694011,
-    "sha256": "1db908e5611a8ed90b194c4d57043a8ce9958e78fa77c72d1b45775254177401"
+      "https://openhw.tech/downloads/v1.1.1/Updater.exe"
+    ]
   },
   "fresh_install": {
     "schema": 1,
@@ -168,5 +182,14 @@
     ],
     "size": 491673490,
     "sha256": "37e2bceb0db80cd0073d66fa102c1a5ab8019589cabd5b6ae69ec000da3f7d17"
+  },
+  "launcher": {
+    "version": "1.1.3",
+    "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.1/Launcher.exe",
+    "size": 9831035,
+    "sha256": "df63a300cdb63135df9ccf71212dd04e719370f7c403b65ab41a90e3dfae9965",
+    "mirrors": [
+      "https://openhw.tech/downloads/v1.1.1/Launcher.exe"
+    ]
   }
 }
