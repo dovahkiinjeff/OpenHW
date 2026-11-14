@@ -198,8 +198,10 @@ The game consumer also snapshots projectile presentation into a runtime-only
 side table. No saved Bullet/Missile layout changes or pointers into deleted
 firing models are retained. Native BULLET cues follow the actual HW1 projectile
 pose; HIT and MISS cues follow HW1 collision/expiration. Beams use the actual
-changing HW1 collision length, with one moving contact effect rather than one
-new effect per damage tick. The hit magnitude is clamped by the authored
+changing HW1 collision length. From 1.1.5, continuing HIT notifications refresh
+the authored fading contact bursts instead of waiting for an entire old effect
+tree to expire. Contact anchors follow the clipped endpoint and are invalidated
+when contact breaks, including loss/reacquisition within one update. The hit magnitude is clamped by the authored
 hit_clamp before scaling the complete effect, matching 004ba0a1; individual
 layer radii are not clamped or multiplied by victim hull radius. No RM damage,
 speed, guidance or collision calculations are imported. Expiration also removes

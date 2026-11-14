@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channel": "stable",
-  "latest": "1.1.4",
+  "latest": "1.1.5",
   "minimum_protocol": 3,
   "patches": [
     {
@@ -191,6 +191,17 @@
       "url": "https://openhw.tech/downloads/v1.1.4/OpenHW-Patch-1.1.4.exe",
       "size": 40711597,
       "sha256": "c80be128db8ed1f77e44b627fb0dd540f6569feaec3b47f124cb9931128705aa"
+    },
+    {
+      "to": "1.1.5",
+      "format": "openhw-exe-zip-v1",
+      "post_actions": [],
+      "from": [
+        "1.1.4"
+      ],
+      "url": "https://openhw.tech/downloads/v1.1.5/OpenHW-Patch-1.1.5.exe",
+      "size": 40697339,
+      "sha256": "f72cf68867f64e11f0de845644c22476b2070590d28059581f77490d76b8a28f"
     }
   ],
   "launcher": {

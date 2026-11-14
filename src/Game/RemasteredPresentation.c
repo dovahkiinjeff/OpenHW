@@ -27,7 +27,7 @@ typedef struct PresentationAnchor {
     unsigned component,gun,random;
     int isGun,stateTimeline;
     const void *projectile;
-    uint64_t projectileToken;
+    uint64_t projectileToken,contactGeneration;
     int impact;
     unsigned deathIndex;
     uint64_t deathToken;
@@ -57,7 +57,7 @@ static int ionGun(const void *owner,unsigned index){
 }
 enum {PROJECTILE_CUES=8192};
 typedef struct CapturedCue {const char *fx,*sound;float clampMinimum,clampMaximum;unsigned options;} CapturedCue;
-typedef struct ProjectileCue {const void *key;float scale,frame[16],velocity[3],length,impactFrame[16],impactVelocity[3];uint64_t token,impactAnchor;unsigned random;int hit,started,visual,beam,impactVisual,defaultIonFire;CapturedCue slots[HW_RM_WEAPON_SLOT_COUNT];} ProjectileCue;
+typedef struct ProjectileCue {const void *key;float scale,frame[16],velocity[3],length,impactFrame[16],impactVelocity[3];uint64_t token,contactGeneration;float lastImpactTime;unsigned random;int hit,started,visual,beam,impactVisual,contactActive,defaultIonFire;CapturedCue slots[HW_RM_WEAPON_SLOT_COUNT];} ProjectileCue;
 static ProjectileCue projectileCues[PROJECTILE_CUES];
 static uint64_t nextProjectileToken=1;
 enum {DEATH_PRESENTATIONS=512};
@@ -126,6 +126,7 @@ static int resolveFrame(void *user,uint64_t handle,float output[16],float veloci
             markerFrame(matrix,&death->rotation,&death->position,output);memcpy(velocity,&death->velocity,3*sizeof(float));return 1;}
         if(anchor->projectile){ProjectileCue *entry=projectileCue(anchor->projectile,0);
             if(!entry||entry->token!=anchor->projectileToken)return 0;
+            if(anchor->impact&&(!entry->contactActive||entry->contactGeneration!=anchor->contactGeneration))return 0;
             memcpy(output,anchor->impact?entry->impactFrame:entry->frame,16*sizeof(float));
             memcpy(velocity,anchor->impact?entry->impactVelocity:entry->velocity,3*sizeof(float));return 1;}
         ship=anchorOwner(anchor);
@@ -461,7 +462,7 @@ void rmPresentationCaptureProjectile(const void *projectile,const void *ship,uns
     }
 }
 static uint64_t projectileAnchor(const ProjectileCue *entry,int impact){PresentationAnchor *anchor=newAnchor();
-    if(!anchor)return 0;anchor->projectile=entry->key;anchor->projectileToken=entry->token;anchor->impact=impact;return anchor->handle;
+    if(!anchor)return 0;anchor->projectile=entry->key;anchor->projectileToken=entry->token;anchor->impact=impact;anchor->contactGeneration=entry->contactGeneration;return anchor->handle;
 }
 void rmPresentationTrackProjectile(const void *projectile){
     ProjectileCue *entry=projectileCue(projectile,0);const SpaceObjRot *object=(const SpaceObjRot*)projectile;unsigned column;vector axis;uint64_t anchor;char error[256];
@@ -475,6 +476,11 @@ void rmPresentationTrackProjectile(const void *projectile){
         else if(column==1){entry->frame[0]=-axis.x;entry->frame[1]=-axis.y;entry->frame[2]=-axis.z;}
         else {entry->frame[8]=axis.x;entry->frame[9]=axis.y;entry->frame[10]=axis.z;}}
     memcpy(entry->frame+12,&object->posinfo.position,3*sizeof(float));memcpy(entry->velocity,&object->posinfo.velocity,3*sizeof(float));
+    if(entry->beam&&entry->contactActive){
+        const Bullet *beam=(const Bullet*)projectile;const float *heading=(const float*)&beam->bulletheading;
+        /* Collision clipping updates every tick; damage/HIT cadence is lower. */
+        for(column=0;column<3;++column)entry->impactFrame[12+column]=entry->frame[12+column]+heading[column]*entry->length;
+    }
     if(entry->started)return;entry->started=1;
     if(entry->defaultIonFire&&fxPlayback&&entry->slots[HW_RM_WEAPON_FIRE].fx&&(anchor=projectileAnchor(entry,0))!=0){
         if(!hwRmFxPlaybackSpawn(fxPlayback,entry->slots[HW_RM_WEAPON_FIRE].fx,entry->random,universe.totaltimeelapsed,entry->frame,entry->velocity,entry->scale,0,anchor))releaseAnchor(NULL,anchor);}
@@ -504,15 +510,19 @@ static int worldCue(ProjectileCue *entry,unsigned slot,const float position[3],c
     memcpy(matrix,right,3*sizeof(float));memcpy(matrix+4,up,3*sizeof(float));memcpy(matrix+12,position,3*sizeof(float));matrix[15]=1;
     if(entry->beam&&(slot==HW_RM_WEAPON_HIT||slot==HW_RM_WEAPON_NOPENETRATE)){
         memcpy(entry->impactFrame,matrix,sizeof(matrix));memcpy(entry->impactVelocity,velocity,3*sizeof(float));
-        /* A beam outlives its one-second hit burst. Keep its anchor moving,
-           then restart only after the previous complete effect has expired. */
-        if(anchorByHandle(entry->impactAnchor))return entry->impactVisual;
+        /* HIT is a continuing collision event, not a one-shot beam event.
+           Refresh at the simulation's hit cadence, allowing authored bright
+           rings to overlap/fade while older smoke finishes. Waiting for every
+           child to expire leaves a dark endpoint during sustained contact.
+           Duplicate notifications in one tick update the pose only. */
+        if(entry->contactActive&&entry->lastImpactTime==universe.totaltimeelapsed)return entry->impactVisual;
+        entry->contactActive=1;entry->lastImpactTime=universe.totaltimeelapsed;
         if(cue->fx&&fxPlayback){anchor=projectileAnchor(entry,1);if(!anchor){diagnostic(cue->fx,"beam contact attachment capacity exhausted");return 0;}}
     }
     if(cue->fx&&fxPlayback){visual=hwRmFxPlaybackSpawn(fxPlayback,cue->fx,entry->random+slot,universe.totaltimeelapsed,matrix,velocity,entry->scale*magnitude,0,anchor);
         if(!visual&&anchor)releaseAnchor(NULL,anchor);}
     if(entry->beam&&(slot==HW_RM_WEAPON_HIT||slot==HW_RM_WEAPON_NOPENETRATE)){
-        entry->impactVisual=visual;entry->impactAnchor=visual?anchor:0;
+        entry->impactVisual=visual;
     }
     if((!entry->beam||!entry->hit)&&cue->sound&&soundPlayback&&!hwRmSoundPlaybackPlay(soundPlayback,cue->sound,entry->random+slot,position,0,error,sizeof(error)))diagnostic(cue->sound,error);
     return visual;
@@ -527,6 +537,12 @@ bool32 rmPresentationProjectileImpact(const void *projectile,const float positio
        neither they nor a full FX pool should resurrect Classic effects. */
     worldCue(entry,damage>0?HW_RM_WEAPON_HIT:HW_RM_WEAPON_NOPENETRATE,position,heading,velocity,damage>0?damage:1);
     entry->hit=1;return TRUE;
+}
+void rmPresentationBeamContactLost(const void *projectile){
+    ProjectileCue *entry=projectileCue(projectile,0);
+    if(entry&&entry->beam&&entry->contactActive){
+        entry->contactActive=0;++entry->contactGeneration;entry->impactVisual=0;
+    }
 }
 void rmPresentationReleaseProjectile(const void *projectile,const float position[3],const float heading[3],const float velocity[3]){
     ProjectileCue *entry=projectileCue(projectile,0);if(!entry)return;

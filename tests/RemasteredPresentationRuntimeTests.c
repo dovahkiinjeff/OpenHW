@@ -19,12 +19,12 @@ Universe universe;
 Camera *mrCamera;
 bool32 soundinited=TRUE;
 bool32 enableSFX=TRUE;
-static unsigned fxDraws,fxStarts;static HwRmFxDraw lastFx;
+static unsigned fxDraws,fxStarts,contactDraws,freshContactDraws;static float expectedContactX;static HwRmFxDraw lastFx;
 int rmFxRendererStartup(HwRmFxResources *resources){++fxStarts;return resources!=NULL;}
 void rmFxRendererShutdown(void){}
 void rmFxRendererBegin(Camera *camera){(void)camera;}
 void rmFxRendererEnd(void){}
-void rmFxRendererDraw(void *user,const HwRmFxDraw *draw){(void)user;lastFx=*draw;++fxDraws;}
+void rmFxRendererDraw(void *user,const HwRmFxDraw *draw){(void)user;lastFx=*draw;++fxDraws;if(draw->matrix[12]==expectedContactX){++contactDraws;if(draw->age==0)++freshContactDraws;}}
 static Ship owner;
 static int nativeIdentity,nativeAlive=1,loads,prepares;
 static unsigned long long token=3;
@@ -250,7 +250,30 @@ int main(void){
         CHECK(rmPresentationProjectileImpact(&beam,position,heading,velocity,1));rmPresentationDraw(&camera);CHECK(fxDraws==4&&lastFx.matrix[12]==100);
         position[0]=200;CHECK(rmPresentationProjectileImpact(&beam,position,heading,velocity,1));
         rmPresentationUpdate();rmPresentationDraw(&camera);CHECK(fxDraws==6&&lastFx.matrix[12]==200);
-        rmPresentationReleaseProjectile(&beam,position,heading,velocity);rmPresentationUpdate();rmPresentationDraw(&camera);CHECK(fxDraws==6);
+        /* Contacts must refresh beyond the initial two-second fixture burst.
+           The old anchor gate suppressed every refresh until all FX expired. */
+        {unsigned tick;float start=universe.totaltimeelapsed;
+            for(tick=1;tick<=40;++tick){unsigned before;
+                universe.totaltimeelapsed=start+tick*.125f;position[0]=200+tick;
+                rmPresentationUpdate();
+                CHECK(rmPresentationProjectileImpact(&beam,position,heading,velocity,1));
+                before=fxDraws;expectedContactX=position[0];contactDraws=freshContactDraws=0;rmPresentationDraw(&camera);
+                CHECK(fxDraws>before&&contactDraws>0&&freshContactDraws==1); /* fresh burst plus still-fading predecessors */
+            }
+            beam.bulletheading.x=1;beam.beamtraveldist=350;
+            rmPresentationTrackProjectile(&beam);rmPresentationUpdate();
+            expectedContactX=350;contactDraws=freshContactDraws=0;rmPresentationDraw(&camera);
+            CHECK(contactDraws>0); /* follows clipped endpoint between HIT ticks */
+            /* Loss and reacquisition before the next update cannot resurrect
+               the old contact roots. Only the newly acquired contact draws. */
+            rmPresentationBeamContactLost(&beam);
+            position[0]=999;CHECK(rmPresentationProjectileImpact(&beam,position,heading,velocity,1));
+            rmPresentationUpdate();{unsigned before=fxDraws;rmPresentationDraw(&camera);CHECK(fxDraws==before+1&&lastFx.matrix[12]==999);}
+            rmPresentationBeamContactLost(&beam);rmPresentationUpdate();
+            {unsigned before=fxDraws;rmPresentationDraw(&camera);CHECK(fxDraws==before);}
+        }
+        rmPresentationReleaseProjectile(&beam,position,heading,velocity);rmPresentationUpdate();
+        {unsigned before=fxDraws;rmPresentationDraw(&camera);CHECK(fxDraws==before);}
     }
     rmPresentationReset();fxDraws=0;nativeAlive=1;makeDeathEvents();universe.totaltimeelapsed=20;
     owner.posinfo.position.x=100;owner.posinfo.velocity.x=10;

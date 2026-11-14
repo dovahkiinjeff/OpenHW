@@ -136,10 +136,12 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         check(std::filesystem::is_regular_file(root/L"setup-complete.json") &&
               std::filesystem::is_regular_file(root/L"Development/Installer/Development/python312.dll"),
               "Select an installed OpenHW 1.0 folder, not the original Collection.");
-#if defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114)
+#if defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114) || defined(OPENHW_PATCH_115)
         std::ifstream versionFile(root/L"version.json");
         std::string versionText((std::istreambuf_iterator<char>(versionFile)),std::istreambuf_iterator<char>());
-#ifdef OPENHW_PATCH_114
+#ifdef OPENHW_PATCH_115
+        check(std::regex_search(versionText,std::regex(R"version("version"\s*:\s*"1\.1\.4")version")),"Install OpenHW 1.1.4 before applying this patch.");
+#elif defined(OPENHW_PATCH_114)
         check(std::regex_search(versionText,std::regex(R"version("version"\s*:\s*"1\.1\.3")version")),"Install OpenHW 1.1.3 before applying this patch.");
 #elif defined(OPENHW_PATCH_113)
         check(std::regex_search(versionText,std::regex(R"version("version"\s*:\s*"1\.1\.2")version")),"Install OpenHW 1.1.2 before applying this patch.");
@@ -168,8 +170,10 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         }while(Process32NextW(snapshot,&entry));CloseHandle(snapshot);
         check(!running,"Close OpenHW, OpenHW-Daignostics and Launcher before applying this patch.");
         #endif
-#if defined(OPENHW_PATCH_111) || defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114)
-#ifdef OPENHW_PATCH_114
+#if defined(OPENHW_PATCH_111) || defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114) || defined(OPENHW_PATCH_115)
+#ifdef OPENHW_PATCH_115
+        const auto backup=root/L"Development/Patches/1.1.5/Backup";
+#elif defined(OPENHW_PATCH_114)
         const auto backup=root/L"Development/Patches/1.1.4/Backup";
 #elif defined(OPENHW_PATCH_113)
         const auto backup=root/L"Development/Patches/1.1.3/Backup";

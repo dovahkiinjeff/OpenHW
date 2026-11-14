@@ -25,5 +25,7 @@ void rmPresentationTrackProjectile(const void *projectile);
 bool32 rmPresentationOwnsProjectileFx(const void *projectile);
 bool32 rmPresentationShipDeath(const void *ship);
 bool32 rmPresentationProjectileImpact(const void *projectile,const float position[3],const float heading[3],const float velocity[3],float damage);
+/* Invalidate old contact attachments even if this beam later reacquires. */
+void rmPresentationBeamContactLost(const void *projectile);
 void rmPresentationReleaseProjectile(const void *projectile,const float position[3],const float heading[3],const float velocity[3]);
 #endif

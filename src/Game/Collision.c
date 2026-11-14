@@ -2011,6 +2011,7 @@ void collCheckBeamColl(blob *thisBlob,Bullet *bullet)
     }
     else
     {
+        rmPresentationBeamContactLost(bullet);
         bullet->beamtraveldist = bullet->lengthmag;
     }
     //adjust length of effect associated with bullet, if applicable
