@@ -47,6 +47,8 @@ def sync(root=ROOT):
         previous=validate_manifest(json.loads(existing.read_text(encoding='utf-8')))
         if compare_versions(feed['latest'],previous['latest'])<0:
             raise ValueError('Upstream feed is older than the hosted release; existing feed retained')
+        if compare_versions(feed.get('fresh_install',{}).get('version','1.0'),previous.get('fresh_install',{}).get('version','1.0'))<0:
+            raise ValueError('Upstream base installer is older than the hosted base; existing feed retained')
         if feed.get('updater') and previous.get('updater') and compare_versions(feed['updater']['version'],previous['updater']['version'])<0:
             raise ValueError('Upstream updater is older than the hosted updater; existing feed retained')
     floor=feed.get('fresh_install',{}).get('version','1.0')

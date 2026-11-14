@@ -23460,8 +23460,8 @@
     },
     {
       "path": "server/mirror_updates.py",
-      "size": 4451,
-      "sha256": "04e0210f5d94c4a732023ea0282be8ab5bbc92c9c6b3d27006c890fa6a014abe"
+      "size": 4697,
+      "sha256": "896994cf457c85fcdc4c5ea83a2647dfb392c100046dafc08781927589d04925"
     },
     {
       "path": "server/openhw-diagnostics.service",
