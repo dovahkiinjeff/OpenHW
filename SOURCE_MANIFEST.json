@@ -45,8 +45,8 @@
     },
     {
       "path": "BUILD_INSTALLER.md",
-      "size": 6990,
-      "sha256": "cea35ecdc8b870eb7950331aa5cb1baff7c3b5f606b5266f514cc581b67b403a"
+      "size": 7016,
+      "sha256": "da53410f5bb9e260278ca43cafb88f094c3e7cee3482cb559b02d054e6c381e0"
     },
     {
       "path": "CHANGELOG",
@@ -75,8 +75,8 @@
     },
     {
       "path": "README.md",
-      "size": 41076,
-      "sha256": "7b115ee14d4971be51ebc10f6830275a3faef7b7ce622228dbcbc8c990ef344c"
+      "size": 41359,
+      "sha256": "b1c4148755ff86d5ea6e9f1aa2f63480229c6524cda1f2d73fd3ff30b28670d7"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -165,8 +165,8 @@
     },
     {
       "path": "Windows/build-release.ps1",
-      "size": 7255,
-      "sha256": "d997ef10655e32c97f5bc75b64adfd52f1bfc3cf8a74a335a0967e98f9d52039"
+      "size": 7257,
+      "sha256": "2b0d383ae12a90412709ee49564e8c78ba74534a18ba8d073c65570c2d0fcb3a"
     },
     {
       "path": "Windows/build.ps1",
@@ -23210,8 +23210,8 @@
     },
     {
       "path": "docs/RELEASE_NOTES_1.1.1.md",
-      "size": 2315,
-      "sha256": "44069f9498d3601bb71c091a687bdf1b81704af17666cb3e1e3833389de97b71"
+      "size": 4419,
+      "sha256": "5d27cefd18512ebf8681487a7fffda8546fff57591e4743ce6538f07ddd687ba"
     },
     {
       "path": "docs/RELEASE_NOTES_1.1.md",
@@ -28010,8 +28010,8 @@
     },
     {
       "path": "tests/test_release_installer.py",
-      "size": 5097,
-      "sha256": "17a70aa539156ab01a726d2cbd165f1293f78c04e62b102cf34093c964285cda"
+      "size": 5123,
+      "sha256": "4f5a1b03ce0f220937c6a71636b289c5c9192740b0b2582e9b1bc0f19d52ae30"
     },
     {
       "path": "tests/test_release_mission_authoring.py",
@@ -28615,8 +28615,8 @@
     },
     {
       "path": "tools/release_bootstrap.cpp",
-      "size": 19829,
-      "sha256": "2800535c67bc736e449fe8b86539161c3e618e0e39db24a03eb8ad5da94c8fb1"
+      "size": 19831,
+      "sha256": "7f23ca659389118b8fcb882698b0178d2b86aed34c1a04097e94b3fbda490693"
     },
     {
       "path": "tools/release_compact.py",
@@ -28660,8 +28660,8 @@
     },
     {
       "path": "tools/release_setup.py",
-      "size": 12902,
-      "sha256": "7c4f8ca76782004e6eb73df4af50ed9d5b141ab78487138cb067e31140b87bbe"
+      "size": 12708,
+      "sha256": "77b86d090398e63c13f5bc34a27af8cd854ce0abed66ec0cf99d787e0a093827"
     },
     {
       "path": "tools/release_sky_lighting.py",
@@ -28810,8 +28810,8 @@
     },
     {
       "path": "tools/stage_release.py",
-      "size": 7509,
-      "sha256": "d705dfae76c0ded2c4dfc343d576e398fa22e10fd762d6b34a3aba52b2c7031f"
+      "size": 7417,
+      "sha256": "f9ace8ee2e5ad07a0c5c4d3f18733cceff722d00a5c583b5224943e64ebef4bf"
     },
     {
       "path": "tools/stage_research_station_native.py",
@@ -28875,8 +28875,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 5711,
-      "sha256": "dc289b84fe7dbe3aab6b4712c5ba99e9a052b062d7fc7cee41227980c0b93925"
+      "size": 5912,
+      "sha256": "ddc0f340ec7ff1306bf98ebf1b403b6df33edca61912496dea9600797688b7de"
     },
     {
       "path": "vcpkg.json",

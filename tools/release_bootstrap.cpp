@@ -54,7 +54,7 @@ static void createProgress(){
 #elif defined(OPENHW_PATCH_INSTALLER)
         L"OpenHW patch",
 #else
-        L"OpenHW 1.1 setup",
+        L"OpenHW 1.1.1 setup",
 #endif
         WS_OVERLAPPED|WS_CAPTION|WS_VISIBLE,
         CW_USEDEFAULT,CW_USEDEFAULT,560,165,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);

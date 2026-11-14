@@ -1,14 +1,14 @@
-"""OpenHW 1.1: read-only Collection import into a new portable game folder."""
+"""OpenHW 1.1.1: read-only Collection import into a new portable game folder."""
 import argparse,datetime,hashlib,json,os,shutil,sys,threading,queue,zipfile,subprocess
 from pathlib import Path
 
-RELEASE_VERSION='1.1'
+RELEASE_VERSION='1.1.1'
 
 def validate_destination(root):
     """Allow only a fresh folder or the same payload's interrupted installation."""
     root=Path(root).resolve()
     if (root/'setup-complete.json').exists():
-        raise ValueError('This folder already contains an installed OpenHW game. Put the 1.1 installer in a new folder; existing files were preserved.')
+        raise ValueError('This folder already contains an installed OpenHW game. Put the 1.1.1 installer in a new folder; existing files were preserved.')
     payload=root/'Development/release.json'
     payload_hash=hashlib.sha256(payload.read_bytes()).hexdigest()
     session=root/'Development/setup-session.json'
@@ -19,7 +19,7 @@ def validate_destination(root):
             raise ValueError('This folder belongs to a different setup payload. Resume with the original installer or use a new folder; existing files were preserved.')
         return state
     if any((root/name).exists() for name in ('OpenHW.exe','OpenHW-Daignostics.exe','OpenHW-HW1.obig','version.json')):
-        raise ValueError('An existing OpenHW installation was detected, even though its completion receipt is missing. Put the 1.1 installer in a new folder; existing files were preserved.')
+        raise ValueError('An existing OpenHW installation was detected, even though its completion receipt is missing. Put the 1.1.1 installer in a new folder; existing files were preserved.')
     return {'schema':1,'version':RELEASE_VERSION,'payloadSha256':payload_hash}
 
 def begin_install(root):

@@ -1,27 +1,29 @@
 # OpenHW 1.1.1
 
-[**Download the required 1.1.1 Updater.exe**](https://openhw.tech/downloads/v1.1.1/Updater.exe) · [GitHub fallback](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.1) · [1.1.1 patch notes](docs/RELEASE_NOTES_1.1.1.md)
+[**Download the full OpenHW 1.1.1 installer**](https://openhw.tech/downloads/v1.1.1/OpenHW-Setup.exe) · [GitHub downloads](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.1) · [1.1.1 release notes](docs/RELEASE_NOTES_1.1.1.md)
 
 > [!IMPORTANT]
-> **OpenHW 1.1 requires this one-time updater replacement.** Close the game and Launcher, download the 1.1.1 **Updater.exe**, and place it beside **OpenHW.exe**, replacing the old Updater.exe. **Run it once** to install 1.1.1 and open the updated Launcher. A full game reinstall is not required.
+> **1.1.1 is the full base release. Start here; no 1.1 install or old patch chain is required.** Setup includes the working Launcher, Updater and Diagnostics. Install in a new writable folder using your owned Homeworld Remastered Collection.
 >
-> Afterward, the Launcher's server update ticker and **Update now** button handle future updates, including its own Launcher and Updater, and reopen Launcher when needed. Automatic checks notify you; they do not silently install updates.
+> **Why 1.1 was retired:** its bundled utilities omitted a required HTTPS support file and could not complete Launcher updates from inside Launcher. The full 1.1.1 package includes those fixes and the completed Diagnostics workflow. 1.1 has been removed from public downloads.
+>
+> **Existing 1.1 players:** close the game and Launcher, [replace Updater.exe](https://openhw.tech/downloads/v1.1.1/Updater.exe) beside OpenHW.exe and run it once to preserve your installation while moving to 1.1.1. Already on 1.1.1? No reinstall is required.
 
 **The best of both worlds: high-fidelity Homeworld Remastered assets and original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets with modern rendering and in-game creation tools to build the ultimate classic Homeworld experience.
 
 [![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-[**Download OpenHW 1.1**](https://openhw.tech/downloads/v1.1/OpenHW-Setup.exe) · [GitHub downloads / fallback](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1) · [Complete 1.1 source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1/OpenHW-1.1-Source.zip) · [Release notes](docs/RELEASE_NOTES_1.1.md) · [Installation and controls](docs/USER_GUIDE.md) · [Editors](docs/EDITING_GUIDE.md) · [Modding](docs/MODDING.md) · [Build the installer](BUILD_INSTALLER.md)
+[**Download OpenHW 1.1.1**](https://openhw.tech/downloads/v1.1.1/OpenHW-Setup.exe) · [GitHub fallback](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.1) · [Complete 1.1.1 source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.1/OpenHW-1.1.1-Source.zip) · [Release notes](docs/RELEASE_NOTES_1.1.1.md) · [Installation and controls](docs/USER_GUIDE.md) · [Editors](docs/EDITING_GUIDE.md) · [Modding](docs/MODDING.md) · [Build the installer](BUILD_INSTALLER.md)
 
-**1.1 requires a fresh installation in a separate folder. Do not apply the old 1.0 patch chain to it.** Put OpenHW-Setup.exe in the new folder, select your owned Homeworld Remastered Collection, and let setup build the game there. Your old installation, saves and settings are not overwritten. Launcher.exe and Updater.exe are included.
+**The full 1.1.1 installer requires a fresh installation in a separate folder. Do not apply the old 1.0 patch chain to it.** Put OpenHW-Setup.exe in the new folder, select your owned Homeworld Remastered Collection, and let setup build the game there. Your old installation, saves and settings are not overwritten. Launcher.exe and Updater.exe are included.
 
 > [!IMPORTANT]
 > **Use AMD technology for 1.1. AMD FSR upscaling and AMD FSR frame generation are the recommended, working options.** DLSS currently has known visual issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.** Bundled vendor libraries or development code do not imply supported release features.
 
-> **OpenHW 1.1 release:** Shift+F11/F12 live map, lighting and texture authoring menus are disabled in both game executables. Authored environments still load normally. The reference below describes the developer tools; source builds can explicitly enable them with `-DHW_ENABLE_LIVE_MAP_AUTHORING=ON`. The ship and parade editors are separate tools.
+> **OpenHW 1.1.1 release:** Shift+F11/F12 live map, lighting and texture authoring menus are disabled in both game executables. Authored environments still load normally. The reference below describes the developer tools; source builds can explicitly enable them with `-DHW_ENABLE_LIVE_MAP_AUTHORING=ON`. The ship and parade editors are separate tools.
 
 
-## OpenHW 1.1 - dedicated multiplayer and a new installation pipeline
+## OpenHW 1.1.1 - dedicated multiplayer and a new installation pipeline
 
 Create and join online matches through the OpenHW server. The match host selects the map, teams, AI players and shared gameplay rules. The server runs the authoritative simulation and AI; players connect to it over HTTPS. Direct piloting, EVE-style Command control, formation spread and individual ship appearance remain integrated with the multiplayer command path. See [multiplayer setup, controls and current limits](docs/MULTIPLAYER_PREVIEW.md).
 

@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'tools'))
 from stage_release import defaults
-from release_setup import verify_payload,local_environment,root_directory,validate_destination,begin_install
+from release_setup import verify_payload,local_environment,root_directory,validate_destination,begin_install,RELEASE_VERSION
 from release_import import SPECIALS
 
 class ReleaseInstallerTests(unittest.TestCase):
@@ -38,7 +38,7 @@ class ReleaseInstallerTests(unittest.TestCase):
     def test_payload_rejects_paths_outside_install_folder(self):
         with tempfile.TemporaryDirectory(dir=ROOT/'tmp') as folder:
             root=Path(folder);(root/'Development').mkdir()
-            (root/'Development/release.json').write_text(json.dumps({'schema':1,'version':'1.1','content_policy':2,'files':[{'path':'../escape','size':0,'sha256':'0'*64}]}))
+            (root/'Development/release.json').write_text(json.dumps({'schema':1,'version':RELEASE_VERSION,'content_policy':2,'files':[{'path':'../escape','size':0,'sha256':'0'*64}]}))
             with self.assertRaisesRegex(ValueError,'Unsafe'):verify_payload(root)
 
     def test_fresh_setup_rejects_old_game_without_completion_receipt(self):
