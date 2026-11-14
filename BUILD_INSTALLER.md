@@ -1,4 +1,4 @@
-# Build OpenHW 1.1.3 and its fresh installer
+# Build OpenHW 1.1.2 and its fresh installer
 
 This is the complete cumulative source: Windows x64 engine, shaders, missions,
 dedicated multiplayer server, tests, importer, launcher/updater and reviewed
@@ -15,7 +15,7 @@ Use paths without spaces for FFmpeg/vcpkg.
 From the source folder:
 
 ~~~powershell
-.\Windows\build-release.ps1 -Python python -ReleaseVersion 1.1.3
+.\Windows\build-release.ps1 -Python python -ReleaseVersion 1.1.2
 ~~~
 
 This builds/tests both game variants and utility bootstraps, freezes the current
@@ -23,12 +23,15 @@ importer, packages Launcher.exe/Updater.exe, stages reviewed content, exports
 clean cumulative source and audits the nested runtime.
 
 Output: out/distribution/OpenHW-Setup.exe. Source defaults to the sibling
-OpenHW-Source-1.1.3 directory, which must be empty or absent. Override with
+OpenHW-Source-1.1.2 directory, which must be empty or absent. Override with
 -OutputDirectory and -SourceDirectory. The source build needs no installed game:
 utilities reuse the newly frozen setup dependency image. Reuse verified caches
 with -SkipBootstrap, -VcpkgRoot, -VcpkgInstalledRoot and -SdkRoot.
 
-Both public variants use HW_ENABLE_LIVE_MAP_AUTHORING=ON. Shift+F11/F12 live map, lighting and texture tools are available in single-player and local multiplayer. The runtime policy blocks them during online server matches, including direct entry points and queued map-editor boot paths. Source builds can explicitly disable all live authoring with -DHW_ENABLE_LIVE_MAP_AUTHORING=OFF.
+Both public variants explicitly use HW_ENABLE_LIVE_MAP_AUTHORING=OFF.
+Shift+F11/F12 live map/lighting menus are unavailable; authored mission settings
+still load. Developers can configure a separate CMake build with
+-DHW_ENABLE_LIVE_MAP_AUTHORING=ON. The release script disables it.
 
 ## Assemble already-built current inputs
 
@@ -41,15 +44,15 @@ directly and needs no installed game.
 With current game builds, utility EXEs, importer tools and a current frozen setup:
 
 ~~~powershell
-python tools/stage_release.py --repo . --profile assets/Release --output out/release-stage-1.1.3 --normal-build out/build/release-no-diagnostics/Release --diagnostic-build out/build/deploy-x64-clean/Release --tools-dir out/import-tools --version 1.1.3 --launcher out/release-1.1.3/Launcher.exe --updater out/release-1.1.3/Updater.exe
+python tools/stage_release.py --repo . --profile assets/Release --output out/release-stage-1.1.2 --normal-build out/build/release-no-diagnostics/Release --diagnostic-build out/build/deploy-x64-clean/Release --tools-dir out/import-tools --version 1.1.2 --launcher out/release-1.1.2/Launcher.exe --updater out/release-1.1.2/Updater.exe
 
-python tools/export_release_source.py --repo . --output F:/OpenHW1/Source-1.1.3 --version 1.1.3
+python tools/export_release_source.py --repo . --output F:/OpenHW1/Source-1.1.2 --version 1.1.2
 
-python tools/package_release_installer.py --stage out/release-stage-1.1.3 --frozen out/release-installer-freeze/OpenHW-Setup --bootstrap out/build/deploy-x64-clean/Release/OpenHWSetupBootstrap.exe --output out/distribution/OpenHW-Setup.exe
+python tools/package_release_installer.py --stage out/release-stage-1.1.2 --frozen out/release-installer-freeze/OpenHW-Setup --bootstrap out/build/deploy-x64-clean/Release/OpenHWSetupBootstrap.exe --output out/distribution/OpenHW-Setup.exe
 
-python tools/audit_release_bundle.py --installer out/distribution/OpenHW-Setup.exe --source F:/OpenHW1/Source-1.1.3 --output out/distribution/Release-Audit.json
+python tools/audit_release_bundle.py --installer out/distribution/OpenHW-Setup.exe --source F:/OpenHW1/Source-1.1.2 --output out/distribution/Release-Audit.json
 
-python -m zipfile -c F:/OpenHW1/OpenHW-Source-1.1.zip F:/OpenHW1/Source-1.1.3
+python -m zipfile -c F:/OpenHW1/OpenHW-Source-1.1.zip F:/OpenHW1/Source-1.1.2
 ~~~
 
 Use Python 3.12. Staging/source destinations must be new. Audit the exported
@@ -62,7 +65,7 @@ artifacts, not extra required downloads.
 Put setup in a new writable final game folder and select an owned Remastered
 Collection. Required Classic/English archives are listed in portable_setup.py.
 The Collection stays read-only. Setup rejects old installations even without a
-completion receipt. A matching interrupted 1.1.3 setup can resume using its
+completion receipt. A matching interrupted 1.1.2 setup can resume using its
 recorded payload checksum; this is not a 1.0.x upgrade installer.
 
 - OpenHW.exe: logging compiled out; multiplayer preview included.
@@ -74,15 +77,13 @@ recorded payload checksum; this is not a 1.0.x upgrade installer.
 Setup never launches the game. Display size/refresh detect on first boot; other
 defaults come from reviewed presets, including global Non-PT Glow at 29%.
 
-The main generated archive is about 33.61 GB before loose files, runtime,
-shader caches and user content. Conversion needs additional working space.
-The compact importer selects required HW1 entries instead of duplicating all
-retail archives. Consuming final packing and early cleanup reduce overlapping
-temporary copies. Exact full installation peak remains unmeasured. Until
-measured, allow approximately 80 GB free on NTFS with hard links, or 100 GB when
-hard links are unavailable. These are conservative planning estimates, not a
-measured requirement or guaranteed maximum. Old 200-250 GB advice concerns
-the superseded broad-extraction installer. Source builds need separate space.
+## Installation disk budget
+
+A paired test ran the public 1.1.1 base installer and a corrected candidate through complete fresh installations on NTFS. The public installer's observed peak was **39.304 GB** of additional drive allocation; the corrected candidate peaked at **37.913 GB**. Peak logical directory sizes were 39.969 GB and 37.789 GB respectively. The corrected candidate's final main archive is 32.597 GB, plus loose runtime/support files.
+
+Verified reuse of imported immutable files, earlier model-source cleanup, retirement of the temporary migration archive and omission of redundant packed backdrop copies reduce duplication without resizing or recompressing textures. Both complete installs and the resource comparison pass. See [the measured disk report](docs/INSTALLER_DISK_MEASUREMENT_2026_11_14.md) for exact figures, checks and a reproducible measurement command.
+
+The old 80-100 GB allowance was an estimate; the older 200-250 GB advice described a superseded broad-extraction pipeline. Neither is the measured peak of the tested current base installer. Keep headroom above observed peaks: other source editions, filesystem behavior, patches and user content can change usage. A complete no-hard-link fallback run has not been measured. The source Collection consumes separate space, and source builds have their own requirements. These candidate changes have not yet replaced the public download.
 
 ## Content and source boundary
 

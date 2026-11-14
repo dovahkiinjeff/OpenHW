@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "units": "decimal GB = 1,000,000,000 bytes; binary GiB shown separately",
+  "drive": "N: NTFS",
+  "volume_sample_interval_seconds": 0.25,
+  "directory_sample_interval_seconds": 15,
+  "method": "Peak change in Windows reported free space, sampled throughout bootstrap extraction, verification, full conversion, packing, sky generation and cleanup. File snapshots also count Windows file IDs once to avoid double-counting hard links. Runs were sequential; OS/filesystem metadata and the small measurement logs are included in volume deltas.",
+  "runs": {
+    "baseline": {
+      "elapsed_seconds": 1635.75,
+      "volume_peak_delta_bytes": 39303958528,
+      "tree_peak_logical_bytes": 39969203688,
+      "tree_peak_unique_allocated_bytes": 38116876256,
+      "final_volume_delta_bytes": 36922257408
+    },
+    "optimized": {
+      "elapsed_seconds": 1510.031,
+      "volume_peak_delta_bytes": 37912797184,
+      "tree_peak_logical_bytes": 37788670185,
+      "tree_peak_unique_allocated_bytes": 36825799504,
+      "final_volume_delta_bytes": 35875950592
+    }
+  },
+  "resource_validation": {
+    "unchanged_packed_resources": 23038,
+    "removed_redundant_packed_backdrops": 112,
+    "removed_backdrop_bytes": 1013768123,
+    "loose_backdrops_sha256_identical": 96,
+    "all_loose_files_sha256_identical": 1655,
+    "missing_runtime_resources": 0,
+    "both_native_asset_checks_passed": true,
+    "provenance_only_translation_reports": [
+      "RemasteredBackgrounds/mission01_translation.json",
+      "RemasteredBackgrounds/mission02_translation.json",
+      "RemasteredBackgrounds/mission03_translation.json",
+      "RemasteredBackgrounds/mission04_translation.json",
+      "RemasteredBackgrounds/mission05_translation.json",
+      "RemasteredBackgrounds/mission06_translation.json",
+      "RemasteredBackgrounds/mission07_translation.json",
+      "RemasteredBackgrounds/mission08_translation.json",
+      "RemasteredBackgrounds/mission09_translation.json",
+      "RemasteredBackgrounds/mission10_translation.json",
+      "RemasteredBackgrounds/mission11_translation.json",
+      "RemasteredBackgrounds/mission12_translation.json",
+      "RemasteredBackgrounds/mission13_translation.json",
+      "RemasteredBackgrounds/mission14_translation.json",
+      "RemasteredBackgrounds/mission15_translation.json",
+      "RemasteredBackgrounds/mission16_translation.json"
+    ]
+  },
+  "source_archives_unchanged": true,
+  "public_download_replaced": false,
+  "peak_reduction_bytes": 1391161344,
+  "peak_reduction_percent": 3.5394942293381,
+  "baseline_installer_sha256": "5861947f800d82305f218bdb01dabea02a5269bfe0ce3f6066d71ee1f5f2d33c",
+  "candidate_installer_sha256": "e2de0df93160de7cdaa77b099d98f55940d2160eabf464febfedd271d8edd25c"
+}

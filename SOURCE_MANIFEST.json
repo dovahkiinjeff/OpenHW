@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "version": "1.1.9",
-  "snapshot": "Complete current build inputs",
+  "snapshot": "Current build inputs; measured installer disk fixes awaiting release",
   "excluded": [
     "generated out/ and .deps/",
     "personal logs/saves and originating Git worktree metadata",
@@ -50,8 +50,8 @@
     },
     {
       "path": "BUILD_INSTALLER.md",
-      "size": 7118,
-      "sha256": "c464b3eb8bfcb4f5e627ea598c17fcbb0f69de1a62c0bacec8b1bd0f1a9a06c4"
+      "size": 7749,
+      "sha256": "9cb1f0fac1452afb9b65db133cde3d96ee4c851595ff3c3c775df9e50a966571"
     },
     {
       "path": "CHANGELOG",
@@ -23254,14 +23254,24 @@
       "sha256": "24140df28e099b02359e13b96abdbd8c7c2d56ff203de58a46506f822c028a2a"
     },
     {
+      "path": "docs/INSTALLER_DISK_MEASUREMENT_2026_11_14.json",
+      "size": 2750,
+      "sha256": "4bd9150ca7515e9981b5fc684e5b970184d7b6c9669b64d40c57f9cc630c6a09"
+    },
+    {
+      "path": "docs/INSTALLER_DISK_MEASUREMENT_2026_11_14.md",
+      "size": 5455,
+      "sha256": "4a74ee00df47e8d4d91cbae6212ffd73b6a8bbabcf4f23d221ffc1b427cf017f"
+    },
+    {
       "path": "docs/LAUNCHER.md",
       "size": 9216,
       "sha256": "7aebedcdad245e8b4a8c84b921f84c8b34030f41134783b37638ef24abe7d5b1"
     },
     {
       "path": "docs/LIMITATIONS.md",
-      "size": 3084,
-      "sha256": "a0d406114ea2741741f169577498737486d1c7a7f44291246a09cb2d09ab6829"
+      "size": 3252,
+      "sha256": "e9ada4e877d99d1b9c0a7279f6a0c356f473839628c8778dcecce292e6699905"
     },
     {
       "path": "docs/MACROSTUTTER_PASS_2026_10_20.md",
@@ -23475,8 +23485,8 @@
     },
     {
       "path": "docs/USER_GUIDE.md",
-      "size": 11668,
-      "sha256": "6cf02becda90748d09e7de62ea455e04714f72cdafb79748b71190fc26e325cf"
+      "size": 11840,
+      "sha256": "1dde8a7fc1895179c1062a0f366fd219f12c8ff07c0cc65e98ebe1ce62adcdcf"
     },
     {
       "path": "docs/WEAPON_FX_UPSCALING.md",
@@ -28030,8 +28040,8 @@
     },
     {
       "path": "tests/test_compact_installer_disk.py",
-      "size": 9757,
-      "sha256": "5c8693fb9a5c819f3b318c5277a1bc35c694fc0dc013ba42ea84b73a84dbe146"
+      "size": 15052,
+      "sha256": "2621bd37d20ea2d3220e78136333f7714a1a0dd7dee9a24a7748a70a509fc7c4"
     },
     {
       "path": "tests/test_control_group_tabs_contract.py",
@@ -28635,8 +28645,8 @@
     },
     {
       "path": "tools/extract_remastered_big.py",
-      "size": 5640,
-      "sha256": "ffebea22c5cae236ffcdaa7eac2fbae4ef96c8fd64acd93341860e89c5461935"
+      "size": 5719,
+      "sha256": "570c5e6852f4fccc8f329a9bd881a7278872145947cd3d73903bf7bc3e3fceb1"
     },
     {
       "path": "tools/extract_vanilla_ship_textures.py",
@@ -28742,6 +28752,11 @@
       "path": "tools/launcher_settings.py",
       "size": 82073,
       "sha256": "23931e9df45d2b18a2968465b7b142fe549838b457fe7b936ec46d830ccc5018"
+    },
+    {
+      "path": "tools/measure_installer_disk.py",
+      "size": 6661,
+      "sha256": "27556d32228fb27be840c20acdd4a6ab3f1dfd2febe31ce99f8b36680f930182"
     },
     {
       "path": "tools/migrate_openhw_ship_documents.py",
@@ -28850,8 +28865,8 @@
     },
     {
       "path": "tools/portable_convert.py",
-      "size": 16125,
-      "sha256": "3f47e624ca75b7fb8f8ea6add409a64181772f6d3072fa23ffa33eea32eb8da4"
+      "size": 17308,
+      "sha256": "3d6b5e5abccedaee0dfca29f79a35e6c3030a1f0e8cfd5de8369adf6ce1120bd"
     },
     {
       "path": "tools/portable_setup.py",
@@ -28880,8 +28895,8 @@
     },
     {
       "path": "tools/release_compact.py",
-      "size": 7119,
-      "sha256": "18978ca43b92abd90035daf068e875b1dd25bfbfc98481a54f6171f35e474e3e"
+      "size": 10049,
+      "sha256": "3540b7c4938981b7271be0ef222d6413ab30528d077ffcfd8c3af59471b30230"
     },
     {
       "path": "tools/release_content_policy.py",

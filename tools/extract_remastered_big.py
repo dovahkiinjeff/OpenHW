@@ -92,7 +92,9 @@ class BigArchive:
       destination=output/safe_path(key)
       if not destination.resolve().is_relative_to(output):raise ValueError('SGA destination escapes output')
       destination.parent.mkdir(parents=True,exist_ok=True)
-      pending=destination.with_name(destination.name+'.import-pending');pending.write_bytes(self.read(key));pending.replace(destination);written.append(key)
+      pending=destination.with_name(destination.name+'.import-pending')
+      from release_compact import write_extracted_payload
+      write_extracted_payload(key,pending,self.read(key));pending.replace(destination);written.append(key)
      return written
 
 def extract(archive,output,prefixes=('background/',),*,list_only=False):

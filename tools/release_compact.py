@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from extract_remastered_big import BigArchive
 
 HW1_PREFIXES=('kus_','tai_','tur_','kad_','hw1_')
+IMMUTABLE_PAYLOAD_SUFFIXES=frozenset(('.dds','.lif','.hod','.geo','.peo','.bin','.hwf6','.wav','.fda','.png','.tga','.webp','.jpg','.jpeg','.mp4','.bik','.avi','.mad'))
 SPECIAL_SHIPS=('ben_bentusiexchange','der_ghostship','junk_junkyardoffice','misc_t-matmegaship')
 SHARED_TAIIDAN_BEAM=frozenset((
  'scripts/weaponfire/vgrbeam/vgrbeam.wf','art/fx/vgr_laser_combo.lua',
@@ -90,7 +91,7 @@ def link_or_copy(source,target):
  source,target=Path(source),Path(target);target.parent.mkdir(parents=True,exist_ok=True)
  # Text definitions can be edited/rebuilt in place. Link only known immutable
  # image/model/audio payloads; an unknown extension must remain independent.
- if source.suffix.lower() not in ('.dds','.lif','.hod','.geo','.peo','.bin','.hwf6','.wav','.fda','.png','.tga','.webp','.jpg','.jpeg','.mp4','.bik','.avi','.mad'):
+ if source.suffix.lower() not in IMMUTABLE_PAYLOAD_SUFFIXES:
   return shutil.copyfile(source,target)
  temporary=target.with_name(target.name+'.link-pending')
  if temporary.exists():temporary.unlink()
@@ -117,6 +118,54 @@ def stage_copy(source,target):
   if Path(source).resolve().is_relative_to(root) and Path(target).resolve().is_relative_to(root):
    return link_or_copy(source,target)
  return shutil.copy2(source,target)
+
+def write_extracted_payload(name, target, payload):
+ """Reuse an identical imported binary inside disposable release staging.
+
+ Never link retail archives, editable text or an unverified same-name entry.
+ """
+ target=Path(target);within=os.environ.get('OPENHW_COMPACT_STAGE_ROOT')
+ if within and Path(name).suffix.lower() in IMMUTABLE_PAYLOAD_SUFFIXES:
+  work=Path(within).resolve()
+  if work.name=='SetupWork' and work.parent.name=='Development' and target.resolve().is_relative_to(work):
+   from extract_remastered_big import safe_path
+   source_root=work.parent/'SetupSources'/'Remastered';source=source_root/safe_path(name)
+   if source.resolve().is_relative_to(source_root.resolve()) and not source.is_symlink() and source.is_file() and source.stat().st_size==len(payload):
+    with source.open('rb') as stream:matches=hashlib.file_digest(stream,'sha256').digest()==hashlib.sha256(payload).digest()
+    if matches:return link_or_copy(source,target)
+ target.write_bytes(payload)
+
+
+def release_finished_model_sources(sources,work):
+ """Retire model scratch after FX; retain scripts and later subsystem inputs."""
+ sources,work=Path(sources).resolve(),Path(work).resolve()
+ if work.name!='SetupWork' or sources.name!='SetupSources' or sources.parent!=work.parent or work.parent.name!='Development':raise ValueError('Unexpected release source cleanup roots')
+ for folder in (work/'out').glob('hwrm-*-native'):
+  discard(folder/'source',work)
+ for path in (sources/'Remastered'/'ship').rglob('*'):
+  if path.suffix.lower() in ('.hod','.mad') and path.is_file() and not path.is_symlink():path.unlink()
+
+
+def retire_published_backdrop_scratch(root,work):
+ """SDL backdrop readers use loose files, never an extra OBIG copy.
+
+ Confirm every published byte before dropping its redundant pack input.
+ """
+ root,work=Path(root).resolve(),Path(work).resolve()
+ if work!=root/'Development'/'SetupWork':raise ValueError('Unexpected backdrop scratch root')
+ source=work/'generated'/'RemasteredBackgrounds';published=root/'RemasteredBackgrounds'
+ if not source.exists():return
+ if not published.resolve().is_relative_to(root) or source.is_symlink():raise ValueError('Backdrop paths must remain inside installation')
+ for path in source.rglob('*'):
+  if path.is_symlink():raise ValueError('Linked backdrop scratch path')
+  if not path.is_file():continue
+  target=published/path.relative_to(source)
+  if not target.resolve().is_relative_to(published.resolve()) or not target.is_file() or target.stat().st_size!=path.stat().st_size:raise ValueError('Missing published backdrop: '+str(target))
+  if not os.path.samefile(path,target):
+   with path.open('rb') as a,target.open('rb') as b:
+    if hashlib.file_digest(a,'sha256').digest()!=hashlib.file_digest(b,'sha256').digest():raise ValueError('Published backdrop differs; scratch preserved: '+str(target))
+ discard(source,work)
+
 
 def audit_factions(root):
  from openhw_obig import validate

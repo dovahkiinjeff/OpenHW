@@ -1,5 +1,6 @@
 """Disposable synthetic fixtures: bounded packing, recovery and cache ownership."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -11,7 +12,7 @@ from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
 import openhw_obig as obig
-from release_compact import compact_stage_copies,stage_copy
+from release_compact import compact_stage_copies,stage_copy,write_extracted_payload,release_finished_model_sources,retire_published_backdrop_scratch
 from portable_convert import overlay,_convert,finish_release_archive
 from release_import import pack_migration_input
 
@@ -117,6 +118,38 @@ class CompactInstallerDiskTests(unittest.TestCase):
         (package/text.name).write_text('new')
         self.assertEqual(text.read_text(),'original')
 
+    def test_repeated_extraction_reuses_only_identical_immutable_payloads(self):
+        imported=self.install/'Development/SetupSources/Remastered/ship/test'
+        imported.mkdir(parents=True)
+        target=self.work/'out/hwrm-test-native/source/ship/test'
+        target.mkdir(parents=True)
+        original=imported/'model.hod';original.write_bytes(b'original HOD')
+        with compact_stage_copies(self.work):
+            write_extracted_payload('ship/test/model.hod',target/'model.hod.import-pending',b'original HOD')
+            self.assertTrue(os.path.samefile(original,target/'model.hod.import-pending'))
+            write_extracted_payload('ship/test/model.hod',target/'new.hod.import-pending',b'changed  HOD')
+            self.assertFalse(os.path.samefile(original,target/'new.hod.import-pending'))
+            self.assertEqual(original.read_bytes(),b'original HOD')
+            text=imported/'model.ship';text.write_bytes(b'editable')
+            write_extracted_payload('ship/test/model.ship',target/'model.ship.import-pending',b'editable')
+            self.assertFalse(os.path.samefile(text,target/'model.ship.import-pending'))
+        with compact_stage_copies(self.work),patch('release_compact.os.link',side_effect=OSError('no hardlinks')):
+            write_extracted_payload('ship/test/model.hod',target/'fallback.hod.import-pending',b'original HOD')
+            self.assertEqual((target/'fallback.hod.import-pending').read_bytes(),original.read_bytes())
+        write_extracted_payload('ship/test/model.hod',target/'ordinary.hod.import-pending',b'original HOD')
+        self.assertFalse(os.path.samefile(original,target/'ordinary.hod.import-pending'))
+
+    def test_finished_model_cleanup_preserves_later_consumers_and_runtime(self):
+        sources=self.install/'Development/SetupSources'
+        files={sources/'Remastered/ship/test/model.hod':b'model',sources/'Remastered/ship/test/model.mad':b'animation',sources/'Remastered/ship/test/model.events':b'events',sources/'Remastered/subsystem/test/model.hod':b'later subsystem',self.work/'out/hwrm-test-native/source/model.hod':b'scratch',self.source/'runtime.hod':b'runtime'}
+        for path,data in files.items():path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+        release_finished_model_sources(sources,self.work)
+        for path,data in files.items():
+            if path.suffix=='.events' or 'subsystem' in path.parts or path==self.source/'runtime.hod':self.assertEqual(path.read_bytes(),data)
+            else:self.assertFalse(path.exists())
+        release_finished_model_sources(sources,self.work) # interrupted-install resume
+        with self.assertRaises(ValueError):release_finished_model_sources(self.install,self.work)
+
     def test_overlay_hardlink_failure_falls_back_without_losing_assets(self):
         self.populate(1)
         target=self.work/'destination'
@@ -159,6 +192,43 @@ class CompactInstallerDiskTests(unittest.TestCase):
             self.assertFalse(folder.exists())
         check.assert_called_once()
         self.assertEqual(len(obig.validate(self.output,deep=True)),3)
+
+    def test_loose_backdrops_verified_before_redundant_pack_input_removed(self):
+        source=self.source/'RemasteredBackgrounds';published=self.install/'RemasteredBackgrounds'
+        source.mkdir();published.mkdir()
+        (source/'mission01_scene.bin').write_bytes(b'exact original scene')
+        with self.assertRaisesRegex(ValueError,'Missing'):retire_published_backdrop_scratch(self.install,self.work)
+        self.assertTrue(source.exists())
+        (published/'mission01_scene.bin').write_bytes(b'edited original data')
+        with self.assertRaisesRegex(ValueError,'differs'):retire_published_backdrop_scratch(self.install,self.work)
+        shutil.copyfile(source/'mission01_scene.bin',published/'mission01_scene.bin')
+        retire_published_backdrop_scratch(self.install,self.work)
+        self.assertFalse(source.exists());self.assertEqual((published/'mission01_scene.bin').read_bytes(),b'exact original scene')
+        retire_published_backdrop_scratch(self.install,self.work)
+
+    def test_final_packing_retires_only_known_migration_archive_and_resumes(self):
+        self.populate(1)
+        old=self.install/'OpenHW-HW1.obig';old.write_bytes(b'temporary migration archive')
+        prepared=dict(schema=1,definitions=1,sky_size=1024,migration_archive_sha256=hashlib.sha256(old.read_bytes()).hexdigest())
+        (self.install/'Development/SetupSources').mkdir()
+        pack=obig.pack_consuming
+        def check_retired(*args,**kwargs):
+            self.assertFalse(old.exists())
+            return pack(*args,**kwargs)
+        with patch('openhw_obig.pack_consuming',side_effect=check_retired),patch('portable_convert.subprocess.run'):
+            finish_release_archive(self.install,self.install/'tools',self.work,prepared)
+        actual=old.read_bytes()
+        with patch('portable_convert.subprocess.run'):
+            finish_release_archive(self.install,self.install/'tools',self.work,prepared)
+        self.assertEqual(old.read_bytes(),actual)
+
+    def test_changed_migration_placeholder_is_preserved(self):
+        self.populate(1)
+        old=self.install/'OpenHW-HW1.obig';old.write_bytes(b'unexpected replacement')
+        (self.install/'Development/SetupSources').mkdir()
+        with self.assertRaisesRegex(ValueError,'preserved'):
+            finish_release_archive(self.install,self.install/'tools',self.work,dict(migration_archive_sha256='0'*64))
+        self.assertEqual(old.read_bytes(),b'unexpected replacement')
 
     def test_pack_peak_is_one_tree_plus_one_batch_not_two_complete_trees(self):
         mib=1024*1024

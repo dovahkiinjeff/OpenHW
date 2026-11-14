@@ -1,5 +1,6 @@
 """Rebuild OpenHW's local HW1 package from the imported Collection sources."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -42,7 +43,7 @@ def overlay(source, destination):
 
 def finish_release_archive(root, tools, work, prepared):
     from openhw_obig import pack_consuming
-    from release_compact import audit_factions, discard
+    from release_compact import audit_factions, discard, retire_published_backdrop_scratch
     # All inputs are now in the prepared runtime tree or published loose files.
     # These earlier conversion snapshots must not overlap final packing.
     for name in ('out','background-work','ship-documents-v2','migration-input','release-runtime','special-game'):
@@ -50,6 +51,17 @@ def finish_release_archive(root, tools, work, prepared):
     sources=root/'Development/SetupSources'
     for name in ('Remastered','material-cache'):
         discard(sources/name,sources)
+    retire_published_backdrop_scratch(root,work)
+    # The initial OBIG serves only the document migrator. Once the durable
+    # prepared handoff exists, retaining that extra model archive throughout
+    # final packing wastes space. A journal distinguishes a completed final
+    # archive on resume; the digest protects any unexpectedly replaced file.
+    journal=work/'runtime-pack.sqlite';output=root/'OpenHW-HW1.obig'
+    migration_digest=prepared.get('migration_archive_sha256')
+    if migration_digest and not journal.exists() and output.is_file():
+        with output.open('rb') as stream:actual=hashlib.file_digest(stream,'sha256').hexdigest()
+        if actual!=migration_digest:raise ValueError('Migration archive changed before final packing; file preserved')
+        output.unlink()
     count=pack_consuming(work/'generated',root/'OpenHW-HW1.obig',work/'runtime-pack.sqlite',scratch=work)
     subprocess.run([str(tools/'OpenHWAssetCheck.exe'), str(root/'OpenHW-HW1.obig'),str(root),str(root)], check=True,
                    cwd=root, env={**os.environ, 'HW_PORTABLE_ROOT': str(root)})
@@ -208,6 +220,9 @@ def _convert(root, tools, sky_size=1024):
         from import_kushan_weapon_fx import build as build_fx
         from native_hod_surfaces import load_reader
         build_fx(sources/'Remastered',r1/'source',generated/'RemasteredFX',p1/'source',r2/'source',p2/'source',True,True,load_reader(reader));finish('fx')
+    if release:
+        from release_compact import release_finished_model_sources
+        release_finished_model_sources(sources,work)
     if 'backgrounds' not in completed:
         import_backgrounds(archives, work/'background-work', generated, tools, sky_size, compact=release)
         finish('backgrounds')
@@ -271,7 +286,10 @@ def _convert(root, tools, sky_size=1024):
         # to the consuming pack. A durable handoff replaces the previous second
         # complete runtime tree and permits resume without the retail sources.
         apply_authored(root,generated,development/'Authored')
-        prepared=dict(schema=1,definitions=definition_count,sky_size=sky_size)
+        with (root/'OpenHW-HW1.obig').open('rb') as stream:
+            migration_digest=hashlib.file_digest(stream,'sha256').hexdigest()
+        prepared=dict(schema=1,definitions=definition_count,sky_size=sky_size,
+                      migration_archive_sha256=migration_digest)
         pending=prepared_file.with_suffix('.pending')
         with pending.open('w') as stream:
             json.dump(prepared,stream);stream.flush();os.fsync(stream.fileno())

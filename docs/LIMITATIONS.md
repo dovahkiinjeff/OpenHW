@@ -8,7 +8,7 @@ AMD FSR upscaling and AMD FSR frame generation are fully working and recommended
 
 Windows x64 is the supported release platform. Path tracing requires compatible DXR hardware. Performance varies with the mission, fleet size, graphics settings and hardware; no universal FPS or VRAM claim is made. Frame generation does not increase simulation rate.
 
-Installation has exceeded 200 GB temporary usage. At least 250 GB free on the destination drive is recommended, not a guaranteed upper bound. The original Collection and final game also consume space. See [installation](USER_GUIDE.md).
+A full run of the public 1.1.1 base installer measured 39.304 GB peak additional drive use on NTFS; the corrected installer candidate measured 37.913 GB. Older 200-250 GB advice describes a superseded pipeline. These observed peaks are not universal maximum requirements, and the candidate has not replaced the public download. See the [full measurement report](INSTALLER_DISK_MEASUREMENT_2026_11_14.md).
 
 ## Editing and compatibility
 
