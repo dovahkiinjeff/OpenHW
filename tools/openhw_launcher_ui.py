@@ -15,26 +15,23 @@ BODY=('Rajdhani',-20); SMALL=('Rajdhani',-17); BOLD=('Rajdhani',-21,'bold')
 MONO=('Share Tech Mono',-12); HEADING=('Rajdhani',-42,'bold')
 
 def concept_backdrop(canvas, source):
-    """Paint art beneath ordinary opaque form controls, with a readable blue tint."""
+    """Use a build-tinted PNG and native Tk scaling, independent of Pillow DLLs."""
     try:
-        from PIL import Image
-        import io,base64
-        image=Image.open(source).convert('RGB')
-    except (OSError,ImportError):
+        original=tk.PhotoImage(file=str(source))
+    except (OSError,tk.TclError):
         return
-    state={'pending':None,'size':None,'photo':None,'item':None}
+    state={'pending':None,'size':None,'photo':None,'item':None,'original':original}
     def paint():
         state['pending']=None
         width,height=canvas.winfo_width(),canvas.winfo_height()
         if min(width,height)<2 or state['size']==(width,height):return
-        scale=max(width/image.width,height/image.height)
-        art=image.resize((max(width,round(image.width*scale)),max(height,round(image.height*scale))),Image.Resampling.LANCZOS)
-        x,y=(art.width-width)//2,(art.height-height)//2
-        art=Image.blend(art.crop((x,y,x+width,y+height)),Image.new('RGB',(width,height),PANEL),.77)
-        buffer=io.BytesIO();art.save(buffer,format='PNG')
-        state['photo']=tk.PhotoImage(data=base64.b64encode(buffer.getvalue()))
-        if state['item'] is None:state['item']=canvas.create_image(0,0,anchor='nw',image=state['photo'])
-        else:canvas.itemconfigure(state['item'],image=state['photo'])
+        import math
+        zoom=max(1,math.ceil(max(width/original.width(),height/original.height())))
+        state['photo']=original.zoom(zoom) if zoom>1 else original
+        if state['item'] is None:state['item']=canvas.create_image(width//2,height//2,anchor='center',image=state['photo'])
+        else:
+            canvas.coords(state['item'],width//2,height//2)
+            canvas.itemconfigure(state['item'],image=state['photo'])
         canvas.tag_lower(state['item']);state['size']=(width,height)
     def resize(event=None):
         if state['pending'] is not None:canvas.after_cancel(state['pending'])

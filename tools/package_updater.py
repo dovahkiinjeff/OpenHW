@@ -97,7 +97,11 @@ except Exception:
                 if path.is_file():out.write(path,path.relative_to(args.bundle).as_posix())
         if ssl_policy:
             out.write(ssl_policy,'Development/'+('Launcher' if args.launcher else 'Updater')+'/Runtime/'+version+'/Development/codex-rejected-cas.pem')
-        out.write(source/'assets/UI/concept_chamber.png','Development/Launcher/Theme/diagnostics-concept.png')
+        from PIL import Image
+        concept=Image.open(source/'assets/UI/concept_chamber.png').convert('RGB')
+        graded=args.work/'diagnostics-concept.png'
+        Image.blend(concept,Image.new('RGB',concept.size,'#0b1820'),.77).save(graded)
+        out.write(graded,'Development/Launcher/Theme/diagnostics-concept.png')
         # Both utilities provide the same themed update interface.
         theme=source/'assets/Launcher'
         for asset in sorted(theme.iterdir()):

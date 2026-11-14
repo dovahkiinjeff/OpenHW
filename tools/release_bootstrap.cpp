@@ -136,7 +136,18 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         check(std::filesystem::is_regular_file(root/L"setup-complete.json") &&
               std::filesystem::is_regular_file(root/L"Development/Installer/Development/python312.dll"),
               "Select an installed OpenHW 1.0 folder, not the original Collection.");
-#ifdef OPENHW_PATCH_111
+#ifdef OPENHW_PATCH_112
+        std::ifstream versionFile(root/L"version.json");
+        std::string versionText((std::istreambuf_iterator<char>(versionFile)),std::istreambuf_iterator<char>());
+        check(std::regex_search(versionText,std::regex(R"version("version"\s*:\s*"1\.1\.1")version")),"Install the full OpenHW 1.1.1 base before applying this patch.");
+        HANDLE snapshot=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
+        check(snapshot!=INVALID_HANDLE_VALUE,"Cannot check whether OpenHW is running.");
+        PROCESSENTRY32W entry={};entry.dwSize=sizeof(entry);bool running=false;
+        if(Process32FirstW(snapshot,&entry))do{
+            if(!_wcsicmp(entry.szExeFile,L"OpenHW.exe") || !_wcsicmp(entry.szExeFile,L"OpenHW-Daignostics.exe") || !_wcsicmp(entry.szExeFile,L"Launcher.exe"))running=true;
+        }while(Process32NextW(snapshot,&entry));CloseHandle(snapshot);
+        check(!running,"Close OpenHW and Launcher before applying the standalone patch.");
+#elif defined(OPENHW_PATCH_111)
         std::ifstream versionFile(root/L"version.json");
         std::string versionText((std::istreambuf_iterator<char>(versionFile)),std::istreambuf_iterator<char>());
         check(std::regex_search(versionText,std::regex(R"version("version"\s*:\s*"1\.1(?:\.0)?")version")),"This patch requires a fresh OpenHW 1.1 installation.");
@@ -151,8 +162,12 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         }while(Process32NextW(snapshot,&entry));CloseHandle(snapshot);
         check(!running,"Close OpenHW, OpenHW-Daignostics and Launcher before applying this patch.");
         #endif
-#ifdef OPENHW_PATCH_111
+#if defined(OPENHW_PATCH_111) || defined(OPENHW_PATCH_112)
+#ifdef OPENHW_PATCH_112
+        const auto backup=root/L"Development/Patches/1.1.2/Backup";
+#else
         const auto backup=root/L"Development/Patches/1.1.1/Backup";
+#endif
 #else
         const auto backup=root/L"Development/Patches/1.0.7/Backup";
 #endif

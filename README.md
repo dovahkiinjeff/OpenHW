@@ -1,4 +1,6 @@
-# OpenHW 1.1.1
+# OpenHW 1.1.2
+
+**Latest update:** [1.1.2 — mixed fleet spread, concept panels and room browser](docs/RELEASE_NOTES_1.1.2.md). Existing 1.1.1 players: choose **Update now** in Launcher. Update before joining multiplayer. [Website update entry](https://openhw.tech/#/updates/v1.1.2).
 
 [**Download the full OpenHW 1.1.1 installer**](https://openhw.tech/downloads/v1.1.1/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.1) · [1.1.1 release notes](docs/RELEASE_NOTES_1.1.1.md)
 

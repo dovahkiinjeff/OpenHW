@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "version": "1.1.1",
-  "snapshot": "Unreleased fleet UI candidate based on 1.1.1",
+  "version": "1.1.2",
+  "snapshot": "Complete current build inputs",
   "excluded": [
     "generated out/ and .deps/",
     "personal logs/saves and originating Git worktree metadata",
@@ -51,7 +51,7 @@
     {
       "path": "BUILD_INSTALLER.md",
       "size": 7016,
-      "sha256": "da53410f5bb9e260278ca43cafb88f094c3e7cee3482cb559b02d054e6c381e0"
+      "sha256": "e1bbd352c7b0e40505e05fcf4970a07920636e58b351a2bcd0d688c5c09072f0"
     },
     {
       "path": "CHANGELOG",
@@ -60,8 +60,8 @@
     },
     {
       "path": "CMakeLists.txt",
-      "size": 80726,
-      "sha256": "e0e87a63287c6665070221c05a189d6f4185a851192d614545196a4f0bae98cf"
+      "size": 81291,
+      "sha256": "291917d4ea2a638e30838b54903525a14a038808c7d9288a57afb4fa8f5cc73e"
     },
     {
       "path": "CMakePresets.json",
@@ -80,8 +80,8 @@
     },
     {
       "path": "README.md",
-      "size": 41538,
-      "sha256": "e8482a2aa17ac8e8b7dd6c7c9cae1380605dc245aa70d3dd6ed069cd081c8662"
+      "size": 41808,
+      "sha256": "2b0fc7d0a69aa85f35e08ef1046b34ad826b8876eb8e2cfe6a05526e6ee82d00"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -171,7 +171,7 @@
     {
       "path": "Windows/build-release.ps1",
       "size": 7257,
-      "sha256": "2b0d383ae12a90412709ee49564e8c78ba74534a18ba8d073c65570c2d0fcb3a"
+      "sha256": "11e8fa1e13962182124cce22ca3ee7f2833b2af12681a38f51162e84611fe8c4"
     },
     {
       "path": "Windows/build.ps1",
@@ -23374,6 +23374,11 @@
       "sha256": "80f384df73596c5f51c83b27b98578abbef5d21be908885857e0ddc6b131efd8"
     },
     {
+      "path": "docs/RELEASE_NOTES_1.1.2.md",
+      "size": 2461,
+      "sha256": "c8c42ed25afde86bd2bfa27d343fc6690cb5fbe7f2a64f2cb5ae31abe401db2d"
+    },
+    {
       "path": "docs/RELEASE_NOTES_1.1.md",
       "size": 7095,
       "sha256": "f85c8c910034c62c8699a5f3eb59435b95e862c4616464e71919f1fcc36e31d2"
@@ -23422,11 +23427,6 @@
       "path": "docs/TEXTURE_RESOLUTION.md",
       "size": 1540,
       "sha256": "c82baa91e967445f6306d590a2ddadd6977de2a4c8fff460c4e148320c375ae2"
-    },
-    {
-      "path": "docs/UNRELEASED_FLEET_UI.md",
-      "size": 1058,
-      "sha256": "0b0ba572a505123c8923a96f3dc3a984a00e419dac272422f91265c17849db0c"
     },
     {
       "path": "docs/UPDATER.md",
@@ -28700,8 +28700,8 @@
     },
     {
       "path": "tools/openhw_launcher_ui.py",
-      "size": 49234,
-      "sha256": "8e25f59de4906cb450f510be54c229921980f096751dcd3a8a14911e2df58842"
+      "size": 48984,
+      "sha256": "ce7971422d70bf9cd2db8d44ffb1e7ffa65b360d577773bc4d0153d536c71b67"
     },
     {
       "path": "tools/openhw_obig.py",
@@ -28750,8 +28750,8 @@
     },
     {
       "path": "tools/package_release_patch.py",
-      "size": 5956,
-      "sha256": "79b7729a338d9f826f0e337db41e79a88da7ee2ceb6671c247b17a6cd18589c7"
+      "size": 6150,
+      "sha256": "e506b6083c58e81ffe081ae800b4a463982c6ce5005a0543192aa142c12ce436"
     },
     {
       "path": "tools/package_ship_document_update.py",
@@ -28760,8 +28760,8 @@
     },
     {
       "path": "tools/package_updater.py",
-      "size": 7475,
-      "sha256": "80687e554ab9018128f5d58d63ff6ca17fc2e4cbb660c067d7d6be22b6358893"
+      "size": 7692,
+      "sha256": "86e0dd9c238c9f470a571143a031d1f7ae17f71308003711681e4a164cb3bcf8"
     },
     {
       "path": "tools/plan_kushan_hod_bindings.py",
@@ -28795,8 +28795,8 @@
     },
     {
       "path": "tools/release_bootstrap.cpp",
-      "size": 19831,
-      "sha256": "7f23ca659389118b8fcb882698b0178d2b86aed34c1a04097e94b3fbda490693"
+      "size": 20965,
+      "sha256": "27f9ae683ac9ae3b3f43bc83f9b9c60bcbe922cf0ecec8053f4b9c6df078e920"
     },
     {
       "path": "tools/release_compact.py",
@@ -28839,9 +28839,14 @@
       "sha256": "c57ea60fbac34e8f381620ce8df4716853cc8287f7c748174e9716e347afe389"
     },
     {
+      "path": "tools/release_patch112.py",
+      "size": 3677,
+      "sha256": "c3389f7523ce934a19cf2a8b7df2bbe64b7bb3fc90be1d06bc057d239897ac1b"
+    },
+    {
       "path": "tools/release_setup.py",
       "size": 12708,
-      "sha256": "77b86d090398e63c13f5bc34a27af8cd854ce0abed66ec0cf99d787e0a093827"
+      "sha256": "f2d03fe502da63f661d21b848a8bb34ed4350b38468fe21e1298d76148649a81"
     },
     {
       "path": "tools/release_sky_lighting.py",
@@ -28991,7 +28996,7 @@
     {
       "path": "tools/stage_release.py",
       "size": 7417,
-      "sha256": "f9ace8ee2e5ad07a0c5c4d3f18733cceff722d00a5c583b5224943e64ebef4bf"
+      "sha256": "b35ac6ba1e9c321b351add3a59492a67e948dd0e9ecafaf9e1163956c3a96da1"
     },
     {
       "path": "tools/stage_research_station_native.py",
@@ -29055,8 +29060,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 5258,
-      "sha256": "f5f3aa84011d7f49ed5f7ac8bd36d04ba5c5f4a7f670e0ac6194d40a911d8429"
+      "size": 5580,
+      "sha256": "b398f359999ae2c38ce8fd7f88d641afec5a01fb8d8b10d906b77288b29fac32"
     },
     {
       "path": "vcpkg.json",

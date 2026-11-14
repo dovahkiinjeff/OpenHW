@@ -1,4 +1,4 @@
-# Build OpenHW 1.1.1 and its fresh installer
+# Build OpenHW 1.1.2 and its fresh installer
 
 This is the complete cumulative source: Windows x64 engine, shaders, missions,
 dedicated multiplayer server, tests, importer, launcher/updater and reviewed
@@ -15,7 +15,7 @@ Use paths without spaces for FFmpeg/vcpkg.
 From the source folder:
 
 ~~~powershell
-.\Windows\build-release.ps1 -Python python -ReleaseVersion 1.1.1
+.\Windows\build-release.ps1 -Python python -ReleaseVersion 1.1.2
 ~~~
 
 This builds/tests both game variants and utility bootstraps, freezes the current
@@ -23,7 +23,7 @@ importer, packages Launcher.exe/Updater.exe, stages reviewed content, exports
 clean cumulative source and audits the nested runtime.
 
 Output: out/distribution/OpenHW-Setup.exe. Source defaults to the sibling
-OpenHW-Source-1.1.1 directory, which must be empty or absent. Override with
+OpenHW-Source-1.1.2 directory, which must be empty or absent. Override with
 -OutputDirectory and -SourceDirectory. The source build needs no installed game:
 utilities reuse the newly frozen setup dependency image. Reuse verified caches
 with -SkipBootstrap, -VcpkgRoot, -VcpkgInstalledRoot and -SdkRoot.
@@ -44,15 +44,15 @@ directly and needs no installed game.
 With current game builds, utility EXEs, importer tools and a current frozen setup:
 
 ~~~powershell
-python tools/stage_release.py --repo . --profile assets/Release --output out/release-stage-1.1.1 --normal-build out/build/release-no-diagnostics/Release --diagnostic-build out/build/deploy-x64-clean/Release --tools-dir out/import-tools --version 1.1.1 --launcher out/release-1.1.1/Launcher.exe --updater out/release-1.1.1/Updater.exe
+python tools/stage_release.py --repo . --profile assets/Release --output out/release-stage-1.1.2 --normal-build out/build/release-no-diagnostics/Release --diagnostic-build out/build/deploy-x64-clean/Release --tools-dir out/import-tools --version 1.1.2 --launcher out/release-1.1.2/Launcher.exe --updater out/release-1.1.2/Updater.exe
 
-python tools/export_release_source.py --repo . --output F:/OpenHW1/Source-1.1.1 --version 1.1.1
+python tools/export_release_source.py --repo . --output F:/OpenHW1/Source-1.1.2 --version 1.1.2
 
-python tools/package_release_installer.py --stage out/release-stage-1.1.1 --frozen out/release-installer-freeze/OpenHW-Setup --bootstrap out/build/deploy-x64-clean/Release/OpenHWSetupBootstrap.exe --output out/distribution/OpenHW-Setup.exe
+python tools/package_release_installer.py --stage out/release-stage-1.1.2 --frozen out/release-installer-freeze/OpenHW-Setup --bootstrap out/build/deploy-x64-clean/Release/OpenHWSetupBootstrap.exe --output out/distribution/OpenHW-Setup.exe
 
-python tools/audit_release_bundle.py --installer out/distribution/OpenHW-Setup.exe --source F:/OpenHW1/Source-1.1.1 --output out/distribution/Release-Audit.json
+python tools/audit_release_bundle.py --installer out/distribution/OpenHW-Setup.exe --source F:/OpenHW1/Source-1.1.2 --output out/distribution/Release-Audit.json
 
-python -m zipfile -c F:/OpenHW1/OpenHW-Source-1.1.zip F:/OpenHW1/Source-1.1.1
+python -m zipfile -c F:/OpenHW1/OpenHW-Source-1.1.zip F:/OpenHW1/Source-1.1.2
 ~~~
 
 Use Python 3.12. Staging/source destinations must be new. Audit the exported
@@ -65,7 +65,7 @@ artifacts, not extra required downloads.
 Put setup in a new writable final game folder and select an owned Remastered
 Collection. Required Classic/English archives are listed in portable_setup.py.
 The Collection stays read-only. Setup rejects old installations even without a
-completion receipt. A matching interrupted 1.1.1 setup can resume using its
+completion receipt. A matching interrupted 1.1.2 setup can resume using its
 recorded payload checksum; this is not a 1.0.x upgrade installer.
 
 - OpenHW.exe: logging compiled out; multiplayer preview included.
