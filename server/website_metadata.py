@@ -11,7 +11,7 @@ from pathlib import Path
 REPO = 'https://api.github.com/repos/dovahkiinjeff/OpenHW'
 SOURCES = {
     '/api/releases': (REPO + '/releases?per_page=100', 'releases.json'),
-    '/api/update-feed': ('https://raw.githubusercontent.com/dovahkiinjeff/OpenHW/main/updates/stable.json', 'update-feed.json'),
+    '/api/update-feed': ('https://openhw.tech/updates/stable.json', 'update-feed.json'),
 }
 cache = {}
 locks = {key: threading.Lock() for key in SOURCES}

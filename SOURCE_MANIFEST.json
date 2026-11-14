@@ -23710,8 +23710,8 @@
     },
     {
       "path": "server/website_metadata.py",
-      "size": 4396,
-      "sha256": "599293fa8b91a3b00e6a98da109731db63144fb0a7bc455d2b79635ac808a743"
+      "size": 4356,
+      "sha256": "7d0bfbbc54aba77250434f886306166fe34fb4a9abe3fe6652361648f20a75b0"
     },
     {
       "path": "src/Game/AIAttackMan.c",
