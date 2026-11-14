@@ -10,7 +10,7 @@ def main():
  def row(path,name):
   with path.open('rb') as source:sha=hashlib.file_digest(source,'sha256').hexdigest()
   shutil.copy2(path,downloads/(sha+'.exe'))
-  return dict(url=f'https://github.com/dovahkiinjeff/OpenHW/releases/download/v{a.version}/{name}',size=path.stat().st_size,sha256=sha,mirrors=[f'https://openhw.tech/downloads/v{a.version}/{name}'])
+  return dict(url=f'https://openhw.tech/downloads/v{a.version}/{name}',size=path.stat().st_size,sha256=sha)
  patch=dict(to=a.version,format='openhw-exe-zip-v1',post_actions=[],**{'from':[a.from_version]},**row(a.patch,f'OpenHW-Patch-{a.version}.exe'))
  launcher=dict(version=a.launcher_version,**row(a.launcher,'Launcher.exe'))
  target=a.output/'Development/Updater/Bundled/manifest.json';target.parent.mkdir(parents=True,exist_ok=True)

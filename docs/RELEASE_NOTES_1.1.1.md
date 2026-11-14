@@ -4,11 +4,11 @@
 
 ## New installation
 
-1. Download **[OpenHW-Setup.exe](https://openhw.tech/downloads/v1.1.1/OpenHW-Setup.exe)** ([GitHub fallback](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.1/OpenHW-Setup.exe)).
+1. Download **[OpenHW-Setup.exe](https://openhw.tech/downloads/v1.1.1/OpenHW-Setup.exe)**.
 2. Put it in a new writable game folder, run it, and select your owned Homeworld Remastered Collection with Homeworld 1 Classic and the required English archives.
 3. Setup imports the required retail files locally and installs OpenHW, Launcher, Updater and Diagnostics together. Start Launcher.exe afterward.
 
-The Collection is read-only during import. Installation, saves, settings, caches and logs remain in your OpenHW folder. This full installer already includes the working update system; **new installations do not need a separate updater replacement**. Future updates use the Launcher's server ticker and **Update now** button. openhw.tech is the primary source, with GitHub as fallback. Automatic checks notify you; installation starts when you choose Update now.
+The Collection is read-only during import. Installation, saves, settings, caches and logs remain in your OpenHW folder. This full installer already includes the working update system; **new installations do not need a separate updater replacement**. Future updates use the Launcher's server ticker and **Update now** button. Compiled files are hosted on openhw.tech. GitHub hosts the source, release notes and a fallback copy of the update metadata. Automatic checks notify you; installation starts when you choose Update now.
 
 ## Why 1.1 was retired
 
@@ -18,7 +18,7 @@ To give everyone one complete starting point with these fixes included, **1.1 ha
 
 ## Already running OpenHW 1.1?
 
-You can keep your existing installation, saves and settings. Close the game and Launcher, download **[Updater.exe](https://openhw.tech/downloads/v1.1.1/Updater.exe)** ([GitHub fallback](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.1/Updater.exe)), replace Updater.exe beside OpenHW.exe, and run it once. It installs the verified 1.1.1 recovery and reopens Launcher. Already on 1.1.1? No reinstall is needed.
+You can keep your existing installation, saves and settings. Close the game and Launcher, download **[Updater.exe](https://openhw.tech/downloads/v1.1.1/Updater.exe)**, replace Updater.exe beside OpenHW.exe, and run it once. It installs the verified 1.1.1 recovery and reopens Launcher. Already on 1.1.1? No reinstall is needed.
 
 The full installer is for a new folder; do not run it over an existing OpenHW installation. Back up saves and custom work before migrating folders.
 

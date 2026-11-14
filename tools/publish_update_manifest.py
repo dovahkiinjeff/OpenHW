@@ -1,4 +1,4 @@
-"""Generate the portable update feed from published GitHub release assets."""
+"""Validate and publish release metadata; compiled downloads live only on openhw.tech."""
 from pathlib import Path
 import argparse
 import base64
@@ -92,14 +92,20 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,default=Path('updates/stable.json'))
     parser.add_argument('--publish',action='store_true')
+    parser.add_argument('--validate-only',action='store_true')
     args=parser.parse_args()
-    releases=[]; page=1
-    while True:
-        rows=api('/releases?per_page=100&page='+str(page)); releases.extend(rows)
-        if len(rows)<100: break
-        page+=1
-    prior=json.loads(args.output.read_text()) if args.output.is_file() else None
-    feed=generate(releases,prior=prior); data=(json.dumps(feed,indent=2)+'\n').encode()
+    feed=json.loads(args.output.read_text(encoding='utf-8-sig'))
+    validate_manifest(feed)
+    floor=feed.get('fresh_install',{}).get('version','1.0')
+    active=[r for r in (feed.get('updater'),feed.get('launcher'),feed.get('fresh_install')) if r]
+    active += [r for r in feed['patches'] if version_key(r['to'])>=version_key(floor)]
+    for row in active:
+        if not row['url'].startswith('https://openhw.tech/downloads/') or any(not u.startswith('https://openhw.tech/downloads/') for u in row.get('mirrors',[])):
+            raise ValueError('Compiled releases must be hosted on openhw.tech, never GitHub')
+    data=(json.dumps(feed,indent=2)+'\n').encode()
+    if args.validate_only:
+        print(json.dumps(dict(latest=feed['latest'],active_downloads=len(active),server_only=True)))
+        return
     args.output.parent.mkdir(parents=True,exist_ok=True); args.output.write_bytes(data)
     if args.publish:
         path='/contents/updates/stable.json'; current=None

@@ -1,4 +1,4 @@
-"""Mirror the verified public GitHub feed/assets, then atomically publish it.
+"""Verify server-hosted compiled files against public metadata, then publish the feed.
 
 The server needs no GitHub token or repository write access. It never executes
 downloaded files, and an incomplete sync leaves the previous hosted feed intact.
@@ -22,9 +22,10 @@ QUOTA=30*1024**3
 
 def hosted_path(url, root=ROOT):
     official_url(url)
-    if not url.startswith(REPOSITORY_DOWNLOAD): raise ValueError('Canonical mirror source must be the official GitHub release')
+    prefix='https://openhw.tech/downloads/' if url.startswith('https://openhw.tech/downloads/') else REPOSITORY_DOWNLOAD
+    if not url.startswith(prefix):raise ValueError('Unsupported official download source')
     from urllib.parse import unquote
-    relative=unquote(url[len(REPOSITORY_DOWNLOAD):])
+    relative=unquote(url[len(prefix):])
     if not relative or any(p in ('','.','..') for p in relative.split('/')) or '\\' in relative or ':' in relative:
         raise ValueError('Unsafe mirrored asset path')
     base=(root/'downloads').resolve(); result=(base/relative).resolve()
@@ -54,10 +55,14 @@ def sync(root=ROOT):
     floor=feed.get('fresh_install',{}).get('version','1.0')
     rows=[r for r in (feed.get('updater'),feed.get('launcher'),feed.get('fresh_install')) if r]
     rows += [p for p in feed.get('patches',[]) if compare_versions(p['to'],floor)>0]
+    if compare_versions(floor,'1.1.1')>=0 and any(not r['url'].startswith('https://openhw.tech/downloads/') for r in rows):
+        raise ValueError('Compiled updates must be hosted on the game server; existing feed retained')
     root.mkdir(exist_ok=True,parents=True)
     for row in rows:
         target=hosted_path(row['url'],root)
         if target.is_file() and target.stat().st_size==row['size'] and digest(target)==row['sha256']:continue
+        if row['url'].startswith('https://openhw.tech/downloads/'):
+            raise ValueError('Publish and verify server files before enabling their update metadata: '+target.name)
         used=sum(p.stat().st_size for p in root.rglob('*') if p.is_file())
         if used+row['size']>QUOTA or shutil.disk_usage(root).free<row['size']+1024**3:
             raise ValueError('Update mirror storage limit reached; existing feed retained')

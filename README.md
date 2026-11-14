@@ -1,6 +1,6 @@
 # OpenHW 1.1.1
 
-[**Download the full OpenHW 1.1.1 installer**](https://openhw.tech/downloads/v1.1.1/OpenHW-Setup.exe) · [GitHub downloads](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.1) · [1.1.1 release notes](docs/RELEASE_NOTES_1.1.1.md)
+[**Download the full OpenHW 1.1.1 installer**](https://openhw.tech/downloads/v1.1.1/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.1) · [1.1.1 release notes](docs/RELEASE_NOTES_1.1.1.md)
 
 > [!IMPORTANT]
 > **1.1.1 is the full base release. Start here; no 1.1 install or old patch chain is required.** Setup includes the working Launcher, Updater and Diagnostics. Install in a new writable folder using your owned Homeworld Remastered Collection.
@@ -13,7 +13,7 @@
 
 [![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-[**Download OpenHW 1.1.1**](https://openhw.tech/downloads/v1.1.1/OpenHW-Setup.exe) · [GitHub fallback](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.1) · [Complete 1.1.1 source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.1/OpenHW-1.1.1-Source.zip) · [Release notes](docs/RELEASE_NOTES_1.1.1.md) · [Installation and controls](docs/USER_GUIDE.md) · [Editors](docs/EDITING_GUIDE.md) · [Modding](docs/MODDING.md) · [Build the installer](BUILD_INSTALLER.md)
+[**Download OpenHW 1.1.1**](https://openhw.tech/downloads/v1.1.1/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.1) · [Complete 1.1.1 source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.1/OpenHW-1.1.1-Source.zip) · [Release notes](docs/RELEASE_NOTES_1.1.1.md) · [Installation and controls](docs/USER_GUIDE.md) · [Editors](docs/EDITING_GUIDE.md) · [Modding](docs/MODDING.md) · [Build the installer](BUILD_INSTALLER.md)
 
 **The full 1.1.1 installer requires a fresh installation in a separate folder. Do not apply the old 1.0 patch chain to it.** Put OpenHW-Setup.exe in the new folder, select your owned Homeworld Remastered Collection, and let setup build the game there. Your old installation, saves and settings are not overwritten. Launcher.exe and Updater.exe are included.
 
@@ -22,6 +22,8 @@
 
 > **OpenHW 1.1.1 release:** Shift+F11/F12 live map, lighting and texture authoring menus are disabled in both game executables. Authored environments still load normally. The reference below describes the developer tools; source builds can explicitly enable them with `-DHW_ENABLE_LIVE_MAP_AUTHORING=ON`. The ship and parade editors are separate tools.
 
+
+**Publication:** compiled downloads are hosted on openhw.tech. GitHub hosts source code and release notes; its update feed is a metadata fallback only.
 
 ## OpenHW 1.1.1 - dedicated multiplayer and a new installation pipeline
 
@@ -244,7 +246,7 @@ This patch corrects the startup splash artwork path, removes in-engine cinematic
 ## Installation
 
 1. Install your legally owned **Homeworld Remastered Collection**, including Homeworld 1 Classic and the required English archives.
-2. Download [**OpenHW-Setup.exe 1.1**](https://openhw.tech/downloads/v1.1/OpenHW-Setup.exe) ([GitHub fallback](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1)). Put it in a **new writable folder**, separate from any previous OpenHW installation.
+2. Download [**OpenHW-Setup.exe 1.1**](https://openhw.tech/downloads/v1.1/OpenHW-Setup.exe) ([Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1)). Put it in a **new writable folder**, separate from any previous OpenHW installation.
 3. Run it and select the Collection installation. The Collection root, HomeworldRM, or its Data directory can be selected; setup also locates Classic data.
 4. Let conversion, package building and validation finish. Setup installs **beside itself** and leaves the original Collection untouched. All application files stay in this folder. See [disk budget and conversion details](BUILD_INSTALLER.md#installation-disk-budget).
 5. Start **Launcher.exe** or **OpenHW.exe**. Both Launcher.exe and Updater.exe are installed automatically. **No old patches are required for 1.1.** The first launch detects your display resolution and refresh rate. Setup does not start the game automatically.

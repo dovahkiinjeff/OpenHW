@@ -1,5 +1,8 @@
 # Hosted updates in OpenHW 1.1
 
+> **Current release policy (1.1.1 onward):** compiled installers, patches, Launcher and Updater are hosted on **openhw.tech only**. GitHub hosts source code, release notes and fallback update metadata; metadata download URLs point to the game server. The full 1.1.1 base includes the working utilities. Future updates start with **Update now** inside Launcher and automatically hand off and reopen it. Only existing 1.1 installations need the documented one-time manual Updater.exe replacement. See [publication workflow](RELEASING.md).
+
+
 The launcher and updater prefer `https://openhw.tech/updates/stable.json` and verified files under `https://openhw.tech/downloads/`. If that feed is unavailable or invalid, they read the official GitHub feed. Each download tries its hosted mirrors and then the canonical GitHub release asset. Both hosts use HTTPS; the same published size and SHA-256 apply. No arbitrary mirror domains are accepted.
 
 **1.1 is a fresh-install boundary.** Existing GitHub-only updaters self-update using the canonical GitHub URL before checking the new protocol. They then direct 1.0 users to the separate 1.1 installer without changing their game files. New 1.1 installations include Launcher.exe and Updater.exe. Ordinary later patches retain the versioned update graph.

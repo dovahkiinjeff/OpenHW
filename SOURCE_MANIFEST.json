@@ -35,13 +35,18 @@
     },
     {
       "path": ".github/workflows/update-feed.yml",
-      "size": 560,
-      "sha256": "6519cd7fce00727effd22d20033509fd27d5e1802378ed01e1e203a9adb27a56"
+      "size": 523,
+      "sha256": "f93db18cbe3d479629be972df15363f211bf3ed990e54a8883ce762b94cd78c5"
     },
     {
       "path": ".gitignore",
       "size": 587,
       "sha256": "01660c1d25882a9cdf61e66b81c554c4d8f2e33f3f2df8abac02b5b97122231d"
+    },
+    {
+      "path": "AGENTS.md",
+      "size": 1224,
+      "sha256": "fe0d21e45976e45dad8cba35acd18ea8f0331b163525339ba3fcb4a9865b2c08"
     },
     {
       "path": "BUILD_INSTALLER.md",
@@ -75,8 +80,8 @@
     },
     {
       "path": "README.md",
-      "size": 41359,
-      "sha256": "b1c4148755ff86d5ea6e9f1aa2f63480229c6524cda1f2d73fd3ff30b28670d7"
+      "size": 41538,
+      "sha256": "e8482a2aa17ac8e8b7dd6c7c9cae1380605dc245aa70d3dd6ed069cd081c8662"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -23210,13 +23215,18 @@
     },
     {
       "path": "docs/RELEASE_NOTES_1.1.1.md",
-      "size": 4419,
-      "sha256": "5d27cefd18512ebf8681487a7fffda8546fff57591e4743ce6538f07ddd687ba"
+      "size": 4283,
+      "sha256": "80f384df73596c5f51c83b27b98578abbef5d21be908885857e0ddc6b131efd8"
     },
     {
       "path": "docs/RELEASE_NOTES_1.1.md",
       "size": 7095,
       "sha256": "f85c8c910034c62c8699a5f3eb59435b95e862c4616464e71919f1fcc36e31d2"
+    },
+    {
+      "path": "docs/RELEASING.md",
+      "size": 1224,
+      "sha256": "fe0d21e45976e45dad8cba35acd18ea8f0331b163525339ba3fcb4a9865b2c08"
     },
     {
       "path": "docs/REMASTERED_WEAPON_FX.md",
@@ -23260,8 +23270,8 @@
     },
     {
       "path": "docs/UPDATER.md",
-      "size": 7108,
-      "sha256": "c07ec8ca2aeb4f2bdf85a5d17cc7fb9a884a34725c2c1fa8d75a1747ffe9b96c"
+      "size": 7647,
+      "sha256": "93221293a9916348663a388c2a0311dfd13534c17465bd3ece2a3dc2b50a15b3"
     },
     {
       "path": "docs/USER_GUIDE.md",
@@ -23460,8 +23470,8 @@
     },
     {
       "path": "server/mirror_updates.py",
-      "size": 4697,
-      "sha256": "896994cf457c85fcdc4c5ea83a2647dfb392c100046dafc08781927589d04925"
+      "size": 5188,
+      "sha256": "9693efabadafb90e229c5b9c32360dce0143b7978722f3b70a9c946ad0391ae9"
     },
     {
       "path": "server/openhw-diagnostics.service",
@@ -23537,6 +23547,11 @@
       "path": "server/test_mirror_updates.py",
       "size": 2844,
       "sha256": "8162ba6a913a39444cbb52347d6232270e127975566876630e7dcce25b6b119b"
+    },
+    {
+      "path": "server/website_metadata.py",
+      "size": 4396,
+      "sha256": "599293fa8b91a3b00e6a98da109731db63144fb0a7bc455d2b79635ac808a743"
     },
     {
       "path": "src/Game/AIAttackMan.c",
@@ -28310,8 +28325,8 @@
     },
     {
       "path": "tools/create_repair_bundle.py",
-      "size": 1494,
-      "sha256": "ea8f9e23379402a21a30cb60399f52e5d350e7bfba568b5efbd7c49a9751c514"
+      "size": 1402,
+      "sha256": "f6680747fffb02051d5b768be918802bce5fc0b8d2e60dca2f633c8336eb5863"
     },
     {
       "path": "tools/deploy_classic_fx.ps1",
@@ -28605,8 +28620,8 @@
     },
     {
       "path": "tools/publish_update_manifest.py",
-      "size": 6354,
-      "sha256": "5a6ea605b0a01dbed9049d3ff1f28df80bcdda85932027d62b7bacb480cc9590"
+      "size": 6901,
+      "sha256": "6e950f7823961446d97575a06c00c84b76d896a26caccd03ce57689d3362b622"
     },
     {
       "path": "tools/rebuild_installer_asteroid_path.py",
@@ -28875,8 +28890,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 5912,
-      "sha256": "ddc0f340ec7ff1306bf98ebf1b403b6df33edca61912496dea9600797688b7de"
+      "size": 5258,
+      "sha256": "f5f3aa84011d7f49ed5f7ac8bd36d04ba5c5f4a7f670e0ac6194d40a911d8429"
     },
     {
       "path": "vcpkg.json",
