@@ -57,7 +57,7 @@ void hwglDepthFunc(GLenum function){depthFunction=function;}
 void hwglDepthMask(GLboolean mask){assert(mask==GL_FALSE);}
 void hwglBlendFunc(GLenum a,GLenum b){(void)a;(void)b;}
 void hwglColor4f(GLfloat r,GLfloat g,GLfloat b,GLfloat a){assert(isfinite(r+g+b+a));lastColour[0]=r;lastColour[1]=g;lastColour[2]=b;lastColour[3]=a;}
-void hwglBegin(GLenum mode){assert(engineBlend<0);assert(depthEnabled&&depthFunction==GL_LEQUAL);assert(!inPrimitive&&(mode==GL_TRIANGLES||mode==GL_TRIANGLE_STRIP));inPrimitive=1;}
+void hwglBegin(GLenum mode){assert(engineBlend<0);assert(depthFunction==GL_LEQUAL);assert(!inPrimitive&&(mode==GL_TRIANGLES||mode==GL_TRIANGLE_STRIP));inPrimitive=1;}
 void hwglEnd(void){assert(inPrimitive);inPrimitive=0;}
 void hwglTexCoord2f(GLfloat u,GLfloat v){assert(inPrimitive&&isfinite(u+v));}
 void hwglVertex3f(GLfloat x,GLfloat y,GLfloat z){assert(inPrimitive&&isfinite(x+y+z));++vertices;}
@@ -91,7 +91,17 @@ int main(int argc,char **argv){
         {float disabled=0;HwRmFxProperty property={0};HwRmFxNode noDepth=node;
             property.name="usedepthtest";property.type=HW_RM_FX_BOOL;property.count=1;property.values=&disabled;
             noDepth.style=HW_RM_FX_RING;noDepth.propertyCount=1;noDepth.properties=&property;draw.node=&noDepth;
-            depthEnabled=0;rmFxRendererDraw(NULL,&draw);assert(depthEnabled&&depthFunction==GL_LEQUAL);}
+            depthEnabled=1;rmFxRendererDraw(NULL,&draw);assert(!depthEnabled&&depthFunction==GL_LEQUAL);
+            /* A subsequent beam must not inherit the contact layer's state. */
+            draw.node=&node;rmFxRendererDraw(NULL,&draw);assert(depthEnabled);}
+        if(graph){
+            const char *contacts[]={"ion_dmg_ring_ring","ion_dmg_ring","ion_dmg_ring_ring_kpr","ion_dmg_ring_kpr"};unsigned i;
+            for(i=0;i<4;++i){int index=hwRmFxGraphFind(graph,contacts[i]);unsigned beforeContact=vertices;
+                assert(index>=0);draw.node=hwRmFxGraphAt(graph,index);draw.radiusMultiplier=1;
+                rmFxRendererDraw(NULL,&draw);assert(vertices>beforeContact&&!depthEnabled);
+                draw.node=&node;rmFxRendererDraw(NULL,&draw);assert(depthEnabled);
+            }
+        }
         if(graph){unsigned i;for(i=0;i<hwRmFxGraphCount(graph);++i){draw.node=hwRmFxGraphAt(graph,i);rmFxRendererDraw(NULL,&draw);}}
         rmFxRendererEnd();assert(!pushes&&!inPrimitive&&loads==before);
         rmFxRendererBegin(&camera);rmFxRendererEnd();assert(loads==before);}

@@ -35,7 +35,16 @@ spawned, its caller retains the original effect. Reset/load clears transient
 events; shutdown releases textures and package memory. No new saved ship or gun
 pointers are introduced.
 
-## First-pass limitations
+## Current correction (1.1.4)
+
+The native graph renderer honors authored `UseDepthTest` per layer, including
+ion-contact rings and mesh splashes that set it to zero. Earlier builds forced
+depth testing on these layers, potentially hiding the effect at a hull contact.
+Default/beam layers still depth-test; translucent FX never write depth. The
+first-pass limits below describe the older flattened importer, not the complete
+current native graph path.
+
+## First-pass limitations (historical)
 
 This is not a complete Remastered FX engine. Combo, billboard-ring, beam, and
 sampled spray components are supported. Mesh-ring components and trails are not

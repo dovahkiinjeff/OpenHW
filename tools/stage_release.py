@@ -14,7 +14,7 @@ def defaults(text):
     return '\n'.join(lines).rstrip()+'\n\ndetectDisplayOnFirstBoot    1\n'
 
 def stage(repo, profile, destination, normal_build=None, diagnostic_build=None, tools_dir=None,
-          version='1.1.3', launcher=None, updater=None):
+          version='1.1.4', launcher=None, updater=None):
     from release_content_policy import verify_profile
     repo,profile,destination=map(lambda p:Path(p).resolve(),(repo,profile,destination))
     inventory=verify_profile(profile)
@@ -91,6 +91,6 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     for key in ('repo','profile','output'):p.add_argument('--'+key,type=Path,required=True)
     for key in ('normal-build','diagnostic-build','tools-dir'):p.add_argument('--'+key,type=Path)
-    p.add_argument('--version',default='1.1.3')
+    p.add_argument('--version',default='1.1.4')
     for key in ('launcher','updater'):p.add_argument('--'+key,type=Path,required=True)
     a=p.parse_args();stage(a.repo,a.profile,a.output,a.normal_build,a.diagnostic_build,a.tools_dir,a.version,a.launcher,a.updater)

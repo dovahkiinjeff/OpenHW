@@ -6,7 +6,7 @@ param(
     [string]$SdkRoot,
     [string]$OutputDirectory,
     [string]$SourceDirectory,
-    [string]$ReleaseVersion = '1.1.3',
+    [string]$ReleaseVersion = '1.1.4',
     [switch]$SkipBootstrap,
     [switch]$SkipTests
 )

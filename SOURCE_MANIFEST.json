@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.1.3",
+  "version": "1.1.4",
   "snapshot": "Complete current build inputs",
   "excluded": [
     "generated out/ and .deps/",
@@ -61,7 +61,7 @@
     {
       "path": "CMakeLists.txt",
       "size": 81668,
-      "sha256": "fbe3b9d4897af1ba248b4d397e77b6986f0d2fbe74013fa6e5d4b73435433a09"
+      "sha256": "867340f5a681b1d88288851a2194a9a78f80b8094e89d3af46a46656df85d644"
     },
     {
       "path": "CMakePresets.json",
@@ -171,7 +171,7 @@
     {
       "path": "Windows/build-release.ps1",
       "size": 7256,
-      "sha256": "d285d9f63342d90dac168e5ee5695a74a24757601db0bbba32892f3d3a7bd06b"
+      "sha256": "a73eb82a35b553fb4b2c548abd7d63c49f29b83e5711a1b473c173ef10a6c533"
     },
     {
       "path": "Windows/build.ps1",
@@ -23384,6 +23384,11 @@
       "sha256": "6cbb6b843efe11e8f11dabacf6755fa0984cd8c49f30e98ee6476e0480f33513"
     },
     {
+      "path": "docs/RELEASE_NOTES_1.1.4.md",
+      "size": 1405,
+      "sha256": "349c57e16c9d06154706ddc7c373f669eca32bab2f4f443c5ea45aec17272b03"
+    },
+    {
       "path": "docs/RELEASE_NOTES_1.1.md",
       "size": 7095,
       "sha256": "f85c8c910034c62c8699a5f3eb59435b95e862c4616464e71919f1fcc36e31d2"
@@ -23395,8 +23400,8 @@
     },
     {
       "path": "docs/REMASTERED_WEAPON_FX.md",
-      "size": 8303,
-      "sha256": "89f722efe27e0082d5de499c7c70a0ae7f60e68e827e657faeb8723d5ded2ba3"
+      "size": 8768,
+      "sha256": "4e49edf3e0ceaf41b979ff44ab71f332c6e5f0021d07ad098d6c6a8f83e0e3f3"
     },
     {
       "path": "docs/RENDERER_IMPROVEMENTS_2026_09_30.md",
@@ -25095,8 +25100,8 @@
     },
     {
       "path": "src/Game/RemasteredFxRenderer.c",
-      "size": 21937,
-      "sha256": "58488ed548f0f835b18e47ef2da34e97c840af3e5ddaef2f5a329dbe9ff4f91f"
+      "size": 22073,
+      "sha256": "fa8a23002a16f68a3e1706953ffa25c277e97c03d31514d71a2aaa8f26659d3c"
     },
     {
       "path": "src/Game/RemasteredFxRenderer.h",
@@ -27540,8 +27545,8 @@
     },
     {
       "path": "tests/FxRendererTests.c",
-      "size": 8016,
-      "sha256": "e4d33747df9bd615491bfb3b5e3e86f990157f22c26038a87589fdb55277a82e"
+      "size": 8709,
+      "sha256": "a9da3c23b42d5f56aa1d35bbd681c1c775b7574078a8b0dd2a68b6879c139705"
     },
     {
       "path": "tests/FxResourcesTests.cpp",
@@ -28760,8 +28765,8 @@
     },
     {
       "path": "tools/package_release_patch.py",
-      "size": 6232,
-      "sha256": "ee4e3d8c6d463406b911a56238e3c4ca19e3224d76323cfba7f1fd43d12281ac"
+      "size": 6260,
+      "sha256": "3ff2ae7540be78a3b6a31635783a858a38a7c6ae3adfed094585e28a09c912e5"
     },
     {
       "path": "tools/package_ship_document_update.py",
@@ -28805,8 +28810,8 @@
     },
     {
       "path": "tools/release_bootstrap.cpp",
-      "size": 21321,
-      "sha256": "82b392d32696808ba8ec0c9f90cb250bca6c7f62404a5a3503d282ed4fb952c0"
+      "size": 21666,
+      "sha256": "9eb9a5c28fd5b65f157d489714ec93b570a8537fe836e56e8f0400364a2116b1"
     },
     {
       "path": "tools/release_compact.py",
@@ -28859,9 +28864,14 @@
       "sha256": "19467ae9ecdc88492d7eab390ec7102acf20dd63d17d54e5cbe28058095a8b1d"
     },
     {
+      "path": "tools/release_patch114.py",
+      "size": 3677,
+      "sha256": "f332b743f244848fcec48348a3b206989ab5ca41303113bac228d4b7e8eb5bb0"
+    },
+    {
       "path": "tools/release_setup.py",
       "size": 12708,
-      "sha256": "5fc6b021164596ae413fd0eabcd8bdb9c4b0d90a5f65076764127a8663940829"
+      "sha256": "e38ba65a37be9c55b6d51b6d2382515f1c1232d9d5e815987546b5fe25432b24"
     },
     {
       "path": "tools/release_sky_lighting.py",
@@ -29011,7 +29021,7 @@
     {
       "path": "tools/stage_release.py",
       "size": 7417,
-      "sha256": "2d0f9f8adf0e1e3e8e6cc327f3e5103e1ae7c6e0e61ed38edb28a3d09fa4c68e"
+      "sha256": "5bac1119afe02834b938076eac60f0307a0541600d168fdc241479227cebe5e5"
     },
     {
       "path": "tools/stage_research_station_native.py",
@@ -29075,8 +29085,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 5901,
-      "sha256": "3c8fb1434ef88037819a79a6a26f7b4f8629dadccc2a877e38a5bfdb3a4319b6"
+      "size": 6222,
+      "sha256": "95bf2ed5bb3919c24a3d4821909a83ca1de446e2a36315bb9b393bae376477cc"
     },
     {
       "path": "vcpkg.json",

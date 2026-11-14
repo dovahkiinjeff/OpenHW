@@ -224,10 +224,13 @@ void rmFxRendererDraw(void *user,const HwRmFxDraw *draw){const HwRmFxNode *node;
     }
     if(!blend)glDisable(GL_BLEND);else {glEnable(GL_BLEND);
         glBlendFunc(blend==2?GL_ONE:blend==3?GL_DST_COLOR:GL_SRC_ALPHA,blend==1?GL_ONE_MINUS_SRC_ALPHA:blend==3?GL_ZERO:GL_ONE);}
-    /* Native FX are world-space geometry, never HUD overlays. RM's authored
-       UseDepthTest=0 must not let flashes/explosions show through solid hulls.
-       Keep depth writes off so translucent particles don't occlude each other. */
-    glEnable(GL_DEPTH_TEST);glDepthFunc(GL_LEQUAL);glDepthMask(GL_FALSE);
+    /* Contact rings/mesh splashes deliberately use UseDepthTest=0 in RM.
+       Forcing it on buries their thin geometry at the hull collision surface.
+       Honor each layer, restoring depth testing for subsequent default/beam
+       layers. Translucent FX never write scene depth. */
+    if(scalar(node,"usedepthtest",draw->phase,1)!=0)glEnable(GL_DEPTH_TEST);
+    else glDisable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);glDepthMask(GL_FALSE);
     glColor4f(colour[0],colour[1],colour[2],colour[3]);
     if(node->style==HW_RM_FX_LIGHT){HWModernDynamicLightEmitter light;memset(&light,0,sizeof(light));light.source=HW_MODERN_LIGHT_NATIVE_FX;light.shape=HW_MODERN_LIGHT_POINT;
         light.position[0]=origin.x;light.position[1]=origin.y;light.position[2]=origin.z;memcpy(light.color,colour,sizeof(light.color));light.radius=radius;light.intensity=fmaxf(0,colour[3]);
