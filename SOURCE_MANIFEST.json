@@ -28876,7 +28876,7 @@
     {
       "path": "updates/stable.json",
       "size": 5711,
-      "sha256": "a26da46cc1ced42604d60c1fd9c3b7cb220c5517b7e1db60e4428308b4adef8f"
+      "sha256": "dc289b84fe7dbe3aab6b4712c5ba99e9a052b062d7fc7cee41227980c0b93925"
     },
     {
       "path": "vcpkg.json",
