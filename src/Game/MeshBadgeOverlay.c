@@ -36,7 +36,9 @@ void meshBadgeRegister(void *owner,const void *source,int badge,float scale){pol
  }
  if(!entry->count){free(entry);return;}
  entry->indices=malloc(entry->count*sizeof(*entry->indices));entry->surfaces=calloc(entry->count/3,sizeof(*entry->surfaces));if(!entry->indices||!entry->surfaces){free(entry->indices);free(entry->surfaces);free(entry->vertices);free(entry);return;}
- for(i=0;i<entry->count;i++)entry->indices[i]=(unsigned short)i;
+ /* HOD badge V runs upward; decoded PNG/DDS image rows run downward.
+    Flip only the overlay coordinates, after clipping in authored UV space. */
+ for(i=0;i<entry->count;i++){entry->indices[i]=(unsigned short)i;entry->vertices[i].uv[1]=1.0f-entry->vertices[i].uv[1];}
  for(i=0;i<entry->count/3;i++){HWModernTriangleSurface*s=&entry->surfaces[i];s->baseColor[0]=s->baseColor[1]=s->baseColor[2]=s->opacity=1;for(j=0;j<3;j++)memcpy(s->uv+j*2,entry->vertices[i*3+j].uv,2*sizeof(float));}
  entry->next=objects;objects=entry;
 }

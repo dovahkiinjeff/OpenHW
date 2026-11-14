@@ -9137,6 +9137,7 @@ static void muiFleetPreviewRects(const ModernUILayout *layout,rectangle *view,re
     *thrust=muiRect(view->x0,view->y1+uiScaleSize(12),view->x1,view->y1+uiScaleSize(48));
 }
 
+#include "BadgePresentation.h"
 typedef struct MUIBadgeThumb {char id[65];unsigned texture,stamp;} MUIBadgeThumb;
 static MUIBadgeThumb muiBadgeThumbs[12];
 static unsigned muiBadgeStamp;
@@ -9150,7 +9151,7 @@ static unsigned muiBadgeThumb(const char *id){unsigned i,w,h;const unsigned char
 }
 static rectangle muiBadgeButton(const ModernUILayout *l,int i){sdword gap=uiScaleSize(7),w=(l->content.x1-l->content.x0-uiScaleSize(44)-gap*3)/4;
     return muiRect(l->content.x0+uiScaleSize(22)+i*(w+gap),l->content.y0+uiScaleSize(80),l->content.x0+uiScaleSize(22)+i*(w+gap)+w,l->content.y0+uiScaleSize(114));}
-static rectangle muiBadgeTile(const ModernUILayout *l,int i){sdword gap=uiScaleSize(8),w=(l->content.x1-l->content.x0-uiScaleSize(44)-gap*2)/3,h=(l->content.y1-l->content.y0-uiScaleSize(225))/3;
+static rectangle muiBadgeTile(const ModernUILayout *l,int i){sdword gap=uiScaleSize(8),w=(l->content.x1-l->content.x0-uiScaleSize(44)-gap*2)/3,h=(l->content.y1-l->content.y0-uiScaleSize(248)-gap*2)/3;
     return muiRect(l->content.x0+uiScaleSize(22)+(i%3)*(w+gap),l->content.y0+uiScaleSize(128)+(i/3)*(h+gap),l->content.x0+uiScaleSize(22)+(i%3)*(w+gap)+w,l->content.y0+uiScaleSize(128)+(i/3)*(h+gap)+h);}
 static void muiBadgeBrowser(const ModernUILayout *l){char selected[65],status[256],text[180];int i,count=hwBadgeCount(),pages=MAX2(1,(count+8)/9),x=mouseCursorX(),y=mouseCursorY();
     hwBadgeStatus(status,sizeof(status));
@@ -9159,7 +9160,7 @@ static void muiBadgeBrowser(const ModernUILayout *l){char selected[65],status[25
     for(i=0;i<9;i++){char id[65],label[180];rectangle tile=muiBadgeTile(l,i),image=tile,caption=tile;unsigned texture;
         hwBadgeInfo(muiColor.badgePage*9+i,id,sizeof(id),label,sizeof(label));if(!id[0])continue;
         muiFill(&tile,muiSurfaceRaised);image.x0+=uiScaleSize(4);image.x1-=uiScaleSize(4);image.y0+=uiScaleSize(4);image.y1-=uiScaleSize(25);
-        texture=muiBadgeThumb(id);if(texture){glPushAttrib(GL_ALL_ATTRIB_BITS);glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);muiDrawTextureInRect(texture,256,256,&image);glPopAttrib();}
+        texture=muiBadgeThumb(id);if(texture){HWBadgeImageRect fit=hwBadgeFitSquare(image.x0,image.y0,image.x1,image.y1);rectangle target=muiRect(fit.x0,fit.y0,fit.x1,fit.y1);glPushAttrib(GL_ALL_ATTRIB_BITS);glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);muiDrawTextureInRect(texture,256,256,&target);glPopAttrib();}
         if(!strcmp(id,selected)||muiPointIn(&tile,x,y))primRectOutline2(&tile,!strcmp(id,selected)?2:1,!strcmp(id,selected)?muiSignal:muiLine);
         if(muiPointIn(&tile,x,y))snprintf(status,sizeof(status),"%s",label);
         {char *source=strstr(label," / ");if(source)*source=0;}caption.y0=image.y1;caption.x0+=uiScaleSize(4);caption.x1-=uiScaleSize(4);muiTextLeftAdaptiveFull(&caption,muiPaper,label,muiCompactFont,muiTinyFont,muiTinyFont,0);

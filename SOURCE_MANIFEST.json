@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.1.8",
+  "version": "1.1.9",
   "snapshot": "Complete current build inputs",
   "excluded": [
     "generated out/ and .deps/",
@@ -61,7 +61,7 @@
     {
       "path": "CMakeLists.txt",
       "size": 82205,
-      "sha256": "be7ec58cceb802610631a29fe94ce7d9a93c57b0d161244df305252f5843f9fc"
+      "sha256": "13406998892f6ca8ec7b3ccb81c24063d1389d7e2f4ffb463a306be72d43acfb"
     },
     {
       "path": "CMakePresets.json",
@@ -171,7 +171,7 @@
     {
       "path": "Windows/build-release.ps1",
       "size": 7256,
-      "sha256": "79a9a1cee41eb674db324c77e35f228eb4c3a642dae92f9f037b35e2320c4305"
+      "sha256": "938c99b493f2908ebcb18ad86668b12a0760a10b7cfdb52e871fc3186bfdc768"
     },
     {
       "path": "Windows/build.ps1",
@@ -23414,6 +23414,11 @@
       "sha256": "807e36a41109f92c8f7e5253679180c77a8f752254627dcbfeecf13002045279"
     },
     {
+      "path": "docs/RELEASE_NOTES_1.1.9.md",
+      "size": 1173,
+      "sha256": "2f81489e11486fb9c18df23b61cc3e0c45a69213e5d30471cfc37a30bf79b7a9"
+    },
+    {
       "path": "docs/RELEASE_NOTES_1.1.md",
       "size": 7095,
       "sha256": "f85c8c910034c62c8699a5f3eb59435b95e862c4616464e71919f1fcc36e31d2"
@@ -23992,6 +23997,11 @@
       "path": "src/Game/BackdropMapPolicy.h",
       "size": 2670,
       "sha256": "dc9ee1228acd99f26798698c23653814d6dd110b740e9c528d92f60fa8b9081d"
+    },
+    {
+      "path": "src/Game/BadgePresentation.h",
+      "size": 469,
+      "sha256": "574034fa19acce97e56d177ee83d6aa2c3104fb1182d33920909d750091a6633"
     },
     {
       "path": "src/Game/Battle.c",
@@ -24740,8 +24750,8 @@
     },
     {
       "path": "src/Game/MeshBadgeOverlay.c",
-      "size": 6411,
-      "sha256": "8c9e00aab5b98099138013d43406bdfc17f924e722e6521bf6c0e1f9a8dd42f9"
+      "size": 6617,
+      "sha256": "03d173544361f6de518180b76b3438438b901c8b24fd3527edaca36d06dafa22"
     },
     {
       "path": "src/Game/MeshBadgeOverlay.h",
@@ -24885,8 +24895,8 @@
     },
     {
       "path": "src/Game/ModernUI.c",
-      "size": 419527,
-      "sha256": "7bf24c034bcea43f845fb9e1d828d335087c49f562976f83ef132bcbfa857c1c"
+      "size": 419694,
+      "sha256": "9e734497cde60a02251e5387361075f77bbf53d62990f6cedd364a3c0d54ebcb"
     },
     {
       "path": "src/Game/ModernUI.h",
@@ -27470,8 +27480,8 @@
     },
     {
       "path": "tests/BadgeOverlayTests.c",
-      "size": 4543,
-      "sha256": "f366de78c00160b3b1d9c17fe46153ff867d91b481cecc575c01245f2aa92f03"
+      "size": 5156,
+      "sha256": "8a70ce7f6c9836ec47d0ee74a98246e17e7d63299ca4c089a61e491508edd19e"
     },
     {
       "path": "tests/BenchmarkCaptureTests.cpp",
@@ -28820,8 +28830,8 @@
     },
     {
       "path": "tools/package_release_patch.py",
-      "size": 6356,
-      "sha256": "9b80d5d659719e69e7f83efe85f165b30b7e083a8c0dda0e2d101eaa1fa91489"
+      "size": 6380,
+      "sha256": "f48f94220815ba50fb8704fae0cf98ff80d0898d1a9c5eb97d6195b01d3ecac2"
     },
     {
       "path": "tools/package_ship_document_update.py",
@@ -28865,8 +28875,8 @@
     },
     {
       "path": "tools/release_bootstrap.cpp",
-      "size": 23046,
-      "sha256": "06b89b2b8f1f16d2543067207439af51a9023b36ac0acd6efcea2d950c5ecf48"
+      "size": 23391,
+      "sha256": "8e4731e8161f0d1ccf69024a4a9d8a75b242fe7ca00e106eae5db2756c652cac"
     },
     {
       "path": "tools/release_compact.py",
@@ -28944,9 +28954,14 @@
       "sha256": "97d67b121c0fe9dd330c4d0fe436ae9f09c1430c1bedad7e1f80afee26f13280"
     },
     {
+      "path": "tools/release_patch119.py",
+      "size": 3677,
+      "sha256": "cd475e2eb0e8b9d7925e7bb24887a60116e99ccf2c224dd19d699302905d17c0"
+    },
+    {
       "path": "tools/release_setup.py",
       "size": 12708,
-      "sha256": "d3f64f572d68b983e9b871c1d246f6ab718e92fe522cde561cb636b782bf9be6"
+      "sha256": "11fd0cb61ce90dc727fae78df09adddec48d4aeea02e37f6db18a7b900bbba80"
     },
     {
       "path": "tools/release_sky_lighting.py",
@@ -29096,7 +29111,7 @@
     {
       "path": "tools/stage_release.py",
       "size": 7417,
-      "sha256": "ffb58c5a57765ab7f24f1a6c63d1d84f0b47223866b72a2681cb56b79b40c077"
+      "sha256": "7e1d5d6374b8d4a937ab6943aac70c7e291b7b6b904364c02c186b744adb55d1"
     },
     {
       "path": "tools/stage_research_station_native.py",
@@ -29160,8 +29175,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 7506,
-      "sha256": "2dca501f7793eee22fb78e342862fe77409ff7122bc53cb7f87d78b8ca34f9ea"
+      "size": 7827,
+      "sha256": "58ec94842c9a31a76647eeeae50b6b813b93aa816d503ddcc7a5773956243450"
     },
     {
       "path": "vcpkg.json",
