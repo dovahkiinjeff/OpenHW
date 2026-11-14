@@ -15,7 +15,7 @@ import openhw_updater as updater
 from launcher_settings import SETTINGS
 import launcher_languages
 
-VERSION = '1.1.3'
+VERSION = '1.1.4'
 MOD_NAME = re.compile(r'[A-Za-z0-9_-]{1,64}\Z')
 LANGUAGES = ('English', 'French', 'German', 'Spanish', 'Italian')
 

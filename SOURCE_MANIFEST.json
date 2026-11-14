@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "version": "1.1.1",
-  "snapshot": "Complete current build inputs",
+  "snapshot": "Unreleased fleet UI candidate based on 1.1.1",
   "excluded": [
     "generated out/ and .deps/",
     "personal logs/saves and originating Git worktree metadata",
@@ -22774,6 +22774,21 @@
       "sha256": "605c3901f11a41297798adb18d0e49641cfc8f8190e873d6777316d62c28a014"
     },
     {
+      "path": "assets/Release/Content/ui/concept_battle_study.png",
+      "size": 599255,
+      "sha256": "ebfc411e6f3b17c0bffa0ff37f9721d45db5fec989598e2e5d0dcb6471306ad3"
+    },
+    {
+      "path": "assets/Release/Content/ui/concept_bentusi_lights.png",
+      "size": 424611,
+      "sha256": "80128e748b299d6ad1b9ad298467150f18c687dba5779291a4884671fb921d5f"
+    },
+    {
+      "path": "assets/Release/Content/ui/concept_bentusi_study.png",
+      "size": 719397,
+      "sha256": "91fc41bc2aad9258e93e217b8aae83862d01f64d384e0f05f25e52b83d9d6f7e"
+    },
+    {
       "path": "assets/Release/Content/ui/concept_blue_corvette.png",
       "size": 842528,
       "sha256": "8147895b2410c6d3d837d7245ede6d491f5b74281aea76590a3227b9e32e9693"
@@ -22782,6 +22797,16 @@
       "path": "assets/Release/Content/ui/concept_bridge.png",
       "size": 688867,
       "sha256": "624d4d3d5c974c6a49bc849f714b2e06de4216abe48c0e817c4f97b377672426"
+    },
+    {
+      "path": "assets/Release/Content/ui/concept_carrier_study.png",
+      "size": 774863,
+      "sha256": "d1c8112f1c0824bce595ddb10f5a5e602a358d4db9a40a053c1f9187f8264f00"
+    },
+    {
+      "path": "assets/Release/Content/ui/concept_chamber.png",
+      "size": 259358,
+      "sha256": "9f559ef21b2b114157b5490821bf89ed6f1609dd4fad87311d5c0182c3325cc5"
     },
     {
       "path": "assets/Release/Content/ui/concept_cockpit.png",
@@ -22809,9 +22834,29 @@
       "sha256": "b23356eb88409a645f2bd7d2ad1f30705c92bf8115ce6c0a3c678a72f662a439"
     },
     {
+      "path": "assets/Release/Content/ui/concept_frigate_grey.png",
+      "size": 468485,
+      "sha256": "7be14d3e9d53158feb10ab36119c6334ab93b83017b3d42a87fe7d81a409c470"
+    },
+    {
+      "path": "assets/Release/Content/ui/concept_galactic_plan.png",
+      "size": 1590540,
+      "sha256": "ad804a7ae57ab2d9fa77ab52c2fd891b8d027de56f5a579547070bfd3a2b5e1d"
+    },
+    {
+      "path": "assets/Release/Content/ui/concept_galactic_route.png",
+      "size": 545984,
+      "sha256": "3b8840b35c1b01c73723a3b95e6589b967c1d39ac52f8deb538ab56739ee4ab5"
+    },
+    {
       "path": "assets/Release/Content/ui/concept_hangar.png",
       "size": 830269,
       "sha256": "f502012737a0dd165b961cee13f1e34be3854f98971d48c2655dcb5cd6176d77"
+    },
+    {
+      "path": "assets/Release/Content/ui/concept_hangar_sketch.png",
+      "size": 1973934,
+      "sha256": "83ab3b4a3b0a8587293b41fcf658f8047761a0b7bd1382902d1002d2122ed264"
     },
     {
       "path": "assets/Release/Content/ui/concept_industry.png",
@@ -22829,14 +22874,44 @@
       "sha256": "fa97df1349f32aa8bba1bcbf11f316232e0b46a7e48aed5b76aa46ca9d22fc68"
     },
     {
+      "path": "assets/Release/Content/ui/concept_mothership_flight.png",
+      "size": 421882,
+      "sha256": "51a0f60297eb1b04c29c452d510dc5352c57335064f8bad6609210af2f2ce22c"
+    },
+    {
       "path": "assets/Release/Content/ui/concept_nebula.png",
       "size": 564547,
       "sha256": "702c2c722ee9b727f03bc6256d9be39cc822ceee46b957ee8ceeb7cde6ddc273"
     },
     {
+      "path": "assets/Release/Content/ui/concept_new_dock.png",
+      "size": 728100,
+      "sha256": "dd7b1daa94fd1dec1c790c3d44fa38f1ab531cb9314e3e149ce79d3e3a4d7a06"
+    },
+    {
+      "path": "assets/Release/Content/ui/concept_repair_study.png",
+      "size": 719744,
+      "sha256": "e1392fe476195d8ab82acd95d2691b6bd71b5b0c61c07d6b09c940aa3d6f489e"
+    },
+    {
       "path": "assets/Release/Content/ui/concept_science.png",
       "size": 878638,
       "sha256": "b73e9ce03843cf13bf9a291b46299ea29a0b38d47426dd0aed5bea44e4682631"
+    },
+    {
+      "path": "assets/Release/Content/ui/concept_strike_study.png",
+      "size": 242541,
+      "sha256": "5533ceecb498155b2fb229d8faafb6384898da27e1c035ccd071cad920aa6378"
+    },
+    {
+      "path": "assets/Release/Content/ui/concept_taiidan_blue.png",
+      "size": 531777,
+      "sha256": "5f233f6422d555bc615ed81dbeebb05f5e7bb83ea8298215c60ef1b3d3e7700e"
+    },
+    {
+      "path": "assets/Release/Content/ui/concept_taiidan_dark.png",
+      "size": 314987,
+      "sha256": "75ab55c231657b9d3eb1631a453d0871c7ff4d540e375d410c28fb18163ccf6e"
     },
     {
       "path": "assets/Release/Content/ui/fleet_plate.png",
@@ -22905,8 +22980,8 @@
     },
     {
       "path": "assets/Release/content-inventory.json",
-      "size": 2762906,
-      "sha256": "1339527a44248ed34ccf7bb0a91fde66e61a8574ecc7da8f1d566662f7b8a20c"
+      "size": 2697523,
+      "sha256": "e44c54afb192fea6512b9e4564f37a708b86441315ed8dec2b05bb3453c96a62"
     },
     {
       "path": "assets/Release/defaults.cfg",
@@ -22925,8 +23000,13 @@
     },
     {
       "path": "assets/UI/ART_PROVENANCE.md",
-      "size": 2603,
-      "sha256": "5e24f5c9aa0f55645faafc6dbe1de7ad44316dc9a66123581bbc1f80ddd66584"
+      "size": 2971,
+      "sha256": "08f3093c61633ac22570ca87b4cd2fe4dc3b59e913cb1870e6f314e1c41fb935"
+    },
+    {
+      "path": "assets/UI/CONCEPT_ART_2026_11_13.json",
+      "size": 6989,
+      "sha256": "38e9d657aef598a430b1a82cf91769c9deb725691e1daea3ed16a60905cf7e06"
     },
     {
       "path": "assets/UI/CONCEPT_ART_MANIFEST.json",
@@ -22949,6 +23029,21 @@
       "sha256": "605c3901f11a41297798adb18d0e49641cfc8f8190e873d6777316d62c28a014"
     },
     {
+      "path": "assets/UI/concept_battle_study.png",
+      "size": 599255,
+      "sha256": "ebfc411e6f3b17c0bffa0ff37f9721d45db5fec989598e2e5d0dcb6471306ad3"
+    },
+    {
+      "path": "assets/UI/concept_bentusi_lights.png",
+      "size": 424611,
+      "sha256": "80128e748b299d6ad1b9ad298467150f18c687dba5779291a4884671fb921d5f"
+    },
+    {
+      "path": "assets/UI/concept_bentusi_study.png",
+      "size": 719397,
+      "sha256": "91fc41bc2aad9258e93e217b8aae83862d01f64d384e0f05f25e52b83d9d6f7e"
+    },
+    {
       "path": "assets/UI/concept_blue_corvette.png",
       "size": 842528,
       "sha256": "8147895b2410c6d3d837d7245ede6d491f5b74281aea76590a3227b9e32e9693"
@@ -22957,6 +23052,16 @@
       "path": "assets/UI/concept_bridge.png",
       "size": 688867,
       "sha256": "624d4d3d5c974c6a49bc849f714b2e06de4216abe48c0e817c4f97b377672426"
+    },
+    {
+      "path": "assets/UI/concept_carrier_study.png",
+      "size": 774863,
+      "sha256": "d1c8112f1c0824bce595ddb10f5a5e602a358d4db9a40a053c1f9187f8264f00"
+    },
+    {
+      "path": "assets/UI/concept_chamber.png",
+      "size": 259358,
+      "sha256": "9f559ef21b2b114157b5490821bf89ed6f1609dd4fad87311d5c0182c3325cc5"
     },
     {
       "path": "assets/UI/concept_cockpit.png",
@@ -22984,9 +23089,29 @@
       "sha256": "b23356eb88409a645f2bd7d2ad1f30705c92bf8115ce6c0a3c678a72f662a439"
     },
     {
+      "path": "assets/UI/concept_frigate_grey.png",
+      "size": 468485,
+      "sha256": "7be14d3e9d53158feb10ab36119c6334ab93b83017b3d42a87fe7d81a409c470"
+    },
+    {
+      "path": "assets/UI/concept_galactic_plan.png",
+      "size": 1590540,
+      "sha256": "ad804a7ae57ab2d9fa77ab52c2fd891b8d027de56f5a579547070bfd3a2b5e1d"
+    },
+    {
+      "path": "assets/UI/concept_galactic_route.png",
+      "size": 545984,
+      "sha256": "3b8840b35c1b01c73723a3b95e6589b967c1d39ac52f8deb538ab56739ee4ab5"
+    },
+    {
       "path": "assets/UI/concept_hangar.png",
       "size": 830269,
       "sha256": "f502012737a0dd165b961cee13f1e34be3854f98971d48c2655dcb5cd6176d77"
+    },
+    {
+      "path": "assets/UI/concept_hangar_sketch.png",
+      "size": 1973934,
+      "sha256": "83ab3b4a3b0a8587293b41fcf658f8047761a0b7bd1382902d1002d2122ed264"
     },
     {
       "path": "assets/UI/concept_industry.png",
@@ -23004,14 +23129,44 @@
       "sha256": "fa97df1349f32aa8bba1bcbf11f316232e0b46a7e48aed5b76aa46ca9d22fc68"
     },
     {
+      "path": "assets/UI/concept_mothership_flight.png",
+      "size": 421882,
+      "sha256": "51a0f60297eb1b04c29c452d510dc5352c57335064f8bad6609210af2f2ce22c"
+    },
+    {
       "path": "assets/UI/concept_nebula.png",
       "size": 564547,
       "sha256": "702c2c722ee9b727f03bc6256d9be39cc822ceee46b957ee8ceeb7cde6ddc273"
     },
     {
+      "path": "assets/UI/concept_new_dock.png",
+      "size": 728100,
+      "sha256": "dd7b1daa94fd1dec1c790c3d44fa38f1ab531cb9314e3e149ce79d3e3a4d7a06"
+    },
+    {
+      "path": "assets/UI/concept_repair_study.png",
+      "size": 719744,
+      "sha256": "e1392fe476195d8ab82acd95d2691b6bd71b5b0c61c07d6b09c940aa3d6f489e"
+    },
+    {
       "path": "assets/UI/concept_science.png",
       "size": 878638,
       "sha256": "b73e9ce03843cf13bf9a291b46299ea29a0b38d47426dd0aed5bea44e4682631"
+    },
+    {
+      "path": "assets/UI/concept_strike_study.png",
+      "size": 242541,
+      "sha256": "5533ceecb498155b2fb229d8faafb6384898da27e1c035ccd071cad920aa6378"
+    },
+    {
+      "path": "assets/UI/concept_taiidan_blue.png",
+      "size": 531777,
+      "sha256": "5f233f6422d555bc615ed81dbeebb05f5e7bb83ea8298215c60ef1b3d3e7700e"
+    },
+    {
+      "path": "assets/UI/concept_taiidan_dark.png",
+      "size": 314987,
+      "sha256": "75ab55c231657b9d3eb1631a453d0871c7ff4d540e375d410c28fb18163ccf6e"
     },
     {
       "path": "assets/UI/fleet_plate.png",
@@ -23269,6 +23424,11 @@
       "sha256": "c82baa91e967445f6306d590a2ddadd6977de2a4c8fff460c4e148320c375ae2"
     },
     {
+      "path": "docs/UNRELEASED_FLEET_UI.md",
+      "size": 1058,
+      "sha256": "0b0ba572a505123c8923a96f3dc3a984a00e419dac272422f91265c17849db0c"
+    },
+    {
       "path": "docs/UPDATER.md",
       "size": 7647,
       "sha256": "93221293a9916348663a388c2a0311dfd13534c17465bd3ece2a3dc2b50a15b3"
@@ -23455,8 +23615,8 @@
     },
     {
       "path": "server/coordinator.py",
-      "size": 12170,
-      "sha256": "84cb429258c3426b860cfe96ff94fcc1e6bad2af2e4de9e30055f73ca7181a05"
+      "size": 12387,
+      "sha256": "8ee14c162ea987b53e135d18cceffe0ef050a65fd7ce1939e132e529f5e70363"
     },
     {
       "path": "server/diagnostics.py",
@@ -23465,8 +23625,8 @@
     },
     {
       "path": "server/lobby.py",
-      "size": 7764,
-      "sha256": "10851761e91be2c755551a75c6a2b2d4fa24484b0985fbb74da15f8fc1dd0543"
+      "size": 8365,
+      "sha256": "c35609dd106baf149cf0125107797a68415ad123a669bd09f31d249b6b14965d"
     },
     {
       "path": "server/mirror_updates.py",
@@ -23500,8 +23660,8 @@
     },
     {
       "path": "server/protocol.py",
-      "size": 4332,
-      "sha256": "6e974b495b2e7a7ca5ceb77179f93a6233e90bbfef5c2449aca26a4376f02e12"
+      "size": 4410,
+      "sha256": "02878e4c80232cf2af7345203c9c2f8ac56be91b5f061066cea0b3759b9774f4"
     },
     {
       "path": "server/requirements.txt",
@@ -24185,8 +24345,8 @@
     },
     {
       "path": "src/Game/FormationSpread.inc",
-      "size": 5695,
-      "sha256": "c37be828e0e4be1ae3df8fb6443a6090e644438bd90ef38918c2d1a3cea3353e"
+      "size": 4906,
+      "sha256": "eb11b96c0ec863066461c9af31a3381f6f3a856a0c0eb0a3ff0fab7b406f1412"
     },
     {
       "path": "src/Game/FormationSpreadPolicy.h",
@@ -24195,8 +24355,8 @@
     },
     {
       "path": "src/Game/FormationSpreadUI.inc",
-      "size": 7622,
-      "sha256": "3d76ec9cb7a087234eb049c2d9067c9450a40025391a412e42ec7a68dbec3e9f"
+      "size": 6979,
+      "sha256": "1d94e8ac4a3e2c9dcfb2b03e48c39a2966d08f5081a603d93f86fea39c30f091"
     },
     {
       "path": "src/Game/FrontendMenuLayout.inc",
@@ -24550,8 +24710,8 @@
     },
     {
       "path": "src/Game/MilitaryParadeEditor.inc",
-      "size": 26329,
-      "sha256": "3d386c9f613873ecb79a70bc71fe9380fa4f3f0f1d2227956e8f9abc1073ca16"
+      "size": 26370,
+      "sha256": "7e4aec0cbf392c83aa0a66937769573eb0019df197cf89ef9e52ff3fcc8ad255"
     },
     {
       "path": "src/Game/MilitaryParadeLayout.c",
@@ -24575,8 +24735,8 @@
     },
     {
       "path": "src/Game/ModManager.inc",
-      "size": 3885,
-      "sha256": "8c9a6a2a3d60cba8fd3e971ca250854a7b2c8b556452f9055911a361a7833f86"
+      "size": 3902,
+      "sha256": "3a5f446f1db7edc05d8ffb53aa6baebe4d309c11bfcf78dbef2c10b904b6cc0a"
     },
     {
       "path": "src/Game/ModernAsteroid.c",
@@ -24635,8 +24795,8 @@
     },
     {
       "path": "src/Game/ModernOnlineLobby.inc",
-      "size": 15893,
-      "sha256": "0caf7d821b2ed2dd0cfbaf76d93c052b5ac0bc6dbb605453a25f4a5bd23f8ccc"
+      "size": 20127,
+      "sha256": "0a71be5b4287441b46c110d78941f5cc4e0992378bb05437705666628050fde7"
     },
     {
       "path": "src/Game/ModernParticleFields.c",
@@ -24675,8 +24835,8 @@
     },
     {
       "path": "src/Game/ModernUI.c",
-      "size": 407909,
-      "sha256": "be5ae3c496ef690da20670920b3a33562872d11901edbda32d7c609e604cf1c0"
+      "size": 409536,
+      "sha256": "074769e4dfe64c76e0b4f0d8e3f40370c775cf90a35ac1a91651c13732517c9e"
     },
     {
       "path": "src/Game/ModernUI.h",
@@ -26295,18 +26455,18 @@
     },
     {
       "path": "src/Network/OnlineClient.h",
-      "size": 811,
-      "sha256": "b26adc772b868f125e29103e31119e68a13eb063f52024e2884ef0124501feb4"
+      "size": 901,
+      "sha256": "90aa716ef2511a1bfdd5bf10237e73dcb1af708366eeac6e62b55b73b34fb86e"
     },
     {
       "path": "src/Network/OnlineGame.c",
-      "size": 4151,
-      "sha256": "d10670270504fb26bdcf370a99f50d32338e411ec55cbea85022c89760f9ab44"
+      "size": 5322,
+      "sha256": "d014780385f91ea60d33860ddfcc3ae1a29f0bfa1ef3350c7fe7ff3fd78002ea"
     },
     {
       "path": "src/Network/OnlineProtocol.h",
-      "size": 2272,
-      "sha256": "9d41768844e3943e2d40e2e5908363c9a6d3ed056ee06c4980e96d65d94c3d12"
+      "size": 2453,
+      "sha256": "f7b53fc42d231a2bbda1b3b11ca2eea1d02fd8e242b7b7de65f00d8dedcb345c"
     },
     {
       "path": "src/Network/OnlineSocket.cpp",
@@ -27340,8 +27500,8 @@
     },
     {
       "path": "tests/FormationSpreadTests.c",
-      "size": 7436,
-      "sha256": "2a613fb412f96ff5bac8c4ededd398898777ed5a6af14fe7d1b1a9a4b1edfdde"
+      "size": 7600,
+      "sha256": "373b8ff2b7208902edcdce976a635791e70e837577e7221ceaeb374b58fe49f8"
     },
     {
       "path": "tests/FrameGenerationCompositeD3D12Tests.cpp",
@@ -27924,6 +28084,11 @@
       "sha256": "c4e5301a0b780026a4be03257c2f505f106fd6191a55ead6b3eee69371b3a007"
     },
     {
+      "path": "tests/test_lobby_directory.py",
+      "size": 1503,
+      "sha256": "706cc3e45c39138b3477d49f5ab15c6c9891907fb02752c8a22177f54da1c662"
+    },
+    {
       "path": "tests/test_local_asset_import.py",
       "size": 7693,
       "sha256": "81ccd13de423f961074028a2557535cff52f595465d2dd14c828c47f83949a86"
@@ -28196,7 +28361,7 @@
     {
       "path": "tools/UpdaterVersion.h",
       "size": 93,
-      "sha256": "83f5da7658dd43ad13b5b5d2450181f45e054138f4347d25767d2a874a495206"
+      "sha256": "d3aca94cfd159fa7e41a83ca38867baed7efd20e1b365f77039744dc41d377cb"
     },
     {
       "path": "tools/audit_classic_kushan_bindings.py",
@@ -28520,8 +28685,8 @@
     },
     {
       "path": "tools/openhw_diagnostics.py",
-      "size": 20885,
-      "sha256": "66ea2455e22027a81dcef0d499c9528983ef23a1ac1fb21929059f5c67e8fab5"
+      "size": 20998,
+      "sha256": "a9b947d7fa394ef5973dfec02f75fd06ce48cbb4464b2f94498e778970e814c8"
     },
     {
       "path": "tools/openhw_fx_presentation.py",
@@ -28531,12 +28696,12 @@
     {
       "path": "tools/openhw_launcher.py",
       "size": 11452,
-      "sha256": "b4456e8f4e1771113127ef104f6db89aeaccb3708e351d336ae0a1fd9d8014a5"
+      "sha256": "d07e1ebbb4ad076a627d1cf783383205609dab21ad09b1149ce9034cd1cc8c77"
     },
     {
       "path": "tools/openhw_launcher_ui.py",
-      "size": 47746,
-      "sha256": "3261cd30b92f225f8d744506f0ebec660257fcf84b79fdbb229801b081be6c65"
+      "size": 49234,
+      "sha256": "8e25f59de4906cb450f510be54c229921980f096751dcd3a8a14911e2df58842"
     },
     {
       "path": "tools/openhw_obig.py",
@@ -28561,7 +28726,7 @@
     {
       "path": "tools/openhw_updater.py",
       "size": 36316,
-      "sha256": "cfad572f48a4b7cc1bb0227c6da0a091ea7239daede5f073239479221610d5f4"
+      "sha256": "c315fa64c305afeef85bc75a0c116e5a9d9398bddce37e15f3bd4f4617d2d4f3"
     },
     {
       "path": "tools/openhw_weapon_presentation.py",
@@ -28595,8 +28760,8 @@
     },
     {
       "path": "tools/package_updater.py",
-      "size": 7364,
-      "sha256": "3e1d0232b46b0e4e19b852ee3460ae92680ae4e2c813e0c6c029b745046f5bb0"
+      "size": 7475,
+      "sha256": "80687e554ab9018128f5d58d63ff6ca17fc2e4cbb660c067d7d6be22b6358893"
     },
     {
       "path": "tools/plan_kushan_hod_bindings.py",
@@ -28640,8 +28805,8 @@
     },
     {
       "path": "tools/release_content_policy.py",
-      "size": 9466,
-      "sha256": "68686866ea5853f58a2ad93b64d002859a165989e3ff342f44ec022b811b83f3"
+      "size": 9894,
+      "sha256": "c4f6cfa592c7867158558d8211c02fff08412a2250596282c35edc771590fdd4"
     },
     {
       "path": "tools/release_event_edits.py",

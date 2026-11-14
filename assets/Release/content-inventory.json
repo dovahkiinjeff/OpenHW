@@ -70289,6 +70289,111 @@
       "sha256": "5af76a7f27b7d8f7bba5bc6d3640fab357977d1f0baa32e25f5ba5203fd960d3",
       "approval": "Project owner approved supplied concept-art panels for this release",
       "public_domain_claim": false
+    },
+    {
+      "path": "Content/ui/concept_bentusi_study.png",
+      "category": "supplied-concept-art",
+      "sha256": "91fc41bc2aad9258e93e217b8aae83862d01f64d384e0f05f25e52b83d9d6f7e",
+      "approval": "Project owner supplied and approved this concept art for translucent UI panels",
+      "public_domain_claim": false
+    },
+    {
+      "path": "Content/ui/concept_galactic_plan.png",
+      "category": "supplied-concept-art",
+      "sha256": "ad804a7ae57ab2d9fa77ab52c2fd891b8d027de56f5a579547070bfd3a2b5e1d",
+      "approval": "Project owner supplied and approved this concept art for translucent UI panels",
+      "public_domain_claim": false
+    },
+    {
+      "path": "Content/ui/concept_new_dock.png",
+      "category": "supplied-concept-art",
+      "sha256": "dd7b1daa94fd1dec1c790c3d44fa38f1ab531cb9314e3e149ce79d3e3a4d7a06",
+      "approval": "Project owner supplied and approved this concept art for translucent UI panels",
+      "public_domain_claim": false
+    },
+    {
+      "path": "Content/ui/concept_galactic_route.png",
+      "category": "supplied-concept-art",
+      "sha256": "3b8840b35c1b01c73723a3b95e6589b967c1d39ac52f8deb538ab56739ee4ab5",
+      "approval": "Project owner supplied and approved this concept art for translucent UI panels",
+      "public_domain_claim": false
+    },
+    {
+      "path": "Content/ui/concept_hangar_sketch.png",
+      "category": "supplied-concept-art",
+      "sha256": "83ab3b4a3b0a8587293b41fcf658f8047761a0b7bd1382902d1002d2122ed264",
+      "approval": "Project owner supplied and approved this concept art for translucent UI panels",
+      "public_domain_claim": false
+    },
+    {
+      "path": "Content/ui/concept_repair_study.png",
+      "category": "supplied-concept-art",
+      "sha256": "e1392fe476195d8ab82acd95d2691b6bd71b5b0c61c07d6b09c940aa3d6f489e",
+      "approval": "Project owner supplied and approved this concept art for translucent UI panels",
+      "public_domain_claim": false
+    },
+    {
+      "path": "Content/ui/concept_frigate_grey.png",
+      "category": "supplied-concept-art",
+      "sha256": "7be14d3e9d53158feb10ab36119c6334ab93b83017b3d42a87fe7d81a409c470",
+      "approval": "Project owner supplied and approved this concept art for translucent UI panels",
+      "public_domain_claim": false
+    },
+    {
+      "path": "Content/ui/concept_carrier_study.png",
+      "category": "supplied-concept-art",
+      "sha256": "d1c8112f1c0824bce595ddb10f5a5e602a358d4db9a40a053c1f9187f8264f00",
+      "approval": "Project owner supplied and approved this concept art for translucent UI panels",
+      "public_domain_claim": false
+    },
+    {
+      "path": "Content/ui/concept_battle_study.png",
+      "category": "supplied-concept-art",
+      "sha256": "ebfc411e6f3b17c0bffa0ff37f9721d45db5fec989598e2e5d0dcb6471306ad3",
+      "approval": "Project owner supplied and approved this concept art for translucent UI panels",
+      "public_domain_claim": false
+    },
+    {
+      "path": "Content/ui/concept_taiidan_blue.png",
+      "category": "supplied-concept-art",
+      "sha256": "5f233f6422d555bc615ed81dbeebb05f5e7bb83ea8298215c60ef1b3d3e7700e",
+      "approval": "Project owner supplied and approved this concept art for translucent UI panels",
+      "public_domain_claim": false
+    },
+    {
+      "path": "Content/ui/concept_bentusi_lights.png",
+      "category": "supplied-concept-art",
+      "sha256": "80128e748b299d6ad1b9ad298467150f18c687dba5779291a4884671fb921d5f",
+      "approval": "Project owner supplied and approved this concept art for translucent UI panels",
+      "public_domain_claim": false
+    },
+    {
+      "path": "Content/ui/concept_chamber.png",
+      "category": "supplied-concept-art",
+      "sha256": "9f559ef21b2b114157b5490821bf89ed6f1609dd4fad87311d5c0182c3325cc5",
+      "approval": "Project owner supplied and approved this concept art for translucent UI panels",
+      "public_domain_claim": false
+    },
+    {
+      "path": "Content/ui/concept_taiidan_dark.png",
+      "category": "supplied-concept-art",
+      "sha256": "75ab55c231657b9d3eb1631a453d0871c7ff4d540e375d410c28fb18163ccf6e",
+      "approval": "Project owner supplied and approved this concept art for translucent UI panels",
+      "public_domain_claim": false
+    },
+    {
+      "path": "Content/ui/concept_mothership_flight.png",
+      "category": "supplied-concept-art",
+      "sha256": "51a0f60297eb1b04c29c452d510dc5352c57335064f8bad6609210af2f2ce22c",
+      "approval": "Project owner supplied and approved this concept art for translucent UI panels",
+      "public_domain_claim": false
+    },
+    {
+      "path": "Content/ui/concept_strike_study.png",
+      "category": "supplied-concept-art",
+      "sha256": "5533ceecb498155b2fb229d8faafb6384898da27e1c035ccd071cad920aa6378",
+      "approval": "Project owner supplied and approved this concept art for translucent UI panels",
+      "public_domain_claim": false
     }
   ]
 }

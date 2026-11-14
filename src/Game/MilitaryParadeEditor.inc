@@ -183,7 +183,7 @@ static void mpeDrawMenu(void)
     rectangle whole=muiRect(0,0,MAIN_WindowWidth,MAIN_WindowHeight),panel=muiFrontendPanel(TRUE),button;
     int i,count=mpe.stage==1?4:3,x=panel.x0+uiScaleSize(28);
     muiDrawBackdrop(MUI_ART_ENGINEERING);muiFill(&whole,colRGBA(3,6,9,70));
-    muiFill(&panel,colRGBA(10,18,24,246));primLine2(panel.x0,0,panel.x0,MAIN_WindowHeight,muiLineSoft);
+    muiConceptPanel(mpe.stage==1?MUI_ART_NEW_DOCK:MUI_ART_TAIIDAN_BLUE,&panel,202);primLine2(panel.x0,0,panel.x0,MAIN_WindowHeight,muiLineSoft);
     muiText(x,uiScaleSize(38),muiSignal,"FLEET WORKSHOP",muiBodyFont);
     muiText(x,uiScaleSize(72),muiPaper,mpe.stage==1?"MODDING":"PARADE HOST",muiHeadingFont);
     muiText(x,uiScaleSize(106),muiMuted,mpe.stage==1?"CREATE / CONFIGURE":"SELECT A FLEET",muiBodyFont);

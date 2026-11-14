@@ -15,6 +15,15 @@
 static OHLobby lobby;
 static int hasLobby,loading,wasConnected;
 static char message[513];
+static OHRoomSummary roomList[OH_MAX_ROOMS];
+static unsigned roomCount;
+int hwOnlineRoomList(OHRoomSummary *rooms,int capacity) {
+    unsigned count=capacity>0 && (unsigned)capacity<roomCount?(unsigned)capacity:roomCount;
+    if(!hwOnlineConnected() || !rooms || capacity<=0)return 0;
+    memcpy(rooms,roomList,count*sizeof(*rooms));return (int)count;
+}
+void hwOnlineRequestRooms(void){if(hwOnlineConnected() && !hwMatchActive())hwOnlineSend(OH_LIST_ROOMS,NULL,0);}
+
 int hwOnlineLobbySnapshot(OHLobby *snapshot){if(!hasLobby)return 0;*snapshot=lobby;return 1;}
 void hwOnlineLobbyStatus(char *text,size_t capacity)
 {if(message[0])snprintf(text,capacity,"%s",message);else hwOnlineStatus(text,capacity);}
@@ -49,10 +58,20 @@ void hwOnlineGamePump(void)
         stopMatch("Simulation mismatch detected; match stopped to protect game state");return;
     }
 #endif
-    if(wasConnected && !connected && hwMatchActive())stopMatch("Connection to gameplay server lost");
+    if(wasConnected && !connected){hasLobby=0;roomCount=0;if(hwMatchActive())stopMatch("Connection to gameplay server lost");}
     wasConnected=connected;
     while((length=sizeof(bytes)),hwOnlineReceive(&type,bytes,&length)) {
-        if(type==OH_WELCOME){message[0]=0;hasLobby=0;}
+        if(type==OH_WELCOME){message[0]=0;hasLobby=0;roomCount=0;hwOnlineRequestRooms();}
+        else if(type==OH_ROOM_LIST && length>=4) {
+            uint32_t count;unsigned i;OHRoomSummary next[OH_MAX_ROOMS];
+            memcpy(&count,bytes,4);
+            if(count>OH_MAX_ROOMS || length!=4+count*sizeof(OHRoomSummary))continue;
+            memcpy(next,bytes+4,count*sizeof(OHRoomSummary));
+            for(i=0;i<count;i++)if(!memchr(next[i].code,0,8) || !memchr(next[i].host,0,48) ||
+                !memchr(next[i].map,0,64) || next[i].humans+next[i].ai>8 || next[i].state>3 || next[i].capacity>8)break;
+            if(i!=count)continue;
+            memcpy(roomList,next,count*sizeof(OHRoomSummary));roomCount=count;
+        }
         else if(type==OH_PAUSED && hwMatchActive() && length==1 && bytes[0]<=1)universePause=bytes[0];
         else if(type==OH_ERROR || type==OH_STOP) {
             size_t size=length<sizeof(message)-1?length:sizeof(message)-1;

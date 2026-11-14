@@ -23,7 +23,7 @@ def main():
     from PyInstaller.archive.readers import CArchiveReader
     from PyInstaller.archive.writers import CArchiveWriter
     from PyInstaller.loader.pyimod01_archive import ZlibArchiveReader
-    version = '1.1.3'
+    version = '1.1.4'
     source = args.source.resolve(); args.work.mkdir(parents=True, exist_ok=True)
     for path in (('tools/openhw_launcher.py' if args.launcher else 'tools/openhw_updater.py'),'tools/UpdaterVersion.h'):
         if version not in (source/path).read_text(encoding='utf-8'): raise ValueError('Updater version mismatch')
@@ -97,6 +97,7 @@ except Exception:
                 if path.is_file():out.write(path,path.relative_to(args.bundle).as_posix())
         if ssl_policy:
             out.write(ssl_policy,'Development/'+('Launcher' if args.launcher else 'Updater')+'/Runtime/'+version+'/Development/codex-rejected-cas.pem')
+        out.write(source/'assets/UI/concept_chamber.png','Development/Launcher/Theme/diagnostics-concept.png')
         # Both utilities provide the same themed update interface.
         theme=source/'assets/Launcher'
         for asset in sorted(theme.iterdir()):

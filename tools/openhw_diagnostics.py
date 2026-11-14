@@ -299,7 +299,8 @@ def run(root):
         if not busy: window.destroy()
         else: status.set('Please wait for the current server operation to finish.')
     chrome = ui.Chrome(window, close, title='OPENHW   /   DIAGNOSTICS')
-    body = tk.Frame(window, bg=ui.PANEL); body.pack(fill='both', expand=True, padx=2, pady=(0,2))
+    body = tk.Canvas(window, bg=ui.PANEL,highlightthickness=0); body.pack(fill='both', expand=True, padx=2, pady=(0,2))
+    ui.concept_backdrop(body, root / 'Development/Launcher/Theme/diagnostics-concept.png')
     body.columnconfigure(0, weight=1)
     def caption(text, row, color=ui.MUTED):
         ui.label(body,text,size=ui.SMALL,color=color,justify='left',wraplength=850).grid(row=row,column=0,sticky='w',padx=24,pady=(12,5))

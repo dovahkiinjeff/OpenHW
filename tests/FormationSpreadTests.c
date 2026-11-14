@@ -127,22 +127,21 @@ static void live(void)
 
 static void customAndMixed(void)
 {
-    int i;
-    float tight;
+    unsigned type;
     reset();command.formation.formationtype=CUSTOM_FORMATION;
-    /* Offset origin may be uninitialized on an ordinary leader. */
-    ships[0].formationOffset.y=NAN;
-    formationSetSpreadForSelection(&layer,selection,0);
-    tight=ships[1].formationOffset.y;CHECK(tight>81.5f && tight<83);
-    for(i=0;i<1000;++i)
-    {
+    formationSetSpreadForSelection(&layer,selection,2000);
+    CHECK(formationGetSpread(&command)==FORMATION_SPREAD_DEFAULT);
+    reset();command.formation.formationtype=PARADE_FORMATION;
+    formationSetSpreadForSelection(&layer,selection,2000);
+    CHECK(formationGetSpread(&command)==FORMATION_SPREAD_DEFAULT);
+    for(type=DELTA_FORMATION;type<=SPHERE_FORMATION;++type) {
+        reset();command.formation.formationtype=type;
+        ships[0].shiptype=HeavyCorvette;ships[1].shiptype=HeavyCruiser;ships[2].shiptype=LightInterceptor;
+        ships[0].shiprace=R1;ships[1].shiprace=R2;ships[2].shiprace=P1;
         formationSetSpreadForSelection(&layer,selection,2000);
-        CHECK(fabsf(ships[1].formationOffset.y-800)<0.1f);
-        formationSetSpreadForSelection(&layer,selection,0);
-        CHECK(fabsf(ships[1].formationOffset.y-tight)<0.02f);
+        CHECK(formationGetSpread(&command)==2000);
+        CHECK(ships[1].formationOffset.y==800);
     }
-    formationSetSpreadForSelection(&layer,selection,1000);
-    CHECK(fabsf(ships[1].formationOffset.y-400)<0.1f);
     reset();
     /* A large capital hull must remain clear of both smaller neighbors. */
     stats[1].staticheader.staticCollInfo.rightlength=400;
@@ -169,6 +168,6 @@ int main(void)
 {
     selection=(SelectCommand *)calloc(1,sizeofSelectCommand(4));
     policy();live();customAndMixed();free(selection);
-    printf("PASS: live formation spread, stationary orders, hull clearance, saved state, custom shape and drift (%d checks)\n",checks);
+    printf("PASS: live formation spread, stationary orders, hull clearance, saved state, mixed fleets and Custom/Parade exclusions (%d checks)\n",checks);
     return 0;
 }

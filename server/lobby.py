@@ -140,6 +140,17 @@ class Lobby:
         if fingerprint!=self.fingerprint: raise LobbyError('This server requires the matching OpenHW multiplayer build')
         return Member(name,fingerprint)
 
+    def directory(self):
+        """Bounded, sorted room directory; no tokens, fingerprints or gameplay data."""
+        rooms=sorted(self.rooms.values(),key=lambda room:room.code)
+        payload=struct.pack('<I',len(rooms))
+        for room in rooms:
+            slots=[slot for slot in room.config['slots'] if slot]
+            payload+=ROOM_SUMMARY.pack(encode_text(room.code,8),encode_text(room.host.name,48),
+                encode_text(room.config['map'],64),sum(s['kind']==1 for s in slots),
+                sum(s['kind']==2 for s in slots),room.state,room.capacity())
+        return payload
+
     def create(self, member):
         if member.room is not None: raise LobbyError('Leave current room first')
         if len(self.rooms)>=16: raise LobbyError('Server room limit reached')

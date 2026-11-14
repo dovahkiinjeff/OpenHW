@@ -82,33 +82,18 @@ void formationSetSpreadForSelection(CommandLayer *layer, SelectCommand *selectio
 {
     CommandToDo *command;
     sdword i;
-    real32 oldScale, minimum, scale;
     (void)layer;
     if (!selection || selection->numShips<2 || ticks>FORMATION_SPREAD_MAX) return;
     command=selection->ShipPtr[0]->formationcommand;
     if (!command || !(command->ordertype.attributes & COMMAND_MASK_FORMATION) ||
-        command->formation.formationtype> CUSTOM_FORMATION || command->selection->numShips<2) return;
+        command->formation.formationtype>=CUSTOM_FORMATION || command->selection->numShips<2) return;
     for(i=0;i<selection->numShips;++i)
         if (selection->ShipPtr[i]->formationcommand!=command ||
             selection->ShipPtr[i]->playerowner!=selection->ShipPtr[0]->playerowner ||
             (selection->ShipPtr[i]->flags & SOF_Dead)) return;
     if (formationGetSpread(command)==ticks) return;
-    if (command->formation.formationtype==CUSTOM_FORMATION)
-    {
-        /* Custom formations ARE a snapshot of their original offsets. Change
-           their scale relative to that snapshot, never recapture moving ships. */
-        oldScale=formationSpreadStoredScale(command->formation.sortorder);
-        minimum=formationGetSpread(command)==FORMATION_SPREAD_DEFAULT ?
-            formationSpreadMinimumForCommand(command) : formationSpreadTight(command->formation.sortorder);
-        command->formation.sortorder=formationSpreadPack(command->formation.sortorder,ticks,minimum);
-        scale=formationSpreadStoredScale(command->formation.sortorder);
-        formationSpreadScaleOffsets(command,scale/oldScale);
-    }
-    else
-    {
-        command->formation.sortorder=formationSpreadPack(command->formation.sortorder,ticks,1.0f);
-        FormationCalculateOffsets(command);
-    }
+    command->formation.sortorder=formationSpreadPack(command->formation.sortorder,ticks,1.0f);
+    FormationCalculateOffsets(command);
     /* Existing formation processing runs for halted/stationary groups too.
        Wake followers; preserve the leader, movement destination and orders. */
     for(i=1;i<command->selection->numShips;++i) command->selection->ShipPtr[i]->shipidle=FALSE;

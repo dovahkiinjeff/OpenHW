@@ -143,7 +143,10 @@ class Gateway:
                 try:
                     member.consume();kind,payload=unpack(message)
                     room=member.room
-                    if kind==CREATE:
+                    if kind==LIST_ROOMS:
+                        if payload:raise LobbyError('Unexpected room-list payload')
+                        await self.send(member,ROOM_LIST,self.lobby.directory());continue
+                    elif kind==CREATE:
                         if payload:raise LobbyError('Unexpected create payload')
                         room=self.lobby.create(member)
                     elif kind==JOIN:room=self.lobby.join(member,payload)

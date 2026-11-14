@@ -45,3 +45,7 @@ keep the artwork subordinate to labels, lists and controls.
 
 Other menus select deterministically from the expanded concept-art pool.
 No AI reconstruction or invented detail was necessary for these subtle panels.
+
+## Additional UI panels supplied 2026-11-13
+
+The owner supplied 15 further concept images for transparent UI backgrounds. All are retained without painted or generated changes. Attachment identities, dimensions and checksums are recorded in CONCEPT_ART_2026_11_13.json. Rendering uses aspect-preserving crops and translucent dark blue overlays for readable controls.

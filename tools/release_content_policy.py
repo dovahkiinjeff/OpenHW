@@ -16,6 +16,7 @@ import zipfile
 TEXT_TYPES = {'.owshipdef', '.owsubsystem', '.rmnative',
               '.rtxmap', '.rtxlight', '.rtxdust', '.rtxcloud'}
 UI_PLATES = {
+    'concept_bentusi_study.png', 'concept_galactic_plan.png', 'concept_new_dock.png', 'concept_galactic_route.png', 'concept_hangar_sketch.png', 'concept_repair_study.png', 'concept_frigate_grey.png', 'concept_carrier_study.png', 'concept_battle_study.png', 'concept_taiidan_blue.png', 'concept_bentusi_lights.png', 'concept_chamber.png', 'concept_taiidan_dark.png', 'concept_mothership_flight.png', 'concept_strike_study.png',
     'archive_plate.png', 'campaign_plate.png', 'fleet_plate.png',
     'systems_plate.png', 'menu_backdrop.png', 'production_plate.png',
     'startup_splash.png', 'concept_interceptor.png', 'concept_science.png',

@@ -18,18 +18,11 @@ static CommandToDo *muiSelectedFormation(void)
     first=selSelected.ShipPtr[0];
     command=first->formationcommand;
     if (!command || !(command->ordertype.attributes & COMMAND_MASK_FORMATION) ||
-        command->formation.formationtype>CUSTOM_FORMATION || command->selection->numShips<2) return NULL;
+        command->formation.formationtype>=CUSTOM_FORMATION || command->selection->numShips<2) return NULL;
     for(i=0;i<selSelected.numShips;++i)
-        if (selSelected.ShipPtr[i]->shiptype!=first->shiptype ||
-            selSelected.ShipPtr[i]->shiprace!=first->shiprace ||
-            selSelected.ShipPtr[i]->formationcommand!=command ||
+        if (selSelected.ShipPtr[i]->formationcommand!=command ||
             selSelected.ShipPtr[i]->playerowner!=universe.curPlayerPtr ||
             (selSelected.ShipPtr[i]->flags & SOF_Dead)) return NULL;
-    /* Spacing changes the complete formation, so a same-type subset of a
-       mixed formation must not expose a control that also moves other types. */
-    for(i=0;i<command->selection->numShips;++i)
-        if (command->selection->ShipPtr[i]->shiptype!=first->shiptype ||
-            command->selection->ShipPtr[i]->shiprace!=first->shiprace) return NULL;
     return command;
 }
 

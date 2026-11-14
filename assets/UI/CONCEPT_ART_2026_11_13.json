@@ -1,0 +1,137 @@
+[
+  {
+    "path": "concept_bentusi_study.png",
+    "attachment": "codex-clipboard-041a0587-090c-449d-94e4-438be64e6ea8.jpg",
+    "source_sha256": "edfc22939d69de3da51fc0c9fb5bf3e412c23fe430c51eae170672083cfe901c",
+    "sha256": "91fc41bc2aad9258e93e217b8aae83862d01f64d384e0f05f25e52b83d9d6f7e",
+    "width": 825,
+    "height": 621,
+    "treatment": "Unmodified decoded pixels; PNG encoding. Aspect-ratio crop and dark translucent overlay are applied by the UI."
+  },
+  {
+    "path": "concept_galactic_plan.png",
+    "attachment": "codex-clipboard-e6310971-c823-47cf-80ec-b3cc2d1f98b8.png",
+    "source_sha256": "91969cd193231333b8a622430f3404d17eba810977f69f7ced68555ecb770200",
+    "sha256": "ad804a7ae57ab2d9fa77ab52c2fd891b8d027de56f5a579547070bfd3a2b5e1d",
+    "width": 1474,
+    "height": 1019,
+    "treatment": "Unmodified decoded pixels; PNG encoding. Aspect-ratio crop and dark translucent overlay are applied by the UI."
+  },
+  {
+    "path": "concept_new_dock.png",
+    "attachment": "codex-clipboard-62831198-eb6d-47d7-b898-f5053c9e694a.png",
+    "source_sha256": "8afea2b8f1c125cf6c1090d90e7e110fe190fadb83cd22ead8b2e6b67d2f1c58",
+    "sha256": "dd7b1daa94fd1dec1c790c3d44fa38f1ab531cb9314e3e149ce79d3e3a4d7a06",
+    "width": 1000,
+    "height": 727,
+    "treatment": "Unmodified decoded pixels; PNG encoding. Aspect-ratio crop and dark translucent overlay are applied by the UI."
+  },
+  {
+    "path": "concept_galactic_route.png",
+    "attachment": "codex-clipboard-37f9928e-b3bb-45fe-a131-407972d1fba7.png",
+    "source_sha256": "e9473e5978d182a0e69f3d65d19356fd22aaeac6c09b0954c102cdb79f0835ad",
+    "sha256": "3b8840b35c1b01c73723a3b95e6589b967c1d39ac52f8deb538ab56739ee4ab5",
+    "width": 519,
+    "height": 1050,
+    "treatment": "Unmodified decoded pixels; PNG encoding. Aspect-ratio crop and dark translucent overlay are applied by the UI."
+  },
+  {
+    "path": "concept_hangar_sketch.png",
+    "attachment": "codex-clipboard-60e259ca-6be8-4705-9308-1acc2c00b99b.png",
+    "source_sha256": "b235e9636c7f4a570a92face486e911ee0eddc0b09f9a62a118033251c108d9c",
+    "sha256": "83ab3b4a3b0a8587293b41fcf658f8047761a0b7bd1382902d1002d2122ed264",
+    "width": 1000,
+    "height": 1206,
+    "treatment": "Unmodified decoded pixels; PNG encoding. Aspect-ratio crop and dark translucent overlay are applied by the UI."
+  },
+  {
+    "path": "concept_repair_study.png",
+    "attachment": "codex-clipboard-51c30396-80a2-4a31-9eee-cffce2cc5f1c.png",
+    "source_sha256": "8397fd57d91305892c682d4268a57a087e8a0805acbc1ec760e1a31fda2b160e",
+    "sha256": "e1392fe476195d8ab82acd95d2691b6bd71b5b0c61c07d6b09c940aa3d6f489e",
+    "width": 932,
+    "height": 603,
+    "treatment": "Unmodified decoded pixels; PNG encoding. Aspect-ratio crop and dark translucent overlay are applied by the UI."
+  },
+  {
+    "path": "concept_frigate_grey.png",
+    "attachment": "codex-clipboard-3a039901-7511-4065-b135-e67f13dc3ad9.png",
+    "source_sha256": "b79ad19f8636a6a6830ad092a9f19e6470c7876ab7132294132eaf8d6c67fdd1",
+    "sha256": "7be14d3e9d53158feb10ab36119c6334ab93b83017b3d42a87fe7d81a409c470",
+    "width": 813,
+    "height": 799,
+    "treatment": "Unmodified decoded pixels; PNG encoding. Aspect-ratio crop and dark translucent overlay are applied by the UI."
+  },
+  {
+    "path": "concept_carrier_study.png",
+    "attachment": "codex-clipboard-8420e29d-d8b7-4aec-9f3e-7d46ddcd67f2.png",
+    "source_sha256": "b9673c1b97aab5edee20427c7bbae8889ac30776ac6394c901376391db66de7d",
+    "sha256": "d1c8112f1c0824bce595ddb10f5a5e602a358d4db9a40a053c1f9187f8264f00",
+    "width": 993,
+    "height": 754,
+    "treatment": "Unmodified decoded pixels; PNG encoding. Aspect-ratio crop and dark translucent overlay are applied by the UI."
+  },
+  {
+    "path": "concept_battle_study.png",
+    "attachment": "codex-clipboard-7d62b37d-f339-4d28-92de-6bdb8e67d8f2.png",
+    "source_sha256": "7550f251b2b95151bcc0446bb8bddbf208a0cee94afecf8c94a9f6159e6fa429",
+    "sha256": "ebfc411e6f3b17c0bffa0ff37f9721d45db5fec989598e2e5d0dcb6471306ad3",
+    "width": 640,
+    "height": 480,
+    "treatment": "Unmodified decoded pixels; PNG encoding. Aspect-ratio crop and dark translucent overlay are applied by the UI."
+  },
+  {
+    "path": "concept_taiidan_blue.png",
+    "attachment": "codex-clipboard-28837c0d-4218-4ecb-8e42-4011c50324f1.png",
+    "source_sha256": "9a163ea94739480797be0b3bed511081b180170bbca6cf9fcc44b81dbba60064",
+    "sha256": "5f233f6422d555bc615ed81dbeebb05f5e7bb83ea8298215c60ef1b3d3e7700e",
+    "width": 1000,
+    "height": 743,
+    "treatment": "Unmodified decoded pixels; PNG encoding. Aspect-ratio crop and dark translucent overlay are applied by the UI."
+  },
+  {
+    "path": "concept_bentusi_lights.png",
+    "attachment": "codex-clipboard-ad94d0b1-e40d-456f-9adc-e50b2bd75b7f.png",
+    "source_sha256": "f5a3871a6ccc4b1ec353ae06e567ce1926189547e62245504b8763083776223a",
+    "sha256": "80128e748b299d6ad1b9ad298467150f18c687dba5779291a4884671fb921d5f",
+    "width": 700,
+    "height": 588,
+    "treatment": "Unmodified decoded pixels; PNG encoding. Aspect-ratio crop and dark translucent overlay are applied by the UI."
+  },
+  {
+    "path": "concept_chamber.png",
+    "attachment": "codex-clipboard-bdfa28f8-96c3-415d-835c-0fe4c1713abd.png",
+    "source_sha256": "eec7603ef22a70c830d23d4e7c98d13c374bb8086e77629e8405e3ff38eada13",
+    "sha256": "9f559ef21b2b114157b5490821bf89ed6f1609dd4fad87311d5c0182c3325cc5",
+    "width": 541,
+    "height": 594,
+    "treatment": "Unmodified decoded pixels; PNG encoding. Aspect-ratio crop and dark translucent overlay are applied by the UI."
+  },
+  {
+    "path": "concept_taiidan_dark.png",
+    "attachment": "codex-clipboard-aa9af1e1-48da-438c-8bbf-df69fc50ab0f.png",
+    "source_sha256": "e093f04f55a0012b872741fdb2a719ceb696208d7eb2ef65924ae13086a6221b",
+    "sha256": "75ab55c231657b9d3eb1631a453d0871c7ff4d540e375d410c28fb18163ccf6e",
+    "width": 792,
+    "height": 588,
+    "treatment": "Unmodified decoded pixels; PNG encoding. Aspect-ratio crop and dark translucent overlay are applied by the UI."
+  },
+  {
+    "path": "concept_mothership_flight.png",
+    "attachment": "codex-clipboard-b2740f12-e92e-44b6-8220-cbb08157868c.png",
+    "source_sha256": "ef89a95fb5743d0a70c70be1399a034538a401c4a00da5ea2445208d34b0ed76",
+    "sha256": "51a0f60297eb1b04c29c452d510dc5352c57335064f8bad6609210af2f2ce22c",
+    "width": 484,
+    "height": 594,
+    "treatment": "Unmodified decoded pixels; PNG encoding. Aspect-ratio crop and dark translucent overlay are applied by the UI."
+  },
+  {
+    "path": "concept_strike_study.png",
+    "attachment": "codex-clipboard-fe765d30-d598-44f0-822f-d277e85643e8.png",
+    "source_sha256": "f9678c472149ace9f4f0be92c3385f623bfb43df540e89207d32c085ebca6797",
+    "sha256": "5533ceecb498155b2fb229d8faafb6384898da27e1c035ccd071cad920aa6378",
+    "width": 792,
+    "height": 333,
+    "treatment": "Unmodified decoded pixels; PNG encoding. Aspect-ratio crop and dark translucent overlay are applied by the UI."
+  }
+]

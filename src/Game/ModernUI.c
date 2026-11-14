@@ -84,7 +84,7 @@ static void muiEditorColorBringToFront(void);
 #define MUI_AUDIO_ROW_COUNT 6
 #define MUI_VIDEO_ROW_COUNT 7
 #define MUI_GAMEPLAY_ROW_COUNT 13
-#define MUI_ART_COUNT 19
+#define MUI_ART_COUNT 34
 #ifndef MIN2
 #define MIN2(a,b) ((a)<(b)?(a):(b))
 #define MAX2(a,b) ((a)>(b)?(a):(b))
@@ -319,7 +319,8 @@ typedef enum ModernUIArtKind
     MUI_ART_INTERCEPTOR, MUI_ART_SCIENCE, MUI_ART_DOCK, MUI_ART_CORVETTE,
     MUI_ART_BLUE_CORVETTE, MUI_ART_BRIDGE, MUI_ART_HANGAR, MUI_ART_INDUSTRY,
     MUI_ART_NEBULA, MUI_ART_MOTHERSHIP, MUI_ART_ENGINEERING, MUI_ART_COCKPIT,
-    MUI_ART_DRONE
+    MUI_ART_DRONE,
+    MUI_ART_BENTUSI_STUDY, MUI_ART_GALACTIC_PLAN, MUI_ART_NEW_DOCK, MUI_ART_GALACTIC_ROUTE, MUI_ART_HANGAR_SKETCH, MUI_ART_REPAIR_STUDY, MUI_ART_FRIGATE_GREY, MUI_ART_CARRIER_STUDY, MUI_ART_BATTLE_STUDY, MUI_ART_TAIIDAN_BLUE, MUI_ART_BENTUSI_LIGHTS, MUI_ART_CHAMBER, MUI_ART_TAIIDAN_DARK, MUI_ART_MOTHERSHIP_FLIGHT, MUI_ART_STRIKE_STUDY
 } ModernUIArtKind;
 
 static ModernUIVideoState muiVideo;
@@ -365,7 +366,8 @@ static const char *muiArtworkFiles[MUI_ART_COUNT] = {
     "concept_corvette.png", "concept_blue_corvette.png", "concept_bridge.png",
     "concept_hangar.png", "concept_industry.png", "concept_nebula.png",
     "concept_mothership.png", "concept_engineering.png", "concept_cockpit.png",
-    "concept_drone.png"
+    "concept_drone.png",
+    "concept_bentusi_study.png", "concept_galactic_plan.png", "concept_new_dock.png", "concept_galactic_route.png", "concept_hangar_sketch.png", "concept_repair_study.png", "concept_frigate_grey.png", "concept_carrier_study.png", "concept_battle_study.png", "concept_taiidan_blue.png", "concept_bentusi_lights.png", "concept_chamber.png", "concept_taiidan_dark.png", "concept_mothership_flight.png", "concept_strike_study.png"
 };
 
 static const color muiInk = colRGB(7, 12, 17);
@@ -789,6 +791,7 @@ static ModernUIArtKind muiArtworkForScreen(const char *name)
     udword hash = 2166136261u;
     const char *cursor = name;
     if (name == NULL) return MUI_ART_GALAXY;
+    if(strstr(name,"In_game_")||strstr(name,"Pause")||strstr(name,"Escape"))return MUI_ART_BENTUSI_STUDY;
     if(strstr(name,"Construction")||strstr(name,"Build"))return MUI_ART_DOCK;
     if(strstr(name,"Research"))return MUI_ART_SCIENCE;
     if(strstr(name,"Launch"))return MUI_ART_HANGAR;
@@ -814,7 +817,7 @@ static ModernUIArtKind muiArtworkForScreen(const char *name)
         hash ^= (udword)(unsigned char)*cursor++;
         hash *= 16777619u;
     }
-    return (ModernUIArtKind)(MUI_ART_INTERCEPTOR + hash % 13u);
+    return (ModernUIArtKind)(MUI_ART_BENTUSI_STUDY + hash % 15u);
 }
 
 static bool32 muiEnsureArtwork(ModernUIArtKind kind)
@@ -936,6 +939,12 @@ static void muiDrawArtworkInRect(ModernUIArtKind kind,
     glEnd();
     rndTextureEnvironment(oldMode);
     rndTextureEnable(oldTexture);
+}
+
+static void muiConceptPanel(ModernUIArtKind kind,const rectangle *panel,unsigned alpha)
+{
+    muiDrawArtworkInRect(kind,panel);
+    muiFill(panel,colRGBA(10,18,24,alpha));
 }
 
 static void muiDrawBackdrop(ModernUIArtKind kind)
@@ -7167,8 +7176,8 @@ static void muiDrawVideo(regionhandle region)
     muiBuildVideoLayout(&layout);
     muiDrawBackdrop(MUI_ART_COCKPIT);
     muiFill(&layout.canvas, colRGBA(4, 7, 10, 122));
-    muiFill(&layout.rail, muiSurface);
-    muiFill(&layout.content, muiSurface);
+    muiConceptPanel(MUI_ART_GALACTIC_ROUTE,&layout.rail,210);
+    muiConceptPanel(MUI_ART_HANGAR_SKETCH,&layout.content,218);
     if (layout.preview.x1 > layout.preview.x0)
     {
         muiFill(&layout.preview, colRGBA(11, 20, 27, 226));
@@ -7676,8 +7685,8 @@ static void muiDrawGameplay(regionhandle region)
     muiGameplayFitLayout(&layout);
     muiDrawBackdrop(MUI_ART_BLUE_CORVETTE);
     muiFill(&layout.canvas, colRGBA(4, 7, 10, 122));
-    muiFill(&layout.rail, muiSurface);
-    muiFill(&layout.content, muiSurface);
+    muiConceptPanel(MUI_ART_STRIKE_STUDY,&layout.rail,210);
+    muiConceptPanel(MUI_ART_FRIGATE_GREY,&layout.content,218);
     if (layout.preview.x1 > layout.preview.x0)
         muiFill(&layout.preview, colRGBA(11, 20, 27, 226));
 
@@ -8143,8 +8152,8 @@ static void muiDrawAudio(regionhandle region)
     muiBuildAudioLayout(&layout);
     muiDrawBackdrop(MUI_ART_CORVETTE);
     muiFill(&layout.canvas, colRGBA(4, 7, 10, 122));
-    muiFill(&layout.rail, muiSurface);
-    muiFill(&layout.content, muiSurface);
+    muiConceptPanel(MUI_ART_BENTUSI_LIGHTS,&layout.rail,210);
+    muiConceptPanel(MUI_ART_BATTLE_STUDY,&layout.content,218);
     if (layout.preview.x1 > layout.preview.x0)
         muiFill(&layout.preview, colRGBA(11, 20, 27, 226));
 
@@ -8422,8 +8431,8 @@ static void muiDrawKeys(regionhandle region)
 
     muiDrawBackdrop(MUI_ART_BRIDGE);
     muiFill(&layout.canvas, colRGBA(4, 7, 10, 122));
-    muiFill(&layout.rail, muiSurface);
-    muiFill(&layout.content, muiSurface);
+    muiConceptPanel(MUI_ART_REPAIR_STUDY,&layout.rail,210);
+    muiConceptPanel(MUI_ART_CARRIER_STUDY,&layout.content,218);
     if (layout.preview.x1 > layout.preview.x0)
         muiFill(&layout.preview, colRGBA(11, 20, 27, 226));
 
@@ -9629,7 +9638,7 @@ void modernUIDrawBase(regionhandle region)
         muiDrawBackdrop(muiArtworkForScreen(
             screen != NULL ? screen->name : NULL));
         muiFill(&canvas, colRGBA(3, 6, 9, 104));
-        muiFill(&layout.content, colRGBA(12, 20, 26, 226));
+        muiConceptPanel(muiArtworkForScreen(screen?screen->name:NULL),&layout.content,204);
         primRectOutline2(&layout.content, 1, muiLineSoft);
         accent = layout.content;
         accent.x1 = accent.x0 + uiScaleSize(3);
@@ -9650,7 +9659,7 @@ void modernUIDrawBase(regionhandle region)
     if (kind == MUI_SCREEN_INGAME)
     {
         muiDrawArtworkInRect(muiArtworkForScreen(screen?screen->name:NULL), &region->rect);
-        muiFill(&region->rect, colRGBA(15, 25, 32, 226));
+        muiFill(&region->rect, colRGBA(15, 25, 32, 204));
     }
     else if (kind == MUI_SCREEN_GAMEPLAY && screen != NULL &&
              muiManagerScreen(screen->name))
@@ -9723,7 +9732,11 @@ void modernUIDrawStaticRectangle(regionhandle region)
     }
     else
     {
-        muiFill(&region->rect, muiSurface);
+        if(region->rect.x1-region->rect.x0>=uiScaleSize(240) && region->rect.y1-region->rect.y0>=uiScaleSize(160)) {
+            regionhandle walk;fescreen *owner=NULL;
+            for(walk=region;walk && !owner;walk=walk->parent)owner=muiScreenForRegion(walk);
+            muiConceptPanel(owner?muiArtworkForScreen(owner->name):MUI_ART_CHAMBER,&region->rect,210);
+        } else muiFill(&region->rect, muiSurface);
     }
     primRectOutline2(&region->rect, 1, muiLineSoft);
 }

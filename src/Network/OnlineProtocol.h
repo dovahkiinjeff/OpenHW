@@ -13,8 +13,8 @@
 enum OHMessage {
     OH_HELLO=1, OH_CREATE=2, OH_JOIN=3, OH_LEAVE=4, OH_CONFIGURE=5,
     OH_ADD_AI=6, OH_REMOVE_SLOT=7, OH_READY=8, OH_START=9, OH_LOADED=10,
-    OH_COMMAND=11, OH_PAUSE=12, OH_WELCOME=100, OH_LOBBY=101, OH_ERROR=102,
-    OH_LOAD=103, OH_SYNC=104, OH_STOP=105, OH_PAUSED=106,
+    OH_COMMAND=11, OH_PAUSE=12, OH_LIST_ROOMS=13, OH_WELCOME=100, OH_LOBBY=101, OH_ERROR=102,
+    OH_LOAD=103, OH_SYNC=104, OH_STOP=105, OH_PAUSED=106, OH_ROOM_LIST=107,
     OH_WORKER_INIT=200, OH_WORKER_READY=201, OH_WORKER_STEP=202,
     OH_WORKER_SYNC=203, OH_WORKER_ERROR=204, OH_WORKER_INSPECT=205
 };
@@ -49,6 +49,11 @@ typedef struct OHLobby {
     uint8_t ownSlot,host,state,reserved;
     OHConfig config;
 } OHLobby;
+#define OH_MAX_ROOMS 16
+typedef struct OHRoomSummary {
+    char code[8],host[48],map[64];
+    uint8_t humans,ai,state,capacity;
+} OHRoomSummary;
 typedef struct OHLoad {
     uint32_t seed;
     uint8_t ownSlot,humans,players,reserved;

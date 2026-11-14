@@ -8,7 +8,7 @@ static void modUIOpen(int mode){char*root=SDL_GetBasePath();memset(&modUI,0,size
 }
 static int modUIVisible(void){return (MAIN_WindowHeight-uiScaleSize(230))/uiScaleSize(42);}
 static void modUIStore(void){char*root=SDL_GetBasePath();if(!root)return;if(openhwModsSave(root,modUI.rows,modUI.count,modUI.notice,sizeof(modUI.notice)))snprintf(modUI.notice,sizeof(modUI.notice),"Saved. Restart OpenHW to apply changes.");SDL_free(root);}
-static void modUIDraw(void){rectangle whole=muiRect(0,0,MAIN_WindowWidth,MAIN_WindowHeight);int i;muiFill(&whole,colRGB(5,12,18));
+static void modUIDraw(void){rectangle whole=muiRect(0,0,MAIN_WindowWidth,MAIN_WindowHeight);int i;muiConceptPanel(MUI_ART_TAIIDAN_DARK,&whole,208);
  muiText(uiScaleSize(40),uiScaleSize(35),muiSignal,modUI.mode==1?"SAVE MOD / NAME":modUI.mode==2?"APPEND TO EXISTING MOD":"MOD MANAGER",muiHeadingFont);
  muiText(uiScaleSize(40),uiScaleSize(85),muiPaper,modUI.mode==1?"Letters, digits, underscore or hyphen. Enter to save; Esc to cancel.":modUI.mode==2?"Select a mod to append this ship. Existing conflicts require confirmation.":"Checkbox: enable / disable. Drag rows to reorder. Lower mods override higher mods.",muiBodyFont);
  if(modUI.mode==1){muiText(uiScaleSize(50),uiScaleSize(145),muiPaper,modUI.name,muiHeadingFont);}else for(i=modUI.scroll;i<modUI.count&&i<modUI.scroll+modUIVisible();i++){
