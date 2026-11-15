@@ -42,4 +42,4 @@ python tools/measure_installer_disk.py N:/OpenHW-Audit/run-name --installer PATH
 
 The meter invokes the quiet bootstrap verification and then the actual frozen installer with --collection. It never launches the game. Its reports and installation stay inside the chosen run folder. The fresh destination must be separate from the Collection. Keep headroom above observed peaks rather than treating a sampled peak as a guaranteed minimum.
 
-Machine-readable results are in [the measurement record](INSTALLER_DISK_MEASUREMENT_2026_11_14.json). The corrected candidate is validated locally; the public download has not been replaced by this audit.
+Machine-readable results are in [the measurement record](INSTALLER_DISK_MEASUREMENT_2026_11_14.json). The identical measured candidate is published with OpenHW 1.1.10 on 2026-11-15. This refreshed installer still installs base 1.1.1; Launcher then applies the current patches. No full installer is used over an existing installation.

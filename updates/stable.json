@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channel": "stable",
-  "latest": "1.1.9",
+  "latest": "1.1.10",
   "minimum_protocol": 3,
   "patches": [
     {
@@ -246,6 +246,17 @@
       "url": "https://openhw.tech/downloads/v1.1.9/OpenHW-Patch-1.1.9.exe",
       "size": 41951792,
       "sha256": "f91d4613c8814f02234d906ccd5d0ce7bb8a98c6212f88c9710a3506aa0c7788"
+    },
+    {
+      "to": "1.1.10",
+      "format": "openhw-exe-zip-v1",
+      "post_actions": [],
+      "from": [
+        "1.1.9"
+      ],
+      "url": "https://openhw.tech/downloads/v1.1.10/OpenHW-Patch-1.1.10.exe",
+      "size": 5969871,
+      "sha256": "f4e7c07b5746b8bf5ee0cbd071960b9cfef0ffe1e60b69f40afed7c4f2469870"
     }
   ],
   "launcher": {
@@ -264,8 +275,8 @@
   "fresh_install": {
     "schema": 1,
     "version": "1.1.1",
-    "url": "https://openhw.tech/downloads/v1.1.1/OpenHW-Setup.exe",
-    "size": 521175421,
-    "sha256": "5861947f800d82305f218bdb01dabea02a5269bfe0ce3f6066d71ee1f5f2d33c"
+    "url": "https://openhw.tech/downloads/v1.1.10/OpenHW-Setup.exe",
+    "size": 521178621,
+    "sha256": "e2de0df93160de7cdaa77b099d98f55940d2160eabf464febfedd271d8edd25c"
   }
 }

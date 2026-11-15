@@ -1,4 +1,4 @@
-> **OpenHW 1.1 release:** Shift+F11/F12 live map, lighting and texture authoring menus are disabled in both game executables. Authored environments still load normally. The reference below describes the developer tools; source builds can explicitly enable them with `-DHW_ENABLE_LIVE_MAP_AUTHORING=ON`. The ship and parade editors are separate tools.
+> **Current 1.1.10 installer maintenance:** use the refreshed full 1.1.1 base only for a new installation, then apply current updates in Launcher. Existing games update in place without reinstalling. Shift+F11/F12 editors are enabled in single-player and local multiplayer and blocked online, as restored in 1.1.3.
 
 # OpenHW 1.1 installation and diagnostics
 
@@ -22,7 +22,7 @@ See [1.1 release notes](RELEASE_NOTES_1.1.md) and [dedicated multiplayer control
 
 Download `OpenHW-Setup.exe` into the **writable final game folder** and run it there. Select your own installed Homeworld Remastered Collection (Collection root, HomeworldRM, or its Data folder). Setup also needs the Collection's Homeworld 1 Classic data and required English archives. It installs beside the installer and does not change the original Collection. No separate Classic executable selection or manual music/voice copying is required.
 
-The public 1.1.1 base installer measured 39.304 GB peak additional drive use in a complete NTFS install. The corrected installer candidate measured 37.913 GB, with a 32.597 GB main archive plus loose runtime/support files. No textures were resized or recompressed. These are measured cases, not universal maximum requirements; the candidate is not yet the public download. See the [full measurement report](INSTALLER_DISK_MEASUREMENT_2026_11_14.md) and [installation disk budget](../BUILD_INSTALLER.md#installation-disk-budget).
+The public 1.1.1 base installer measured 39.304 GB peak additional drive use in a complete NTFS install. The corrected installer candidate measured 37.913 GB, with a 32.597 GB main archive plus loose runtime/support files. No textures were resized or recompressed. These are measured cases, not universal maximum requirements; the identical measured installer is published with 1.1.10. See the [full measurement report](INSTALLER_DISK_MEASUREMENT_2026_11_14.md) and [installation disk budget](../BUILD_INSTALLER.md#installation-disk-budget).
 
 Allow setup to finish extraction, asset conversion and validation. Its logs live in `Development/Logs`. After success, setup removes `Development/SetupSources` and `Development/SetupWork`; if cleanup fails it reports retained files. Failed imports retain working data for recovery. Do not delete working data during installation. Setup does not launch the game.
 

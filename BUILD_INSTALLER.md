@@ -83,7 +83,7 @@ A paired test ran the public 1.1.1 base installer and a corrected candidate thro
 
 Verified reuse of imported immutable files, earlier model-source cleanup, retirement of the temporary migration archive and omission of redundant packed backdrop copies reduce duplication without resizing or recompressing textures. Both complete installs and the resource comparison pass. See [the measured disk report](docs/INSTALLER_DISK_MEASUREMENT_2026_11_14.md) for exact figures, checks and a reproducible measurement command.
 
-The old 80-100 GB allowance was an estimate; the older 200-250 GB advice described a superseded broad-extraction pipeline. Neither is the measured peak of the tested current base installer. Keep headroom above observed peaks: other source editions, filesystem behavior, patches and user content can change usage. A complete no-hard-link fallback run has not been measured. The source Collection consumes separate space, and source builds have their own requirements. These candidate changes have not yet replaced the public download.
+The old 80-100 GB allowance was an estimate; the older 200-250 GB advice described a superseded broad-extraction pipeline. Neither is the measured peak of the tested current base installer. Keep headroom above observed peaks: other source editions, filesystem behavior, patches and user content can change usage. A complete no-hard-link fallback run has not been measured. The source Collection consumes separate space, and source builds have their own requirements. The identical measured installer is published with the 1.1.10 maintenance release.
 
 ## Content and source boundary
 

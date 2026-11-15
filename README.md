@@ -1,8 +1,8 @@
-# OpenHW 1.1.3
+# OpenHW 1.1.10
 
-**Latest update:** [1.1.3 — editors restored offline](docs/RELEASE_NOTES_1.1.3.md). Shift+F11/F12 map, lighting and texture editors work in single-player and local multiplayer; they are blocked online. Choose **Update now** in Launcher. [Website update entry](https://openhw.tech/#/updates/v1.1.3).
+**Latest update:** [1.1.10 — measured installer disk improvements](docs/RELEASE_NOTES_1.1.10.md). The refreshed installer measured 37.91 GB peak drive usage in a complete NTFS run. Existing players: choose **Update now** in Launcher; no reinstall is needed. [Website update entry](https://openhw.tech/#/updates/v1.1.10).
 
-[**Download the full OpenHW 1.1.1 installer**](https://openhw.tech/downloads/v1.1.1/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.1) · [1.1.1 release notes](docs/RELEASE_NOTES_1.1.1.md)
+[**Download the full OpenHW 1.1.1 installer**](https://openhw.tech/downloads/v1.1.10/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.10) · [1.1.1 release notes](docs/RELEASE_NOTES_1.1.1.md)
 
 > [!IMPORTANT]
 > **1.1.1 is the full base release. Start here; no 1.1 install or old patch chain is required.** Setup includes the working Launcher, Updater and Diagnostics. Install in a new writable folder using your owned Homeworld Remastered Collection.
@@ -15,7 +15,7 @@
 
 [![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-[**Download OpenHW 1.1.1**](https://openhw.tech/downloads/v1.1.1/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.1) · [Complete 1.1.1 source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.1/OpenHW-1.1.1-Source.zip) · [Release notes](docs/RELEASE_NOTES_1.1.1.md) · [Installation and controls](docs/USER_GUIDE.md) · [Editors](docs/EDITING_GUIDE.md) · [Modding](docs/MODDING.md) · [Build the installer](BUILD_INSTALLER.md)
+[**Download OpenHW 1.1.1**](https://openhw.tech/downloads/v1.1.10/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.10) · [Complete 1.1.10 source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.10/OpenHW-1.1.10-Source.zip) · [Release notes](docs/RELEASE_NOTES_1.1.1.md) · [Installation and controls](docs/USER_GUIDE.md) · [Editors](docs/EDITING_GUIDE.md) · [Modding](docs/MODDING.md) · [Build the installer](BUILD_INSTALLER.md)
 
 **The full 1.1.1 installer requires a fresh installation in a separate folder. Do not apply the old 1.0 patch chain to it.** Put OpenHW-Setup.exe in the new folder, select your owned Homeworld Remastered Collection, and let setup build the game there. Your old installation, saves and settings are not overwritten. Launcher.exe and Updater.exe are included.
 
