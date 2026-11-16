@@ -445,6 +445,19 @@ class App:
         self.window.after(300000,self.check_channel)
     def receive_channel(self,feed):
         self.channel_fetching=False
+        try:
+            self.api.updater.update_plan(feed, self.version)
+        except self.api.updater.FreshInstallRequired:
+            self.channel_status.set('NEW INSTALLATION REQUIRED / This is the old '+self.version+' folder. Install the 1.1 base separately, then update there.')
+            import webbrowser
+            self.update_now.configure(text='GET NEW INSTALLER', command=lambda: webbrowser.open('https://openhw.tech/#/download'))
+            self.update_now.place(relx=1,x=-244,y=72,width=220,height=38)
+            return
+        except self.api.updater.UpdateError as error:
+            self.channel_status.set('UPDATE PATH UNAVAILABLE / '+str(error))
+            self.update_now.place_forget()
+            return
+        self.update_now.configure(text='UPDATE NOW', command=self.update)
         game_new=self.api.updater.compare_versions(feed['latest'],self.version)>0
         component=feed.get('launcher')
         launcher_new=component and self.api.updater.compare_versions(component['version'],self.api.VERSION)>0

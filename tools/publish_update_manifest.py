@@ -7,7 +7,7 @@ import os
 import re
 import urllib.request
 import urllib.error
-from openhw_updater import version_key, validate_manifest, official_url
+from openhw_updater import version_key, validate_manifest, official_url, update_plan, FreshInstallRequired
 
 REPO = 'dovahkiinjeff/OpenHW'
 API = 'https://api.github.com/repos/'+REPO
@@ -97,8 +97,12 @@ def main():
     feed=json.loads(args.output.read_text(encoding='utf-8-sig'))
     validate_manifest(feed)
     floor=feed.get('fresh_install',{}).get('version','1.0')
+    versions={v for p in feed['patches'] for v in p['from']} | {p['to'] for p in feed['patches']}
+    for version in versions:
+        try: update_plan(feed,version)
+        except FreshInstallRequired: pass  # An explicit base-install boundary is a supported recovery route.
     active=[r for r in (feed.get('updater'),feed.get('launcher'),feed.get('fresh_install')) if r]
-    active += [r for r in feed['patches'] if version_key(r['to'])>=version_key(floor)]
+    active += feed['patches']
     for row in active:
         if not row['url'].startswith('https://openhw.tech/downloads/') or any(not u.startswith('https://openhw.tech/downloads/') for u in row.get('mirrors',[])):
             raise ValueError('Compiled releases must be hosted on openhw.tech, never GitHub')

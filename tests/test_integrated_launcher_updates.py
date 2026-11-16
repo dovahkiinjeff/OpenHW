@@ -18,7 +18,7 @@ class IntegratedUpdates(unittest.TestCase):
    self.assertEqual((root/'Updater.exe').read_bytes(),candidate.read_bytes());self.assertIn('--launcher-update',command)
    self.assertEqual(download.call_count,2)
  def test_ticker_shows_button_for_game_or_launcher_revision(self):
-  app=SimpleNamespace(api=l,version='1.1.1',channel_fetching=True,channel_status=Mock(),update_now=Mock())
+  app=SimpleNamespace(api=l,version='1.1.1',channel_fetching=True,channel_status=Mock(),update_now=Mock(),update=Mock())
   ui.App.receive_channel(app,{'latest':'1.1.1','launcher':{'version':'9.0'}})
   app.update_now.place.assert_called_once();self.assertFalse(app.channel_fetching)
   app.update_now.reset_mock();ui.App.receive_channel(app,{'latest':'1.1.1','launcher':{'version':l.VERSION}})

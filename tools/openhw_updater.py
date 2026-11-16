@@ -18,7 +18,7 @@ import urllib.parse
 import uuid
 import zipfile
 
-UPDATER_VERSION = '1.1.4'
+UPDATER_VERSION = '1.1.5'
 PROTOCOL = 3
 MANIFEST_URL = 'https://openhw.tech/updates/stable.json'
 FALLBACK_MANIFEST_URL = 'https://raw.githubusercontent.com/dovahkiinjeff/OpenHW/main/updates/stable.json'
@@ -226,6 +226,13 @@ def update_plan(manifest, installed):
             if target == goal: return route+[patch]
             if target not in visited:
                 visited.add(target); pending.append((target, route+[patch]))
+    fresh = manifest.get('fresh_install')
+    if fresh and compare_versions(installed, fresh['version']) < 0:
+        raise FreshInstallRequired('This is an older OpenHW '+installed+' installation. '
+            'The 1.1 series requires a NEW installation in a separate empty folder; '
+            'it cannot be patched over the 1.0 game data. Your existing saves and settings are untouched. '
+            'Get the installer at https://openhw.tech/#/download, then use the Launcher in the new folder '
+            'to update from '+fresh['version']+' to '+manifest['latest']+'.')
     raise UpdateError('No supported update path from '+installed+' to '+manifest['latest'])
 
 
@@ -510,12 +517,6 @@ def update(root, progress, cancelled=lambda: False, select_collection=lambda: No
         if manifest.get('minimum_protocol',1) > PROTOCOL: raise UpdateError('A newer updater is required; see the official release page')
         validate_manifest(manifest)
         installed = detect_version(root)
-        fresh=manifest.get('fresh_install')
-        if fresh and compare_versions(installed,fresh['version'])<0:
-            raise FreshInstallRequired('OpenHW '+fresh['version']+' requires a NEW installation in a separate empty folder. '
-                'Your existing game, saves and settings have not been replaced. Download the new installer from '
-                'https://openhw.tech or https://github.com/dovahkiinjeff/OpenHW/releases/latest. '
-                'After installing, use the Launcher and Updater supplied with the new installation.')
         route = update_plan(manifest, installed)
         for index, patch in enumerate(route, 1):
             if cancelled(): raise Cancelled('Update paused. Run the updater again to continue.')
