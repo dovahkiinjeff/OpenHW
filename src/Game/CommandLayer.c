@@ -1,3 +1,4 @@
+#include "NavigationOrders.h"
 // =============================================================================
 //  CommandLayer.c
 //  - This is the ship command layer of Homeworld. All commands to ships go
@@ -2789,6 +2790,7 @@ bool32 processMoveToDo(CommandToDo *movetodo,bool32 passiveAttacked)
                 else
                 {
                     aiflags = (dontrotate) ? (AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured) : (AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_FirstPointInDirectionFlying|AISHIP_PointInDirectionFlying|AISHIP_CarTurn);
+                    aiflags|=navMoveFlightFlags(ship);
                     if (aishipFlyToPointAvoidingObjs(ship,&ship->moveTo,aiflags,(ship->shiptype == HeadShotAsteroid) ? (-tacticsGetShipsMaxVelocity(ship)) : -20.0f) & AISHIP_FLY_OBJECT_IN_WAY)
                     {
                         ship->aistatecommand = 1;
@@ -2903,6 +2905,7 @@ bool32 processMoveLeaderToDo(CommandToDo *movetodo,bool32 passiveAttacked)
             else
             {
                 aiflags = (dontrotate) ? (AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured) : (AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_FirstPointInDirectionFlying|AISHIP_PointInDirectionFlying|AISHIP_CarTurn);
+                aiflags|=navMoveFlightFlags(ship);
                 moveresult = aishipFlyToPointAvoidingObjs(ship,&movetodo->move.destination,aiflags,movetodo->formation.travelvel);
                 if (moveresult & AISHIP_FLY_OBJECT_IN_WAY)
                 {
@@ -3534,6 +3537,7 @@ readyfornextnode:
 ----------------------------------------------------------------------------*/
 void clDerelictDied(CommandLayer *comlayer,DerelictPtr derelict)
 {
+    navObjectDied((TargetPtr)derelict);
     Node *todonode;
     CommandToDo *todo;
 
@@ -3598,6 +3602,7 @@ void clDerelictDied(CommandLayer *comlayer,DerelictPtr derelict)
 ----------------------------------------------------------------------------*/
 void clResourceDied(CommandLayer *comlayer,ResourcePtr resource)
 {
+    navObjectDied((TargetPtr)resource);
     Node *todonode;
     CommandToDo *todo;
 
@@ -4083,6 +4088,7 @@ readyfornextnode:
 ----------------------------------------------------------------------------*/
 void clInit(CommandLayer *comlayer)
 {
+    if(comlayer==&universe.mainCommandLayer)navReset();
     listInit(&comlayer->todolist);
 }
 
@@ -4095,6 +4101,7 @@ void clInit(CommandLayer *comlayer)
 ----------------------------------------------------------------------------*/
 void clClose(CommandLayer *comlayer)
 {
+    if(comlayer==&universe.mainCommandLayer)navReset();
     Node *nextnode;
     Node *curnode = comlayer->todolist.head;
     CommandToDo *command;
@@ -4566,6 +4573,7 @@ StillDoAttackMoveWithCapitals:
 ----------------------------------------------------------------------------*/
 void clMoveThese(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to)
 {
+    navCancelShips(selectcom);
     CommandToDo *newcommand;
     CommandToDo *alreadycommand;
     SelectCommand *selection;
@@ -4715,6 +4723,7 @@ void clMoveThese(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vec
 ----------------------------------------------------------------------------*/
 void clMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to)
 {
+    navCancelShips(selectcom);
     SelectCommand *copycom;
     udword sizeofcopycom;
     Node *curnode;
@@ -4962,6 +4971,7 @@ void getNewHyperspaceingDestination(vector *newTo,vector *from,vector *to,Select
 ----------------------------------------------------------------------------*/
 void clMpHyperspace(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to)
 {
+    navCancelShips(selectcom);
     SelectCommand *copycom;
     udword sizeofcopycom;
     Node *curnode;
@@ -5955,6 +5965,7 @@ void ChangeOrderToAttack(CommandToDo *alreadycommand,AttackCommand *attackcom)
 ----------------------------------------------------------------------------*/
 CommandToDo *clAttackThese(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom)
 {
+    navCancelShips(selectcom);
     CommandToDo *newcommand;
     CommandToDo *alreadycommand;
     SelectCommand *selection;
@@ -6045,6 +6056,7 @@ CommandToDo *clAttackThese(CommandLayer *comlayer,SelectCommand *selectcom,Attac
 ----------------------------------------------------------------------------*/
 void clAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom)
 {
+    navCancelShips(selectcom);
     SelectCommand *copycom;
     udword sizeofcopycom;
     Node *curnode;
@@ -6420,6 +6432,7 @@ void clPlaySpeechEventsForSupportCraft(SelectCommand *selection)
 ----------------------------------------------------------------------------*/
 void clSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *targets)
 {
+    navCancelShips(selectcom);
     CommandToDo *newcommand;
     CommandToDo *alreadycommand;
     SelectCommand *selection;
@@ -6658,6 +6671,7 @@ void clRUTransfer(CommandLayer *comlayer, sdword toIndex, sdword fromIndex, sdwo
 ----------------------------------------------------------------------------*/
 void clSetKamikaze(CommandLayer *comlayer,SelectCommand *selectcom)
 {
+    navCancelShips(selectcom);
      sdword numShips = selectcom->numShips;
      sdword i;
      Ship *ship;
@@ -6738,6 +6752,7 @@ void ChangeOrderToHalt(CommandToDo *alreadycommand)
 ----------------------------------------------------------------------------*/
 void clHaltThese(CommandLayer *comlayer,SelectCommand *selectcom)
 {
+    navCancelShips(selectcom);
     CommandToDo *command;
     CommandToDo *newcommand;
     CommandToDo *alreadycommand;
@@ -6832,6 +6847,7 @@ void clHaltThese(CommandLayer *comlayer,SelectCommand *selectcom)
 ----------------------------------------------------------------------------*/
 void clHalt(CommandLayer *comlayer,SelectCommand *selectcom)
 {
+    navCancelShips(selectcom);
     SelectCommand *copycom;
     udword sizeofcopycom;
     Node *curnode;
@@ -6928,6 +6944,7 @@ void clHalt(CommandLayer *comlayer,SelectCommand *selectcom)
 ----------------------------------------------------------------------------*/
 void clScuttle(CommandLayer *comlayer,SelectCommand *selectcom)
 {
+    navCancelShips(selectcom);
     sdword numShips = selectcom->numShips;
     sdword i;
 
@@ -7414,6 +7431,7 @@ Ship *clCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uw
 
     // put ship inside creator
     dockPutShipInside(ship,creator);
+    navShipBuilt(ship,creator);
 
     if ( (universe.players[playerIndex].autoLaunch & launchmask) ||
          (ShipHasToLaunch(creator, ship)) )
@@ -7703,6 +7721,7 @@ void ChangeOrderToProtect(CommandToDo *alreadycommand,ProtectCommand *protectcom
 ----------------------------------------------------------------------------*/
 CommandToDo *clProtect(CommandLayer *comlayer,SelectCommand *selectcom,ProtectCommand *protectcom)
 {
+    navCancelShips(selectcom);
     CommandToDo *newcommand;
     CommandToDo *alreadycommand;
     SelectCommand *selection;
@@ -7884,6 +7903,7 @@ void GroupShipIntoMilitaryParade(CommandLayer *comlayer,ShipPtr ship,ShipPtr aro
 ----------------------------------------------------------------------------*/
 void clSetMilitaryParade(CommandLayer *comlayer,SelectCommand *selectcom)
 {
+    navCancelShips(selectcom);
     sdword index;
     sdword i;
     Ship *aroundShip;
@@ -7907,7 +7927,7 @@ void clSetMilitaryParade(CommandLayer *comlayer,SelectCommand *selectcom)
             ship = selectcom->ShipPtr[i];
             command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
             if ((command != NULL) && (command->ordertype.order == COMMAND_MILITARY_PARADE) &&
-                (command->militaryParade->aroundShip  == aroundShip))
+                (command->militaryParade->aroundShip  == aroundShip) && !navIsVirtualParade(command->militaryParade))
             {
                 // already in military Parade around aroundShip
                 // do nothing
@@ -7970,6 +7990,7 @@ void GroupShip(CommandLayer *comlayer,ShipPtr ship,ShipPtr aroundShip)
 ----------------------------------------------------------------------------*/
 void clShipDied(CommandLayer *comlayer,ShipPtr deadship)
 {
+    navObjectDied((TargetPtr)deadship);
     SelectCommand selection;
 
     selection.numShips = 1;
@@ -8273,6 +8294,9 @@ void clProcess(CommandLayer *comlayer)
 #ifdef HW_BUILD_FOR_DEBUGGING
     flightmanTest();
 #endif
+
+    navTick(comlayer);
+    curnode=comlayer->todolist.head;
 
     while (curnode != NULL)
     {
@@ -8859,7 +8883,7 @@ processdock:
                         listDeleteNode(curnode);
                         curnode = nextnode;
 
-                        GroupShip(comlayer,ship,receiverShip);
+                        if(!navShipLaunched(comlayer,ship,receiverShip))GroupShip(comlayer,ship,receiverShip);
 
                         aiplayerShipLaunchedCallback(ship);
 
@@ -9215,7 +9239,7 @@ CommandToDo *GetMilitaryGroupAroundShip(CommandLayer *comlayer,Ship *aroundShip)
 
         if (command->ordertype.order == COMMAND_MILITARY_PARADE)
         {
-            if (command->militaryParade->aroundShip == aroundShip)
+            if (command->militaryParade->aroundShip == aroundShip && !navIsVirtualParade(command->militaryParade))
             {
                 return command;
             }

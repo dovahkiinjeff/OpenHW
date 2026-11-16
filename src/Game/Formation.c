@@ -1,3 +1,4 @@
+#include "NavigationOrders.h"
 #include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     Name    : Formation.c
@@ -2719,7 +2720,7 @@ static bool32 paradeCustomPose(MilitaryParadeCommand *parade,Ship *ship,vector *
 {
     ParadeShipLayout entry;float local[3],forward[3]={0,1,0},upLocal[3]={0,0,1},f[3],u[3];
     vector up,right,heading;sdword slot,i,ordinal=0;
-    Ship *leader=parade->aroundShip;
+    Ship *leader=navParadeLeader(parade);
     if(multiPlayerGame || leader->shiptype!=Mothership || leader->shiprace>R2)return FALSE;
     for(slot=0;slot<MAX_MILITARY_SLOTS;slot++) {
         MilitarySlot *row=parade->militarySlots[slot];
@@ -2884,7 +2885,7 @@ void paradeSetTweakables(void)
 void processMilitaryParadeToDo(struct CommandToDo *command,bool32 passiveAttacked)
 {
     MilitaryParadeCommand *militaryParade = command->militaryParade;
-    Ship *leader = militaryParade->aroundShip;
+    Ship *leader = navParadeLeader(militaryParade);
     sdword paradeType = militaryParade->paradeType;
     ParadeTypeInfo *paradeTypeInfo = &paradeTypeInfos[paradeType];
     vector up,right,heading;
@@ -3132,7 +3133,7 @@ bool32 shipInMilitaryParade(ShipPtr ship)
 static void setMilitaryParadeShips(struct CommandToDo *command, Ship *onlyShip)
 {
     MilitaryParadeCommand *militaryParade = command->militaryParade;
-    Ship *leader = militaryParade->aroundShip;
+    Ship *leader = navParadeLeader(militaryParade);
     sdword paradeType = militaryParade->paradeType;
     ParadeTypeInfo *paradeTypeInfo = &paradeTypeInfos[paradeType];
     vector up,right,heading;
@@ -3238,6 +3239,7 @@ void setMilitaryParadeShip(struct CommandToDo *command, Ship *ship)
 
 void FreeMilitaryParadeContents(MilitaryParadeCommand *militaryParade)
 {
+    navParadeFreed(militaryParade);
     sdword i;
 
     for (i=0;i<MAX_MILITARY_SLOTS;i++)
@@ -3603,7 +3605,7 @@ void AddShipToMilitaryGroup(ShipPtr ship,struct CommandToDo *militaryGroup)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-struct CommandToDo *CreateMilitaryGroupAroundShip(struct CommandLayer *comlayer,ShipPtr ship,ShipPtr aroundShip)
+struct CommandToDo *CreateMilitaryGroupAroundShipWithType(struct CommandLayer *comlayer,ShipPtr ship,ShipPtr aroundShip,sdword forcedType)
 {
     CommandToDo *newcommand;
     sdword i,j;
@@ -3668,6 +3670,7 @@ struct CommandToDo *CreateMilitaryGroupAroundShip(struct CommandLayer *comlayer,
         militaryParade->paradeType = PARADE_P2MOTHERSHIP;
     }
 
+    if(forcedType>=0 && forcedType<NUMBER_PARADE_TYPES)militaryParade->paradeType=forcedType;
     dbgAssertOrIgnore(militaryParade->paradeType != -1);
 
     PutShipInMilitaryParade(ship,militaryParade);
@@ -3677,6 +3680,11 @@ struct CommandToDo *CreateMilitaryGroupAroundShip(struct CommandLayer *comlayer,
     listAddNode(&comlayer->todolist,&newcommand->todonode,newcommand);
 
     return newcommand;
+}
+
+struct CommandToDo *CreateMilitaryGroupAroundShip(struct CommandLayer *comlayer,ShipPtr ship,ShipPtr aroundShip)
+{
+    return CreateMilitaryGroupAroundShipWithType(comlayer,ship,aroundShip,-1);
 }
 
 void lockFormation(CommandToDo *formationcommand,udword specialEffect)

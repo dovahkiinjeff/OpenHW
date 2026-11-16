@@ -1,3 +1,4 @@
+#include "NavigationOrders.h"
 #include "../Network/MatchRules.h"
 #include "OnlineClient.h"
 /*=============================================================================
@@ -1634,7 +1635,7 @@ void mrKeyPress(sdword ID)
     }
     if (shipPilotKey(ID)) return;
     /* Backspace is a presentation toggle, not a remappable unit order. */
-    if (ID == BACKSPACEKEY) { tbCycleHudMode(); return; }
+    if (ID == BACKSPACEKEY && !navPlacementActive()) { tbCycleHudMode(); return; }
     /* Shift+F11 opens the realtime map editor before gameplay key translation,
        so the legacy F11 formation binding cannot consume the editor chord. */
     if (ID == F11KEY &&
@@ -1678,6 +1679,8 @@ void mrKeyPress(sdword ID)
     }
 
     //now translate
+    if(navPlacementActive() && (ID==ESCKEY || ID==ENTERKEY || ID==BACKSPACEKEY || ID==DELETEKEY) && navPlacementKey(ID))return;
+
     //ID = (sdword)opKeyTranslate((keyindex)ID);
 
 // Q is a special case for MacOSX in that it forms part of the standard keyboard shortcut
@@ -1694,6 +1697,8 @@ void mrKeyPress(sdword ID)
         ID = (sdword)kbCheckBindings(ID);
     }
     
+    if (!mrDisabled && navPlacementKey(ID)) return;
+
     if (ID == CAPSLOCKKEY)
     {
         goto docapslock;        // TO always on
@@ -3243,7 +3248,7 @@ void mrMenuDisplay(udword actionMask, TypeOfFormation currentFormation, udword t
     }
     /* Reserve one extra atom.  The shipped RightClickMenu FIB has no dossier
        entry, so the modern action must be synthesized after legacy filtering. */
-    newScreen->atoms = memAlloc(sizeof(featom) * (staticScreen->nAtoms + 3), "tempMenuAtoms", 0);
+    newScreen->atoms = memAlloc(sizeof(featom) * (staticScreen->nAtoms + 7), "tempMenuAtoms", 0);
     memcpy(newScreen->atoms, staticScreen->atoms, sizeof(featom) * staticScreen->nAtoms);
     qsort(newScreen->atoms, staticScreen->nAtoms, sizeof(featom), mrAtomSortCompare);
 
@@ -3347,6 +3352,28 @@ void mrMenuDisplay(udword actionMask, TypeOfFormation currentFormation, udword t
             }
         }
     }
+
+    /* Code-native entries: exactly one action per navigation mode. */
+    {
+        featom *source=NULL;sdword bottom=0;uword tab=0;bool32 producer=FALSE;
+        char *names[]={"CSM_Waypoints","CSM_RallyPoint","CSM_RallyObject","CSM_ClearRally"};
+        for(index=0;index<selSelected.numShips;index++)
+            if(selSelected.ShipPtr[index]->playerowner==universe.curPlayerPtr && navCanProduce(selSelected.ShipPtr[index]))producer=TRUE;
+        for(index=0;index<newScreen->nAtoms;index++)if(newScreen->atoms[index].type==FA_MenuItem) {
+            featom *candidate=&newScreen->atoms[index];
+            bottom=max(bottom,candidate->y+candidate->height);tab=max(tab,candidate->tabstop);
+            if(!source)source=candidate;
+        }
+        if(source)for(index=0;index<4;index++) {
+            featom item=*source;
+            if(index && !producer)continue;
+            item.name=names[index];item.flags&=~(FAF_Link|FAF_Hidden|FAF_Disabled);item.flags|=FAF_Function;
+            item.status&=~FAS_Checked;item.region=NULL;item.y=item.loadedY=(sword)bottom;item.tabstop=++tab;
+            memset(item.hotKey,0,sizeof(item.hotKey));item.hotKeyModifiers=0;
+            newScreen->atoms[newScreen->nAtoms++]=item;bottom+=item.height;
+        }
+        newScreen->atoms[0].height=max(newScreen->atoms[0].height,bottom);
+    }
     mrModernizeMenuWidth(newScreen);
     //start the actual menu
     feMenuStart(smSensorsActive && smBaseRegion != NULL ? smBaseRegion : ghMainRegion, newScreen, mouseCursorX(), mouseCursorY());
@@ -3405,6 +3432,7 @@ void mrMenuDisplay(udword actionMask, TypeOfFormation currentFormation, udword t
 ----------------------------------------------------------------------------*/
 void mrRightClickMenu(void)
 {
+    if(navPlacementActive()){navPlacementTarget(mouseCursorObjPtr);return;}
     Ship *ship;
     udword actionMask = 0;
     sdword index;
@@ -4019,6 +4047,7 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
             mrHoldRight();                                  //call current hold function
             break;
        case RPE_PressLeft:
+            if(navPlacementActive() && !mouseRightButton()){mrHoldLeft=mrNULL;break;}
             /* A right-drag camera release can occasionally land on a child
                HUD region instead of this world region.  Recover stale mouse
                capture before beginning a new selection drag so band-boxing
@@ -4102,6 +4131,7 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
             mrMouseHasMoved = 0;                            //mouse hasn't moved yet
             break;
         case RPE_DoubleLeft:
+            if(navPlacementActive())break;
             if (mouseCursorObjPtr != NULL &&
                 mrSelectVisibleShipsOfSameType((Ship *)mouseCursorObjPtr))
             {
@@ -4134,6 +4164,10 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
             }
             goto plainOldClickAction;
         case RPE_ReleaseLeft:
+            if(navPlacementActive() && !mouseRightButton()) {
+                navPlacementClick(piePointSpecZ?pieHeightPoint:piePlanePoint);
+                mrHoldLeft=mrNULL;break;
+            }
             if (mouseRightButton())
             {                                               //if in zoom mode
                 ;                                           //stay in camera movement mode
@@ -5842,6 +5876,7 @@ void mrRegionDraw(regionhandle reg)
         return;
     }
 
+    rndPostObjectCallback = navDraw;
     if (piePointSpecMode != PSM_Idle)
     {                                                       //draw point spec
         pieLineDrawCallback = pieAllShipsToPiePlateDraw;

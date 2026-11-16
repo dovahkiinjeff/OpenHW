@@ -1,3 +1,5 @@
+#include "NavigationOrders.h"
+#include <stddef.h>
 // =============================================================================
 //  CommandNetwork.c
 //  - Handles all of the packing/unpacking, sending/receiving of command
@@ -1572,6 +1574,24 @@ void clProcessSyncPacket(CommandLayer *comlayer,ubyte *packet,udword sizeofPacke
 
         switch (commandType)
         {
+            case COMMANDTYPE_NAVIGATION:
+            {
+                NetNavigationCommand input;NetSelection *netselection;SelectCommand *selection;TargetPtr target;
+                size_t prefix=offsetof(NetNavigationCommand,selection),size;
+                if((size_t)(packet+sizeofPacket-curpacket)<prefix+2)return;
+                memset(&input,0,sizeof(input));memcpy(&input,curpacket,prefix);
+                netselection=(NetSelection *)(curpacket+prefix);
+                size=prefix+2+netselection->numShips*sizeof(ShipID);
+                if(!netselection->numShips || netselection->numShips>NAV_MAX_SHIPS ||
+                   (size_t)(packet+sizeofPacket-curpacket)<size || input.count>NAV_MAX_POINTS || input.reserved)return;
+                target=navTargetFromID(input.target);
+                selection=convertNetSelectionToSelectCommand(netselection,FALSE,from);
+                if(input.mode==NAV_WAYPOINTS)navSetRoute(comlayer,selection,input.points,input.count,input.action,target);
+                else navSetRally(selection,input.mode,input.count?input.points[0]:(vector){0,0,0},target);
+                memFree(selection);curpacket+=size;
+            }
+            break;
+
             case COMMANDTYPE_MOVE:
             {
                 NetMoveCommand *movecom = (NetMoveCommand *)curpacket;
@@ -2880,3 +2900,30 @@ void clPlayerDropped(udword playerMask,udword verify)
     }
 }
 
+
+
+TargetPtr navTargetFromID(TargetID id)
+{
+    NetAttackSelection targets;AttackCommand *decoded;TargetPtr target=NULL;
+    if(id.objtype==65535)return NULL;
+    memset(&targets,0,sizeof(targets));targets.numTargets=1;targets.TargetID[0]=id;
+    decoded=convertNetAttackSelectionToAttackCommand(&targets);
+    if(decoded->numTargets)target=decoded->TargetPtr[0];memFree(decoded);return target;
+}
+void clSendNavigation(SelectCommand *ships,unsigned mode,const vector *points,
+                      unsigned count,unsigned action,TargetPtr target)
+{
+    size_t size;HWPacketHeader *packet;HWCommandHeader *header;NetNavigationCommand *body;unsigned i;
+    if(!ships || ships->numShips<1 || ships->numShips>NAV_MAX_SHIPS || count>NAV_MAX_POINTS)return;
+    size=sizeof(*packet)+sizeof(*header)+offsetof(NetNavigationCommand,selection)+2+ships->numShips*sizeof(ShipID);
+    packet=memAlloc(size,"navigation packet",0);memset(packet,0,size);
+    packet->type=PACKETTYPE_COMMAND;packet->from=(uword)sigsPlayerIndex;packet->numberOfCommands=1;
+    header=(HWCommandHeader *)((ubyte *)packet+sizeof(*packet));header->commandType=COMMANDTYPE_NAVIGATION|(sigsPlayerIndex<<8);
+    body=(NetNavigationCommand *)((ubyte *)header+sizeof(*header));
+    body->mode=mode;body->count=count;body->action=action;body->target.objtype=65535;
+    if(target)SetTargetID(&body->target,target);
+    if(count)memcpy(body->points,points,count*sizeof(vector));
+    body->selection.numShips=ships->numShips;
+    for(i=0;i<(unsigned)ships->numShips;i++)body->selection.ShipID[i]=ships->ShipPtr[i]->shipID;
+    if(packetSendToCaptain((ubyte *)packet,(udword)size))memFree(packet);
+}

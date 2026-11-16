@@ -1,3 +1,4 @@
+#include "NavigationOrders.h"
 #include "CommandValidation.h"
 #include "CommandNetwork.h"
 #include "Universe.h"
@@ -57,6 +58,32 @@ int hwValidatePlayerCommand(const void *bytes,size_t size,unsigned player)
 #define HAVE(t) if((size_t)(end-p)<sizeof(t))return 0
 #define SELECT_AT(t,member) do { size_t offset=offsetof(t,member); if(offset>(size_t)(end-p) || !selection(p+offset,end-p-offset,player,&a))return 0; n=sizeof(t)-sizeof(NetSelection)+a; } while(0)
     switch(type) {
+    case COMMANDTYPE_NAVIGATION: {
+        NetNavigationCommand input;size_t prefix=offsetof(NetNavigationCommand,selection);unsigned i;TargetPtr target;
+        if((size_t)(end-p)<prefix+2)return 0;
+        memset(&input,0,sizeof(input));memcpy(&input,p,prefix);
+        if(input.reserved || input.mode>NAV_RALLY_OBJECT || input.count>NAV_MAX_POINTS || input.action>NAV_ACTION_LOOP)return 0;
+        if(input.mode==NAV_WAYPOINTS) {if(!input.count || (input.action==NAV_ACTION_LOOP && input.count<2))return 0;}
+        else if(input.action || (input.mode==NAV_NONE?input.count!=0:input.count!=1))return 0;
+        for(i=0;i<input.count;i++)if(!navValidPoint(input.points[i]))return 0;
+        if((input.mode==NAV_RALLY_OBJECT || (input.action!=NAV_ACTION_NONE && input.action!=NAV_ACTION_LOOP))!=(input.target.objtype!=65535))return 0;
+        if(input.target.objtype!=65535 && (input.target.objtype>OBJ_DerelictType || input.target.objtype==OBJ_MissileType || input.target.objtype==OBJ_BulletType))return 0;
+        target=navTargetFromID(input.target);
+        if(input.target.objtype!=65535 && (!target || (target->flags&SOF_Dead)))return 0;
+        if(input.mode==NAV_RALLY_OBJECT && target->objtype==OBJ_ShipType && ((Ship *)target)->playerowner!=&universe.players[player])return 0;
+        if(word(p+prefix)>NAV_MAX_SHIPS || !selection(p+prefix,end-p-prefix,player,&a))return 0;
+        {
+            unsigned char seen[8192]={0};
+            for(i=0;i<word(p+prefix);i++) {
+                ShipID id;unsigned index;memcpy(&id,p+prefix+2+i*sizeof(id),sizeof(id));index=id.shipNumber;
+                if(seen[index>>3]&(1u<<(index&7)))return 0;
+                seen[index>>3]|=(unsigned char)(1u<<(index&7));
+            }
+        }
+        if(input.mode!=NAV_WAYPOINTS)for(i=0;i<word(p+prefix);i++) {
+            ShipID id;memcpy(&id,p+prefix+2+i*sizeof(id),sizeof(id));if(!navCanProduce(ShipIDtoShip(id,TRUE)))return 0;
+        }
+        n=prefix+a;break; }
     case COMMANDTYPE_MOVE:case COMMANDTYPE_MP_HYPERSPACE:
         HAVE(NetMoveCommand);if(!finiteVector(p)||!finiteVector(p+sizeof(vector)))return 0;
         SELECT_AT(NetMoveCommand,selection);break;

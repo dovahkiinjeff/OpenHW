@@ -1,3 +1,4 @@
+#include "NavigationOrders.h"
 #include "../Network/MatchRules.h"
 #include "../Network/DedicatedServer.h"
 /*=============================================================================
@@ -5551,7 +5552,7 @@ real32 univGetChecksum(sdword *numShipsInChecksum)
 
     *numShipsInChecksum = countShips;
 
-    return (x+y+z);
+    return (x+y+z)+(real32)(navStateHash()%1000003u);
 }
 
 /*-----------------------------------------------------------------------------

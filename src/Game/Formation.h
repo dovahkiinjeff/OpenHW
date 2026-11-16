@@ -144,9 +144,11 @@ typedef struct
 struct CommandLayer;
 
 struct CommandToDo *CreateMilitaryGroupAroundShip(struct CommandLayer *comlayer,ShipPtr ship,ShipPtr aroundShip);
+struct CommandToDo *CreateMilitaryGroupAroundShipWithType(struct CommandLayer *comlayer,ShipPtr ship,ShipPtr aroundShip,sdword paradeType);
 void processMilitaryParadeToDo(struct CommandToDo *command,bool32 passiveAttacked);
 void AddShipToMilitaryGroup(ShipPtr ship,struct CommandToDo *militaryGroup);
 void RemoveShipFromMilitaryParade(Ship *shiptoremove,MilitaryParadeCommand *militaryParade);
+void PutShipInMilitaryParade(Ship *ship,MilitaryParadeCommand *militaryParade);
 void FreeMilitaryParadeContents(MilitaryParadeCommand *militaryParade);
 void setMilitaryParade(struct CommandToDo *command);
 void setMilitaryParadeShip(struct CommandToDo *command, struct Ship *ship);

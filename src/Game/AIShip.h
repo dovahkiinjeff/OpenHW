@@ -23,6 +23,8 @@
 #define AISHIP_IgnoreFormationObscuredPoints    64
 #define AISHIP_IgnoreDockWithObscuredPoints     128
 #define AISHIP_StopIfVelocityTooLow             256
+#define AISHIP_NavigationSteering               512
+#define AISHIP_PassThroughWaypoint              1024
 
 #define AISHIP_FLY_OK                       0
 #define AISHIP_FLY_OBJECT_IN_WAY            1

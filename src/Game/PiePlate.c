@@ -1,3 +1,4 @@
+#include "NavigationOrders.h"
 /*=============================================================================
     Name    : Pieplate.c
     Purpose : Code for the movement pieplate mechanism.
@@ -1185,6 +1186,7 @@ void piePointSpecDraw(void)
         selClosestTarget->flashtimer = taskTimeElapsed+FLASH_TIMER/2;                  //just glow for the next frame only
     }
 #endif //PIE_MOVE_NEARTO
+    if(!smSensorsActive)navDraw();
 }
 
 /*-----------------------------------------------------------------------------

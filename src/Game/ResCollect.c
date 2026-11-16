@@ -1,3 +1,4 @@
+#include "NavigationOrders.h"
 #include "../Network/MatchRules.h"
 #include "ResCollect.h"
 
@@ -287,6 +288,7 @@ void ChangeSingleShipToCollectResource(struct CommandToDo *command)
 ----------------------------------------------------------------------------*/
 void clCollectResource(CommandLayer *comlayer,SelectCommand *selectcom,ResourcePtr resource)
 {
+    navCancelShips(selectcom);
     CommandToDo *newcommand;
     SelectCommand *selection;
     sdword numShips;

@@ -1,3 +1,4 @@
+#include "NavigationOrders.h"
 #include "../Network/MatchRules.h"
 /*=============================================================================
     Name    : Sensors.c
@@ -3173,6 +3174,7 @@ void smViewportRender(featom *atom, regionhandle region)
         piePointSpecDraw();                                 //draw the movement mechanism
     }
 
+    navDraw();
     primModeSet2();
 
     //draw the tactical overlay, if applicable
@@ -3315,6 +3317,7 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
             smHoldRight();
             break;
         case RPE_PressLeft:
+            if(navPlacementActive() && !mouseRightButton()){smHoldLeft=smNULL;break;}
             mouseClipToRect(&smViewRectangle);
             if (smHoldRight == smNULL && (!smFleetIntel))
             {
@@ -3327,6 +3330,7 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
             }
             break;
         case RPE_ReleaseLeft:
+            if(navPlacementActive() && !mouseRightButton()){navPlacementClick(piePointSpecZ?pieHeightPoint:piePlanePoint);smHoldLeft=smNULL;break;}
             if ((piePointSpecMode & (PSM_XY | PSM_Z)) != 0)
             {
                 vector destination;
@@ -3662,10 +3666,12 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
             wheel_down++;
             break;
         case RPE_KeyDown:
+            if(navPlacementActive() && (ID==ESCKEY || ID==ENTERKEY || ID==BACKSPACEKEY || ID==DELETEKEY) && navPlacementKey(ID))break;
             /* Match normal gameplay's remapping before handling Sensor-specific
                camera/selection commands.  Forwarded commands still receive the
                original physical key so mrKeyPress performs its normal mapping. */
             commandID = kbCheckBindings(ID);
+            if(!smFleetIntel && navPlacementKey(commandID))break;
             /* Space/Escape are also hard exits while Sensors is active.  Keep
                the physical Space behavior even if the Sensors binding itself
                has been remapped, while still honoring a remapped Sensors key. */

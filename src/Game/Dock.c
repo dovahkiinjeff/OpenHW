@@ -1,3 +1,4 @@
+#include "NavigationOrders.h"
 #include "../Network/MatchRules.h"
 /*=============================================================================
     Name    : Dock.c
@@ -836,6 +837,7 @@ bool32 ShipIsntResearchShip(Ship *ship)
 ----------------------------------------------------------------------------*/
 sdword clDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType dockType,ShipPtr dockwith)
 {
+    navCancelShips(selectcom);
     CommandToDo *newcommand;
     CommandToDo *alreadycommand;
     bool8 wasHarvesting = FALSE;

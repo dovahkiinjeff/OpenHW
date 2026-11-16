@@ -10073,15 +10073,17 @@ void modernUIDrawMenuItem(regionhandle region, bool32 checked, bool32 linked)
                   (region->rect.y0 + region->rect.y1) / 2, muiMuted);
     }
     atom = (featom *)region->userID;
-    if (atom != NULL && atom->name != NULL &&
-        strcmp(atom->name, "CSM_Info") == 0)
-    {
-        const char *caption = "SHIP DOSSIER";
-        muiEnsureFonts();
-        muiTextCentered(&region->rect,
-                        bitTest(region->status, RSF_MouseInside) ?
-                            muiPaper : muiMuted,
-                        caption, muiBodyFont);
+    if(atom && atom->name) {
+        const char *caption=NULL;
+        if(!strcmp(atom->name,"CSM_Info"))caption="SHIP DOSSIER";
+        else if(!strcmp(atom->name,"CSM_Waypoints"))caption="WAYPOINTS";
+        else if(!strcmp(atom->name,"CSM_RallyPoint"))caption="RALLY POINT";
+        else if(!strcmp(atom->name,"CSM_RallyObject"))caption="RALLY OBJECT";
+        else if(!strcmp(atom->name,"CSM_ClearRally"))caption="CLEAR RALLY";
+        if(caption) {
+            muiEnsureFonts();muiTextCentered(&region->rect,
+                bitTest(region->status,RSF_MouseInside)?muiPaper:muiMuted,caption,muiBodyFont);
+        }
     }
 }
 

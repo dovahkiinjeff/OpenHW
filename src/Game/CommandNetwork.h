@@ -156,6 +156,7 @@ where Commands is a bunch of commands, one after the other, as defined above.
 
 #define COMMANDTYPE_DETERMINISTICBUILD  18
 
+#define COMMANDTYPE_NAVIGATION          22
 #define COMMANDTYPE_SHIP_PILOT          20
 #define COMMANDTYPE_SHIP_APPEARANCE     21
 #define COMMANDTYPE_RESEARCHINFO        19
@@ -314,12 +315,22 @@ typedef struct
     ShipID ShipID[1];   // variable number of ShipID's
 } NetSelection;
 
+/* Fixed route capacity keeps the authenticated wire layout bounded. */
+typedef struct NetNavigationCommand {
+    uword mode, count, action, reserved;
+    TargetID target;
+    vector points[64];
+    NetSelection selection;
+} NetNavigationCommand;
+
 typedef struct NetShipAppearanceCommand {
     ShipID ship;
     uword reserved;
     ShipAppearance appearance;
 } NetShipAppearanceCommand;
 void clSendShipAppearance(Ship *ship,const ShipAppearance *appearance);
+TargetPtr navTargetFromID(TargetID id);
+void SetTargetID(TargetID *id,TargetPtr target);
 
 typedef struct
 {

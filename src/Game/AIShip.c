@@ -1,3 +1,4 @@
+#include "NavigationFlight.h"
 // =============================================================================
 //  AIShip.c
 //  - This AI layer controls where a ship's velocity vector should be
@@ -994,7 +995,7 @@ udword aishipFlyToPointAvoidingObjsFunc(Ship *ship,vector *destination,udword ai
             // deliberately fall through to STATE_POINT_IN_DIRECTION
 
         case STATE_POINT_IN_DIRECTION:
-            if (bitTest(aishipflags,(AISHIP_FirstPointInDirectionFlying+AISHIP_CarTurn)))
+            if (navFlightOrientBeforeMoving(aishipflags,vecMagnitudeSquared(ship->posinfo.velocity)))
             {
         #if DEBUG_AISHIP
                  dbgMessagef("Orienting ship for flight");
@@ -1053,7 +1054,9 @@ startflying:
             {
                 vecSub(targetVec,*destination,ship->posinfo.position);
 
-                if ((aishipflags & AISHIP_FastAsPossible) == 0)
+                if(aishipflags&AISHIP_PassThroughWaypoint)
+                    navFlightThroughVelocity(&targetVec,limitvel>0.0f?limitvel:tacticsGetShipsMaxVelocity(ship));
+                else if ((aishipflags & AISHIP_FastAsPossible) == 0)
                 {
                     vecMultiplyByScalar(targetVec,VELOCITY_SCALE_FACTOR);
                 }

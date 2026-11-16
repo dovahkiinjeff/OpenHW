@@ -1,3 +1,4 @@
+#include "NavigationOrders.h"
 #include "../Modern/DiagnosticPolicy.h"
 #include "../Network/DedicatedServer.h"
 #include "../Network/MatchRules.h"
@@ -485,6 +486,10 @@ fecallback utyCallbacks[] =
     {mrTradeStuff,              "CSM_Trade"},
     {mrMoveShips,               "CSM_Move"},
     {mrInfo,                    "CSM_Info"},
+    {navBeginWaypoints,         "CSM_Waypoints"},
+    {navBeginRallyPoint,        "CSM_RallyPoint"},
+    {navBeginRallyObject,       "CSM_RallyObject"},
+    {navClearRally,             "CSM_ClearRally"},
     {mrCancel,                  "CSM_Cancel"},
     {mrScuttle,                 "CSM_Scuttle"},
     {mrRetire,                  "CSM_Retire"},
@@ -816,6 +821,7 @@ scriptEntry utyOptionsList[] =
     {"SCREENSHOT",              scriptSetUdwordCB, &kbKeySavedKeys[kbSCREENSHOT]},
     {"MUSIC_PREVIOUS",          scriptSetUdwordCB, &kbKeySavedKeys[kbMUSIC_PREVIOUS]},
     {"MUSIC_NEXT",              scriptSetUdwordCB, &kbKeySavedKeys[kbMUSIC_NEXT]},
+    {"WAYPOINTS",               scriptSetUdwordCB, &kbKeySavedKeys[kbWAYPOINTS]},
     {"KeyBindingsVersion",      scriptSetUdwordCB, &kbKeyBindingsVersion},
     {"opMouseSens",             scriptSetUdwordCB, &opMouseSens},
     {"mouseCursorScalePercent", scriptSetUdwordCB, &mouseCursorScalePercent},

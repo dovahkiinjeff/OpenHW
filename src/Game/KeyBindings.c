@@ -86,6 +86,7 @@ kbBoundKeys kbKeyTableEnglish[kbTOTAL_COMMANDS] =
     { kbSCREENSHOT           , SCROLLKEY     , SCROLLKEY     , SCROLLKEY     , KB_NormalBound },
     { kbMUSIC_PREVIOUS       , LESSTHAN      , LESSTHAN      , LESSTHAN      , KB_NormalBound },
     { kbMUSIC_NEXT           , GREATERTHAN   , GREATERTHAN   , GREATERTHAN   , KB_NormalBound },
+    { kbWAYPOINTS           , WKEY          , WKEY          , WKEY         , KB_NormalBound },
 };
 
 kbBoundKeys kbKeyTableFrench[kbTOTAL_COMMANDS] =
@@ -143,6 +144,7 @@ kbBoundKeys kbKeyTableFrench[kbTOTAL_COMMANDS] =
     { kbSCREENSHOT           , SCROLLKEY     , SCROLLKEY     , SCROLLKEY     , KB_NormalBound },
     { kbMUSIC_PREVIOUS       , LESSTHAN      , LESSTHAN      , LESSTHAN      , KB_NormalBound },
     { kbMUSIC_NEXT           , GREATERTHAN   , GREATERTHAN   , GREATERTHAN   , KB_NormalBound },
+    { kbWAYPOINTS           , WKEY          , WKEY          , WKEY         , KB_NormalBound },
 };
 
 kbBoundKeys kbKeyTableGerman[kbTOTAL_COMMANDS] =
@@ -200,6 +202,7 @@ kbBoundKeys kbKeyTableGerman[kbTOTAL_COMMANDS] =
     { kbSCREENSHOT           , SCROLLKEY     , SCROLLKEY     , SCROLLKEY     , KB_NormalBound },
     { kbMUSIC_PREVIOUS       , LESSTHAN      , LESSTHAN      , LESSTHAN      , KB_NormalBound },
     { kbMUSIC_NEXT           , GREATERTHAN   , GREATERTHAN   , GREATERTHAN   , KB_NormalBound },
+    { kbWAYPOINTS           , WKEY          , WKEY          , WKEY         , KB_NormalBound },
 };
 
 kbBoundKeys kbKeyTableSpanish[kbTOTAL_COMMANDS] =
@@ -257,6 +260,7 @@ kbBoundKeys kbKeyTableSpanish[kbTOTAL_COMMANDS] =
     { kbSCREENSHOT           , SCROLLKEY     , SCROLLKEY     , SCROLLKEY     , KB_NormalBound },
     { kbMUSIC_PREVIOUS       , LESSTHAN      , LESSTHAN      , LESSTHAN      , KB_NormalBound },
     { kbMUSIC_NEXT           , GREATERTHAN   , GREATERTHAN   , GREATERTHAN   , KB_NormalBound },
+    { kbWAYPOINTS           , WKEY          , WKEY          , WKEY         , KB_NormalBound },
 };
 
 kbBoundKeys kbKeyTableItalian[kbTOTAL_COMMANDS] =
@@ -314,6 +318,7 @@ kbBoundKeys kbKeyTableItalian[kbTOTAL_COMMANDS] =
     { kbSCREENSHOT           , SCROLLKEY     , SCROLLKEY     , SCROLLKEY     , KB_NormalBound },
     { kbMUSIC_PREVIOUS       , LESSTHAN      , LESSTHAN      , LESSTHAN      , KB_NormalBound },
     { kbMUSIC_NEXT           , GREATERTHAN   , GREATERTHAN   , GREATERTHAN   , KB_NormalBound },
+    { kbWAYPOINTS           , WKEY          , WKEY          , WKEY         , KB_NormalBound },
 };
 
 
@@ -798,6 +803,7 @@ const char *kbModernCommandName(sdword index)
         case kbCHAT_HISTORY_DOWN:  return "CHAT HISTORY DOWN";
         case kbSCREENSHOT:         return "SCREENSHOT";
         case kbMUSIC_PREVIOUS:     return "MUSIC: PREVIOUS TRACK";
+        case kbWAYPOINTS:          return "WAYPOINTS";
         case kbMUSIC_NEXT:         return "MUSIC: NEXT TRACK";
         default:                   return "";
     }
@@ -1234,10 +1240,14 @@ void kbInitKeyBindings(void)
             {
                 continue;
             }
+            if(kbKeyBindingsVersion<4 && index==kbWAYPOINTS && !kbKeySavedKeys[index])continue;
             kbKeyTable[index].primarykey = kbKeySavedKeys[index];
         }
     }
-    kbKeyBindingsVersion = 3;
+    kbKeyBindingsVersion = 4;
+    /* New commands must never evict an existing saved/localized binding. */
+    for(index=0;index<kbWAYPOINTS;index++)
+        if(kbKeyTable[index].primarykey==kbKeyTable[kbWAYPOINTS].primarykey)kbKeyTable[kbWAYPOINTS].primarykey=0;
 
     // check the key-bindings and reset anything that's messed up
     for (index=0;index<kbTOTAL_COMMANDS;index++)

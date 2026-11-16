@@ -85,6 +85,8 @@ typedef enum
     kbMUSIC_PREVIOUS,
     kbMUSIC_NEXT,
 
+    kbWAYPOINTS,
+
     kbTOTAL_COMMANDS
 } CommandsToBind;
 

@@ -1,4 +1,4 @@
-> **Current 1.1.10 installer maintenance:** use the refreshed full 1.1.1 base only for a new installation, then apply current updates in Launcher. Existing games update in place without reinstalling. Shift+F11/F12 editors are enabled in single-player and local multiplayer and blocked online, as restored in 1.1.3.
+> **Current 1.1.11 update:** choose Update now in Launcher, restart OpenHW and create a fresh multiplayer match with the matching server build. No reinstall is needed. New installations use the refreshed full 1.1.1 base, then apply current patches. See [Waypoints and rally](WAYPOINTS_AND_RALLY.md).
 
 # OpenHW 1.1 installation and diagnostics
 

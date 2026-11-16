@@ -1,3 +1,4 @@
+#include "NavigationOrders.h"
 #include "../Modern/DiagnosticPolicy.h"
 /*=============================================================================
     Name    : SaveGame.c
@@ -777,6 +778,7 @@ bool32 SaveGame(char *filename)
 
     SaveConsMgrDetermOptional();                // added for V1.04 patch
     shipAppearanceSave();
+    navSave();
 
     fileClose(savefile);
     savefile = 0;
@@ -921,6 +923,7 @@ void LoadGame(char *filename)
     HorseRaceLoadingTask("Resolving saved-object and collision references");
     FixAllSpaceObjs();
     FixAllBlobs();
+    navLoad();
 
     listInit(&universe.effectList);
 
