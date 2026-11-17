@@ -1,4 +1,4 @@
-> **Current 1.1.12 update:** choose Update now in Launcher and restart the game. Ship Systems → Previous Version → Roll Back restores a verified previous game backup while keeping saves, settings and current utilities. Online play requires the matching current game/server version. See [1.1.12 notes](RELEASE_NOTES_1.1.12.md) and [Waypoints and rally](WAYPOINTS_AND_RALLY.md).
+> **Current 1.1.13 update:** choose Update now in Launcher for hardened installer/updater packaging and current utilities. The manual Previous Version / Roll Back option is removed. Existing installations update in place; do not run the full installer over them. See [1.1.13 release notes](RELEASE_NOTES_1.1.13.md).
 
 # OpenHW 1.1 installation and diagnostics
 

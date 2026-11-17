@@ -1,8 +1,8 @@
-# OpenHW 1.1.12
+# OpenHW 1.1.13
 
-**Latest update:** [1.1.12 — campaign fixes and Launcher rollback](docs/RELEASE_NOTES_1.1.12.md). Choose **Update now** in Launcher, restart the game and create a fresh multiplayer match. No reinstall is needed. [Website update entry](https://openhw.tech/#/updates/v1.1.12).
+**Latest update:** [1.1.13 — installer and updater packaging hardening](docs/RELEASE_NOTES_1.1.13.md). Choose **Update now** in Launcher. The manual rollback option has been removed. No reinstall is needed. [Website update entry](https://openhw.tech/#/updates/v1.1.13).
 
-[**Download the full OpenHW 1.1.1 installer**](https://openhw.tech/downloads/v1.1.10/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.12) · [1.1.1 release notes](docs/RELEASE_NOTES_1.1.1.md)
+[**Download the full OpenHW 1.1.1 installer**](https://openhw.tech/downloads/v1.1.10/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.13) · [1.1.1 release notes](docs/RELEASE_NOTES_1.1.1.md)
 
 > [!IMPORTANT]
 > **1.1.1 is the full base release. Start here; no 1.1 install or old patch chain is required.** Setup includes the working Launcher, Updater and Diagnostics. Install in a new writable folder using your owned Homeworld Remastered Collection.
@@ -15,7 +15,7 @@
 
 [![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-[**Download OpenHW 1.1.1**](https://openhw.tech/downloads/v1.1.10/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.12) · [Complete 1.1.12 source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.12/OpenHW-1.1.12-Source.zip) · [Release notes](docs/RELEASE_NOTES_1.1.1.md) · [Installation and controls](docs/USER_GUIDE.md) · [Editors](docs/EDITING_GUIDE.md) · [Modding](docs/MODDING.md) · [Build the installer](BUILD_INSTALLER.md)
+[**Download OpenHW 1.1.1**](https://openhw.tech/downloads/v1.1.10/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.13) · [Complete 1.1.13 source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.13/OpenHW-1.1.13-Source.zip) · [Release notes](docs/RELEASE_NOTES_1.1.1.md) · [Installation and controls](docs/USER_GUIDE.md) · [Editors](docs/EDITING_GUIDE.md) · [Modding](docs/MODDING.md) · [Build the installer](BUILD_INSTALLER.md)
 
 **The full 1.1.1 installer requires a fresh installation in a separate folder. Do not apply the old 1.0 patch chain to it.** Put OpenHW-Setup.exe in the new folder, select your owned Homeworld Remastered Collection, and let setup build the game there. Your old installation, saves and settings are not overwritten. Launcher.exe and Updater.exe are included.
 

@@ -5,7 +5,6 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <bcrypt.h>
-#include <wincrypt.h>
 #ifdef OPENHW_PATCH_INSTALLER
 #include <shlobj.h>
 #include <tlhelp32.h>
@@ -62,7 +61,6 @@ static void createProgress(){
     progressHandle=CreateWindowExW(0,PROGRESS_CLASSW,nullptr,WS_CHILD|WS_VISIBLE|PBS_MARQUEE,20,80,510,22,windowHandle,nullptr,nullptr,nullptr);
     SendMessageW(progressHandle,PBM_SETMARQUEE,TRUE,30);UpdateWindow(windowHandle);pump();
 }
-static std::wstring literal(const std::wstring& input){std::wstring out=L"'";for(wchar_t c:input){out+=c;if(c==L'\'')out+=c;}return out+L"'";}
 static std::wstring quote(const std::wstring& input){
     std::wstring out=L"\"";size_t slashes=0;
     for(wchar_t c:input){
@@ -71,7 +69,7 @@ static std::wstring quote(const std::wstring& input){
     }
     out.append(slashes*2,L'\\');return out+L"\"";
 }
-static DWORD launch(const std::wstring& application,std::wstring arguments,HANDLE log,bool visible=false){
+static DWORD launch(const std::wstring& application,std::wstring arguments,HANDLE log,bool visible=false,const wchar_t* directory=nullptr){
     STARTUPINFOW startup={sizeof(startup)};PROCESS_INFORMATION process={};
     startup.dwFlags=STARTF_USESHOWWINDOW;startup.wShowWindow=visible?SW_SHOWNORMAL:SW_HIDE;
     SECURITY_ATTRIBUTES security={sizeof(security),nullptr,TRUE};
@@ -79,7 +77,7 @@ static DWORD launch(const std::wstring& application,std::wstring arguments,HANDL
     if(log!=INVALID_HANDLE_VALUE){startup.dwFlags|=STARTF_USESTDHANDLES;startup.hStdOutput=startup.hStdError=log;startup.hStdInput=input;}
     std::wstring command=quote(application)+L" "+arguments;
     const BOOL started=CreateProcessW(application.c_str(),command.data(),nullptr,nullptr,log!=INVALID_HANDLE_VALUE,
-        CREATE_NO_WINDOW,nullptr,nullptr,&startup,&process);
+        CREATE_NO_WINDOW,nullptr,directory,&startup,&process);
     if(input!=INVALID_HANDLE_VALUE)CloseHandle(input);
     check(started!=0,"Cannot start the local installer helper.");
     CloseHandle(process.hThread);
@@ -136,10 +134,12 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         check(std::filesystem::is_regular_file(root/L"setup-complete.json") &&
               std::filesystem::is_regular_file(root/L"Development/Installer/Development/python312.dll"),
               "Select an installed OpenHW 1.0 folder, not the original Collection.");
-#if defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114) || defined(OPENHW_PATCH_115) || defined(OPENHW_PATCH_116) || defined(OPENHW_PATCH_117) || defined(OPENHW_PATCH_118) || defined(OPENHW_PATCH_119) || defined(OPENHW_PATCH_1110) || defined(OPENHW_PATCH_1111) || defined(OPENHW_PATCH_1112)
+#if defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114) || defined(OPENHW_PATCH_115) || defined(OPENHW_PATCH_116) || defined(OPENHW_PATCH_117) || defined(OPENHW_PATCH_118) || defined(OPENHW_PATCH_119) || defined(OPENHW_PATCH_1110) || defined(OPENHW_PATCH_1111) || defined(OPENHW_PATCH_1112) || defined(OPENHW_PATCH_1113)
         std::ifstream versionFile(root/L"version.json");
         std::string versionText((std::istreambuf_iterator<char>(versionFile)),std::istreambuf_iterator<char>());
-#ifdef OPENHW_PATCH_1112
+#ifdef OPENHW_PATCH_1113
+        check(std::regex_search(versionText,std::regex(R"version("version"\s*:\s*"1\.1\.12")version")),"Install OpenHW 1.1.12 before applying this patch.");
+#elif defined(OPENHW_PATCH_1112)
         check(std::regex_search(versionText,std::regex(R"version("version"\s*:\s*"1\.1\.11")version")),"Install OpenHW 1.1.11 before applying this patch.");
 #elif defined(OPENHW_PATCH_1111)
         check(std::regex_search(versionText,std::regex(R"version("version"\s*:\s*"1\.1\.10")version")),"Install OpenHW 1.1.10 before applying this patch.");
@@ -184,8 +184,10 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         }while(Process32NextW(snapshot,&entry));CloseHandle(snapshot);
         check(!running,"Close OpenHW, OpenHW-Daignostics and Launcher before applying this patch.");
         #endif
-#if defined(OPENHW_PATCH_111) || defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114) || defined(OPENHW_PATCH_115) || defined(OPENHW_PATCH_116) || defined(OPENHW_PATCH_117) || defined(OPENHW_PATCH_118) || defined(OPENHW_PATCH_119) || defined(OPENHW_PATCH_1110) || defined(OPENHW_PATCH_1111) || defined(OPENHW_PATCH_1112)
-#ifdef OPENHW_PATCH_1112
+#if defined(OPENHW_PATCH_111) || defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114) || defined(OPENHW_PATCH_115) || defined(OPENHW_PATCH_116) || defined(OPENHW_PATCH_117) || defined(OPENHW_PATCH_118) || defined(OPENHW_PATCH_119) || defined(OPENHW_PATCH_1110) || defined(OPENHW_PATCH_1111) || defined(OPENHW_PATCH_1112) || defined(OPENHW_PATCH_1113)
+#ifdef OPENHW_PATCH_1113
+        const auto backup=root/L"Development/Patches/1.1.13/Backup";
+#elif defined(OPENHW_PATCH_1112)
         const auto backup=root/L"Development/Patches/1.1.12/Backup";
 #elif defined(OPENHW_PATCH_1111)
         const auto backup=root/L"Development/Patches/1.1.11/Backup";
@@ -222,7 +224,6 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         std::filesystem::create_directories(development/L"Logs");
         std::filesystem::create_directories(development/L"Temp");
         for(const wchar_t* name:{L"TEMP",L"TMP",L"TMPDIR"})SetEnvironmentVariableW(name,(development/L"Temp").c_str());
-        SetEnvironmentVariableW(L"PSModuleAnalysisCachePath",(development/L"Temp/PowerShellModuleAnalysisCache").c_str());
         SECURITY_ATTRIBUTES security={sizeof(security),nullptr,TRUE};
         log=CreateFileW((development/
 #ifdef OPENHW_UPDATER
@@ -284,14 +285,15 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
             std::memcmp(digest.data(),footer.sha,32)==0,"Installer checksum failed. Download the complete installer again.");
         BCryptDestroyHash(hash);hash=nullptr;BCryptCloseAlgorithmProvider(algorithm,0);algorithm=nullptr;
         status(L"Unpacking support files beside this EXE...");
-        const std::wstring script=L"$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath "+literal(archive.wstring())+L" -DestinationPath "+literal(root.wstring())+L" -Force";
-        DWORD count=0;check(CryptBinaryToStringW(reinterpret_cast<const BYTE*>(script.data()),DWORD(script.size()*2),CRYPT_STRING_BASE64|CRYPT_STRING_NOCRLF,nullptr,&count)!=0,"Cannot prepare local extraction.");
-        std::wstring encoded(count,0);check(CryptBinaryToStringW(reinterpret_cast<const BYTE*>(script.data()),DWORD(script.size()*2),CRYPT_STRING_BASE64|CRYPT_STRING_NOCRLF,encoded.data(),&count)!=0,"Cannot encode local extraction.");
-        while(!encoded.empty() && !encoded.back())encoded.pop_back();
-        wchar_t windows[32768]={};GetWindowsDirectoryW(windows,32768);
-        const auto powershell=std::filesystem::path(windows)/L"System32/WindowsPowerShell/v1.0/powershell.exe";
-        check(launch(powershell.wstring(),L"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand "+encoded,log)==0,
-            "Could not unpack installer support files. See Development/Logs/bootstrap.log.");
+        // Use the Windows archive utility directly. No encoded shell commands,
+        // script files or execution-policy overrides are needed for extraction.
+        wchar_t systemDirectory[32768]={};
+        const UINT systemLength=GetSystemDirectoryW(systemDirectory,32768);
+        check(systemLength>0 && systemLength<32768,"Cannot locate Windows system utilities.");
+        const auto extractor=std::filesystem::path(systemDirectory)/L"tar.exe";
+        check(std::filesystem::is_regular_file(extractor),"Windows tar.exe is required. Install current Windows updates before running setup.");
+        check(launch(extractor.wstring(),L"-xf "+quote(archive.lexically_relative(root).wstring())+L" -C .",log,false,root.c_str())==0,
+              "Could not unpack installer support files. See Development/Logs/bootstrap.log.");
         DeleteFileW(archive.c_str());
 #ifdef OPENHW_UPDATER
         // A private copy prevents future game patches from replacing DLLs

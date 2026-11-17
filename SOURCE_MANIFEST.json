@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.1.12",
+  "version": "1.1.13",
   "snapshot": "Complete current build inputs",
   "excluded": [
     "generated out/ and .deps/",
@@ -61,7 +61,7 @@
     {
       "path": "CMakeLists.txt",
       "size": 83475,
-      "sha256": "b9c18f5af436db23d9c8407f79ce11bd3a3462f859a99645a5ed74e7500d9412"
+      "sha256": "c8d0accebe370754de7192853c1e5368ba03637de6b1007ac3efe0b995767581"
     },
     {
       "path": "CMakePresets.json",
@@ -80,8 +80,8 @@
     },
     {
       "path": "README.md",
-      "size": 41651,
-      "sha256": "27a5c7e05def6a755d9166bc179d939e2fbd41fc453dec826c51c2c1b5c2d67f"
+      "size": 41646,
+      "sha256": "11d388999083e861e491975e13e48bd1ab3ceeb5f6c1d9a893f8d5cbf853aa8f"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -170,8 +170,8 @@
     },
     {
       "path": "Windows/build-release.ps1",
-      "size": 7257,
-      "sha256": "bd38b921cd781840532443f5d2bfe0e1c1572f744ba7cfc904609b04f7c73981"
+      "size": 7503,
+      "sha256": "7dc8a26046ede7d735afc8b37044ae8e865427081e1173685164c595477428f3"
     },
     {
       "path": "Windows/build.ps1",
@@ -23404,6 +23404,11 @@
       "sha256": "7c138de5e938ecca4b53f3a58f79de7a264d34b83b75c1fe7f6b071ec558ba02"
     },
     {
+      "path": "docs/RELEASE_NOTES_1.1.13.md",
+      "size": 2062,
+      "sha256": "7861fa128eabd09fa8426a01b1a722b35611fd4afabf7a353747bcf6b059c79b"
+    },
+    {
       "path": "docs/RELEASE_NOTES_1.1.2.md",
       "size": 2461,
       "sha256": "c8c42ed25afde86bd2bfa27d343fc6690cb5fbe7f2a64f2cb5ae31abe401db2d"
@@ -23505,8 +23510,8 @@
     },
     {
       "path": "docs/USER_GUIDE.md",
-      "size": 11883,
-      "sha256": "aaca7749c0282dac95583320812e813944e0c2089b016e0ccd8cf5ef80ef6baa"
+      "size": 11818,
+      "sha256": "1d40e53b86b7d0f334359fac977b76941aa7e45f5df95612acc7a9ba209c665a"
     },
     {
       "path": "docs/WAYPOINTS_AND_RALLY.md",
@@ -28234,11 +28239,6 @@
       "sha256": "6755d3ade21c82fb5547c65d3e08b4649ad59c6c8672a2d94294395961f91637"
     },
     {
-      "path": "tests/test_launcher_rollback.py",
-      "size": 3177,
-      "sha256": "6c076213a6bc9890137fa8c76b2a167c67b2fcbaa38efe9350b77850d18ba9b7"
-    },
-    {
       "path": "tests/test_launcher_update_completion.py",
       "size": 1053,
       "sha256": "c4e5301a0b780026a4be03257c2f505f106fd6191a55ead6b3eee69371b3a007"
@@ -28357,6 +28357,11 @@
       "path": "tests/test_release_mission_authoring.py",
       "size": 3383,
       "sha256": "53dc88710e4bb1eb14dc1991137a11e1c64cede888c528584035a518786e4af7"
+    },
+    {
+      "path": "tests/test_release_security.py",
+      "size": 2873,
+      "sha256": "12e2a22a4359e8019fcd31281f2e78302f8ecaf07cfc1e908942f8a7915c9c12"
     },
     {
       "path": "tests/test_release_source_export.py",
@@ -28526,7 +28531,7 @@
     {
       "path": "tools/UpdaterVersion.h",
       "size": 93,
-      "sha256": "225632c0c78b04ae01dda69cd651f957bd61968695bf7959496e1eabbda0101b"
+      "sha256": "b92ebf786ac87615d859122129d8c8f8379970c97b750c1146db9dc6f372f6ce"
     },
     {
       "path": "tools/audit_classic_kushan_bindings.py",
@@ -28866,12 +28871,12 @@
     {
       "path": "tools/openhw_launcher.py",
       "size": 11452,
-      "sha256": "838d58ed1d36778c397efb0ab22f9b716ed1b6ea3ac4ff48c7595150b993327e"
+      "sha256": "25be46236c4a020d9b09da1d83acb03e2061dc4adaf70c3ec9fbc486c7ed8e2f"
     },
     {
       "path": "tools/openhw_launcher_ui.py",
-      "size": 51132,
-      "sha256": "30fd397d37fa5ce74781162d3920d920bc0df04f760a256d93913c93f2fd8b4a"
+      "size": 49793,
+      "sha256": "2d2ff9d15cf89bbdeb6f74ada981fb79f385e136a50981d12348b790ab157938"
     },
     {
       "path": "tools/openhw_obig.py",
@@ -28895,8 +28900,8 @@
     },
     {
       "path": "tools/openhw_updater.py",
-      "size": 41302,
-      "sha256": "7cd5130a44625fc1e250f5a99fdc1cb8cade57c6b1a6f56f09068c89a684d52c"
+      "size": 36493,
+      "sha256": "9a1136e0e18ba6005cce002eb9fe8895fdc0fef6e2b152f5f045b3d561688424"
     },
     {
       "path": "tools/openhw_weapon_presentation.py",
@@ -28920,8 +28925,8 @@
     },
     {
       "path": "tools/package_release_patch.py",
-      "size": 6797,
-      "sha256": "50a55307cdfd5901c933411baf0b896a43f05072fa52178e3037ae50172f32e6"
+      "size": 6846,
+      "sha256": "e8cbe1fdac71f92f7817a36fa74577ca2494f04ba04cf385341352afda88b968"
     },
     {
       "path": "tools/package_ship_document_update.py",
@@ -28931,7 +28936,7 @@
     {
       "path": "tools/package_updater.py",
       "size": 7692,
-      "sha256": "7d5d4f9903f71cbf447323b60a635efa7116a12e37986e16882c076cd523181e"
+      "sha256": "efd402f354df6779d7702dece687617d13fa69dcd70191d551990c4161c9bc64"
     },
     {
       "path": "tools/plan_kushan_hod_bindings.py",
@@ -28964,9 +28969,14 @@
       "sha256": "c74e9bf5225356fdf515d7452e4a68b06b829fc4f5954d406522939a417077dc"
     },
     {
+      "path": "tools/refresh_release_installer.py",
+      "size": 4239,
+      "sha256": "1e4f0488b4c3718e863fca3545daa03ea45ae76d575c03930371fc2bffe585eb"
+    },
+    {
       "path": "tools/release_bootstrap.cpp",
-      "size": 24445,
-      "sha256": "29d3e44ee535fd2dcdf635285141848974d57572655148630d70a6353d61d1be"
+      "size": 24261,
+      "sha256": "3bc036fefdc1d30b21d394d3c9ec197c89a23be0857e9940bdb1e9fe6a75419d"
     },
     {
       "path": "tools/release_compact.py",
@@ -29024,6 +29034,11 @@
       "sha256": "5282ba2e9cb04410fd4d9f403e55d690aaff49ebebc44cc89342ccd4a10a210d"
     },
     {
+      "path": "tools/release_patch1113.py",
+      "size": 3686,
+      "sha256": "22c842f3d693f734a36892b451f246d276eb1856a59b0cb53c8857233934fa3a"
+    },
+    {
       "path": "tools/release_patch112.py",
       "size": 3677,
       "sha256": "c3389f7523ce934a19cf2a8b7df2bbe64b7bb3fc90be1d06bc057d239897ac1b"
@@ -29066,7 +29081,7 @@
     {
       "path": "tools/release_setup.py",
       "size": 12709,
-      "sha256": "7d876d32410bb1c31ae6e9f80cef1256e03c24311afafc9932351c01f29e41c7"
+      "sha256": "59dfd3f0f5309367764c3102f332edd90ba7202cf8d1c1d17d4d8da6e4877a39"
     },
     {
       "path": "tools/release_sky_lighting.py",
@@ -29102,6 +29117,11 @@
       "path": "tools/run_ship_texture_upscale.ps1",
       "size": 1505,
       "sha256": "0bd8cf7c325e4d7b6d87fc1944131c25eaf23d10e86a855d3995ad1eca3c30af"
+    },
+    {
+      "path": "tools/scan_release_security.py",
+      "size": 4775,
+      "sha256": "c098884f65eca0f4e70cd6a18ab1893760395f8d977b1dbee7e89792b54e6ac7"
     },
     {
       "path": "tools/setup_realesrgan.ps1",
@@ -29216,7 +29236,7 @@
     {
       "path": "tools/stage_release.py",
       "size": 7419,
-      "sha256": "1f6b20ab0a62ecf16401135b581418ab1b18d0a67109ee2dc94e18635ce82d6e"
+      "sha256": "5036280a433be43f56429dc668964ff3012927804e5246ce14d21e08879135b3"
     },
     {
       "path": "tools/stage_research_station_native.py",
@@ -29280,8 +29300,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 8164,
-      "sha256": "f53fc26b21c45c4b68c3b95a9692f9ddbda47c3f66ebc613f2c3a5a8dd2e59db"
+      "size": 8488,
+      "sha256": "5d9595298fed298ee6dfa626e2b449df4c7a118716a0797dc3163120966ccecd"
     },
     {
       "path": "vcpkg.json",

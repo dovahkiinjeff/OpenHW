@@ -6,7 +6,7 @@ param(
     [string]$SdkRoot,
     [string]$OutputDirectory,
     [string]$SourceDirectory,
-    [string]$ReleaseVersion = '1.1.12',
+    [string]$ReleaseVersion = '1.1.13',
     [switch]$SkipBootstrap,
     [switch]$SkipTests
 )
@@ -98,6 +98,9 @@ try {
         '--output',"$OutputDirectory\OpenHW-Setup.exe")
     Run-Checked $venvPython @('tools\audit_release_bundle.py','--installer',"$OutputDirectory\OpenHW-Setup.exe",'--source',$SourceDirectory,
         '--output',"$OutputDirectory\Release-Audit.json")
+    Run-Checked $venvPython @('tools\scan_release_security.py',
+        '--file',"$OutputDirectory\OpenHW-Setup.exe",'--file',"$utilities\Launcher.exe",'--file',"$utilities\Updater.exe",
+        '--output',"$OutputDirectory\Security-Audit.json")
     Write-Host "Built: $OutputDirectory\OpenHW-Setup.exe"
     Write-Host "Source: $SourceDirectory"
 } finally { Pop-Location }

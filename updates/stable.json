@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channel": "stable",
-  "latest": "1.1.12",
+  "latest": "1.1.13",
   "minimum_protocol": 3,
   "patches": [
     {
@@ -255,27 +255,38 @@
       "url": "https://openhw.tech/downloads/v1.1.12/OpenHW-Patch-1.1.12.exe",
       "size": 42009792,
       "sha256": "fe5e4b5c3b72347f3e6d8823981de7bd8f81e385ba2509a9f7742a8b273f7293"
+    },
+    {
+      "to": "1.1.13",
+      "format": "openhw-exe-zip-v1",
+      "post_actions": [],
+      "from": [
+        "1.1.12"
+      ],
+      "url": "https://openhw.tech/downloads/v1.1.13/OpenHW-Patch-1.1.13.exe",
+      "size": 5977040,
+      "sha256": "c2bbc5194de924701ee8f19613cffdff17676fe3cd40421eb19d7172419fc378"
     }
   ],
   "launcher": {
-    "version": "1.1.6",
-    "url": "https://openhw.tech/downloads/v1.1.12/Launcher.exe",
-    "size": 10049218,
-    "sha256": "a7a0735d81e1619656fe4ecb8dfaf2a7c3efb242c36c924330aecf3f4aa5edea"
+    "version": "1.1.7",
+    "url": "https://openhw.tech/downloads/v1.1.13/Launcher.exe",
+    "size": 10041806,
+    "sha256": "75efdc7e988a35c25a2d791b7c736a87e8e27e62dc8388712f2a2b547e1b2c2d"
   },
   "updater": {
-    "version": "1.1.6",
-    "url": "https://openhw.tech/downloads/v1.1.12/Updater.exe",
-    "size": 10032306,
-    "sha256": "6264e842639e61088e8de4fefcfe9802618cc26010ca929b6258e17126a39c92",
+    "version": "1.1.7",
+    "url": "https://openhw.tech/downloads/v1.1.13/Updater.exe",
+    "size": 10025919,
+    "sha256": "8b649c8b758376cd904eca721087e3970a8633ffcd95e4dedd2ef2762140c98c",
     "protocol": 3
   },
   "fresh_install": {
     "schema": 1,
     "version": "1.1.1",
-    "url": "https://openhw.tech/downloads/v1.1.10/OpenHW-Setup.exe",
-    "size": 521178621,
-    "sha256": "e2de0df93160de7cdaa77b099d98f55940d2160eabf464febfedd271d8edd25c"
+    "url": "https://openhw.tech/downloads/v1.1.13/OpenHW-Setup.exe",
+    "size": 496493002,
+    "sha256": "551ba0ba6dce56888cb23609a0291021588e25505db4c4278efa50052c20a184"
   },
   "installation_policy": {
     "new_install_required_before": "1.1",
