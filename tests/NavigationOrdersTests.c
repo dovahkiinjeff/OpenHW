@@ -87,6 +87,7 @@ void SaveStructureOfSize(void *p,sdword n){assert(savedSize+n<sizeof(saved));mem
 void LoadStructureOfSizeToAddress(void *p,sdword n){assert(savedOffset+n<=savedSize);memcpy(p,saved+savedOffset,n);savedOffset+=n;}
 
 static vector testPoint(float x,float y,float z){vector v={x,y,z};return v;}
+static vector routePoint(float x,float y,float z){return testPoint(10*x,10*y,10*z);}
 static void setup(void)
 {
     unsigned i;navReset();memset(&universe,0,sizeof(universe));memset(fleet,0,sizeof(fleet));memset(commands,0,sizeof(commands));
@@ -101,7 +102,7 @@ static void setup(void)
 }
 static void route_tests(void)
 {
-    SelectCommand ships;vector points[2]={testPoint(1000,0,0),testPoint(1000,1000,500)};udword hash;
+    SelectCommand ships;vector points[2]={routePoint(1000,0,0),routePoint(1000,1000,500)};udword hash;
     setup();ships.numShips=1;ships.ShipPtr[0]=&fleet[1];fleet[7].playerowner=&universe.players[1];
     navSetRoute(&universe.mainCommandLayer,&ships,points,2,NAV_ACTION_ATTACK,(TargetPtr)&fleet[7]);
     assert(routes && moves==1 && routes->index==0);hash=navStateHash();
@@ -119,7 +120,7 @@ static void route_tests(void)
 static void split_and_formation_tests(void)
 {
     struct {sdword numShips;Ship *ships[2];} selection={2,{&fleet[1],&fleet[2]}};
-    SelectCommand one;vector points[2]={testPoint(1000,0,0),testPoint(3000,0,0)};
+    SelectCommand one;vector points[2]={routePoint(1000,0,0),routePoint(3000,0,0)};
     setup();navSetRoute(&universe.mainCommandLayer,(SelectCommand *)&selection,points,2,0,NULL);
     one.numShips=1;one.ShipPtr[0]=&fleet[1];navCancelShips(&one);
     assert(routes->ships->numShips==1 && routes->ships->ShipPtr[0]==&fleet[2]);
@@ -131,7 +132,7 @@ static void split_and_formation_tests(void)
 }
 static void fly_through_and_loop_tests(void)
 {
-    SelectCommand one;vector points[2]={testPoint(1000,0,0),testPoint(1000,2000,500)};
+    SelectCommand one;vector points[3]={routePoint(1000,0,0),routePoint(1000,2000,500),routePoint(3000,1000,500)};
     struct {sdword numShips;Ship *ships[2];} mixed={2,{&fleet[1],&fleet[2]}};
     unsigned lap;udword hash;real32 distances[]={4000,1000,100,10};
     setup();one.numShips=1;one.ShipPtr[0]=&fleet[1];
@@ -146,11 +147,12 @@ static void fly_through_and_loop_tests(void)
     assert(navFlightOrientBeforeMoving(AISHIP_FirstPointInDirectionFlying,385.0f*385.0f));
     assert(!navFlightOrientBeforeMoving(AISHIP_FirstPointInDirectionFlying|AISHIP_NavigationSteering,385.0f*385.0f));
     assert(navFlightOrientBeforeMoving(AISHIP_FirstPointInDirectionFlying|AISHIP_NavigationSteering,0));
-    navSetRoute(&universe.mainCommandLayer,&one,points,2,NAV_ACTION_LOOP,NULL);
+    navSetRoute(&universe.mainCommandLayer,&one,points,3,NAV_ACTION_LOOP,NULL);
     for(lap=0;lap<5;lap++) {
         fleet[1].posinfo.position=points[0];navTick(&universe.mainCommandLayer);assert(routes && routes->index==1);
         assert(navMoveFlightFlags(&fleet[1])&AISHIP_PassThroughWaypoint);
-        fleet[1].posinfo.position=points[1];navTick(&universe.mainCommandLayer);assert(routes && routes->index==0);
+        fleet[1].posinfo.position=points[1];navTick(&universe.mainCommandLayer);assert(routes && routes->index==2);
+        fleet[1].posinfo.position=points[2];navTick(&universe.mainCommandLayer);assert(routes && routes->index==0);
     }
     hash=navStateHash();navSave();navReset();navLoad();
     assert(routes && routes->action==NAV_ACTION_LOOP && navStateHash()==hash && (navMoveFlightFlags(&fleet[1])&AISHIP_PassThroughWaypoint));
@@ -200,7 +202,7 @@ static void rally_tests(void)
 }
 static void save_and_dispatch_tests(void)
 {
-    SelectCommand one,producer;vector points[2]={testPoint(1000,0,0),testPoint(2000,0,500)};udword hash;
+    SelectCommand one,producer;vector points[2]={routePoint(1000,0,0),routePoint(2000,0,500)};udword hash;
     setup();one.numShips=producer.numShips=1;one.ShipPtr[0]=&fleet[1];producer.ShipPtr[0]=&fleet[0];
     navSetRoute(&universe.mainCommandLayer,&one,points,2,0,NULL);
     fleet[1].posinfo.position=points[0];navTick(&universe.mainCommandLayer);
@@ -242,8 +244,36 @@ static void packet_tests(void)
     body->selection.numShips=2;body->selection.ShipID[1]=body->selection.ShipID[0];
     assert(!hwValidatePlayerCommand(bytes,size+sizeof(ShipID),0)); /* duplicate ship IDs */
 }
+static void geometry_tests(void)
+{
+    vector hex[6],large[6],sharp[3]={{0,0,0},{6000,0,0},{1000,1000,0}};
+    SelectCommand one;ubyte bad[NAV_MAX_POINTS];unsigned i;
+    setup();one.numShips=1;one.ShipPtr[0]=&fleet[1];
+    for(i=0;i<6;i++) {
+        hex[i].x=800*cosf(i*1.04719755f);hex[i].y=800*sinf(i*1.04719755f);hex[i].z=0;
+        large[i].x=hex[i].x*4;large[i].y=hex[i].y*4;large[i].z=0;
+    }
+    assert(!navGeometryCheck(hex,6,TRUE,1200,bad));assert(bad[0]);
+    assert(navGeometryCheck(large,6,TRUE,1200,bad));
+    assert(!navGeometryCheck(sharp,3,FALSE,1200,bad));
+    for(i=0;i<3;i++){sharp[i].x*=10;sharp[i].y*=10;}
+    assert(navGeometryCheck(sharp,3,FALSE,1200,bad)); /* same angle, enough room */
+    {
+        vector closure[3]={{0,0,0},{8000,0,0},{8000,2500,0}};
+        assert(navGeometryCheck(closure,3,FALSE,1200,bad));
+        assert(!navGeometryCheck(closure,3,TRUE,1200,bad)); /* check last and first turn at closure */
+    }
+    for(i=0;i<6;i++){large[i].z=large[i].y;large[i].y=0;}
+    assert(navGeometryCheck(large,6,TRUE,1200,bad)); /* vertical 3D route */
+    assert(!navGeometryCheck(large,2,TRUE,1200,bad));
+    large[1]=large[0];assert(!navGeometryCheck(large,6,TRUE,1200,bad));
+    info[1].staticheader.maxvelocity=600;info[1].staticheader.maxrot=.1f;
+    assert(navGeometryRadius(&one)>=6000); /* slow-turning selection needs more space */
+    navSetRoute(&universe.mainCommandLayer,&one,hex,6,NAV_ACTION_LOOP,NULL);
+    assert(!routes && !moves); /* native/online path cannot bypass placement */
+}
 int main(void)
 {
-    route_tests();split_and_formation_tests();fly_through_and_loop_tests();rally_tests();save_and_dispatch_tests();packet_tests();navReset();
+    geometry_tests();route_tests();split_and_formation_tests();fly_through_and_loop_tests();rally_tests();save_and_dispatch_tests();packet_tests();navReset();
     puts("Navigation: routes, blocked legs, splits, formations, virtual rally anchors, launch lifecycle, saves and authenticated packets passed.");return 0;
 }

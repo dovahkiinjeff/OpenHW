@@ -1,4 +1,6 @@
 #include "NavigationOrders.h"
+#include "NavigationGeometry.h"
+#include <SDL.h>
 #include "PiePlate.h"
 #include "Select.h"
 #include "ShipSelect.h"
@@ -70,8 +72,13 @@ void navClearRally(char *string,featom *atom)
     navPlacementCancel();while(feMenuLevel>0)feMenuDisappear(NULL,NULL);
     navIssue((SelectCommand *)&selSelected,NAV_NONE,NULL,0,NAV_ACTION_NONE,NULL);
 }
+static bool32 draftValid(const vector *points,unsigned count,bool32 loop,ubyte *bad)
+{return navGeometryCheck(points,count,loop,navGeometryRadius(draft.ships),bad);}
 static void finish(void)
 {
+    if(draft.mode==NAV_WAYPOINTS && draft.count && !draftValid(draft.points,draft.count,draft.action==NAV_ACTION_LOOP,NULL)) {
+        soundEvent(NULL,UI_ClickCancel);return;
+    }
     if(draft.ships && draft.count)navIssue(draft.ships,draft.mode,draft.points,draft.count,draft.action,draft.target);
     navPlacementCancel();
 }
@@ -88,9 +95,13 @@ bool32 navPlacementClick(vector point)
 {
     if(!navPlacementActive())return FALSE;
     if(draft.mode==NAV_RALLY_OBJECT)return navPlacementTarget(NULL);
-    if(firstPointHit()){draft.action=NAV_ACTION_LOOP;finish();return TRUE;}
+    if(firstPointHit()){draft.action=NAV_ACTION_LOOP;finish();if(navPlacementActive())draft.action=NAV_ACTION_NONE;return TRUE;}
     if(!navValidPoint(point)){soundEvent(NULL,UI_ClickCancel);return TRUE;}
     if(draft.count==NAV_MAX_POINTS){soundEvent(NULL,UI_ClickCancel);return TRUE;}
+    if(draft.mode==NAV_WAYPOINTS) {
+        draft.points[draft.count]=point;
+        if(!draftValid(draft.points,draft.count+1,FALSE,NULL)){soundEvent(NULL,UI_ClickCancel);return TRUE;}
+    }
     draft.points[draft.count++]=point;
     soundEvent(NULL,UI_Click);
     if(draft.mode==NAV_RALLY_POINT)finish();
@@ -146,10 +157,12 @@ bool32 navPlacementKey(sdword key)
        key==JKEY || key==IKEY || key==KKEY || key==SKEY)navPlacementCancel();
     return FALSE;
 }
+static bool32 drawInvalid;
 static void drawLine(vector from,vector to,unsigned number,unsigned mode)
 {
     real32 x0,y0,x1,y1,r;sdword a,b,c,d;char text[48];
     color ink=mode==NAV_WAYPOINTS?colRGB(238,175,61):colRGB(100,207,219);
+    if(drawInvalid)ink=(SDL_GetTicks()/180)&1?colRGB(255,60,45):colRGB(130,20,15);
     selCircleComputeGeneral(&rndCameraMatrix,&rndProjectionMatrix,&from,0,&x0,&y0,&r);
     selCircleComputeGeneral(&rndCameraMatrix,&rndProjectionMatrix,&to,0,&x1,&y1,&r);
     if(x0<-2 || x0>2 || y0<-2 || y0>2 || x1<-2 || x1>2 || y1<-2 || y1>2)return;
@@ -172,14 +185,25 @@ void navDraw(void)
             if(!selShipInSelection(selSelected.ShipPtr,selSelected.numShips,draft.ships->ShipPtr[j]))same=FALSE;
         if(!same){navPlacementCancel();fontMakeCurrent(old);return;}
         from=draft.ships->ShipPtr[0]->posinfo.position;
-        for(i=0;i<draft.count;i++){drawLine(from,draft.points[i],i+1,NAV_WAYPOINTS);from=draft.points[i];}
         if(draft.mode==NAV_WAYPOINTS) {
-            sprintf(text,"WAYPOINTS %u/%u  /  CLICK: ADD  /  CLICK 1: LOOP  /  ESC: FINISH  /  BACKSPACE: UNDO  /  DELETE: CANCEL",draft.count,NAV_MAX_POINTS);
-            if(firstPointHit())drawLine(from,draft.points[0],0,NAV_WAYPOINTS);
-            else drawLine(from,piePointSpecZ?pieHeightPoint:piePlanePoint,draft.count+1,NAV_WAYPOINTS);
+            vector preview[NAV_MAX_POINTS],candidate=piePointSpecZ?pieHeightPoint:piePlanePoint;
+            ubyte bad[NAV_MAX_POINTS];unsigned n=draft.count;bool32 loop=firstPointHit(),valid;
+            memcpy(preview,draft.points,n*sizeof(vector));
+            if(!loop && n<NAV_MAX_POINTS)preview[n++]=candidate;
+            valid=draftValid(preview,n,loop,bad);
+            for(i=0;i<draft.count;i++) {
+                drawInvalid=i>0 && bad[i-1];drawLine(from,draft.points[i],i+1,NAV_WAYPOINTS);from=draft.points[i];
+            }
+            drawInvalid=draft.count && bad[draft.count-1];
+            if(loop)drawLine(from,draft.points[0],0,NAV_WAYPOINTS);
+            else if(draft.count<NAV_MAX_POINTS)drawLine(from,candidate,draft.count+1,NAV_WAYPOINTS);
+            sprintf(text,valid?
+                "WAYPOINTS %u/%u / CLICK: ADD / CLICK 1: LOOP / ENTER/ESC: FINISH / BACKSPACE: UNDO / DELETE: CANCEL":
+                "WAYPOINTS %u/%u / TOO TIGHT: LENGTHEN RED LEGS OR WIDEN TURN / BACKSPACE: UNDO / DELETE: CANCEL",draft.count,NAV_MAX_POINTS);
+            drawInvalid=FALSE;
         } else strcpy(text,draft.mode==NAV_RALLY_POINT?
-            "RALLY POINT / VIRTUAL MILITARY PARADE  /  CLICK: PLACE  /  ESC: CANCEL":
-            "RALLY OBJECT / VIRTUAL MILITARY PARADE  /  CLICK AN OBJECT  /  ESC: CANCEL");
+            "RALLY POINT / VIRTUAL MILITARY PARADE / CLICK: PLACE / ESC: CANCEL":
+            "RALLY OBJECT / VIRTUAL MILITARY PARADE / CLICK AN OBJECT / ESC: CANCEL");
         fontPrint(24,80,colRGB(238,175,61),text);
     }
     fontMakeCurrent(old);

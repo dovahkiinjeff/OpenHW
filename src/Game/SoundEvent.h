@@ -90,6 +90,7 @@ void soundEventStopSFX(real32 fadetime);
 
 
 /* speech functions */
+bool32 speechEventAnimaticPending(void);
 void speechEventUpdate(void);			/* Update function so that speech continues to stream */
 //sdword speechEventPlay(void *object, sdword event, sdword var, sdword playernum, sdword variation);
 //#define speechEventFleet(a,b,c)			speechEventPlay(NULL, a, b, c, SOUND_NOTINITED)

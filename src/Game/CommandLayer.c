@@ -6985,11 +6985,8 @@ void clLaunchShip(CommandLayer *comlayer,SelectCommand *selectcom,ShipPtr receiv
     dbgAssertOrIgnore(receiverShip != NULL);
     dbgAssertOrIgnore(receiverShipStaticInfo->canReceiveShips|receiverShipStaticInfo->canReceiveShipsPermanently);
 
-    /* RTX-0076: launch is intentionally unconditional with respect to race.
-       Race locking applies only when choosing/entering a docking host.  A
-       captured production vessel may already contain legacy or foreign-race
-       ships, and those ships must always be able to leave rather than becoming
-       permanently trapped by the Capture / Build All docking policy. */
+    /* Docking and launching both accept mixed-race fleets. Keep host-specific
+       exit geometry and normal launch capacity/animation checks. */
 
     if (ship->specialFlags & SPECIAL_Launching)
     {

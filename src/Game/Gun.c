@@ -1129,6 +1129,7 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
         bullet->target = NULL;
     }
     bullet->bulletColor = etgBulletColor[shipstatic->shiprace][bullet->soundType];
+    if(ship->shiptype==FloatingCity && bullet->bulletType==BULLET_Beam)bullet->bulletColor=colRGB(255,209,31);
     bullet->bulletmass = gunstatic->bulletmass;
     bullet->lengthmag = gunstatic->bulletlength;
 

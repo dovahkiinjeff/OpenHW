@@ -57,7 +57,7 @@ static int ionGun(const void *owner,unsigned index){
 }
 enum {PROJECTILE_CUES=8192};
 typedef struct CapturedCue {const char *fx,*sound;float clampMinimum,clampMaximum;unsigned options;} CapturedCue;
-typedef struct ProjectileCue {const void *key;float scale,frame[16],velocity[3],length,impactFrame[16],impactVelocity[3];uint64_t token,contactGeneration;float lastImpactTime;unsigned random;int hit,started,visual,beam,impactVisual,contactActive,defaultIonFire;CapturedCue slots[HW_RM_WEAPON_SLOT_COUNT];} ProjectileCue;
+typedef struct ProjectileCue {const void *key;float scale,frame[16],velocity[3],length,impactFrame[16],impactVelocity[3];uint64_t token,contactGeneration;float lastImpactTime;unsigned random;int hit,started,visual,beam,impactVisual,contactActive,defaultIonFire,yellowBeam;CapturedCue slots[HW_RM_WEAPON_SLOT_COUNT];} ProjectileCue;
 static ProjectileCue projectileCues[PROJECTILE_CUES];
 static uint64_t nextProjectileToken=1;
 enum {DEATH_PRESENTATIONS=512};
@@ -275,7 +275,7 @@ float rmPresentationIonChargeRemaining(const void *owner,unsigned gun)
 int rmPresentationPrepareIonShot(const void *owner,unsigned gun,const void *target){
     const Ship *ship=(const Ship*)owner;unsigned i,first,freeSlot=2048;float now=universe.totaltimeelapsed,scale;
     HwRmVisualInstance *instance;
-    if(!ionGun(owner,gun))return 1;
+    if(!ionGun(owner,gun) || ship->shiptype==FloatingCity)return 1;
     /* The HW1-race RM ion definitions use a two-second anticipation phase.
        This is a firing gate, independent of audio/graphics availability. */
     first=(unsigned)(((uintptr_t)owner>>4)+gun*31u)&2047u;
@@ -444,7 +444,7 @@ void rmPresentationCaptureProjectile(const void *projectile,const void *ship,uns
     if(!weapon&&ionGun(ship,gun))weapon=ionWeapons[((const Ship*)ship)->shiprace==R1];
     if(!weapon)return;
     entry=projectileCue(projectile,1);if(!entry){diagnostic("projectile","presentation snapshot capacity exhausted");return;}
-    memset(entry,0,sizeof(*entry));entry->key=projectile;entry->scale=scale;entry->token=nextProjectileToken++;presentationRandom=presentationRandom*1664525u+1013904223u;entry->random=presentationRandom;
+    memset(entry,0,sizeof(*entry));entry->key=projectile;entry->yellowBeam=((const Ship*)ship)->shiptype==FloatingCity;entry->scale=scale;entry->token=nextProjectileToken++;presentationRandom=presentationRandom*1664525u+1013904223u;entry->random=presentationRandom;
     for(slot=0;slot<HW_RM_WEAPON_SLOT_COUNT;++slot){const HwRmWeaponPresentationSlot *source=hwRmWeaponPresentationAt(weapon,slot);int index;
         if(!source)continue;
         entry->slots[slot].clampMinimum=source->clampMinimum;entry->slots[slot].clampMaximum=source->clampMaximum;entry->slots[slot].options=source->authoredOptions;
@@ -491,6 +491,18 @@ void rmPresentationTrackProjectile(const void *projectile){
         if(!entry->visual)releaseAnchor(NULL,anchor);}
     if(soundPlayback&&entry->slots[HW_RM_WEAPON_BULLET].sound&&(anchor=projectileAnchor(entry,0))!=0){
         if(!hwRmSoundPlaybackPlay(soundPlayback,entry->slots[HW_RM_WEAPON_BULLET].sound,entry->random,entry->frame+12,anchor,error,sizeof(error)))releaseAnchor(NULL,anchor);}
+}
+bool32 rmPresentationBeamTint(uint64_t handle,float rgb[3])
+{
+    unsigned i;
+    for(i=0;i<PRESENTATION_ANCHORS;i++)if(anchors[i].handle==handle && handle && !anchors[i].impact) {
+        ProjectileCue *entry=anchors[i].projectile?projectileCue(anchors[i].projectile,0):NULL;
+        if(entry && entry->token==anchors[i].projectileToken && entry->yellowBeam) {
+            rgb[0]=1;rgb[1]=0.82f;rgb[2]=0.12f;return TRUE;
+        }
+        return FALSE;
+    }
+    return FALSE;
 }
 bool32 rmPresentationOwnsProjectileFx(const void *projectile){return projectileCue(projectile,0)!=NULL;}
 static int worldCue(ProjectileCue *entry,unsigned slot,const float position[3],const float heading[3],const float velocity[3],float magnitude){

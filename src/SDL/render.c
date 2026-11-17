@@ -2138,7 +2138,7 @@ void rndRenderAHomeworld(void* voidCamera, void *voidWorld)
 
     /* These visual-only worlds are already supplied by the imported scene.
        Keep the objects for NIS/scripts and preserve all other world effects. */
-    if (gameIsRunning && remasteredBackdropActive())
+    if (gameIsRunning && remasteredBackdropActive() && !nisIsRunning)
     {
         switch (world->derelicttype)
         {

@@ -223,6 +223,10 @@ int main(void){
         universe.totaltimeelapsed=102;CHECK(rmPresentationPrepareIonShot(&owner,0,&owner)==2&&chargeStarts==1);
         universe.totaltimeelapsed=110;CHECK(!rmPresentationPrepareIonShot(&owner,0,&owner)&&chargeStarts==2);
         universe.totaltimeelapsed=113;CHECK(!rmPresentationPrepareIonShot(&owner,0,&owner)&&chargeStarts==3);
+        {ShipType savedType=owner.shiptype;owner.shiptype=FloatingCity;
+            universe.totaltimeelapsed=120;CHECK(rmPresentationPrepareIonShot(&owner,0,&owner)==1);
+            universe.totaltimeelapsed=120.1f;CHECK(rmPresentationPrepareIonShot(&owner,0,&owner)==1);
+            owner.shiptype=savedType;}
         owner.gunInfo=NULL;universe.totaltimeelapsed=savedTime;rmPresentationReset();fxDraws=0;
     }
     /* A native weapon owns even empty or unavailable visual slots. The

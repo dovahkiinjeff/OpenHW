@@ -153,6 +153,15 @@ static sdword salCapExceptionalAttachedSalvagers(
     return count;
 }
 
+static bool32 salCapNativeWreckIntercept(Ship *ship,
+    SpaceObjRotImpTargGuidanceShipDerelict *target)
+{
+    /* Native wreck contacts have their own approach frame. The classic
+       distance/cone route can strand a salvager outside the old large bounds. */
+    return ship && ship->shiptype==SalCapCorvette &&
+        salCapAlignKharSelimPoints(target);
+}
+
 static bool32 salCapSuperShipIntercept(
     Ship *ship, SpaceObjRotImpTargGuidanceShipDerelict *target)
 {
@@ -1930,7 +1939,7 @@ reachedit:
         break;
     case SAL_FLYTOTARGET:
         //fly to within a certain range of the target
-        if (salCapSuperShipIntercept(ship, spec->target))
+        if (salCapSuperShipIntercept(ship, spec->target) || salCapNativeWreckIntercept(ship,spec->target))
         {
             /* Every valid ship target now gets the Super Salvager approach:
                no target avoidance and no legacy distance-based speed taper. */
@@ -1950,7 +1959,7 @@ reachedit:
             CleanSalCapSpec(ship);
             return FALSE;
         }
-        if (salCapSuperShipIntercept(ship, spec->target))
+        if (salCapSuperShipIntercept(ship, spec->target) || salCapNativeWreckIntercept(ship,spec->target))
         {
             /* Skip the normal fly-to-distance gate for every ship class.
                Targets with authored salvage points reserve one immediately;
@@ -2162,7 +2171,7 @@ reachedit:
             CleanSalCapSpec(ship);
             return FALSE;
         }
-        if (salCapSuperShipIntercept(ship, spec->target))
+        if (salCapSuperShipIntercept(ship, spec->target) || salCapNativeWreckIntercept(ship,spec->target))
         {
             spec->noAvoid = TRUE;
             ship->specialFlags |= SPECIAL_BrokenFormation;
@@ -2187,7 +2196,7 @@ reachedit:
             CleanSalCapSpec(ship);
             return FALSE;
         }
-        if (salCapSuperShipIntercept(ship, spec->target))
+        if (salCapSuperShipIntercept(ship, spec->target) || salCapNativeWreckIntercept(ship,spec->target))
         {
             spec->noAvoid = TRUE;
             spec->salvageState = SAL_WL_FLYTOCONEORIGIN;

@@ -383,9 +383,10 @@ class App:
         contents.bind('<Configure>',lambda e:self.system_canvas.configure(scrollregion=self.system_canvas.bbox('all')))
         self.system_canvas.bind('<Configure>',lambda e:self.system_canvas.itemconfigure(inner,width=e.width))
         cards=[('01','UPDATE CHANNEL','Get the latest official patches in the required order.\nDownloads are verified before installation.','CHECK FOR UPDATES',self.update),
-               ('02','SHADER LIBRARY','Back up the local shader cache and rebuild on next launch.\nThe next startup will take longer.','REBUILD CACHE',self.cache),
-               ('03','VOICE ARCHIVE','Import a complete localized voice bank from your owned\nHomeworld 1 Classic files. Only matching packs are offered.','IMPORT VOICE PACK',self.import_voice),
-               ('04','DIAGNOSTICS','Save your community alias and comment to a private server folder.\nUpload all logs that have not already been uploaded.','REPORT AN ISSUE',self.diagnostics)]
+               ('02','PREVIOUS VERSION','Restore the previous game version from a verified local backup.\nSaves, settings and the current Launcher are kept.','ROLL BACK',self.rollback_version),
+               ('03','SHADER LIBRARY','Back up the local shader cache and rebuild on next launch.\nThe next startup will take longer.','REBUILD CACHE',self.cache),
+               ('04','VOICE ARCHIVE','Import a complete localized voice bank from your owned\nHomeworld 1 Classic files. Only matching packs are offered.','IMPORT VOICE PACK',self.import_voice),
+               ('05','DIAGNOSTICS','Save your community alias and comment to a private server folder.\nUpload all logs that have not already been uploaded.','REPORT AN ISSUE',self.diagnostics)]
         for number,title,description,action,callback in cards:
             card=tk.Frame(contents,bg=RAISED,padx=20,pady=17);card.pack(fill='x',padx=34,pady=(0,12));card.columnconfigure(1,weight=1)
             label(card,number,size=MONO,color=GOLD,bg=RAISED).grid(row=0,column=0,rowspan=2,sticky='n',padx=(0,16),pady=5)
@@ -467,6 +468,21 @@ class App:
         else:
             self.channel_status.set('UPDATE SERVER ONLINE / OpenHW '+self.version+' is up to date.')
             self.update_now.place_forget()
+    def rollback_version(self):
+        choice=self.api.updater.previous_version(self.root)
+        if not choice:
+            self.dialog('PREVIOUS VERSION','No complete previous-version backup is available in this installation. Backups are kept automatically when Launcher installs a game update.')
+            return
+        target=choice['version']
+        if not self.dialog('RESTORE OPENHW '+target,'Restore the previous game version? Saves and settings are kept, and the Launcher stays current. Newer saves may require the newer game. Online multiplayer requires the server’s matching version.',confirm=True):return
+        self.busy=True;self.amount=None;self.status.set('RESTORING OPENHW '+target+'...')
+        def worker():
+            try:
+                self.api.updater.restore_previous_version(self.root,target,lambda text,value=None:self.messages.put(('progress',text,value)))
+                self.messages.put(('done','OPENHW '+target+' RESTORED / Saves and settings preserved.',1))
+            except Exception as error:self.messages.put(('error',str(error),0))
+        threading.Thread(target=worker,daemon=False).start()
+
     def cache(self):
         if self.dialog('REBUILD SHADER LIBRARY','Back up the current local cache? OpenHW will rebuild it at the next startup.',confirm=True):self.status.set(self.api.rebuild_shader_cache(self.root))
     def import_voice(self):

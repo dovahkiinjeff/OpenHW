@@ -1,4 +1,4 @@
-> **Current 1.1.11 update:** choose Update now in Launcher, restart OpenHW and create a fresh multiplayer match with the matching server build. No reinstall is needed. New installations use the refreshed full 1.1.1 base, then apply current patches. See [Waypoints and rally](WAYPOINTS_AND_RALLY.md).
+> **Current 1.1.12 update:** choose Update now in Launcher and restart the game. Ship Systems → Previous Version → Roll Back restores a verified previous game backup while keeping saves, settings and current utilities. Online play requires the matching current game/server version. See [1.1.12 notes](RELEASE_NOTES_1.1.12.md) and [Waypoints and rally](WAYPOINTS_AND_RALLY.md).
 
 # OpenHW 1.1 installation and diagnostics
 

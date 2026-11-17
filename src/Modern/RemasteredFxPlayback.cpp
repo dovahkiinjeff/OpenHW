@@ -234,7 +234,7 @@ extern "C" int hwRmFxPlaybackUpdate(HwRmFxPlayback* p,double clock){
 }
 extern "C" void hwRmFxPlaybackDraw(HwRmFxPlayback* p){if(!p)return;
     for(const auto& item:p->instances)if(item.active){const auto* node=hwRmFxGraphAt(p->graph,item.node);if(node->style==HW_RM_FX_SPRAY)continue;
-        const float life=duration(node);if(life<=0)continue;HwRmFxDraw draw{};draw.node=node;draw.scale=item.scale;draw.random=item.random;
+        const float life=duration(node);if(life<=0)continue;HwRmFxDraw draw{};draw.node=node;draw.scale=item.scale;draw.random=item.random;draw.anchor=p->roots[item.root].anchor;
         draw.age=float((p->clock-item.born)*item.rate);draw.phase=loop(node)?std::fmod(draw.age,life)/life:std::clamp(draw.age/life,0.f,1.f);
         std::copy(item.spin.begin(),item.spin.end(),draw.spin);draw.radiusMultiplier=item.radiusMultiplier;
         const Matrix m=frame(*p,item);std::copy(m.begin(),m.end(),draw.matrix);draw.length=p->roots[item.root].length;

@@ -166,6 +166,19 @@ sdword SEcleanqueue(SPEECHQUEUE *pSQueue);
 =============================================================================*/
 
 SPEECHQUEUE speechqueue[SE_NUM_ACTORS];
+
+bool32 speechEventAnimaticPending(void)
+{
+    sdword i,j;
+    for(i=0;i<SE_NUM_ACTORS;i++) {
+        if(speechqueue[i].status>=SOUND_PLAYING &&
+           (speechqueue[i].current.event&SPEECH_TYPE_ANIMATIC))return TRUE;
+        for(j=0;j<SE_MAX_QUEUE;j++)if(speechqueue[i].queue[j].handle>=SOUND_OK &&
+            (speechqueue[i].queue[j].event&SPEECH_TYPE_ANIMATIC))return TRUE;
+    }
+    return FALSE;
+}
+
 sdword  streamhandle[SE_NUM_ACTORS];
 smemsize  speechfilehandle;
 

@@ -136,10 +136,12 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         check(std::filesystem::is_regular_file(root/L"setup-complete.json") &&
               std::filesystem::is_regular_file(root/L"Development/Installer/Development/python312.dll"),
               "Select an installed OpenHW 1.0 folder, not the original Collection.");
-#if defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114) || defined(OPENHW_PATCH_115) || defined(OPENHW_PATCH_116) || defined(OPENHW_PATCH_117) || defined(OPENHW_PATCH_118) || defined(OPENHW_PATCH_119) || defined(OPENHW_PATCH_1110) || defined(OPENHW_PATCH_1111)
+#if defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114) || defined(OPENHW_PATCH_115) || defined(OPENHW_PATCH_116) || defined(OPENHW_PATCH_117) || defined(OPENHW_PATCH_118) || defined(OPENHW_PATCH_119) || defined(OPENHW_PATCH_1110) || defined(OPENHW_PATCH_1111) || defined(OPENHW_PATCH_1112)
         std::ifstream versionFile(root/L"version.json");
         std::string versionText((std::istreambuf_iterator<char>(versionFile)),std::istreambuf_iterator<char>());
-#ifdef OPENHW_PATCH_1111
+#ifdef OPENHW_PATCH_1112
+        check(std::regex_search(versionText,std::regex(R"version("version"\s*:\s*"1\.1\.11")version")),"Install OpenHW 1.1.11 before applying this patch.");
+#elif defined(OPENHW_PATCH_1111)
         check(std::regex_search(versionText,std::regex(R"version("version"\s*:\s*"1\.1\.10")version")),"Install OpenHW 1.1.10 before applying this patch.");
 #elif defined(OPENHW_PATCH_1110)
         check(std::regex_search(versionText,std::regex(R"version("version"\s*:\s*"1\.1\.9")version")),"Install OpenHW 1.1.9 before applying this patch.");
@@ -182,8 +184,10 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         }while(Process32NextW(snapshot,&entry));CloseHandle(snapshot);
         check(!running,"Close OpenHW, OpenHW-Daignostics and Launcher before applying this patch.");
         #endif
-#if defined(OPENHW_PATCH_111) || defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114) || defined(OPENHW_PATCH_115) || defined(OPENHW_PATCH_116) || defined(OPENHW_PATCH_117) || defined(OPENHW_PATCH_118) || defined(OPENHW_PATCH_119) || defined(OPENHW_PATCH_1110) || defined(OPENHW_PATCH_1111)
-#ifdef OPENHW_PATCH_1111
+#if defined(OPENHW_PATCH_111) || defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114) || defined(OPENHW_PATCH_115) || defined(OPENHW_PATCH_116) || defined(OPENHW_PATCH_117) || defined(OPENHW_PATCH_118) || defined(OPENHW_PATCH_119) || defined(OPENHW_PATCH_1110) || defined(OPENHW_PATCH_1111) || defined(OPENHW_PATCH_1112)
+#ifdef OPENHW_PATCH_1112
+        const auto backup=root/L"Development/Patches/1.1.12/Backup";
+#elif defined(OPENHW_PATCH_1111)
         const auto backup=root/L"Development/Patches/1.1.11/Backup";
 #elif defined(OPENHW_PATCH_1110)
         const auto backup=root/L"Development/Patches/1.1.10/Backup";

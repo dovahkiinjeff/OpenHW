@@ -866,6 +866,23 @@ void spShipsDockedDrawCB(featom *atom, regionhandle region)
     fontMakeCurrent(fhSave);
 }
 
+static void spRetryStrandedRollCallShips(void)
+{
+    static real32 nextRetry;
+    SelectCommand *ships;sdword i;real32 now=universe.totaltimeelapsed;
+    if(now<nextRetry && now+2.0f>=nextRetry)return;
+    nextRetry=now+2.0f;
+    ships=selectAllCurrentPlayersNonHyperspacingShips();
+    for(i=0;i<ships->numShips;i++) {
+        Ship *ship=ships->ShipPtr[i];CommandToDo *command=getShipAndItsCommand(&universe.mainCommandLayer,ship);
+        if(!command || command->ordertype.order==COMMAND_NULL) {
+            SelectCommand one;one.numShips=1;one.ShipPtr[0]=ship;
+            clDock(&universe.mainCommandLayer,&one,DOCK_PERMANENTLY,NULL);
+        }
+    }
+    memFree(ships);
+}
+
 void CalculateRollCall(void)
 {
     Node *objnode = universe.ShipList.head;
@@ -919,6 +936,8 @@ void TellShipsToDockForHyperspace(void)
     Ship *ship;
     SelectCommand *selectAll;
 
+    /* Release hangar UI references before capture cleanup changes its list. */
+    lmCloseIfOpen();
     selectAll = selectAllCurrentPlayersNonHyperspacingShips();
     //cancel all the launch orders so we can then tell all ships to dock permanently.
     clCancelAllLaunchOrdersFromPlayer(universe.curPlayerPtr);
@@ -2778,6 +2797,7 @@ void singlePlayerGameUpdate(void)
     switch (singlePlayerGameInfo.hyperspaceState)
     {
         case HYPERSPACE_WAITINGROLLCALL:
+            spRetryStrandedRollCallShips();
             CalculateRollCall();
             OrientHyperspacingShips();
             if (singlePlayerGameInfo.rollcallShipsRemaining == 0)
@@ -3051,167 +3071,12 @@ void DeleteAnyMidLevelHyperspacingShips(void)
     }
 }
 
-static sdword spPersistentDockCategory(const Ship *ship)
-{
-    if (ship == NULL || ship->staticinfo == NULL)
-        return THISSHIPIS_OTHERNONCAPITALSHIP;
-    if (ship->staticinfo->shipclass == CLASS_Fighter ||
-        ship->shiptype == ProximitySensor)
-        return THISSHIPIS_FIGHTER;
-    if (ship->staticinfo->shipclass == CLASS_Corvette)
-        return THISSHIPIS_CORVETTE;
-    if (ship->shiptype == ResourceCollector)
-        return THISSHIPIS_RESOURCER;
-    return THISSHIPIS_OTHERNONCAPITALSHIP;
-}
-
-static bool32 spPersistentRaceHostHasRoom(const Ship *host,
-                                          const Ship *passenger)
-{
-    sdword category;
-    if (host == NULL || passenger == NULL || host->staticinfo == NULL ||
-        passenger->staticinfo == NULL || host->shipsInsideMe == NULL)
-        return FALSE;
-    if (host->playerowner != passenger->playerowner ||
-        host->shiprace != passenger->shiprace || host == passenger)
-        return FALSE;
-    if (host->staticinfo->shipclass != CLASS_Mothership &&
-        host->staticinfo->shipclass != CLASS_Carrier)
-        return FALSE;
-    if (!host->staticinfo->canReceiveShipsPermanently)
-        return FALSE;
-
-    category = spPersistentDockCategory(passenger);
-    if (!host->staticinfo->canReceiveTheseShips[category])
-        return FALSE;
-    if (passenger->staticinfo->shipclass == CLASS_Fighter &&
-        host->staticinfo->maxDockableFighters > 0 &&
-        host->shipsInsideMe->FightersInsideme >=
-            host->staticinfo->maxDockableFighters)
-        return FALSE;
-    if (passenger->staticinfo->shipclass == CLASS_Corvette &&
-        host->staticinfo->maxDockableCorvettes > 0 &&
-        host->shipsInsideMe->CorvettesInsideme >=
-            host->staticinfo->maxDockableCorvettes)
-        return FALSE;
-    return TRUE;
-}
-
-static Ship *spFindPersistentSameRaceHost(const Ship *passenger)
-{
-    Node *node;
-    Ship *best = NULL;
-    sdword bestRank = -1;
-
-    for (node = singlePlayerGameInfo.ShipsInHyperspace.head;
-         node != NULL; node = node->next)
-    {
-        InsideShip *inside = (InsideShip *)listGetStructOfNode(node);
-        Ship *candidate = inside != NULL ? inside->ship : NULL;
-        sdword rank;
-        if (!spPersistentRaceHostHasRoom(candidate, passenger))
-            continue;
-        rank = candidate->staticinfo->shipclass == CLASS_Mothership ? 2 : 1;
-        if (rank > bestRank)
-        {
-            best = candidate;
-            bestRank = rank;
-        }
-    }
-    return best;
-}
-
-static void spAdjustPersistentInsideCount(Ship *host, const Ship *passenger,
-                                          sdword delta)
-{
-    if (host == NULL || host->shipsInsideMe == NULL || passenger == NULL ||
-        passenger->staticinfo == NULL)
-        return;
-    if (passenger->staticinfo->shipclass == CLASS_Fighter)
-    {
-        if (delta < 0 && host->shipsInsideMe->FightersInsideme <= 0)
-            host->shipsInsideMe->FightersInsideme = 0;
-        else
-            host->shipsInsideMe->FightersInsideme += (sword)delta;
-    }
-    else if (passenger->staticinfo->shipclass == CLASS_Corvette)
-    {
-        if (delta < 0 && host->shipsInsideMe->CorvettesInsideme <= 0)
-            host->shipsInsideMe->CorvettesInsideme = 0;
-        else
-            host->shipsInsideMe->CorvettesInsideme += (sword)delta;
-    }
-}
-
-static void spRepairPersistentDockingByRace(void)
-{
-    Node *hostNode;
-    sdword moved = 0;
-    sdword stranded = 0;
-
-    if (!singlePlayerGame || !opCaptureBuildAll)
-        return;
-
-    /* RTX-0075: just before the next mission consumes the hyperspace fleet,
-       repair old mixed-race internal storage.  Intrinsic ship race is
-       authoritative, not player ownership. */
-    for (hostNode = singlePlayerGameInfo.ShipsInHyperspace.head;
-         hostNode != NULL; hostNode = hostNode->next)
-    {
-        InsideShip *hostInside = (InsideShip *)listGetStructOfNode(hostNode);
-        Ship *host = hostInside != NULL ? hostInside->ship : NULL;
-        Node *insideNode;
-
-        if (host == NULL || host->shipsInsideMe == NULL ||
-            host->playerowner != universe.curPlayerPtr)
-            continue;
-
-        insideNode = host->shipsInsideMe->insideList.head;
-        while (insideNode != NULL)
-        {
-            Node *nextInside = insideNode->next;
-            InsideShip *inside = (InsideShip *)listGetStructOfNode(insideNode);
-            Ship *passenger = inside != NULL ? inside->ship : NULL;
-
-            if (passenger != NULL && passenger->playerowner == host->playerowner &&
-                passenger->shiprace != host->shiprace)
-            {
-                Ship *target = spFindPersistentSameRaceHost(passenger);
-                if (target != NULL && target != host)
-                {
-                    listRemoveNode(&inside->node);
-                    spAdjustPersistentInsideCount(host, passenger, -1);
-                    listAddNode(&target->shipsInsideMe->insideList,
-                                &inside->node, inside);
-                    spAdjustPersistentInsideCount(target, passenger, 1);
-                    ++moved;
-                }
-                else
-                {
-                    ++stranded;
-                }
-            }
-            insideNode = nextInside;
-        }
-    }
-
-    if (moved > 0)
-        lmUpdateShipsInside();
-    if (moved > 0 || stranded > 0)
-    {
-        HW_DIAG_FPRINTF(stderr,
-                "[CaptureBuildAll] pre-mission race docking repair: moved=%d stranded=%d\n",
-                moved, stranded);
-    }
-}
-
 void singlePlayerLoadNewLevel(void)
 {
     real32 savephystime = universe.phystimeelapsed;
     real32 savetottime= universe.totaltimeelapsed;
     Ship *mothership = universe.players[0].PlayerMothership;
 
-    spRepairPersistentDockingByRace();
     DeleteAllRemainingShips();
     DeleteAnyMidLevelHyperspacingShips();
 
@@ -4297,6 +4162,9 @@ void singlePlayerStartGame(void)
     hvector startPoint;
     char *nis, *script;
     bool32 centre;
+
+    /* Campaign encounters depend on discovery; a new campaign starts with fog. */
+    opRestoreFogOfWar = 1;
 
     universe.players[1].resourceUnits = 0;
 

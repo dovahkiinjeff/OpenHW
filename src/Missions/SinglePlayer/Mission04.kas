@@ -737,9 +737,9 @@ FSM MissionBriefing
     STATE DP1CFI
         INIT
           IF (RaceOfHuman () = 0)
-            SpeechEvent(M04_Intel_CarrierRetreatingTaiidan, 0);
-          ELSEIF (RaceOfHuman () = 1)
             SpeechEvent(M04_Intel_CarrierRetreatingKushan, 0);
+          ELSEIF (RaceOfHuman () = 1)
+            SpeechEvent(M04_Intel_CarrierRetreatingTaiidan, 0);
           ENDIF
           //SpeechEvent(2728,0);
           ObjectiveCreate("DestroyP1Ms", LSTRING_FIGoGetThem, LSTRING_FIGoGetThem);

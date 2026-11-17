@@ -23,5 +23,6 @@ void animAviEnd(void);
 bool32 animBinkPlay(sdword a, sdword b);
 
 void animAviDecode(sdword frame);
+void animAviDecodeTime(real32 timeElapsed);
 
 #endif

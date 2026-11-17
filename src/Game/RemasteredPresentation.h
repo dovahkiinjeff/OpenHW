@@ -1,6 +1,7 @@
 #ifndef OPENHW_REMASTERED_PRESENTATION_H
 #define OPENHW_REMASTERED_PRESENTATION_H
 #include "Types.h"
+#include <stdint.h>
 struct Ship;
 struct Gun;
 struct Camera;
@@ -22,6 +23,7 @@ bool32 rmPresentationOwnsHarvestSound(const void *ship);
    no retained pointers into a ship/model that may die before its projectile. */
 void rmPresentationCaptureProjectile(const void *projectile,const void *ship,unsigned gun);
 void rmPresentationTrackProjectile(const void *projectile);
+bool32 rmPresentationBeamTint(uint64_t anchor,float rgb[3]);
 bool32 rmPresentationOwnsProjectileFx(const void *projectile);
 bool32 rmPresentationShipDeath(const void *ship);
 bool32 rmPresentationProjectileImpact(const void *projectile,const float position[3],const float heading[3],const float velocity[3],float damage);

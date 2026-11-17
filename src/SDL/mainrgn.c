@@ -3770,15 +3770,13 @@ void mrObjectClick(Ship *ship)
             }
         }
     } else if (keyIsHit(ALTKEY) || keyIsHit(RALTKEY)) { // alt-click: focus on a ship
-#if MR_CAN_FOCUS_ROIDS
-        if ((mrCanFocusRoids && !multiPlayerGame) || ship->objtype == OBJ_ShipType || ship->objtype == OBJ_DerelictType)
-#else
-        if (ship->objtype == OBJ_ShipType || ship->objtype == OBJ_DerelictType)
-#endif
+        if (ship->objtype == OBJ_ShipType || ship->objtype == OBJ_DerelictType ||
+            ship->objtype == OBJ_AsteroidType || ship->objtype == OBJ_DustType)
         {
             selSelecting.TargetPtr[0] = (SpaceObjRotImpTarg *)ship; //make a temporary dummy selection
             selSelecting.numTargets = 1;
-            MakeShipMastersIncludeSlaves((SelectCommand *)&selSelecting);
+            if (ship->objtype == OBJ_ShipType)
+                MakeShipMastersIncludeSlaves((SelectCommand *)&selSelecting);
 
             tutGameMessage("Game_ClickFocus");
             ccFocusClose(&universe.mainCameraCommand,

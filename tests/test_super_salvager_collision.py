@@ -26,13 +26,16 @@ typedef int bool32; typedef float real32; typedef int sdword; typedef int GunSou
 #define SalCapCorvette 7
 #define DEATH_Killed_By_Collision 777
 #define DEATH_Killed_By_Kamikaze 778
-typedef struct Player {int id;} Player;
+typedef struct Player {int playerIndex;} Player;
 typedef struct SlaveInfo SlaveInfo;
 typedef struct Ship {int flags;float health;int objtype;SlaveInfo *slaveinfo;Player *playerowner;int shiptype;} Ship;
 typedef Ship SpaceObjRotImpTarg;
 struct SlaveInfo {int flags;Ship *Master;};
 struct {Player *curPlayerPtr;} universe;
 int nisIsRunning,singlePlayerGame,opSuperSalvagers;
+#define OH_SUPER_SALVAGERS 1
+int hwMatchPlayerOption(unsigned option,unsigned local,unsigned player){(void)option;return singlePlayerGame&&player==(unsigned)universe.curPlayerPtr->playerIndex&&local!=0;}
+
 '''
         checks = r'''
 static void hit(Ship *s,int how){ApplyDamageToTarget(s,30,0,how,0);}

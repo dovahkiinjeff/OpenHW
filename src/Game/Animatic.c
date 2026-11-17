@@ -107,11 +107,13 @@ void animAviSetup(bool32 on)
 ----------------------------------------------------------------------------*/
 void animAviDecode(sdword frame)
 {
-    real32 framerate, timeElapsed;
+    animAviDecodeTime((real32)frame/15.0f);
+}
+void animAviDecodeTime(real32 timeElapsed)
+{
     nisheader* header;
     nisevent* event;
-
-    g_frame = frame;
+    g_frame=(sdword)(timeElapsed*15.0f);
 
     if (animScriptHeader == NULL)
     {
@@ -120,8 +122,6 @@ void animAviDecode(sdword frame)
 
     header = animScriptHeader;
 
-    framerate = 15.0f;
-    timeElapsed = (real32)frame / framerate;
 
     event = &animScriptHeader->events[animCurrentEvent];
     while (animCurrentEvent < header->nEvents &&

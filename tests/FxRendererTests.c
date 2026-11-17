@@ -13,6 +13,9 @@
 #include "ModernGraphics.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "../src/ThirdParty/stb/stb_image.h"
+bool32 rmPresentationBeamTint(uint64_t anchor,float rgb[3]) {
+    if(anchor!=42)return FALSE;rgb[0]=1;rgb[1]=.82f;rgb[2]=.12f;return TRUE;
+}
 static const char *root;
 static unsigned loads,vertices,uploads,deleted,pushes,lights,embeddedDecodes;
 static int inPrimitive;
@@ -94,6 +97,8 @@ int main(int argc,char **argv){
             depthEnabled=1;rmFxRendererDraw(NULL,&draw);assert(!depthEnabled&&depthFunction==GL_LEQUAL);
             /* A subsequent beam must not inherit the contact layer's state. */
             draw.node=&node;rmFxRendererDraw(NULL,&draw);assert(depthEnabled);}
+        {draw.node=&node;draw.anchor=42;rmFxRendererDraw(NULL,&draw);
+            assert(lastColour[0]>lastColour[1] && lastColour[1]>lastColour[2]);draw.anchor=0;}
         if(graph){
             const char *contacts[]={"ion_dmg_ring_ring","ion_dmg_ring","ion_dmg_ring_ring_kpr","ion_dmg_ring_kpr"};unsigned i;
             for(i=0;i<4;++i){int index=hwRmFxGraphFind(graph,contacts[i]);unsigned beforeContact=vertices;

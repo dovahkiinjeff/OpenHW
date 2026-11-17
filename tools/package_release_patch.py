@@ -11,7 +11,7 @@ def main():
     for n in ('source','installed','normal','diagnostic','bootstrap','output','work','pyinstaller-modules'):
         p.add_argument('--'+n,type=Path,required=True)
     p.add_argument('--launcher',type=Path,required=True)
-    p.add_argument('--version',default='1.0.7',choices=['1.0.7','1.1.1','1.1.2','1.1.3','1.1.4','1.1.5','1.1.6','1.1.7','1.1.8','1.1.9','1.1.10','1.1.11'])
+    p.add_argument('--version',default='1.0.7',choices=['1.0.7','1.1.1','1.1.2','1.1.3','1.1.4','1.1.5','1.1.6','1.1.7','1.1.8','1.1.9','1.1.10','1.1.11','1.1.12'])
     a=p.parse_args();sys.path.insert(0,str(a.pyinstaller_modules.resolve()))
     from PyInstaller.archive.readers import CArchiveReader
     from PyInstaller.archive.writers import CArchiveWriter
@@ -22,8 +22,8 @@ def main():
     pyz_name=next(n for n,r in pkg.toc.items() if r[4]=='z')
     pyz_file=a.work/'original.pyz';pyz_file.write_bytes(pkg.extract(pyz_name))
     pyz=ZlibArchiveReader(str(pyz_file),check_pymagic=True);raw_pyz=pyz_file.read_bytes()
-    replacements={name:compile((a.source/'tools'/(('release_patch'+a.version.replace('.','')+'.py') if name=='release_patch' and a.version in ('1.1.1','1.1.2','1.1.3','1.1.4','1.1.5','1.1.6','1.1.7','1.1.8','1.1.9','1.1.10','1.1.11') else name+'.py')).read_text(),name+'.py','exec') for name in ('release_patch','release_sky_lighting')}
-    if a.version in ('1.1.10','1.1.11'):
+    replacements={name:compile((a.source/'tools'/(('release_patch'+a.version.replace('.','')+'.py') if name=='release_patch' and a.version in ('1.1.1','1.1.2','1.1.3','1.1.4','1.1.5','1.1.6','1.1.7','1.1.8','1.1.9','1.1.10','1.1.11','1.1.12') else name+'.py')).read_text(),name+'.py','exec') for name in ('release_patch','release_sky_lighting')}
+    if a.version in ('1.1.10','1.1.11','1.1.12'):
         for name in ('release_compact','extract_remastered_big','portable_convert'):
             replacements[name]=compile((a.source/'tools'/(name+'.py')).read_text(),name+'.py','exec')
     if 'generate_mission_skies' not in pyz.toc:raise ValueError('Installed converter lacks the required sky generator')
@@ -63,7 +63,7 @@ def main():
         import sysconfig
         files={'Launcher.exe':a.launcher,'Development/Installer/OpenHW-SetupEngine.exe':rebuilt,
                'Development/Installer/Development/codex-rejected-cas.pem':Path(sysconfig.get_path('stdlib'))/'codex-rejected-cas.pem'}
-    if a.version in ('1.1.3','1.1.4','1.1.5','1.1.6','1.1.7','1.1.8','1.1.9','1.1.10','1.1.11'):
+    if a.version in ('1.1.3','1.1.4','1.1.5','1.1.6','1.1.7','1.1.8','1.1.9','1.1.10','1.1.11','1.1.12'):
         files.pop('Launcher.exe',None)
     if a.version=='1.1.10':
         files={'Development/Installer/OpenHW-SetupEngine.exe':rebuilt}

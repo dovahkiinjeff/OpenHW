@@ -4076,6 +4076,7 @@ sdword **ResourceLatchPoints[] = {
 
 bool32 shipStaticIndicatesBigHangerBayForRace(ShipStaticInfo *ship_static, sdword race)
 {
+    if(ship_static && ship_static->shiptype==P2FuelPod)return FALSE;
     if (ship_static                    != NULL
     &&  ship_static->salvageStaticInfo != NULL)
     {

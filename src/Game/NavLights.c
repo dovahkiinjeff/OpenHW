@@ -145,6 +145,20 @@ void navLightStaticInfoDelete(NAVLightStaticInfo *staticInfo)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+static bool32 navLightPositionForShip(Ship *ship,NAVLightStatic *light)
+{
+    char semantic[32];vector nativeLamp;
+    if(ship->objtype!=OBJ_ShipType)return TRUE;
+    snprintf(semantic,sizeof(semantic),"nav_%s",light->name);
+    if(meshRemasteredMarkerPosition(ship,semantic,&light->position))return TRUE;
+    /* RM Taiidan support hull has no Dock2, Dock2a or caution2 lamps.
+       Keep Classic fallback only for a Classic/custom hull, not floating
+       Classic positions beside a verified native support-frigate hull. */
+    if(ship->shiprace==R2 && ship->shiptype==AdvanceSupportFrigate &&
+       meshRemasteredMarkerPosition(ship,"nav_antenna1",&nativeLamp))return FALSE;
+    return TRUE;
+}
+
 void RenderNAVLights(Ship *ship)
 {
    sdword i;
@@ -201,14 +215,7 @@ void RenderNAVLights(Ship *ship)
 			{
                 NAVLightStatic positioned=*navLightStatic;
                 NAVLightStatic *source=navLightStatic;
-                char semantic[32];
-                /* Native hulls own the lamp positions, including animated
-                   collector lamps. Missing bindings retain the classic point;
-                   explicit authoring markers still have first priority. */
-                if (ship->objtype==OBJ_ShipType) {
-                    snprintf(semantic,sizeof(semantic),"nav_%s",source->name);
-                    meshRemasteredMarkerPosition(ship,semantic,&positioned.position);
-                }
+                if(!navLightPositionForShip(ship,&positioned))continue;
                 navLightStatic=&positioned;
                 lightColor = navLightEffectiveColor(ship, navLightStatic);
 #ifdef HW_ENABLE_D3D12_BACKEND

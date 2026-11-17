@@ -1,6 +1,7 @@
 /* Shared deterministic waypoint/production-rally state. No fake universe objects
    and no layout changes to the legacy raw ship/command save structures. */
 #include "NavigationOrders.h"
+#include "NavigationGeometry.h"
 #include "AIShip.h"
 #include "Universe.h"
 #include "UnivUpdate.h"
@@ -152,6 +153,7 @@ void navSetRoute(CommandLayer *layer,SelectCommand *ships,const vector *points,
        !count || count>NAV_MAX_POINTS || action>NAV_ACTION_LOOP ||
        (action==NAV_ACTION_LOOP && (count<2 || target)))return;
     for(i=0;i<count;i++)if(!navValidPoint(points[i]))return;
+    if(!navGeometryCheck(points,count,action==NAV_ACTION_LOOP,navGeometryRadius(ships),NULL))return;
     navCancelShips(ships);MakeShipsMobile(ships);if(!ships->numShips)return;
     dispatching++;clMove(layer,ships,ships->ShipPtr[0]->posinfo.position,points[0]);dispatching--;
     if(!ships->numShips)return;

@@ -3585,11 +3585,12 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
                     {
                         if ((keyIsHit(ALTKEY) || keyIsHit(RALTKEY)) && !guardMode)
                         {
-                            if (clickedOn->objtype == OBJ_ShipType)
+                            if (clickedOn->objtype == OBJ_ShipType || clickedOn->objtype == OBJ_DerelictType ||
+                                clickedOn->objtype == OBJ_AsteroidType || clickedOn->objtype == OBJ_DustType)
                             {
                                 selSelecting.TargetPtr[0] = (SpaceObjRotImpTarg *)clickedOn;
                                 selSelecting.numTargets = 1;
-                                MakeShipMastersIncludeSlaves((SelectCommand *)&selSelecting);
+                                if(clickedOn->objtype==OBJ_ShipType)MakeShipMastersIncludeSlaves((SelectCommand *)&selSelecting);
                                 smCullAndFocusSelecting();
                                 tutGameMessage("Game_ClickFocus");
                             }
@@ -4263,7 +4264,10 @@ static void smKeepShipFocusTargets(void)
     for (readIndex = 0; readIndex < selSelecting.numTargets; readIndex++)
     {
         if (selSelecting.TargetPtr[readIndex] != NULL &&
-            selSelecting.TargetPtr[readIndex]->objtype == OBJ_ShipType)
+            (selSelecting.TargetPtr[readIndex]->objtype == OBJ_ShipType ||
+             selSelecting.TargetPtr[readIndex]->objtype == OBJ_DerelictType ||
+             selSelecting.TargetPtr[readIndex]->objtype == OBJ_AsteroidType ||
+             selSelecting.TargetPtr[readIndex]->objtype == OBJ_DustType))
         {
             selSelecting.TargetPtr[writeIndex++] = selSelecting.TargetPtr[readIndex];
         }

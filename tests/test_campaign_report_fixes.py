@@ -70,6 +70,7 @@ typedef struct MilitarySlot {int highestSlotUsed,numSubslots;struct {Ship *ship;
 typedef struct MilitaryParadeCommand {Ship *aroundShip;int paradeType;MilitarySlot *militarySlots[1];} MilitaryParadeCommand;
 typedef struct ParadeTypeInfo {SlotInfo slotinfos[1];} ParadeTypeInfo;
 struct CommandToDo {MilitaryParadeCommand *militaryParade;};
+Ship *navParadeLeader(MilitaryParadeCommand *p){return p->aroundShip;}
 ParadeTypeInfo paradeTypeInfos[1];
 #define matGetVectFromMatrixCol1(v,m) ((v)=(m).up)
 #define matGetVectFromMatrixCol2(v,m) ((v)=(m).right)

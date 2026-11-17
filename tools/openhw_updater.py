@@ -18,7 +18,7 @@ import urllib.parse
 import uuid
 import zipfile
 
-UPDATER_VERSION = '1.1.5'
+UPDATER_VERSION = '1.1.6'
 PROTOCOL = 3
 MANIFEST_URL = 'https://openhw.tech/updates/stable.json'
 FALLBACK_MANIFEST_URL = 'https://raw.githubusercontent.com/dovahkiinjeff/OpenHW/main/updates/stable.json'
@@ -378,6 +378,78 @@ def recover(root, progress):
             rollback(root, path.parent, journal)
 
 
+def _rollback_rows(transaction,journal):
+    prior=journal.get('prior');target=journal.get('target');version_key(prior);version_key(target)
+    if compare_versions(prior,'1.1')<0 or compare_versions(prior,target)>=0:raise UpdateError('Rollback cannot cross the required base-install boundary')
+    rows=journal.get('files',[])
+    if not isinstance(rows,list) or not rows or len(rows)>100000:raise UpdateError('Invalid rollback backup')
+    seen=set();restorable=[]
+    for row in rows:
+        name=row['path'];key=relative_path(name).as_posix().lower()
+        if key in seen:raise UpdateError('Duplicate rollback file')
+        seen.add(key)
+        if key in ('launcher.exe','updater.exe'):continue  # Keep the current rollback-capable utilities.
+        if not (writable_member(name) or key=='version.json' or key in ('development/patches/'+target+'/patch.json','development/patches/'+target+'/applied.json')):
+            raise UpdateError('Rollback cannot replace player files: '+name)
+        if row['existed']:
+            backup=inside(transaction/'backup',name)
+            if not backup.is_file() or digest(backup)!=row.get('old_sha256'):raise UpdateError('Previous-version backup is missing or changed')
+        restorable.append(row)
+    if 'version.json' not in seen:raise UpdateError('Rollback backup has no version record')
+    if version_key(read_json(inside(transaction/'backup','version.json'))['version'])!=version_key(prior):raise UpdateError('Rollback version backup does not match')
+    return restorable
+
+
+def previous_version(root):
+    """Offer only a complete, checksum-verified backup of this installation."""
+    root=Path(root).resolve();current=detect_version(root)
+    folder=inside(root,'Development/Updater/Transactions')
+    for path in sorted(folder.glob('*/transaction.json'),key=lambda p:p.stat().st_mtime,reverse=True):
+        try:
+            journal=read_json(path)
+            if journal.get('state')!='complete' or journal.get('kind')=='user-rollback' or version_key(journal['target'])!=version_key(current):continue
+            _rollback_rows(path.parent,journal)
+            return dict(version=journal['prior'],transaction=path.parent.name)
+        except (OSError,ValueError,KeyError,TypeError,UpdateError):continue
+    return None
+
+
+def restore_previous_version(root,expected,progress):
+    root=Path(root).resolve();stop_if_game_running()
+    with update_lock(root):
+        recover(root,progress)
+        choice=previous_version(root)
+        if not choice or choice['version']!=expected:raise UpdateError('The previous-version backup is unavailable or changed')
+        source=inside(root,'Development/Updater/Transactions/'+choice['transaction']);original=read_json(source/'transaction.json')
+        rows=_rollback_rows(source,original)
+        transaction=inside(root,'Development/Updater/Transactions/'+uuid.uuid4().hex);transaction.mkdir()
+        journal=dict(schema=1,kind='user-rollback',state='prepared',prior=detect_version(root),target=expected,files=[])
+        for row in rows:
+            target=inside(root,row['path']);existed=target.is_file();record=dict(path=row['path'],existed=existed)
+            if target.exists() and not existed:raise UpdateError('Rollback target is not a file')
+            if existed:
+                backup=inside(transaction/'backup',row['path']);backup.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(target,backup);record['old_sha256']=digest(backup)
+            if row['existed']:
+                stage=inside(transaction/'new',row['path']);stage.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(inside(source/'backup',row['path']),stage)
+            journal['files'].append(record)
+        stop_if_game_running();journal['state']='applying';atomic_json(transaction/'transaction.json',journal)
+        try:
+            progress('Restoring OpenHW '+expected+'...',None)
+            for row in rows:
+                target=inside(root,row['path'])
+                if row['existed']:
+                    target.parent.mkdir(parents=True,exist_ok=True);os.replace(inside(transaction/'new',row['path']),target)
+                    if digest(target)!=row['old_sha256']:raise UpdateError('Restored file failed verification')
+                elif target.is_file():target.unlink()
+            if version_key(detect_version(root))!=version_key(expected):raise UpdateError('Rollback did not restore the expected version')
+            journal['state']='complete';atomic_json(transaction/'transaction.json',journal)
+            original['state']='user-rolled-back';atomic_json(source/'transaction.json',original)
+        except BaseException:
+            rollback(root,transaction,journal);raise
+        progress('Restored OpenHW '+expected+'. Saves and settings preserved.',1)
+        return expected
+
+
 def repair_skies(root, select_collection, progress):
     from release_sky_lighting import ensure, valid_pair
     if all(valid_pair(Path(root)/'Data/Missions', m) for m in range(1,17)): return
@@ -449,6 +521,7 @@ def apply_patch(root, patch, package, progress, select_collection=lambda: None, 
             if digest(inside(root,row['path'])) != row['sha256']: raise UpdateError('Installed file verification failed')
         current = read_json(root/'version.json') if (root/'version.json').is_file() else {}
         hashes = {r['path']:r['sha256'] for r in rows}
+        for field in ('local_build','base_release','release_hashes_before_local_candidate','release_hashes_before_local_fix'): current.pop(field,None)
         current.update(version=patch['to'], previous=installed)
         if 'OpenHW.exe' in hashes: current['normal'] = hashes['OpenHW.exe']
         if 'OpenHW-Daignostics.exe' in hashes: current['diagnostic'] = hashes['OpenHW-Daignostics.exe']

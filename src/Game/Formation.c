@@ -2731,7 +2731,14 @@ static bool32 paradeCustomPose(MilitaryParadeCommand *parade,Ship *ship,vector *
         }
     }
 counted:
-    if(!paradeLayoutRuntime(leader->shiprace,ship->shiprace,ship->shiptype,ordinal,&entry,local))return FALSE;
+    if(!paradeLayoutRuntime(leader->shiprace,ship->shiprace,ship->shiptype,ordinal,&entry,local)) {
+        /* Captured pods accompany the player's close support fleet. The
+           Kadeshi swarm slots are deliberately distant from their own host. */
+        if(ship->shiptype!=P2FuelPod || leader->playerowner!=universe.curPlayerPtr ||
+           !paradeLayoutDefault(leader->shiprace,leader->shiprace,ResourceController,&entry))return FALSE;
+        for(i=0;i<3;i++)local[i]=entry.position[i]+ordinal*entry.growth[i];
+        local[2]+=800.0f; /* separate the pods from the controller row */
+    }
     matGetVectFromMatrixCol1(up,leader->rotinfo.coordsys);
     matGetVectFromMatrixCol2(right,leader->rotinfo.coordsys);
     matGetVectFromMatrixCol3(heading,leader->rotinfo.coordsys);

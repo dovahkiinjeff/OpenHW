@@ -292,7 +292,8 @@ void aviPlayLoop()
     double fallbackFrameSeconds = 1.0 / 15.0;
     double startSeconds = (double)SDL_GetPerformanceCounter() /
                           (double)SDL_GetPerformanceFrequency();
-    bool32 skipped = FALSE;
+    bool32 skipped = FALSE,finished=FALSE;
+    double movieSeconds=0;
     if (rgbFrame == NULL || packet == NULL || pCodecCtx == NULL ||
         av_image_alloc(rgbFrame->data, rgbFrame->linesize,
                        pCodecCtx->width, pCodecCtx->height,
@@ -322,7 +323,7 @@ void aviPlayLoop()
             fallbackFrameSeconds = (double)rate.den / (double)rate.num;
     }
 
-    while (!skipped)
+    while (!skipped && !finished)
     {
         int readResult = av_read_frame(pFormatCtx, packet);
         if (readResult < 0)
@@ -341,7 +342,7 @@ void aviPlayLoop()
             if (decodeResult == AVERROR(EAGAIN)) break;
             if (decodeResult == AVERROR_EOF)
             {
-                skipped = TRUE;
+                finished = TRUE;
                 break;
             }
             if (decodeResult < 0)
@@ -355,7 +356,11 @@ void aviPlayLoop()
                       (const uint8_t * const *)pFrame->data,
                       pFrame->linesize, 0, pCodecCtx->height,
                       rgbFrame->data, rgbFrame->linesize);
-            animAviDecode(frameNumber);
+            if(pFrame->best_effort_timestamp!=AV_NOPTS_VALUE && streamPointer!=NULL) {
+                if(firstTimestamp==AV_NOPTS_VALUE)firstTimestamp=pFrame->best_effort_timestamp;
+                movieSeconds=(double)(pFrame->best_effort_timestamp-firstTimestamp)*av_q2d(streamPointer->time_base);
+            } else movieSeconds=frameNumber*fallbackFrameSeconds;
+            animAviDecodeTime((real32)movieSeconds);
             soundEventUpdate();
             speechEventUpdate();
             rndClearToBlack();
@@ -404,6 +409,19 @@ void aviPlayLoop()
         if (readResult < 0) break;
     }
 
+    /* Dialogue is streamed separately from the video. Hold its final image
+       until queued narration ends; user skip remains immediate. Bound a
+       stalled decoder/audio backend so finishing cannot become a softlock. */
+    if(!skipped && finished) {
+        Uint32 started=SDL_GetTicks();
+        while(speechEventAnimaticPending() && SDL_GetTicks()-started<30000) {
+            SDL_Event event;
+            while(SDL_PollEvent(&event))if(event.type==SDL_QUIT || event.type==SDL_KEYDOWN || event.type==SDL_MOUSEBUTTONDOWN)skipped=TRUE;
+            if(skipped)break;
+            animAviDecodeTime((real32)(movieSeconds+(SDL_GetTicks()-started)/1000.0));
+            soundEventUpdate();speechEventUpdate();aviSubUpdate();rndFlush();SDL_Delay(10);
+        }
+    }
     aviDonePlaying = TRUE;
     sws_freeContext(imageConvertContext);
     imageConvertContext = NULL;

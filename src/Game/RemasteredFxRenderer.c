@@ -1,5 +1,6 @@
 #include "../Modern/DiagnosticPolicy.h"
 #include "RemasteredFxRenderer.h"
+#include "RemasteredPresentation.h"
 #include "RemasteredSubsystem.h"
 #include "File.h"
 #include "Memory.h"
@@ -211,6 +212,10 @@ void rmFxRendererDraw(void *user,const HwRmFxDraw *draw){const HwRmFxNode *node;
        Do not brighten charge flashes, impacts, lights or other beam effects. */
     if(node->style==HW_RM_FX_BEAM && node->name && !strncmp(node->name,"ion_beam",8))
     { colour[0]*=2.0f;colour[1]*=2.0f;colour[2]*=2.0f; }
+    if(node->style==HW_RM_FX_BEAM) {
+        float tint[3],energy=fmaxf(colour[0],fmaxf(colour[1],colour[2]));
+        if(rmPresentationBeamTint(draw->anchor,tint)){colour[0]=energy*tint[0];colour[1]=energy*tint[1];colour[2]=energy*tint[2];}
+    }
     offset[0]*=draw->scale;offset[1]*=draw->scale;offset[2]*=draw->scale;point(draw->matrix,offset,&origin);
     radius=scalar(node,"radius",draw->phase,1)*draw->scale*(draw->radiusMultiplier>0?draw->radiusMultiplier:1);
     blend=(unsigned)scalar(node,"blending",draw->phase,2);

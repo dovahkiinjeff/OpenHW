@@ -11,6 +11,7 @@ typedef struct HwRmFxDraw {
     const HwRmFxNode *node;
     float matrix[16],scale,age,phase,length;
     unsigned random;
+    uint64_t anchor; /* presentation attachment identity; never a game pointer */
     float spin[3],radiusMultiplier;
     /* Borrowed, oldest-to-newest world positions. Length on STYLE_TRAIL is
        a time window, not a straight beam's distance. Valid during draw only. */
