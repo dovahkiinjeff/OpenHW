@@ -1,3 +1,4 @@
+#include "ShipReflection.hlsli"
 RaytracingAccelerationStructure Scene : register(t0);
 RWTexture2D<float4> RayLighting : register(u0);
 RWTexture2D<float4> Accumulation : register(u1);
@@ -9,6 +10,8 @@ RWTexture2D<float4> SpecularAlbedoGuide : register(u6);
 RWTexture2D<float4> NormalRoughnessGuide : register(u7);
 RWStructuredBuffer<uint4> SurfaceHistory : register(u8);
 RWStructuredBuffer<uint4> PreviousSurfaceHistory : register(u9);
+
+RWTexture2D<float4> ReflectedLight : register(u11);
 
 struct SceneLight
 {
@@ -118,6 +121,7 @@ StructuredBuffer<TriangleSurface> Surfaces : register(t2, space1);
 
 struct RayPayload
 {
+    float4 reflection;
     float3 lighting;
     uint hit;
     uint depth;
@@ -323,6 +327,7 @@ bool IsVisible(float3 origin, float3 direction, float maximumDistance)
                       min(maximumDistance, ShadowMaximumDistance));
 
     RayPayload payload;
+    payload.reflection = 0.0;
     payload.lighting = 0.0;
     payload.hit = 0;
     payload.depth = MaximumBounces;
@@ -620,7 +625,7 @@ float GeneratedReliefResponse(float3 shadingNormal,
 float3 EvaluateDirectLighting(float3 hitPosition, float3 shadingNormal,
                               float3 geometricNormal, float3 viewDirection,
                               uint bounceDepth, float materialRoughness,
-                              float materialSpecular, bool rmMaterial)
+                              float materialSpecular, bool rmMaterial, float4 control, out float4 reflection)
 {
     /* Never offset a visibility ray along texture-derived detail.  Doing so
        makes a sub-texel normal change cross the source triangle and produces
@@ -645,7 +650,21 @@ float3 EvaluateDirectLighting(float3 hitPosition, float3 shadingNormal,
        between strong direct lights. It is evaluated only on the primary hit,
        so texture detail cannot steer recursive transport or reintroduce the
        old camera-motion flicker. */
-    if (bounceDepth == 0 && SurfaceReflectivity > 0.0001)
+    float3 reflectedSky = 0, highlights = 0;
+    float skyWeight = 0;
+    if (rmMaterial && bounceDepth == 0 && SurfaceReflectivity > 0 && EnvironmentStrength > 0)
+    {
+        float3 direction = reflect(-viewDirection, shadingNormal);
+        skyWeight = ShipEnvironmentWeight(control,dot(shadingNormal,viewDirection)) * SurfaceReflectivity;
+        if (EnvironmentIsDualParaboloid != 0)
+            skyWeight *= saturate(ViewToWorldRow2.w);
+        if (skyWeight > 0)
+            reflectedSky = EnvironmentStrength * (EnvironmentIsDualParaboloid != 0
+                ? ShipSkyReflection(MissionEnvironment,MaterialSampler,ViewToWorldDirection(direction),
+                                    ShipReflectionMasks(control).x)
+                : SampleMissionEnvironment(direction));
+    }
+    if (!rmMaterial && bounceDepth == 0 && SurfaceReflectivity > 0.0001)
     {
         float3 reflectedDirection = reflect(-viewDirection, shadingNormal);
         float reflectionGain = lerp(0.20, 0.055, materialRoughness) *
@@ -761,6 +780,13 @@ float3 EvaluateDirectLighting(float3 hitPosition, float3 shadingNormal,
             lighting += light.color * diffuseEnergy;
             if (bounceDepth == 0 && SurfaceReflectivity > 0.0001)
             {
+                if (rmMaterial)
+                {
+                    float highlight = ShipHighlight(control,shadingNormal,viewDirection,lightVector,
+                        light.type == LIGHT_DIRECTIONAL ? 1.0 : (light.type == LIGHT_LINE ? 0.75 : 0.25));
+                    highlights += light.color * (highlight * SurfaceReflectivity * light.intensity * attenuation * visibility);
+                    continue;
+                }
                 float3 halfVector = normalize(lightVector + viewDirection);
                 float exponent = rmMaterial
                     ? max(2.0, 2.0 / max(0.001, materialRoughness * materialRoughness) - 2.0)
@@ -779,6 +805,7 @@ float3 EvaluateDirectLighting(float3 hitPosition, float3 shadingNormal,
             }
         }
     }
+    reflection = ShipReflectedLayer(reflectedSky,skyWeight,highlights);
     return lighting;
 }
 
@@ -826,6 +853,7 @@ void RayGeneration()
     uint temporalScramble = Hash(FrameSeed * 0x9e3779b9u + 0x68bc21ebu);
     uint seed = Hash((pixel.x + pixel.y * dimensions.x) ^ temporalScramble);
     float3 sampleLighting = 0.0;
+    float4 reflectedSamples = 0.0;
     uint primaryHit = 0;
     float primaryDepth = 1.0;
     float2 primaryMotion = 0.0;
@@ -852,6 +880,7 @@ void RayGeneration()
         ray.TMax = MaximumRayDistance;
 
         RayPayload payload;
+        payload.reflection = 0.0;
         payload.lighting = 0.0;
         payload.hit = 0;
         payload.depth = 0;
@@ -869,6 +898,7 @@ void RayGeneration()
         TraceRay(Scene, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES,
                  INSTANCE_MASK_PRIMARY, 0, 2, 0, ray, payload);
         sampleLighting += payload.lighting;
+        reflectedSamples += payload.reflection;
         if (sampleIndex == 0)
         {
             primaryHit = payload.hit;
@@ -1041,6 +1071,8 @@ void RayGeneration()
        and pixel convention; mixing the old bottom-up presenter convention with
        the new full-scene input flips the result and destroys temporal
        correspondence. Motion is already expressed in D3D UV/pixel space. */
+    float4 reflected = reflectedSamples / sampleCount;
+    ReflectedLight[pixel] = float4(min(reflected.rgb * Exposure, 65504.0),reflected.a);
     SceneDepth[pixel] = primaryDepth;
     SceneMotion[pixel] = primaryMotion;
     /* The diffuse guide also feeds the hybrid presenter's foreground-emissive
@@ -1156,7 +1188,7 @@ void PrimaryClosestHit(inout RayPayload payload,
     EvaluateSurface(attributes, surface, uv, baseColor, emission, opacity, surfaceMip);
     float4 orm = SampleSurfaceChannelLod(surface, uv, 3u, surfaceMip);
     bool authoredOrm = orm.a > 0.5;
-    float materialAo = authoredOrm ? saturate(orm.r) : 1.0;
+    float materialAo = authoredOrm && (surface.flags & SURFACE_RM_MATERIAL) == 0u ? saturate(orm.r) : 1.0;
     float materialRoughness = authoredOrm ? saturate(orm.g)
                                           : saturate(SurfaceRoughness);
     bool rmMaterial = (surface.flags & SURFACE_RM_MATERIAL) != 0u;
@@ -1177,7 +1209,7 @@ void PrimaryClosestHit(inout RayPayload payload,
                          WorldRayDirection() * RayTCurrent();
     float3 lighting = EvaluateDirectLighting(
         hitPosition, shadingNormal, geometricNormal,
-        normalize(-WorldRayDirection()), payload.depth, materialRoughness, materialSpecular, rmMaterial);
+        normalize(-WorldRayDirection()), payload.depth, materialRoughness, materialSpecular, rmMaterial, orm, payload.reflection);
     lighting *= lerp(0.35, 1.0, materialAo);
     if (payload.depth == 0 && NormalDetailStrength > 0.0001 &&
         (surface.flags & SURFACE_NATIVE_NORMAL) == 0u)
@@ -1203,6 +1235,7 @@ void PrimaryClosestHit(inout RayPayload payload,
             bounceRay.TMax = MaximumRayDistance;
 
             RayPayload bounce;
+            bounce.reflection = 0.0;
             bounce.lighting = 0.0;
             bounce.hit = 0;
             bounce.depth = payload.depth + 1u;

@@ -113,7 +113,12 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--collection',type=Path);p.add_argument('--check',action='store_true');p.add_argument('--verify-payload',action='store_true')
     p.add_argument('--apply-hotfix',action='store_true')
+    p.add_argument('--repair-native-materials',action='store_true')
     a=p.parse_args();root=root_directory();local_environment(root)
+    if a.repair_native_materials:
+        from repair_installed_reflections import repair
+        repair(root)
+        return
     if a.apply_hotfix:
         from release_patch import run
         run(root)

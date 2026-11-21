@@ -18,7 +18,7 @@ if(WIN32)
     target_link_libraries(OpenHWPatchBootstrap PRIVATE comctl32 bcrypt crypt32 shell32 ole32)
     add_executable(OpenHWCurrentPatchBootstrap WIN32 EXCLUDE_FROM_ALL tools/release_bootstrap.cpp)
     target_compile_features(OpenHWCurrentPatchBootstrap PRIVATE cxx_std_17)
-    target_compile_definitions(OpenHWCurrentPatchBootstrap PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN OPENHW_PATCH_INSTALLER OPENHW_PATCH_1113)
+    target_compile_definitions(OpenHWCurrentPatchBootstrap PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN OPENHW_PATCH_INSTALLER OPENHW_PATCH_1114)
     target_link_libraries(OpenHWCurrentPatchBootstrap PRIVATE comctl32 bcrypt crypt32 shell32 ole32)
     if(MSVC)
         set_property(TARGET OpenHWCurrentPatchBootstrap PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -380,7 +380,7 @@ if(HW_ENABLE_D3D12_BACKEND)
             -Fh "${HW_DXR_SHADER_HEADER}"
             -Vn g_hwModernRaytracingLibrary
             "${HW_SOURCE_DIR}/src/Modern/ModernRaytracing.hlsl"
-        DEPENDS "${HW_SOURCE_DIR}/src/Modern/ModernRaytracing.hlsl"
+        DEPENDS "${HW_SOURCE_DIR}/src/Modern/ModernRaytracing.hlsl" "${HW_SOURCE_DIR}/src/Modern/ShipReflection.hlsli"
         COMMENT "Compiling the DXR path-tracing shader library"
         VERBATIM)
     list(APPEND HW_MODERN_SOURCES "${HW_DXR_SHADER_HEADER}")
@@ -394,7 +394,7 @@ if(HW_ENABLE_D3D12_BACKEND)
             -Fh "${HW_DXR_FEEDBACK_SHADER_HEADER}"
             -Vn g_hwModernRaytracingFeedbackLibrary
             "${HW_SOURCE_DIR}/src/Modern/ModernRaytracing.hlsl"
-        DEPENDS "${HW_SOURCE_DIR}/src/Modern/ModernRaytracing.hlsl"
+        DEPENDS "${HW_SOURCE_DIR}/src/Modern/ModernRaytracing.hlsl" "${HW_SOURCE_DIR}/src/Modern/ShipReflection.hlsli"
         COMMENT "Compiling optional sampler-feedback DXR library"
         VERBATIM)
     list(APPEND HW_MODERN_SOURCES "${HW_DXR_FEEDBACK_SHADER_HEADER}")
@@ -409,6 +409,11 @@ if(HW_ENABLE_D3D12_BACKEND)
         COMMENT "Compiling hardware sampler-feedback collection" VERBATIM)
     list(APPEND HW_MODERN_SOURCES "${HW_MATERIAL_MIP_FEEDBACK_SHADER_HEADER}")
     set(HW_DUST_SHADER_SOURCE "${HW_GENERATED_DIR}/Modern/DustSunVisibility.hlsl")
+    set(HW_SHIP_REFLECTION_FILE "${HW_SOURCE_DIR}/src/Modern/ShipReflection.hlsli")
+    file(READ "${HW_SHIP_REFLECTION_FILE}" HW_SHIP_REFLECTION_SOURCE)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${HW_SHIP_REFLECTION_FILE}")
+    configure_file(src/Modern/ShipReflectionShader.inc.in
+        "${HW_GENERATED_DIR}/Modern/ShipReflectionShader.inc" @ONLY)
     set(HW_DUST_SHADER_HEADER "${HW_GENERATED_DIR}/Modern/DustSunVisibilityShader.h")
     add_custom_command(OUTPUT "${HW_DUST_SHADER_HEADER}"
         COMMAND powershell -NoProfile -ExecutionPolicy Bypass -File
@@ -592,11 +597,13 @@ if(WIN32)
         endforeach()
         add_executable(remastered_scene_smoke EXCLUDE_FROM_ALL
             "${HW_SOURCE_DIR}/tools/remastered_scene_smoke.cpp")
+        target_include_directories(remastered_scene_smoke PRIVATE "${HW_GENERATED_DIR}/Modern")
         target_compile_features(remastered_scene_smoke PRIVATE cxx_std_17)
         target_compile_definitions(remastered_scene_smoke PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN HW_ENABLE_D3D12_NATIVE_RASTER SDL_MAIN_HANDLED)
         target_link_libraries(remastered_scene_smoke PRIVATE SDL2::SDL2 d3d11 d3d12 dxgi d3dcompiler hw_startup_progress)
         add_executable(dx11_renderer_smoke tools/dx11_renderer_smoke.cpp)
         target_include_directories(dx11_renderer_smoke PRIVATE src/Modern)
+        target_include_directories(dx11_renderer_smoke PRIVATE "${HW_GENERATED_DIR}/Modern")
         target_compile_features(dx11_renderer_smoke PRIVATE cxx_std_17)
         target_compile_definitions(dx11_renderer_smoke PRIVATE HW_ENABLE_D3D12_NATIVE_RASTER NOMINMAX WIN32_LEAN_AND_MEAN)
         target_link_libraries(dx11_renderer_smoke PRIVATE SDL2::SDL2 Microsoft::DirectXTex d3d11 d3d12 dxgi d3dcompiler hw_gpu_memory hw_startup_progress)
@@ -799,6 +806,32 @@ set_target_properties(homeworld PROPERTIES
     OUTPUT_NAME "HomeworldModern"
     VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:homeworld>")
 
+if(WIN32)
+    target_link_libraries(homeworld PRIVATE comctl32)
+endif()
+option(HW_BUILD_HOD_EDITOR "Build the embedded Fleet Workshop HOD editor" ON)
+if(WIN32 AND HW_BUILD_HOD_EDITOR)
+    set(editor_dir "${HW_SOURCE_DIR}/tools/hod-editor")
+    file(GLOB_RECURSE editor_sources CONFIGURE_DEPENDS
+        "${editor_dir}/src/*" "${editor_dir}/public/*" "${editor_dir}/parser/src/*.rs"
+        "${editor_dir}/src-tauri/src/*.rs"
+        "${editor_dir}/src-tauri/src/*.js")
+    set(editor_output "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/Data/Workshop/OpenHWHodEditor.dll")
+    add_custom_command(OUTPUT "${editor_output}"
+        COMMAND "${CMAKE_COMMAND}" "-DEDITOR_DIR=${editor_dir}" "-DOUTPUT_FILE=${editor_output}"
+                -P "${HW_SOURCE_DIR}/cmake/BuildHodEditor.cmake"
+        DEPENDS ${editor_sources} "${HW_SOURCE_DIR}/cmake/BuildHodEditor.cmake" "${HW_SOURCE_DIR}/src/Modern/ArchiveAssetAliases.inc"
+                "${editor_dir}/src-tauri/Cargo.toml" "${editor_dir}/src-tauri/Cargo.lock"
+                "${editor_dir}/parser/Cargo.toml"
+                "${editor_dir}/src-tauri/build.rs" "${editor_dir}/package.json" "${editor_dir}/package-lock.json"
+                "${editor_dir}/index.html" "${editor_dir}/tsconfig.json" "${editor_dir}/tsconfig.node.json" "${editor_dir}/vite.config.ts"
+        VERBATIM)
+    add_custom_target(openhw_hod_editor DEPENDS "${editor_output}")
+    add_dependencies(homeworld openhw_hod_editor)
+    install(FILES "${editor_output}" DESTINATION Data/Workshop)
+    install(FILES "${editor_dir}/LICENSE" DESTINATION Licenses RENAME HODEditorJS-LICENSE.txt)
+endif()
+
 install(TARGETS homeworld RUNTIME DESTINATION .)
 install(DIRECTORY "${HW_SOURCE_DIR}/assets/UI/" DESTINATION Data/UI)
 install(DIRECTORY "${HW_SOURCE_DIR}/assets/Missions/" DESTINATION Data/Missions)
@@ -936,6 +969,7 @@ if(BUILD_TESTING)
             "${HW_SOURCE_DIR}/tests/ClassicShadeReference.c")
         target_include_directories(persistent_raster_tests PRIVATE ${_hw_save_includes})
         target_compile_definitions(persistent_raster_tests PRIVATE ${_hw_save_defines})
+        target_include_directories(persistent_raster_tests PRIVATE "${HW_GENERATED_DIR}/Modern")
         target_compile_features(persistent_raster_tests PRIVATE c_std_11 cxx_std_17)
         target_link_libraries(persistent_raster_tests PRIVATE hw_gpu_memory hw_meshoptimizer hw_startup_progress
             Microsoft::DirectXTex SDL2::SDL2 d3d12 dxgi dxguid d3d11 d3dcompiler user32 gdi32 ole32)
@@ -1043,7 +1077,8 @@ if(BUILD_TESTING)
     if(HW_ENABLE_D3D12_NATIVE_RASTER)
     add_executable(raster_lighting_gpu_tests tests/RasterLightingGpuTests.cpp)
     target_include_directories(raster_lighting_gpu_tests PRIVATE src/Modern)
-    target_compile_features(raster_lighting_gpu_tests PRIVATE cxx_std_17)
+    target_include_directories(raster_lighting_gpu_tests PRIVATE "${HW_GENERATED_DIR}/Modern")
+        target_compile_features(raster_lighting_gpu_tests PRIVATE cxx_std_17)
     target_compile_definitions(raster_lighting_gpu_tests PRIVATE HW_ENABLE_D3D12_NATIVE_RASTER NOMINMAX WIN32_LEAN_AND_MEAN)
     target_link_libraries(raster_lighting_gpu_tests PRIVATE SDL2::SDL2 Microsoft::DirectXTex d3d11 d3d12 dxgi d3dcompiler hw_gpu_memory hw_meshoptimizer hw_startup_progress)
     add_test(NAME raster_mission_lighting_gpu COMMAND raster_lighting_gpu_tests)
@@ -1212,10 +1247,9 @@ if(BUILD_TESTING)
     target_compile_definitions(memory_growth_tests PRIVATE ${_hw_save_defines})
     target_link_libraries(memory_growth_tests PRIVATE SDL2::SDL2)
     add_test(NAME memory_growth COMMAND memory_growth_tests)
-    add_executable(native_ship_hod_tests
+    set(hod_test_sources
         "${HW_SOURCE_DIR}/src/Modern/RemasteredPresentationEvents.cpp"
         "${HW_SOURCE_DIR}/src/Modern/RemasteredWeaponPresentation.cpp"
-        "${HW_SOURCE_DIR}/tests/NativeShipHodTests.cpp"
         "${HW_SOURCE_DIR}/src/Modern/RemasteredShipHod.cpp"
         "${HW_SOURCE_DIR}/src/Modern/RemasteredShipMad.cpp"
         "${HW_SOURCE_DIR}/src/Modern/RemasteredSubsystem.cpp"
@@ -1223,6 +1257,13 @@ if(BUILD_TESTING)
         "${HW_SOURCE_DIR}/src/Modern/RemasteredVisualPackage.cpp"
         "${HW_SOURCE_DIR}/src/Game/NativeVisualRegistry.c"
         "${HW_SOURCE_DIR}/src/Game/NativeVisualEvents.c")
+    add_executable(native_ship_hod_tests "${HW_SOURCE_DIR}/tests/NativeShipHodTests.cpp" ${hod_test_sources})
+    if(WIN32 AND HW_BUILD_HOD_EDITOR)
+        add_library(hod_workshop_test_compiler SHARED EXCLUDE_FROM_ALL
+            "${HW_SOURCE_DIR}/src/Modern/OpenHWArchive.cpp" "${HW_SOURCE_DIR}/tests/HodWorkshopTestCompiler.cpp" ${hod_test_sources})
+        target_include_directories(hod_workshop_test_compiler PRIVATE "${HW_SOURCE_DIR}/src/Modern")
+        target_compile_features(hod_workshop_test_compiler PRIVATE cxx_std_17)
+    endif()
     target_include_directories(native_ship_hod_tests PRIVATE "${HW_SOURCE_DIR}/src/Modern")
     target_compile_features(native_ship_hod_tests PRIVATE cxx_std_17)
     add_test(NAME native_interceptor_hod COMMAND native_ship_hod_tests)

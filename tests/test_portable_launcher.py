@@ -48,6 +48,15 @@ class LauncherTests(unittest.TestCase):
         (self.root/'mods/Alpha').mkdir(parents=True)
         for rows in ([dict(name='../outside',enabled=True)],[],[dict(name='Alpha',enabled=True),dict(name='Alpha',enabled=False)]):
             with self.assertRaises(Exception): launcher.save_mods(self.root,rows)
+    def test_create_mod_enables_without_changing_existing_order(self):
+        (self.root/'mods/Existing').mkdir(parents=True)
+        (self.root/'mods/load-order.txt').write_text('Existing\n')
+        launcher.create_mod(self.root,'Turret_Test')
+        self.assertTrue((self.root/'mods/Turret_Test').is_dir())
+        self.assertEqual(launcher.read_mods(self.root),[dict(name='Existing',enabled=True),dict(name='Turret_Test',enabled=True)])
+        for name in ('Turret_Test','../escape',''):
+            with self.assertRaises(Exception): launcher.create_mod(self.root,name)
+
     def test_shader_reset_retains_data_and_moves_only_local_cache(self):
         cache=self.root/'Development/ShaderCache';cache.mkdir(parents=True);(cache/'test.cso').write_bytes(b'compiled')
         (self.root/'Homeworld.cfg').write_bytes(b'unchanged');(self.root/'Data').mkdir();(self.root/'Data/player.map').write_bytes(b'keep')

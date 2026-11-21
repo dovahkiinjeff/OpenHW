@@ -36,6 +36,26 @@ extern "C" int openhwModsSave(const char* root,const OpenHWModEntry* rows,int co
  for(int i=0;i<count;i++){if(!valid(rows[i].name)||!seen.insert(lower(rows[i].name)).second)throw std::runtime_error("Invalid or duplicate mod name");text+=(rows[i].enabled?"":"#disabled=")+std::string(rows[i].name)+"\n";}
  write(fs::path(root)/"mods/load-order.txt",text);return 1;
  }catch(const std::exception& e){message(error,n,e.what());return 0;}}
+extern "C" int openhwModCreate(const char* root,const char* name,char* error,size_t n) {
+ try {
+    if(!root || !name || !valid(name)) throw std::runtime_error("Use up to 64 letters, numbers, underscores or hyphens");
+    OpenHWModEntry entries[128]={};
+    int count=openhwModsRead(root,entries,128,error,n);
+    if(count<0)return 0;
+    if(count==128)throw std::runtime_error("The mod list is full");
+    fs::path folder=fs::path(root)/"mods"/name;
+    safe(folder);
+    if(!fs::create_directories(folder))throw std::runtime_error("A mod with this name already exists");
+    snprintf(entries[count].name,65,"%s",name);
+    entries[count].enabled=1;
+    if(!openhwModsSave(root,entries,count+1,error,n)){
+        fs::remove(folder);
+        return 0;
+    }
+    message(error,n,"Mod created and enabled. Restart OpenHW to apply.");
+    return 1;
+ } catch(const std::exception& e){message(error,n,e.what());return 0;}
+}
 extern "C" int openhwModPublish(const char* root,const char* name,int append,const char* shipPath,const char* definition,size_t length,int replace,char* error,size_t n){try{
  if(!root||!name||!valid(name)||!shipPath||!relative(shipPath)||!definition||!length||length>1024*1024)throw std::runtime_error("Invalid mod name or ship path");
  const fs::path base(root),dest=base/"mods"/name;safe(dest);

@@ -77,7 +77,7 @@ void raytracingRegisterSurfaceTexture(
 bool raytracingTryAliasSurfaceTexture(const void *materialIdentity,
                                       const char *textureKey);
 void raytracingUnregisterSurfaceTexture(const void *materialIdentity);
-bool raytracingRasterEmissionSource(const void *materialIdentity,RasterEmissionSource &source);
+bool raytracingRasterEmissionSource(const void *materialIdentity,RasterChannel channel,RasterEmissionSource &source);
 bool raytracingReadRasterEmission(std::uint64_t token,std::vector<unsigned char> &rgba);
 void raytracingBeginScene(float verticalFieldOfViewDegrees, float aspectRatio,
                           const float viewMatrix[16]);
@@ -122,6 +122,7 @@ bool raytracingInitialized(void);
 bool raytracingActive(void);
 ID3D12Resource *raytracingDepthResource(void);
 ID3D12Resource *raytracingMotionResource(void);
+ID3D12Resource *raytracingReflectionResource(void);
 ID3D12Resource *raytracingDiffuseAlbedoResource(void);
 ID3D12Resource *raytracingSpecularAlbedoResource(void);
 ID3D12Resource *raytracingNormalRoughnessResource(void);

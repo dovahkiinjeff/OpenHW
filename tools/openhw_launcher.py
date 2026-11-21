@@ -15,7 +15,7 @@ import openhw_updater as updater
 from launcher_settings import SETTINGS
 import launcher_languages
 
-VERSION = '1.1.7'
+VERSION = '1.1.8'
 MOD_NAME = re.compile(r'[A-Za-z0-9_-]{1,64}\Z')
 LANGUAGES = ('English', 'French', 'German', 'Spanish', 'Italian')
 
@@ -126,6 +126,23 @@ def read_mods(root):
     result += [dict(name=name, enabled=False) for name in sorted(available.values()) if name.lower() not in seen]
     if len(result) > 128: raise updater.UpdateError('OpenHW supports at most 128 mod folders')
     return result
+
+
+def create_mod(root, name):
+    root = Path(root).resolve()
+    updater.stop_if_game_running()
+    if not MOD_NAME.fullmatch(name) or name.upper() in ('CON', 'NUL'):
+        raise updater.UpdateError('Use up to 64 letters, numbers, underscores or hyphens.')
+    rows = read_mods(root)
+    if len(rows) >= 128:
+        raise updater.UpdateError('The mod list is full.')
+    folder = safe(root, 'mods/'+name)
+    folder.mkdir(parents=True, exist_ok=False)
+    try:
+        save_mods(root, rows + [dict(name=name, enabled=True)])
+    except Exception:
+        folder.rmdir()
+        raise
 
 
 def save_mods(root, rows):

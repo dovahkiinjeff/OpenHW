@@ -4,6 +4,7 @@ struct MissionLightingFrame {
     float rows[16]={};
     float parameters[4]={};
     float bias[4]={};
+    float skyRows[3][4]={};
     hwmodern::ResolvedSceneLight lights[hwmodern::resolvedSceneLightCapacity]={};
 };
 static_assert(sizeof(MissionLightingFrame)<65536,"Raster lighting CBV capacity");
@@ -291,7 +292,13 @@ void beginScene(const float view[16]) {if(view)std::memcpy(missionView.m,view,64
 void endScene() {g.draw.worldScene=false;}
 const float*sceneView(){return missionView.m;}
 void setMissionLighting(bool enabled,const std::vector<hwmodern::ResolvedSceneLight>&lights,
-    float exposure,float strength,float receiver,float normal) {
+    float exposure,float strength,float receiver,float normal,unsigned sky,float fade,float reflectivity,float environment) {
+    reflectionSkyName=sky;
+    for(unsigned r=0;r<3;++r) for(unsigned c=0;c<3;++c)
+        missionLighting.skyRows[r][c]=missionView.m[4*r+c];
+    missionLighting.skyRows[0][3]=reflectivity;
+    missionLighting.skyRows[1][3]=environment;
+    missionLighting.skyRows[2][3]=fade;
     missionLightingEnabled=enabled;missionLighting.parameters[0]=enabled?float(std::min<size_t>(lights.size(),hwmodern::resolvedSceneLightCapacity)):0;
     missionLighting.parameters[1]=float(hwmodern::resolvedSceneLightCapacity);missionLighting.parameters[2]=exposure;missionLighting.parameters[3]=strength;
     missionReceiverBias=receiver;missionNormalBias=normal;

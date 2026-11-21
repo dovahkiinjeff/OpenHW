@@ -35,7 +35,13 @@ class NativeMaterials(unittest.TestCase):
         result=native_material_controls('ship',(2,1),glow)
         self.assertEqual(result.getpixel((0,0))[2],224)
         self.assertEqual(result.getpixel((1,0))[2],0)
-        self.assertEqual(result.getpixel((0,0))[::3],(255,255))
+        self.assertEqual(result.getpixel((0,0))[::3],(255,253))
+
+    def test_black_but_sharp_and_emissive_texels_keep_independent_masks(self):
+        glow=Image.new("RGB",(2,1));glow.putdata([(210,0,0),(0,200,200)])
+        page=native_material_controls("ship",(2,1),glow)
+        self.assertEqual([p[::3] for p in page.getdata()],[(210,129),(0,129)])
+        self.assertEqual(native_material_controls("bay",(1,1),glow).getpixel((0,0))[3],128)
 
     def test_painted_material_has_broader_lobe_than_bare_material(self):
         glow=Image.new('RGB',(1,1),(255,0,255))

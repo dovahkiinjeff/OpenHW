@@ -66,6 +66,7 @@
 #define MDF_BaseColor                   16
 #define MDF_StripeColor                 32
 #define MDF_SelfIllum                   64
+#define MDF_NativeBay                   0x8000  /* runtime HOD shader suppresses sky reflections */
 
 //mesh polygon modes for rendering
 #define MPM_Flat                        0

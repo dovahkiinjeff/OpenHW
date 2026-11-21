@@ -371,6 +371,7 @@ struct RaytracingState
     unsigned int nextHistoryIdentity = 1;
     ComPtr<ID3D12Resource> depth;
     ComPtr<ID3D12Resource> motion;
+    ComPtr<ID3D12Resource> reflection;
     ComPtr<ID3D12Resource> diffuseAlbedo;
     ComPtr<ID3D12Resource> specularAlbedo;
     ComPtr<ID3D12Resource> normalRoughness;
@@ -718,7 +719,7 @@ bool ensureAccelerationBuffer(ID3D12GraphicsCommandList *commands,
 
 bool createRootSignatures(void)
 {
-    D3D12_DESCRIPTOR_RANGE outputRanges[2] = {};
+    D3D12_DESCRIPTOR_RANGE outputRanges[3] = {};
     outputRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
     outputRanges[0].NumDescriptors = 5;
     outputRanges[0].BaseShaderRegister = 0;
@@ -728,6 +729,11 @@ bool createRootSignatures(void)
     outputRanges[1].BaseShaderRegister = 5;
     outputRanges[1].OffsetInDescriptorsFromTableStart =
         state.rrGuideUavBaseIndex - state.outputUavIndex;
+
+    outputRanges[2] = outputRanges[1];
+    outputRanges[2].NumDescriptors = 1;
+    outputRanges[2].BaseShaderRegister = 11;
+    outputRanges[2].OffsetInDescriptorsFromTableStart += 3;
 
     D3D12_DESCRIPTOR_RANGE environmentRange = {};
     environmentRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
@@ -745,7 +751,7 @@ bool createRootSignatures(void)
     globalParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     globalParameters[1].ParameterType =
         D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    globalParameters[1].DescriptorTable.NumDescriptorRanges = 2;
+    globalParameters[1].DescriptorTable.NumDescriptorRanges = 3;
     globalParameters[1].DescriptorTable.pDescriptorRanges = outputRanges;
     globalParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     globalParameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
@@ -935,7 +941,7 @@ bool createStateObject(bool feedback = false)
     shadowHitGroup.Type = D3D12_HIT_GROUP_TYPE_TRIANGLES;
 
     D3D12_RAYTRACING_SHADER_CONFIG shaderConfig = {};
-    shaderConfig.MaxPayloadSizeInBytes = 104;
+    shaderConfig.MaxPayloadSizeInBytes = 120;
     shaderConfig.MaxAttributeSizeInBytes = 8;
     static const wchar_t *shaderConfigExports[] = {
         L"RayGeneration", L"PrimaryMiss", L"ShadowMiss",
@@ -2428,6 +2434,7 @@ void raytracingShutdown(void)
     state.surfaceHistoryPrevious.Reset();
     state.depth.Reset();
     state.motion.Reset();
+    state.reflection.Reset();
     state.diffuseAlbedo.Reset();
     state.specularAlbedo.Reset();
     state.normalRoughness.Reset();
@@ -2566,6 +2573,7 @@ bool raytracingCreateOutput(unsigned int width, unsigned int height)
                        state.accumulationHistory) ||
         !createTexture(depthFormat, L"Homeworld DLAA depth", state.depth) ||
         !createTexture(motionFormat, L"Homeworld DLAA motion", state.motion) ||
+        !createTexture(outputFormat, L"Homeworld reflected ship light", state.reflection) ||
         !createTexture(outputFormat, L"Homeworld RR diffuse albedo", state.diffuseAlbedo) ||
         !createTexture(outputFormat, L"Homeworld RR specular albedo", state.specularAlbedo) ||
         !createTexture(outputFormat, L"Homeworld RR normal roughness", state.normalRoughness))
@@ -2611,6 +2619,8 @@ bool raytracingCreateOutput(unsigned int width, unsigned int height)
     state.device->CreateShaderResourceView(
         state.motion.Get(), &motionSrv, cpuDescriptor(state.motionSrvIndex));
     uav.Format = outputFormat;
+    state.device->CreateUnorderedAccessView(state.reflection.Get(),nullptr,&uav,
+        cpuDescriptor(state.rrGuideUavBaseIndex + 3u));
     state.device->CreateUnorderedAccessView(
         state.diffuseAlbedo.Get(), nullptr, &uav,
         cpuDescriptor(state.rrGuideUavBaseIndex + 0u));
@@ -2640,6 +2650,7 @@ void raytracingReleaseOutput(void)
     state.accumulationHistory.Reset();
     state.depth.Reset();
     state.motion.Reset();
+    state.reflection.Reset();
     state.diffuseAlbedo.Reset();
     state.specularAlbedo.Reset();
     state.normalRoughness.Reset();
@@ -3309,24 +3320,31 @@ bool raytracingTryAliasSurfaceTexture(const void *materialIdentity,
     return true;
 }
 
-bool raytracingRasterEmissionSource(const void *materialIdentity,RasterEmissionSource &source)
+bool raytracingRasterEmissionSource(const void *materialIdentity,RasterChannel channel,RasterEmissionSource &source)
 {
     source={};const auto found=surfaceTextures.find(materialIdentity);
-    if(found==surfaceTextures.end() || !found->second.hasEmission)return false;
-    const auto&r=found->second;source.token=std::uint64_t(r.textureIndex)+1;
+    if(found==surfaceTextures.end())return false;
+    const auto &record=found->second;
+    if(channel==RasterChannel::emission ? !record.hasEmission :
+       (!record.rmMaterial || (channel==RasterChannel::nativeNormal && !record.nativeNormal)))return false;
+    const auto&r=found->second;source.token=std::uint64_t(r.textureIndex)*3u+static_cast<unsigned>(channel)+1;
     source.width=r.width;source.height=r.height;return true;
 }
 bool raytracingReadRasterEmission(std::uint64_t token,std::vector<unsigned char> &rgba)
 {
-    if(!token || token-1>=materialRecords.size())return false;
-    const auto&record=materialRecords[size_t(token-1)];
+    if(!token || (token-1)/3u>=materialRecords.size())return false;
+    const auto&record=materialRecords[size_t((token-1)/3u)];
     const size_t count=size_t(record.width)*record.height;
-    if(!record.hasEmission || count>16u*1024u*1024u || record.offset+count>surfaceTexels.size())return false;
+    if(count>16u*1024u*1024u || record.offset+count>surfaceTexels.size())return false;
     rgba.resize(count*4);
     for(size_t copied=0;copied<count;){
         const auto span=surfaceTexels.span(record.offset+copied,count-copied);
         if(!span.size)return false;
-        for(size_t i=0;i<span.size;++i)std::memcpy(rgba.data()+(copied+i)*4,&span.data[i].emissiveRgba,4);
+        for(size_t i=0;i<span.size;++i) {
+            const auto &pixel=span.data[i];
+            unsigned word=(token-1)%3u==0 ? pixel.emissiveRgba : ((token-1)%3u==1 ? pixel.ormRgba : pixel.generatedNormalRgba);
+            std::memcpy(rgba.data()+(copied+i)*4,&word,4);
+        }
         copied+=span.size;
     }
     return true;
@@ -3828,6 +3846,7 @@ bool raytracingRecord(ID3D12GraphicsCommandList *commands,
     }
     if (state.rrGuideShaderReadable)
     {
+        transitionResource(commands, state.reflection.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
         transitionResource(commands, state.diffuseAlbedo.Get(),
                            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
                            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
@@ -3952,6 +3971,7 @@ bool raytracingRecord(ID3D12GraphicsCommandList *commands,
     transitionResource(commands, state.motion.Get(),
                        D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
                        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    transitionResource(commands,state.reflection.Get(),D3D12_RESOURCE_STATE_UNORDERED_ACCESS,D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     transitionResource(commands, state.diffuseAlbedo.Get(),
                        D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
                        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
@@ -4043,6 +4063,11 @@ ID3D12Resource *raytracingDepthResource(void)
 ID3D12Resource *raytracingMotionResource(void)
 {
     return state.guidanceShaderReadable ? state.motion.Get() : nullptr;
+}
+
+ID3D12Resource *raytracingReflectionResource(void)
+{
+    return state.rrGuideShaderReadable ? state.reflection.Get() : nullptr;
 }
 
 ID3D12Resource *raytracingDiffuseAlbedoResource(void)

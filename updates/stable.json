@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channel": "stable",
-  "latest": "1.1.13",
+  "latest": "1.1.14",
   "minimum_protocol": 3,
   "patches": [
     {
@@ -266,19 +266,39 @@
       "url": "https://openhw.tech/downloads/v1.1.13/OpenHW-Patch-1.1.13.exe",
       "size": 5977040,
       "sha256": "c2bbc5194de924701ee8f19613cffdff17676fe3cd40421eb19d7172419fc378"
+    },
+    {
+      "to": "1.1.14",
+      "format": "openhw-exe-zip-v1",
+      "post_actions": [
+        {
+          "kind": "verified-helper-v1",
+          "path": "Development/Installer/OpenHW-SetupEngine.exe",
+          "args": [
+            "--repair-native-materials"
+          ],
+          "timeout_seconds": 7200
+        }
+      ],
+      "from": [
+        "1.1.13"
+      ],
+      "url": "https://openhw.tech/downloads/v1.1.14/OpenHW-Patch-1.1.14.exe",
+      "size": 44772533,
+      "sha256": "21b2baf25b36bd5a4e2285d233ad7aea955e18d03c65713aee48b8c7412da9b9"
     }
   ],
   "launcher": {
-    "version": "1.1.7",
-    "url": "https://openhw.tech/downloads/v1.1.13/Launcher.exe",
-    "size": 10041806,
-    "sha256": "75efdc7e988a35c25a2d791b7c736a87e8e27e62dc8388712f2a2b547e1b2c2d"
+    "version": "1.1.8",
+    "url": "https://openhw.tech/downloads/v1.1.14/Launcher.exe",
+    "size": 10039724,
+    "sha256": "3e37293e082414e1b41913303dff05a4354df64ad45bf6801c9ae6ce981f7237"
   },
   "updater": {
-    "version": "1.1.7",
-    "url": "https://openhw.tech/downloads/v1.1.13/Updater.exe",
-    "size": 10025919,
-    "sha256": "8b649c8b758376cd904eca721087e3970a8633ffcd95e4dedd2ef2762140c98c",
+    "version": "1.1.8",
+    "url": "https://openhw.tech/downloads/v1.1.14/Updater.exe",
+    "size": 10023839,
+    "sha256": "1d59a02a34bc3fd87c829c9440d3c0232fd3a22cbe5e4ca641659f36ee86a686",
     "protocol": 3
   },
   "fresh_install": {

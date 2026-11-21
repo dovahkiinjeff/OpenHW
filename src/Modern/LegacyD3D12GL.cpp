@@ -1429,6 +1429,7 @@ cbuffer DrawConstants : register(b0)
     float2 Padding1;
 };
 )"
+#include "ShipReflectionShader.inc"
 #include "RasterMissionLightingShader.inc"
 R"(
 cbuffer FixedFunctionConstants : register(b1)
@@ -1655,7 +1656,7 @@ float4 LegacyPS(PSInput input) : SV_Target
     float3 emission=(MissionEmissionFlags&1u)!=0 ? MissionEmission.Sample(LegacySampler,input.uv).rgb*MissionEmissionGain : 0;
     if(EngineBlend>=0){float3 idleEmission=(MissionEmissionFlags&2u)!=0 ? MissionIdleEmission.Sample(LegacySampler,input.uv).rgb*MissionIdleEmissionGain : 0;
         emission=lerp(idleEmission,emission,saturate(EngineBlend));}
-    result.rgb=MissionShade(result.rgb,input.glowEye,input.glowNormal,emission)+MaterialEmission.rgb;
+    result.rgb=MissionShade(result.rgb,input.glowEye,input.glowNormal,emission,input.uv,EngineBlend)+MaterialEmission.rgb;
 #endif
 #if !HW_MISSION_LIGHTING || HW_MISSION_ALPHA_TEST
     // Keep derivatives valid for the comparison-filtered shadow before
@@ -2459,7 +2460,7 @@ bool initialize(ID3D12Device *device, unsigned int width, unsigned int height)
     one.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
     if (FAILED(device->CreateDescriptorHeap(&one, IID_PPV_ARGS(r.dsvHeap.GetAddressOf())))) return false;
 
-    D3D12_DESCRIPTOR_RANGE ranges[6] = {};
+    D3D12_DESCRIPTOR_RANGE ranges[11] = {};
     ranges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     ranges[0].NumDescriptors = 1;
     ranges[0].BaseShaderRegister = 0;
@@ -2467,7 +2468,7 @@ bool initialize(ID3D12Device *device, unsigned int width, unsigned int height)
     ranges[1].NumDescriptors = 1;
     ranges[1].BaseShaderRegister = 0;
     ranges[2]=ranges[0]; ranges[2].BaseShaderRegister=1;
-    D3D12_ROOT_PARAMETER params[13] = {};
+    D3D12_ROOT_PARAMETER params[18] = {};
     params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
     params[0].DescriptorTable.NumDescriptorRanges = 1;
     params[0].DescriptorTable.pDescriptorRanges = &ranges[0];
@@ -2505,7 +2506,12 @@ bool initialize(ID3D12Device *device, unsigned int width, unsigned int height)
         params[10+i].DescriptorTable={1,&ranges[4+i]};params[10+i].ShaderVisibility=D3D12_SHADER_VISIBILITY_PIXEL;}
     params[12].ParameterType=D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
     params[12].Constants={4,0,4};params[12].ShaderVisibility=D3D12_SHADER_VISIBILITY_PIXEL;
-    rootDesc.NumParameters = 13;
+    // Active/idle control and normal maps, then the world-space mission sky.
+    for(unsigned i=0;i<5;++i){
+        ranges[6+i]=ranges[0]; ranges[6+i].BaseShaderRegister=7+i;
+        params[13+i]=params[10]; params[13+i].DescriptorTable.pDescriptorRanges=&ranges[6+i];
+    }
+    rootDesc.NumParameters = 18;
     rootDesc.pParameters = params;
     D3D12_STATIC_SAMPLER_DESC shadowSampler={};
     shadowSampler.Filter=D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;

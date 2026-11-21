@@ -1,28 +1,17 @@
-# OpenHW 1.0 modding guide
+# OpenHW modding guide
 
-**Read this before using old source notes.** OpenHW combines Remastered presentation assets and original HW1 gameplay. Historical Homeworld format/build documents and old development reports are included for reference and have not all been rewritten to describe OpenHW. They can contain obsolete paths, file formats, unsupported features and superseded limitations. Use this guide, the 1.0 user/editor guides and current runtime format documentation first; verify ambiguous behavior against current code.
+Open **Modding → HOD Editor** in the Fleet Workshop. The editor runs in the game window and edits ship, derelict and other HOD models. Choose **Game models** to edit a copy of an installed model or **New HOD** to start a new one.
 
-## Ship projects
+## Ship subsystems
 
-Open **Modding > Ship Viewer / Editor / New Ship Project**. Choose an installed ship as a template. The original HOD stays immutable; the editor saves authoring data and definition overrides, not destructive edits to the retail model.
-
-**Copy/paste, duplicate and position subsystems (including turrets) on ships.** This editor will continue to improve in future releases.
-
-Inspect the hull/joint hierarchy, navigation, docking/launch, salvage/repair, weapons/turrets and engines. Select parts in the hierarchy, edit local numerical transforms or use translation/rotation handles. Hierarchy changes, copying/duplicating chains and undo/redo allow reusable configurations. Right-drag orbits, wheel/both mouse buttons zoom, and middle-drag pans. Read the active viewport legend for mode-specific controls.
-
-SHIP FILE opens the editable ship definition. Native ship/subsystem definitions combine presentation references with the original HW1 gameplay parameters. Complete subsystem placement/rotation/duplication edits synchronize to the project definition. Functional copied weapons require actual weapon configuration and valid model/joint/muzzle bindings; a visual template alone is not a new gun. EVENT FILE displays connected event data read-only and supports inspection/copy, not event timeline authoring.
-
-Projects live under `Modding/Ships/<project>/`. `ship.owship` preserves editor state; the installed `.owshipdef` is the runtime definition. Save/load, Ctrl+S and undo/redo are supported. Saving a project does not activate it in gameplay.
-
-OBJ importing/preview with UVs, normals and material groups is available, along with image assignment for project preview. This is not an OBJ-to-HOD compiler, a general mesh sculptor, an animation authoring suite, or automatic addition of new ship identities. Native HOD geometry is not rewritten. Use external tools for work outside the editor's supported scope.
+Select a hull joint and choose **Quick Add subsystem** to place a shared weapon or engine. Select its mount and use **Ctrl+C / Ctrl+V** to copy and paste, or **Ctrl+D** to duplicate. To copy an existing fitted component, use the mounted list in Quick Add. Position or rotate the new mount with the viewport handles. **Save HOD** writes the model and its gameplay definition in one operation. A loose or new hull can use an installed ship as its gameplay template.
 
 ## Publish an existing native ship modification
 
-1. Save and validate the project. Check the complete weapon and attachment configuration.
-2. Choose **SAVE MOD** for a new named folder, or **APPEND TO MOD** for an existing one.
-3. Review any replacement confirmation. Required models, bindings, referenced subsystem folders and connected event banks are validated. Backups are kept for replaced files.
-4. Enable the mod in **Modding > Mod Manager** and arrange its priority.
-5. Restart OpenHW. Test changed weapon counts in a **fresh mission**; existing saves do not migrate their weapon arrays.
+1. Choose **Save to mod**, select a named mod or use **Create Mod**, then save. The editor writes the HOD, ship definition, runtime material maps and referenced weapon/event documents at the matching relative paths.
+2. Use **Ship file**, **Events file** or **Weapon file** to edit the associated documents without leaving the editor. Events are editable JSON saved back to the native binary format.
+3. The selected mod is enabled automatically. Arrange its priority in Mod Manager.
+4. Restart OpenHW and test changed weapon counts in a **fresh mission**; existing saves do not migrate their weapon arrays.
 
 Native mod payloads mirror game resource paths, without adding another Data folder:
 
@@ -59,4 +48,4 @@ Use Shift+F11/Shift+F12 for maps, clouds, ropes, original dust appearance and li
 
 [BUILD_INSTALLER.md](../BUILD_INSTALLER.md) builds both game variants and OpenHW-Setup.exe from this complete source snapshot. The source includes tests, conversion tools, shaders and reviewed release content, but not your installed Collection assets or build caches.
 
-NVIDIA/Intel technology completion, player-reported fixes and further performance work are immediate priorities. Cataclysm and multiplayer support are planned later; they are not supported 1.0 modes. Original networking code and multiplayer-related UI/data in the tree are not proof of validated multiplayer compatibility for modern features.
+Online multiplayer uses the dedicated OpenHW server. HOD edits and arbitrary mod payloads are local content and are not automatically distributed to other players. See the current multiplayer guide for supported match rules and validation limits.

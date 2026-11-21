@@ -9,6 +9,11 @@ struct MissionLight {
 Texture2D<float> MissionShadow : register(t2);
 Texture2D<float4> MissionEmission : register(t5);
 Texture2D<float4> MissionIdleEmission : register(t6);
+Texture2D<float4> ShipControl : register(t7);
+Texture2D<float4> ShipNormal : register(t8);
+Texture2D<float4> ShipIdleControl : register(t9);
+Texture2D<float4> ShipIdleNormal : register(t10);
+Texture2D<float4> ShipSky : register(t11);
 cbuffer MissionEmissionParameters : register(b4) {uint MissionEmissionFlags;float MissionEmissionGain,MissionIdleEmissionGain,MissionEmissionPadding;};
 SamplerComparisonState MissionShadowSampler : register(s1);
 StructuredBuffer<uint> MissionLightIndices : register(t3);
@@ -19,6 +24,7 @@ cbuffer MissionLighting : register(b2) {
     float4 MissionShadowRows[4];
     float4 MissionParameters; // light count, shadow light index, exposure, strength
     float4 MissionBias; // receiver depth bias, normal world bias, map valid, texel size
+    float4 ShipSkyRows[3];
     MissionLight MissionLights[512];
 };
 float MissionVisibility(float3 eye,float3 normal) {
@@ -50,10 +56,21 @@ float MissionVisibility(float3 eye,float3 normal) {
     }
     return lerp(1,visible/9,saturate(MissionParameters.w));
 }
-float3 MissionShade(float3 albedo,float3 eye,float3 normal,float3 emission) {
+float3 MissionShade(float3 albedo,float3 eye,float3 normal,float3 emission,float2 uv,float engineBlend) {
     float3 n=normal*rsqrt(max(dot(normal,normal),1e-12));
     // Evaluate derivatives outside per-pixel light/normal branches.
     float sunVisibility=MissionVisibility(eye,n);
+    bool native=(MissionEmissionFlags&4u)!=0;
+    float4 control=native?ShipControl.Sample(LegacySampler,uv):0;
+    if(engineBlend>=0 && (MissionEmissionFlags&16u)!=0)
+        control=lerp(ShipIdleControl.Sample(LegacySampler,uv),control,saturate(engineBlend));
+    if((MissionEmissionFlags&8u)!=0){
+        float3 map=ShipNormal.Sample(LegacySampler,uv).xyz*2-1;
+        if(engineBlend>=0 && (MissionEmissionFlags&32u)!=0)
+            map=lerp(ShipIdleNormal.Sample(LegacySampler,uv).xyz*2-1,map,saturate(engineBlend));
+        n = ShipMappedNormal(n, ddx(eye), ddy(eye), ddx(uv), ddy(uv), map);
+    }
+    float3 v=normalize(-eye),highlights=0;
     float3 lighting=0;
     [loop] for(uint candidate=0;candidate<MissionLightCount;candidate++) {
         uint index=MissionLightIndices[MissionLightOffset+candidate];
@@ -77,9 +94,22 @@ float3 MissionShade(float3 albedo,float3 eye,float3 normal,float3 emission) {
         float ndl=saturate(dot(n,l));
         if(ndl>0 && index==(uint)MissionParameters.y) attenuation*=sunVisibility;
         lighting+=light.color*(light.intensity*attenuation*ndl);
+        if(native && ndl>0 && ShipSkyRows[0].w>0)
+            highlights+=light.color*light.intensity*attenuation*ShipSkyRows[0].w*
+                ShipHighlight(control,n,v,l,light.type==1?1.0:(light.type==4?0.75:0.25));
     }
     // The compatibility foreground is sRGB; the presenter linearizes it once.
-    float3 radiance=(pow(max(albedo,0),2.2)*lighting+emission)*MissionParameters.z;
+    float3 radiance=pow(max(albedo,0),2.2)*lighting+emission;
+    float weight=0;float3 sky=0;
+    if(native && (MissionEmissionFlags&64u)!=0 && ShipSkyRows[1].w*ShipSkyRows[2].w>0){
+        weight=ShipSkyRows[0].w*ShipSkyRows[2].w*ShipEnvironmentWeight(control,dot(n,v));
+        if(weight>0){
+            float3 d=reflect(-v,n);
+            d=normalize(float3(dot(ShipSkyRows[0].xyz,d),dot(ShipSkyRows[1].xyz,d),dot(ShipSkyRows[2].xyz,d)));
+            sky=ShipSkyReflection(ShipSky,LegacySampler,d,ShipReflectionMasks(control).x)*ShipSkyRows[1].w;
+        }
+    }
+    radiance=ShipComposeReflection(radiance,ShipReflectedLayer(sky,weight,highlights))*MissionParameters.z;
     return pow(max(radiance,0),1.0/2.2);
 }
 )"

@@ -194,6 +194,8 @@ meshdata *meshCreateRemasteredHierarchy(HwRmSubsystemInstance *instance,
             material->texture = (trhandle *)material->textureNameSave;
             material->ambient = material->diffuse = colRGB(255,255,255);
             material->kAlpha = 1; material->flags = MDF_Smoothing; material->nFullAmbient = 64;
+            if (!strcmp(capture->nodes[i].material->shader, "bay"))
+                material->flags |= MDF_NativeBay;
         }
     }
     mesh->name = mesh->object[0].pName;

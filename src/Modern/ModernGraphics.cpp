@@ -145,7 +145,8 @@ constexpr UINT maximumVolumetricDustLights = 12;
 constexpr UINT maximumVolumetricDustWakes = 12;
 constexpr UINT sceneDepthDescriptorIndex = 13;
 constexpr UINT dustDescriptorBase = 14;
-constexpr UINT dustDescriptorsPerFrame = hwmodern::godRayFieldSlot + 1u;
+constexpr UINT shipReflectionSlot = hwmodern::godRayFieldSlot + 1u;
+constexpr UINT dustDescriptorsPerFrame = shipReflectionSlot + 1u;
 constexpr UINT dustTileColumns = 16, dustTileRows = 9;
 constexpr UINT dustTileWords = 8;
 constexpr UINT dustFroxelNearUavDescriptorIndex =
@@ -154,7 +155,7 @@ constexpr UINT dustFroxelFarUavDescriptorIndex =
     dustFroxelNearUavDescriptorIndex + 1u;
 constexpr UINT dustFroxelDescriptorCount = dustFroxelFarUavDescriptorIndex + 1u;
 constexpr UINT rrGuideUavDescriptorBase = dustFroxelDescriptorCount;
-constexpr UINT rrGuideUavDescriptorCount = 3u;
+constexpr UINT rrGuideUavDescriptorCount = 4u;
 constexpr UINT rayEnvironmentDescriptorIndex =
     rrGuideUavDescriptorBase + rrGuideUavDescriptorCount;
 // Separate stable SRV and sampler-feedback UAV ranges for authored materials.
@@ -203,6 +204,7 @@ void temporalJitter(unsigned long long frameIndex, float &x, float &y)
 const char presenterShader[] = R"(
 Texture2D<float4> SourceFrame : register(t0);
 Texture2D<float4> RayLighting : register(t1);
+Texture2D<float4> ReflectedLight : register(t20);
 Texture2D<float4> WorldFrame : register(t2);
 Texture2D<float4> FilteredWorld : register(t3);
 Texture2D<float2> MotionVectors : register(t4);
@@ -2614,6 +2616,10 @@ float4 PresentPS(VertexOutput input) : SV_Target
                             NativeTrailCoreMask(RasterSceneUv(input.texcoord)));
                     scene = lerp(shadowedScene, unshadowedRaster,
                                  max(emissiveFxProtection,emissiveSurfaceMask));
+                    float4 reflected = ReflectedLight.SampleLevel(SourceSampler, guideUv, 0)
+                                     * (1.0 - emissiveFxProtection);
+                    if (any(reflected > 0))
+                        scene = LinearToSrgb(max(0, DisplayToLinear(scene) * (1.0 - reflected.a) + reflected.rgb));
                 }
             }
 
@@ -3548,6 +3554,9 @@ bool createVolumetricDustFrameResources()
         albedoHandle.ptr += presenter.srvDescriptorSize;
         presenter.device->CreateShaderResourceView(nullptr, &albedoSrv,
                                                     albedoHandle);
+        auto reflectionHandle = albedoHandle;
+        reflectionHandle.ptr += (shipReflectionSlot - 4u) * presenter.srvDescriptorSize;
+        presenter.device->CreateShaderResourceView(nullptr, &albedoSrv, reflectionHandle);
         D3D12_CPU_DESCRIPTOR_HANDLE farFroxelHandle = albedoHandle;
         farFroxelHandle.ptr += presenter.srvDescriptorSize;
         presenter.device->CreateShaderResourceView(nullptr, &froxelSrv,
@@ -8327,7 +8336,8 @@ extern "C" void hwModernGraphicsEndFrame(void)
         mapLightEmitters.data(),static_cast<unsigned>(mapLightEmitters.size()),
         dynamicLightEmitters.data(),static_cast<unsigned>(dynamicLightEmitters.size()),rasterLights);
     hwlegacyd3d12::setMissionLighting(rasterLighting,rasterLights,requestedLightingExposure,
-        requestedShadowStrength,requestedShadowReceiverBias,requestedShadowNormalBias);
+        requestedShadowStrength,requestedShadowReceiverBias,requestedShadowNormalBias,
+        presenter.missionSkyTextureName,presenter.missionSkyFade,requestedSurfaceReflectivity,requestedEnvironmentStrength);
 #endif
     bool rayOverlayActive=false;
     bool streamlineActiveThisFrame=false,streamlineCameraReset=false;
@@ -8610,6 +8620,9 @@ if (benchmark.recording) presenter.cpuFrameDxrRecordMilliseconds+=dxrRecordMilli
                     presenter.srvDescriptorSize;
                 presenter.device->CreateShaderResourceView(
                     primaryAlbedo, &albedoSrv, albedoHandle);
+                auto reflectionHandle = albedoHandle;
+                reflectionHandle.ptr += (shipReflectionSlot - 4u) * presenter.srvDescriptorSize;
+                presenter.device->CreateShaderResourceView(hwmodern::raytracingReflectionResource(), &albedoSrv, reflectionHandle);
                 static bool emissiveFxProtectionLogged = false;
                 if (!emissiveFxProtectionLogged)
                 {

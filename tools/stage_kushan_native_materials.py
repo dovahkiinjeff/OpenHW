@@ -36,7 +36,7 @@ def stage_active_engine_variant(material, cache, folder, label):
 
 
 def native_material_controls(shader, size, glow=None, team=None, spec=None):
-    """Linear AO/roughness/dielectric-strength/validity, never metallic paint.
+    """Linear sharpness, roughness, dielectric strength and tagged reflection mask.
 
     Translate sob_ship.frag and sob_share_materials.imp's default gloss lobe
     into roughness. GLOW R is sharpness; max(B-G,0) is specular strength.
@@ -56,6 +56,9 @@ def native_material_controls(shader, size, glow=None, team=None, spec=None):
     glow_mask = 1.0 if shader in ('shipglow', 'badgeglow') else packed[:,:,1]
     strength = np.maximum(0.0, packed[:,:,2]-glow_mask)*(1.0-.12*painted)
     result = np.ones((*strength.shape,4), dtype=np.float32)
+    result[:,:,0] = packed[:,:,0]
+    mask = np.maximum(0.0, packed[:,:,2]-glow_mask)
+    result[:,:,3] = (128.0 if shader == "bay" else 129.0 + np.rint(124.0*mask)) / 255.0
     result[:,:,1] = roughness
     result[:,:,2] = strength
     return Image.fromarray(np.uint8(np.rint(np.clip(result,0,1)*255)), 'RGBA')

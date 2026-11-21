@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 typedef struct OpenHWModEntry { char name[65]; int enabled; } OpenHWModEntry;
+int openhwModCreate(const char* root,const char* name,char* error,size_t errorSize);
 int openhwModsRead(const char* root,OpenHWModEntry* entries,int capacity,char* error,size_t errorSize);
 int openhwModsSave(const char* root,const OpenHWModEntry* entries,int count,char* error,size_t errorSize);
 /* Publish one validated ship and its native dependency folders. Never changes Data. */

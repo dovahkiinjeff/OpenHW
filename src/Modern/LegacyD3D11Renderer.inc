@@ -38,11 +38,12 @@ struct ShadowData {float rows[16];unsigned enabled;float texel,bias,padding;};
 ShadowData shadowData={};
 struct LightingData {
  float position[32][4],direction[32][4],color[32][4],extra[32][4];
- unsigned count;float reflectivity,roughness,exposure;float ambient[4];
+ unsigned count;float reflectivity,roughness,exposure;float ambient[4];float skyRows[3][4];
 };
 LightingData lightingData={};
 float shadowStrength=1;
 float environmentStrength=1;
+GLuint reflectionSky=0;
 struct Material { ComPtr<ID3D11ShaderResourceView> emission, normal, orm; bool rmMaterial=false; };
 std::unordered_map<const void*, Material> materials;
 std::unordered_map<std::string, Material> aliases;
@@ -58,13 +59,16 @@ struct DrawData {
     float fogColor[4];
     unsigned normalMap, emissionMap, ormMap; float engineBlend;
 };
-const char *shader=R"(
+const char *shader=
+#include "ShipReflectionShader.inc"
+R"(
+Texture2D<float4> ShipSky:register(t7); Texture2D<float4> IdleControl:register(t8); Texture2D<float4> IdleNormal:register(t9);
 Texture2D Base:register(t0); Texture2D Normal:register(t1);
 Texture2D Emission:register(t2); Texture2D ORM:register(t3);
 Texture2D EngineIdleBase:register(t5); Texture2D EngineIdleEmission:register(t6);
 Texture2D<float> Shadow:register(t4);SamplerComparisonState ShadowSamp:register(s1);
 cbuffer ShadowConstants:register(b2){float4 shadowRows[4];uint shadowEnabled;float shadowTexel,shadowBias,shadowPadding;};
-cbuffer LightingConstants:register(b3){float4 localPosition[32],localDirection[32],localColor[32],localExtra[32];uint localCount;float reflectivity,baseRoughness,exposure;float4 localAmbient;};
+cbuffer LightingConstants:register(b3){float4 localPosition[32],localDirection[32],localColor[32],localExtra[32];uint localCount;float reflectivity,baseRoughness,exposure;float4 localAmbient;float4 skyRows[3];};
 SamplerState Samp:register(s0);
 cbuffer Draw:register(b0) {
  uint textured,env,alpha,alphaFunction;
@@ -138,18 +142,23 @@ float4 PS(Out i):SV_Target {
    float3 tangent=a*duv1.x+b*duv2.x,bitangent=a*duv1.y+b*duv2.y;
    float scale=rsqrt(max(max(dot(tangent,tangent),dot(bitangent,bitangent)),1e-12));
    float3 map=Normal.Sample(Samp,i.uv).xyz*2-1;
-   n=normalize(tangent*scale*map.x+bitangent*scale*map.y+n*map.z);
+   if(engineBlend>=0 && (normalMap&2u)!=0)map=lerp(IdleNormal.Sample(Samp,i.uv).xyz*2-1,map,saturate(engineBlend));
+   n=(ormMap&2u)!=0 ? ShipMappedNormal(n,dp1,dp2,duv1,duv2,map)
+                     : normalize(tangent*scale*map.x+bitangent*scale*map.y+n*map.z);
   }
   float3 v=normalize(-i.eye);float3 lighting=ambient.rgb*matAmbient.rgb;
   float3 specular=0;float roughness=max(baseRoughness,0.08),metallic=0,ao=1,specularStrength=1;
-  if(ormMap!=0){float3 m=ORM.Sample(Samp,i.uv).rgb;ao=m.r;roughness=max(m.g,0.08);if(ormMap==2)specularStrength=m.b;else metallic=m.b;}
+  bool native=(ormMap&2u)!=0;
+  float4 control=ormMap!=0?ORM.Sample(Samp,i.uv):0;
+  if((ormMap&4u)!=0)control=lerp(IdleControl.Sample(Samp,i.uv),control,saturate(engineBlend));
+  if(ormMap!=0){roughness=max(control.g,0.08);if(!native){ao=control.r;metallic=control.b;}}
   float3 albedo=t.rgb*(flags.y!=0?i.c.rgb:matDiffuse.rgb);
   for(uint k=0;k<8;k++)if(lightAmbient[k].w>0.5) {
    float3 l=normalize(lightPosition[k].xyz-i.eye*lightPosition[k].w);
    float shade=k==0?visibility(i.shadow):1;
    float ndl=saturate(dot(n,l))*shade;lighting+=lightAmbient[k].rgb+lightDiffuse[k].rgb*ndl;
    float3 h=normalize(l+v);float exponent=max(2.0,2/(roughness*roughness)-2);
-   specular+=lightDiffuse[k].rgb*pow(saturate(dot(n,h)),exponent)*ndl*lerp(0.04,albedo,metallic);
+   specular+=lightDiffuse[k].rgb*(native ? ShipHighlight(control,n,v,l,lightPosition[k].w==0?1.0:0.25)*shade : pow(saturate(dot(n,h)),exponent)*ndl*lerp(0.04,albedo,metallic));
   }
   lighting+=localAmbient.rgb;
   for(uint j=0;j<localCount;j++) {
@@ -160,9 +169,21 @@ float4 PS(Out i):SV_Target {
    float3 radiance=localColor[j].rgb*localColor[j].w*attenuation;
    float ndl=saturate(dot(n,l));lighting+=radiance*ndl;
    float3 h=normalize(l+v);float exponent=max(2.0,2/(roughness*roughness)-2);
-   specular+=radiance*pow(saturate(dot(n,h)),exponent)*ndl*lerp(0.04,albedo,metallic);
+   specular+=radiance*(native ? ShipHighlight(control,n,v,l,0.25) : pow(saturate(dot(n,h)),exponent)*ndl*lerp(0.04,albedo,metallic));
   }
-  result.rgb=(albedo*lighting*ao+specular*reflectivity*specularStrength+matEmission.rgb)*exposure;
+  result.rgb=(albedo*lighting*ao+matEmission.rgb)*exposure;
+  if(native){
+    float weight=skyRows[1].w>0 ? reflectivity*skyRows[2].w*ShipEnvironmentWeight(control,dot(n,v)) : 0;
+    float3 sky=0;
+    if(weight>0){
+      float3 d=reflect(-v,n);
+      d=normalize(float3(dot(skyRows[0].xyz,d),dot(skyRows[1].xyz,d),dot(skyRows[2].xyz,d)));
+      sky=ShipSkyReflection(ShipSky,Samp,d,ShipReflectionMasks(control).x)*skyRows[1].w;
+    }
+    float4 layer=ShipReflectedLayer(sky,weight,specular*reflectivity);
+    layer.rgb*=exposure;
+    result.rgb=pow(max(ShipComposeReflection(pow(max(result.rgb,0),2.2),layer),0),1.0/2.2);
+  }else result.rgb+=specular*reflectivity*exposure;
   if(emissionMap!=0) {
    float3 emission=Emission.Sample(Samp,i.uv).rgb;
    if(engineBlend>=0)emission=lerp(EngineIdleEmission.Sample(Samp,i.uv).rgb,emission,saturate(engineBlend));
@@ -278,6 +299,12 @@ void prepareDraw(const RasterCommand&c) {
  ID3D11ShaderResourceView *idleViews[]={texture(c.state.engineIdleTexture),idle.emission.Get()};
  context->PSSetShaderResources(5,2,idleViews);
  draw.ormMap=m.orm?(m.rmMaterial?2u:1u):0u;
+ if(m.rmMaterial && draw.engineBlend>=0 && idle.rmMaterial){
+     draw.ormMap|=4;
+     if(m.normal && idle.normal)draw.normalMap|=2;
+ }
+ ID3D11ShaderResourceView* reflectionViews[]={reflectionSky?texture(reflectionSky):nullptr,idle.orm.Get(),idle.normal.Get()};
+ context->PSSetShaderResources(7,3,reflectionViews);
  context->UpdateSubresource(drawBuffer.Get(),0,nullptr,&draw,0,0);context->UpdateSubresource(fixedBuffer.Get(),0,nullptr,&fixed,0,0);
  ID3D11ShaderResourceView *views[]={texture(c.state.texture),m.normal.Get(),m.emission.Get(),m.orm.Get()};context->PSSetShaderResources(0,4,views);
 }
@@ -430,6 +457,13 @@ void present(bool swapFrame) {
  UINT stride=sizeof(RasterVertex),offset=0;ID3D11Buffer *vb=vertices.Get();context->IASetVertexBuffers(0,1,&vb,&stride,&offset);context->IASetIndexBuffer(indices.Get(),DXGI_FORMAT_R32_UINT,0);
  ID3D11Buffer *cb[]={drawBuffer.Get(),fixedBuffer.Get()};context->VSSetConstantBuffers(0,2,cb);context->PSSetConstantBuffers(0,2,cb);
  ID3D11Buffer*scb=shadowBuffer.Get();context->VSSetConstantBuffers(2,1,&scb);context->PSSetConstantBuffers(2,1,&scb);
+ reflectionSky=0;lightingData.skyRows[2][3]=0;
+ for(const auto &command:gCommands)if(command.type==RasterCommand::MissionSky){
+     reflectionSky=command.state.texture;
+     memcpy(lightingData.skyRows,command.skyConstants,sizeof(lightingData.skyRows));
+     lightingData.skyRows[1][3]=environmentStrength;
+     break;
+ }
  context->UpdateSubresource(lightingBuffer.Get(),0,nullptr,&lightingData,0,0);ID3D11Buffer*lcb=lightingBuffer.Get();context->PSSetConstantBuffers(3,1,&lcb);
  renderShadows();context->UpdateSubresource(shadowBuffer.Get(),0,nullptr,&shadowData,0,0);
  context->OMSetRenderTargets(1,&rt,depth.Get());

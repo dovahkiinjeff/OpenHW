@@ -1,7 +1,4 @@
-> **OpenHW 1.1 release:** Shift+F11/F12 live map, lighting and texture authoring menus are disabled in both game executables. Authored environments still load normally. The reference below describes the developer tools; source builds can explicitly enable them with `-DHW_ENABLE_LIVE_MAP_AUTHORING=ON`. The ship and parade editors are separate tools.
-
-> **1.1.3 editor policy:** map, lighting and texture editors are enabled in single-player and local multiplayer (Shift+F11/F12), and blocked online. Any earlier blanket-disable notice below describes an older release and is superseded by this policy.
-
+> **Editor policy:** map, lighting and texture editors are enabled in single-player and local multiplayer (Shift+F11/F12), and blocked online. The integrated HOD editor and personal parade editor are available through Modding.
 
 # OpenHW 1.0 authoring guide
 

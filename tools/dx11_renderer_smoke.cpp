@@ -14,7 +14,12 @@ int main() {
  const unsigned controls[]={0xff0080ffu,0xff0080ffu};
  hwlegacyd3d11::registerMaterial(&identity,"synthetic normal map|rm-material",2,1,nullptr,nullptr,normals,controls);
  if(!hwlegacyd3d11::materials[&identity].rmMaterial)return 9;
- for(int frame=0;frame<3;++frame) {
+ static int reflectionIdentity;
+ const unsigned reflectionControls[]={0xfdffc8ffu,0x8100c800u};
+ hwlegacyd3d11::registerMaterial(&reflectionIdentity,"dark hull|rm-material",2,1,nullptr,nullptr,nullptr,reflectionControls);
+ for(int frame=0;frame<5;++frame) {
+  const bool testReflection=frame>=3;
+  hwlegacyd3d11::lightingData.reflectivity=frame==4?0.0f:1.0f;
   hwlegacyd3d11::beginFrame(64,64);
   hwglClearColor(0,0,0,1);hwglClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
   hwglMatrixMode(GL_PROJECTION);hwglLoadIdentity();hwglMatrixMode(GL_MODELVIEW);hwglLoadIdentity();
@@ -23,7 +28,8 @@ int main() {
   hwglEnable(GL_LIGHTING);hwglEnable(GL_LIGHT0);hwglDisable(GL_CULL_FACE);
   const float light[]={0,0,1,0};hwglLightfv(GL_LIGHT0,GL_POSITION,light);
   hwglColor4f(1,1,1,1);hwglNormal3f(0,0,1);
-  hwglSurfaceMaterial(&identity);
+  if(testReflection){hwglEnable(GL_COLOR_MATERIAL);hwglColor4f(0,0,0,1);}
+  hwglSurfaceMaterial(testReflection?&reflectionIdentity:&identity);
   hwglBegin(GL_QUADS);
   hwglTexCoord2f(0,0);hwglVertex3f(-0.9f,-0.9f,0);
   hwglTexCoord2f(1,0);hwglVertex3f(0.9f,-0.9f,0);
@@ -63,8 +69,11 @@ int main() {
    <<" DrawPixels="<<unsigned(pixelMarkerRead[0])<<','<<unsigned(pixelMarkerRead[1])<<','<<unsigned(pixelMarkerRead[2])<<'\n';
   hwlegacyd3d11::context->Unmap(read.Get(),0);
   if(!orientation){std::cerr<<"FAIL: UI orientation, back-face winding or pretransformed pixels\n";return 8;}
-  if(lit<unlit+40){std::cerr<<"FAIL: normal-map lighting contrast: "<<lit<<" / "<<unlit<<'\n';return 6;}
-  std::cout<<"Normal-map pixels: lit="<<lit<<", opposite-normal="<<unlit<<'\n';
+  if(testReflection){
+   std::cout<<"DX11 dark hull: glossy "<<lit<<", matte "<<unlit<<", gain "<<hwlegacyd3d11::lightingData.reflectivity<<'\n';
+   if((frame==3 && lit<=unlit+25) || (frame==4 && (lit>3 || unlit>3)))return 10;
+  } else if(lit<unlit+40){std::cerr<<"FAIL: normal-map lighting contrast: "<<lit<<" / "<<unlit<<'\n';return 6;}
+  if(!testReflection)std::cout<<"Normal-map pixels: lit="<<lit<<", opposite-normal="<<unlit<<'\n';
   hwlegacyd3d11::swap->Present(0,0);
  }
  if(FAILED(hwlegacyd3d11::device->GetDeviceRemovedReason()))return 2;

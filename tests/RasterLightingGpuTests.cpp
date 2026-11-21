@@ -15,7 +15,10 @@ namespace emissionFixture {
 std::unordered_map<const void*,hwmodern::RasterEmissionSource> materials;
 std::unordered_map<std::uint64_t,std::vector<unsigned>> pixels;
 unsigned reads=0;
-bool describe(const void*id,hwmodern::RasterEmissionSource&out){const auto found=materials.find(id);if(found==materials.end())return false;out=found->second;return true;}
+std::unordered_map<const void*,hwmodern::RasterEmissionSource> controls;
+bool describe(const void*id,hwmodern::RasterChannel channel,hwmodern::RasterEmissionSource&out){
+if(channel==hwmodern::RasterChannel::nativeControl){auto f=controls.find(id);if(f==controls.end())return false;out=f->second;return true;}
+if(channel!=hwmodern::RasterChannel::emission)return false;const auto found=materials.find(id);if(found==materials.end())return false;out=found->second;return true;}
 bool read(std::uint64_t token,std::vector<unsigned char>&out){const auto found=pixels.find(token);if(found==pixels.end())return false;++reads;out.resize(found->second.size()*4);std::memcpy(out.data(),found->second.data(),out.size());return true;}
 }
 int main(int argc,char**argv)try {
@@ -72,8 +75,9 @@ int main(int argc,char**argv)try {
     GLuint cutoutTexture=0;
     if(regression){const unsigned char pixels[]={255,255,255,255,255,255,255,0,255,255,255,0,255,255,255,255};hwglGenTextures(1,&cutoutTexture);hwglBindTexture(GL_TEXTURE_2D,cutoutTexture);hwglTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,2,2,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);}
     const void*floorMaterial=nullptr,*idleMaterial=nullptr;float emissionGain=0,idleGain=0,engineMix=-1;
-    bool lightingEnabled=!parity;
+    bool lightingEnabled=!parity;GLuint reflectionSky=0;float reflectionGain=1;
     auto quad=[](float left,float right,float bottom,float top,float z){hwglBegin(GL_QUADS);hwglTexCoord2f(0,0);hwglVertex3f(left,bottom,z);hwglTexCoord2f(1,0);hwglVertex3f(right,bottom,z);hwglTexCoord2f(1,1);hwglVertex3f(right,top,z);hwglTexCoord2f(0,1);hwglVertex3f(left,top,z);hwglEnd();};
+    UINT64 submission = 0;
     auto render=[&](unsigned frame,float strength) {
         allocator->Reset();list->Reset(allocator.Get(),nullptr);hwglBeginFrame(width,height,frame%3);hwlegacyd3d12::beginFrame(frame%3);
         hwglViewport(0,0,width,height);hwglMatrixMode(GL_PROJECTION);hwglLoadIdentity();hwglOrtho(-1,1,-1,1,-1,1);hwglMatrixMode(GL_MODELVIEW);hwglLoadIdentity();
@@ -104,7 +108,11 @@ int main(int argc,char**argv)try {
         if(uploadFleet)gFrameVertices.resize(gFrameVertices.size()+65536);
         hwglMarkSnapshot(HW_LEGACY_RASTER_WORLD);
 #if !defined(HW_RASTER_BASELINE_SOURCE) || defined(HW_RASTER_LIGHTING_REFERENCE)
-        hwlegacyd3d12::setMissionLighting(lightingEnabled,lights,1,noShadows?0:strength,0,0);
+        hwlegacyd3d12::setMissionLighting(lightingEnabled,lights,1,noShadows?0:strength,0,0
+#ifndef HW_RASTER_BASELINE_SOURCE
+            ,reflectionSky,1,reflectionGain,1
+#endif
+        );
 #endif
         list->EndQuery(timestamps.Get(),D3D12_QUERY_TYPE_TIMESTAMP,0);
         const auto cpuStart=std::chrono::steady_clock::now();
@@ -116,7 +124,7 @@ int main(int argc,char**argv)try {
             toShadow.pResource=shadowRead.Get();toShadow.Type=D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;toShadow.PlacedFootprint=shadowFootprint;list->CopyTextureRegion(&toShadow,0,0,0,&fromShadow,nullptr);
             resourceBarrier(list.Get(),r.missionShadow.Get(),D3D12_RESOURCE_STATE_COPY_SOURCE,D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);}
         D3D12_TEXTURE_COPY_LOCATION from={},to={};from.pResource=color.Get();from.Type=D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;to.pResource=read.Get();to.Type=D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;to.PlacedFootprint=footprint;
-        list->CopyTextureRegion(&to,0,0,0,&from,nullptr);require(SUCCEEDED(list->Close()),"close replay");ID3D12CommandList*commands[]={list.Get()};queue->ExecuteCommandLists(1,commands);queue->Signal(fence.Get(),frame+1);fence->SetEventOnCompletion(frame+1,event);WaitForSingleObject(event,30000);
+        list->CopyTextureRegion(&to,0,0,0,&from,nullptr);require(SUCCEEDED(list->Close()),"close replay");ID3D12CommandList*commands[]={list.Get()};queue->ExecuteCommandLists(1,commands);queue->Signal(fence.Get(),++submission);fence->SetEventOnCompletion(submission,event);require(WaitForSingleObject(event,30000)==WAIT_OBJECT_0,"frame timeout");
         void*mapped=nullptr;D3D12_RANGE timeRange={0,16};times->Map(0,&timeRange,&mapped);auto*t=static_cast<UINT64*>(mapped);gpuMilliseconds=double(t[1]-t[0])*1000/double(frequency);D3D12_RANGE noTimeWrite={0,0};times->Unmap(0,&noTimeWrite);
         if(frame==0 && shadowRead){D3D12_RANGE shadowRange={0,static_cast<SIZE_T>(shadowBytes)};shadowRead->Map(0,&shadowRange,&mapped);
             for(unsigned y=0;y<2048;++y)for(unsigned x=0;x<2048*4;++x)shadowHash=(shadowHash^static_cast<unsigned char*>(mapped)[y*shadowFootprint.Footprint.RowPitch+x])*1099511628211ull;
@@ -150,6 +158,19 @@ int main(int argc,char**argv)try {
         for(unsigned i=1;i<512;++i){auto&l=lights[i];l.type=2;l.position[0]=100+float(i);l.radius=1;l.intensity=1;l.color[0]=l.color[1]=l.color[2]=1;}
         auto culled=render(7,1);require(culled==line,"spatial light culling changes no pixels");
         require(hwlegacyd3d12::missionIndices.size()<1024,"unreachable lights were not removed from draw lists");
+        static int reflectionMaterial;
+        hwlegacyd3d12::setEmissionSource(emissionFixture::describe,emissionFixture::read);
+        hwglGenTextures(1,&reflectionSky);hwglBindTexture(GL_TEXTURE_2D,reflectionSky);
+        unsigned skyPixels[8];std::fill(std::begin(skyPixels),std::end(skyPixels),0xff2080ffu);
+        hwglTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,4,2,0,GL_RGBA,GL_UNSIGNED_BYTE,skyPixels);
+        emissionFixture::controls[&reflectionMaterial]={700,4,1};
+        emissionFixture::pixels[700]={0xfdff23ff,0xfdff23ff,0x81008000,0x81008000};
+        floorMaterial=&reflectionMaterial;lights.clear();
+        auto glossy=render(0,0);reflectionGain=0;auto disabled=render(1,0);
+        float bright=channel(glossy,-.65f,0,0),matte=channel(glossy,.65f,0,0);
+        std::cout<<"Raster dark hull sky reflection: glossy "<<bright<<", matte "<<matte<<", disabled "<<channel(disabled,-.65f,0,0)<<"\n";
+        require(bright>matte+.1f && channel(disabled,-.65f,0,0)<.01f,"per-texel sky reflection independent of diffuse");
+        floorMaterial=nullptr;reflectionSky=0;reflectionGain=1;emissionFixture::reads=0;
         static int bayId,onId,idleId;
         emissionFixture::materials[&bayId]={1,4,1};emissionFixture::pixels[1]={0xff800000u,0xff800000u,0xff000000u,0xff000000u};
         emissionFixture::materials[&onId]={2,1,1};emissionFixture::pixels[2]={0xff0000ffu};

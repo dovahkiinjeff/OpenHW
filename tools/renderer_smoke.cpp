@@ -1,3 +1,4 @@
+#include <DirectXPackedVector.h>
 // Exercise the production DXR implementation on the GPU without opening the
 // game, modifying player settings, or requiring proprietary game assets.
 #include "../src/Modern/ModernRaytracing.cpp"
@@ -119,7 +120,7 @@ int main(int argc, char **argv) try {
     heap.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     require(SUCCEEDED(device->CreateDescriptorHeap(&heap, IID_PPV_ARGS(&descriptors))), "descriptors");
     require(raytracingInitialize(device.Get(), descriptors.Get(),
-        device->GetDescriptorHandleIncrementSize(heap.Type), 0, 4, 43, 40,
+        device->GetDescriptorHandleIncrementSize(heap.Type), 0, 4, 44, 40,
         disableStreaming ? nullptr : queue.Get()), "DXR initialization");
     require(raytracingCreateOutput(64, 64), "DXR output creation");
     ComPtr<ID3D12CommandAllocator> allocator;
@@ -187,6 +188,12 @@ int main(int argc, char **argv) try {
     heap = {}; heap.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV; heap.NumDescriptors = 1;
     require(SUCCEEDED(device->CreateDescriptorHeap(&heap, IID_PPV_ARGS(&rtvs))), "RTV heap");
     device->CreateRenderTargetView(sky.Get(), nullptr, rtvs->GetCPUDescriptorHandleForHeapStart());
+    D3D12_SHADER_RESOURCE_VIEW_DESC skyView = {};
+    skyView.Format = texture.Format;
+    skyView.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    skyView.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    skyView.Texture2D.MipLevels = 1;
+    device->CreateShaderResourceView(sky.Get(), &skyView, cpuDescriptor(state.environmentSrvIndex));
     float skyColor[4] = {0.25f, 0.25f, 0.25f, 1};
     commands->ClearRenderTargetView(rtvs->GetCPUDescriptorHandleForHeapStart(), skyColor, 0, nullptr);
     transitionResource(commands.Get(), sky.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -225,6 +232,45 @@ int main(int argc, char **argv) try {
     raytracingSetPathSettings(1, 0, 1);
     require(requestedMaximumBounces == 1, "bounce lower bound is one");
     raytracingSetPathSettings(1, 6, 1);
+    if (argc>1 && std::strcmp(argv[1],"ship-reflection")==0) {
+        raytracingSetEnvironmentMode(true, 1.0f);
+        unsigned black=0xff000000, emissionOff=0, bright=0xfdff23ff, matte=0x81008000;
+        int models[3]={},materials[3]={};
+        float peaks[3]={};
+        for(unsigned i=0;i<3;++i){
+            auto control=i==1?matte:bright;
+            raytracingRegisterSurfaceTexture(&materials[i],1,1,&black,&emissionOff,nullptr,&control,i==1?"matte|rm-material":"glossy|rm-material");
+            surface.materialIdentity=&materials[i];
+            requestedSurfaceReflectivity=i==2?0:1;
+            raytracingSetFrameSlot(i);raytracingBeginFrame();raytracingBeginScene(60,1,identity);
+            raytracingSubmitGeometry(&models[i],vertices,3,12,indices,1,6,0,&surface,sizeof(surface),transform,baseColor,3);
+            raytracingEndScene();
+            require(raytracingRecord(commands.Get(),sky.Get(),nullptr,0,nullptr,0),"reflection dispatch");
+            auto reflected=state.reflection.Get();
+            auto desc=reflected->GetDesc();
+            D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp={};UINT64 bytes=0;
+            device->GetCopyableFootprints(&desc,0,1,0,&fp,nullptr,nullptr,&bytes);
+            ComPtr<ID3D12Resource> data;
+            require(createBuffer(bytes,D3D12_HEAP_TYPE_READBACK,D3D12_RESOURCE_FLAG_NONE,D3D12_RESOURCE_STATE_COPY_DEST,data),"pixel readback");
+            transitionResource(commands.Get(),reflected,D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,D3D12_RESOURCE_STATE_COPY_SOURCE);
+            D3D12_TEXTURE_COPY_LOCATION dst={};dst.pResource=data.Get();dst.Type=D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;dst.PlacedFootprint=fp;
+            D3D12_TEXTURE_COPY_LOCATION src={};src.pResource=reflected;src.Type=D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+            commands->CopyTextureRegion(&dst,0,0,0,&src,nullptr);
+            transitionResource(commands.Get(),reflected,D3D12_RESOURCE_STATE_COPY_SOURCE,D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+            transitionResource(commands.Get(),state.motion.Get(),D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+                D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+            submit();
+            unsigned char *pixels=nullptr;require(SUCCEEDED(data->Map(0,nullptr,(void**)&pixels)),"read reflected radiance");
+            for(UINT y=0;y<desc.Height;++y)for(UINT x=0;x<desc.Width;++x){
+                auto row=reinterpret_cast<unsigned short*>(pixels+fp.Offset+y*fp.Footprint.RowPitch);
+                peaks[i]=std::max(peaks[i],DirectX::PackedVector::XMConvertHalfToFloat(row[x*4]));
+            }
+            data->Unmap(0,nullptr);
+        }
+        std::cout<<"DXR black hull reflected radiance: glossy "<<peaks[0]<<", matte "<<peaks[1]<<", disabled "<<peaks[2]<<"\n";
+        require(peaks[0]>0.0001f && peaks[1]==0 && peaks[2]==0,"independent authored reflection on a black hull");
+        raytracingShutdown();CloseHandle(event);return 0;
+    }
     if (feedbackPerformance) {
         // Optional isolated A/B experiment. It changes only this executable's
         // synthetic scene/state and never opens a window or writes settings.
@@ -886,12 +932,12 @@ RWStructuredBuffer<float4> LightingTestOutput : register(u5);
         const unsigned base[2]={0xffffffffu,0xffffffffu},emission[2]={0xff020180u,0xff201000u},black[2]={0xff000000u,0xff000000u};
         raytracingRegisterSurfaceTexture(&emissionId,2,1,base,emission,nullptr,nullptr,"raster-emission-fixture");
         RasterEmissionSource source,alias;std::vector<unsigned char> decoded;
-        require(raytracingRasterEmissionSource(&emissionId,source),"shared emission source missing without raster registration");
+        require(raytracingRasterEmissionSource(&emissionId,RasterChannel::emission,source),"shared emission source missing without raster registration");
         require(raytracingReadRasterEmission(source.token,decoded) && decoded.size()==sizeof(emission) && !std::memcmp(decoded.data(),emission,sizeof(emission)),"shared lossless emission extraction changed pixels");
-        require(raytracingTryAliasSurfaceTexture(&aliasId,"raster-emission-fixture") && raytracingRasterEmissionSource(&aliasId,alias) && alias.token==source.token,"named material aliases duplicate emission backing");
+        require(raytracingTryAliasSurfaceTexture(&aliasId,"raster-emission-fixture") && raytracingRasterEmissionSource(&aliasId,RasterChannel::emission,alias) && alias.token==source.token,"named material aliases duplicate emission backing");
         raytracingRegisterSurfaceTexture(&blackId,2,1,base,black,nullptr,nullptr,"raster-black-fixture");
-        require(!raytracingRasterEmissionSource(&blackId,alias),"black map creates an emission resource");
-        raytracingUnregisterSurfaceTexture(&aliasId);require(!raytracingRasterEmissionSource(&aliasId,alias),"unregistered pointer resolves stale emission");
+        require(!raytracingRasterEmissionSource(&blackId,RasterChannel::emission,alias),"black map creates an emission resource");
+        raytracingUnregisterSurfaceTexture(&aliasId);require(!raytracingRasterEmissionSource(&aliasId,RasterChannel::emission,alias),"unregistered pointer resolves stale emission");
         require(!raytracingReadRasterEmission(~std::uint64_t(0),decoded),"invalid emission token accepted");
         raytracingUnregisterSurfaceTexture(&emissionId);raytracingUnregisterSurfaceTexture(&blackId);
         std::cout<<"PASS: shared lossless emission extraction, alias reuse, black-map skip, unregister and invalid-token checks\n";

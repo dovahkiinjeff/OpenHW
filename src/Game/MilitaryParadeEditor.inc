@@ -3,10 +3,6 @@
 #include "Mesh.h"
 #include "Camera.h"
 #include "glinc.h"
-static void speBegin(void);
-static void speClose(void);
-static void speDraw(void);
-static udword speProcess(smemsize ID,udword event);
 typedef struct MpeIdentity { ShipRace race;ShipType type; } MpeIdentity;
 #define MPE_MAX_IDENTITIES (NUM_RACES*TOTAL_NUM_SHIPS)
 #define MPE_UNDO 32
@@ -59,8 +55,9 @@ static void mpeReleaseCamera(void)
     if(mpe.cameraCaptured){mouseClipToRect(NULL);mousePositionSet(mpe.cursorX,mpe.cursorY);mouseCursorShow();mpe.cameraCaptured=FALSE;}
     if(mpe.drag==3)mpe.drag=0;
 }
+static void hodWorkshopClose(void);
 static void mpeClose(void)
-{speClose();mpeReleaseCamera();mpeFreeMeshes();mpe.stage=0;mpe.drag=0;mpe.edit=-1;}
+{hodWorkshopClose();mpeReleaseCamera();mpeFreeMeshes();mpe.stage=0;mpe.drag=0;mpe.edit=-1;}
 static void mpeBegin(int host)
 {
     int r,t;
@@ -172,14 +169,15 @@ static void mpeDrawGizmo(void)
     }
 }
 #include "ModManager.inc"
+#include "HodWorkshop.inc"
 static rectangle mpeMenuItem(int index)
 {
     return muiFrontendItem(TRUE,index,mpe.stage==1?4:3);
 }
 static void mpeDrawMenu(void)
 {
-    static const char *titles[]={"PARADE FORMATIONS","SHIP EDITOR","MOD MANAGER","RETURN"};
-    static const char *details[]={"Arrange campaign and skirmish fleets","View ships, fit subsystems and author models","Enable mods and adjust their load order","Back to the main menu"};
+    static const char *titles[]={"PARADE FORMATIONS","HOD EDITOR","MOD MANAGER","RETURN"};
+    static const char *details[]={"Arrange campaign and skirmish fleets","Create or edit ship and derelict models","Enable mods and adjust their load order","Back to the main menu"};
     rectangle whole=muiRect(0,0,MAIN_WindowWidth,MAIN_WindowHeight),panel=muiFrontendPanel(TRUE),button;
     int i,count=mpe.stage==1?4:3,x=panel.x0+uiScaleSize(28);
     muiDrawBackdrop(MUI_ART_ENGINEERING);muiFill(&whole,colRGBA(3,6,9,70));
@@ -196,13 +194,13 @@ static void mpeDrawMenu(void)
         muiTextLeftAdaptiveFull(&label,muiPaper,mpe.stage==1?titles[i]:(i==0?"KUSHAN":i==1?"TAIIDAN":"RETURN"),muiHeadingFont,muiBodyFont,muiCompactFont,0);
         muiTextLeftAdaptiveFull(&detail,muiMuted,mpe.stage==1?details[i]:(i<2?"Open the formation editor":"Back to workshop"),muiBodyFont,muiCompactFont,muiTinyFont,0);
     }
-    muiText(x,MAIN_WindowHeight-uiScaleSize(48),muiMuted,"ESC / BACK",muiBodyFont);
+    muiText(x,MAIN_WindowHeight-uiScaleSize(48),muiMuted,hodNotice[0]?hodNotice:"ESC / BACK",muiBodyFont);
 }
 static void mpeDraw(void)
 {
     static const char *buttons[9]={"BACK","SAVE","LOAD","UNDO","REDO","MOVE / ROTATE","FRAME ALL","REMOVE TYPE","CAMPAIGN / MP"};
     rectangle whole=muiRect(0,0,MAIN_WindowWidth,MAIN_WindowHeight),row;int i,n=0,visible;char text[150];ParadeShipLayout *e;
-    if(mpe.stage==4){speDraw();return;}
+    if(hodWorkshopActive())return;
     if(mpe.stage==5){modUIDraw();return;}
     if(mpe.stage!=3){mpeDrawMenu();return;}
     {
@@ -295,7 +293,7 @@ static void mpeAction(int index)
 static udword mpeProcess(smemsize ID,udword event)
 {
     int x=mouseCursorX(),y=mouseCursorY(),i,n=0,dx=x-mpe.lastX,dy=y-mpe.lastY;ParadeShipLayout *e=mpeSelected();
-    if(mpe.stage==4)return speProcess(ID,event);
+    if(hodWorkshopActive())return RPR_Redraw;
     if(mpe.stage==5)return modUIProcess(ID,event);
     mpeLayout();
     if(event==RPE_KeyDown) {
@@ -319,7 +317,7 @@ static udword mpeProcess(smemsize ID,udword event)
     if(mpe.stage<3) {
         if(event==RPE_ReleaseLeft)for(i=0;i<(mpe.stage==1?4:3);i++) {
             rectangle item=mpeMenuItem(i);if(!muiPointIn(&item,x,y))continue;
-            if(mpe.stage==1) {if(i==0)mpe.stage=2;else if(i==1)speBegin();else if(i==2)modUIOpen(0);else mpeClose();}
+            if(mpe.stage==1) {if(i==0)mpe.stage=2;else if(i==1)hodWorkshopOpen();else if(i==2)modUIOpen();else mpeClose();}
             else {if(i<2)mpeBegin(i);else mpe.stage=1;}
             break;
         }

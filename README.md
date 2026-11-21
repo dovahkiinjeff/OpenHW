@@ -1,8 +1,6 @@
-# OpenHW 1.1.13
+# OpenHW 1.1.14
 
-**Latest update:** [1.1.13 — installer and updater packaging hardening](docs/RELEASE_NOTES_1.1.13.md). Choose **Update now** in Launcher. The manual rollback option has been removed. No reinstall is needed. [Website update entry](https://openhw.tech/#/updates/v1.1.13).
-
-[**Download the full OpenHW 1.1.1 installer**](https://openhw.tech/downloads/v1.1.10/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.13) · [1.1.1 release notes](docs/RELEASE_NOTES_1.1.1.md)
+**Latest update:** [1.1.14 — reflections and integrated HOD modding](docs/RELEASE_NOTES_1.1.14.md). Choose **Update now** in Launcher. Includes the integrated HOD editor, named mod workspaces, and connected weapon/event editing. No reinstall is needed. [Website update entry](https://openhw.tech/#/updates/v1.1.14).
 
 > [!IMPORTANT]
 > **1.1.1 is the full base release. Start here; no 1.1 install or old patch chain is required.** Setup includes the working Launcher, Updater and Diagnostics. Install in a new writable folder using your owned Homeworld Remastered Collection.
@@ -15,14 +13,14 @@
 
 [![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-[**Download OpenHW 1.1.1**](https://openhw.tech/downloads/v1.1.10/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.13) · [Complete 1.1.13 source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.13/OpenHW-1.1.13-Source.zip) · [Release notes](docs/RELEASE_NOTES_1.1.1.md) · [Installation and controls](docs/USER_GUIDE.md) · [Editors](docs/EDITING_GUIDE.md) · [Modding](docs/MODDING.md) · [Build the installer](BUILD_INSTALLER.md)
+[**Download OpenHW 1.1.1**](https://openhw.tech/downloads/v1.1.10/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.14) · [Complete 1.1.14 source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.14/OpenHW-1.1.14-Source.zip) · [Release notes](docs/RELEASE_NOTES_1.1.1.md) · [Installation and controls](docs/USER_GUIDE.md) · [Editors](docs/EDITING_GUIDE.md) · [Modding](docs/MODDING.md) · [Build the installer](BUILD_INSTALLER.md)
 
 **The full 1.1.1 installer requires a fresh installation in a separate folder. Do not apply the old 1.0 patch chain to it.** Put OpenHW-Setup.exe in the new folder, select your owned Homeworld Remastered Collection, and let setup build the game there. Your old installation, saves and settings are not overwritten. Launcher.exe and Updater.exe are included.
 
 > [!IMPORTANT]
 > **Use AMD technology for 1.1. AMD FSR upscaling and AMD FSR frame generation are the recommended, working options.** DLSS currently has known visual issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.** Bundled vendor libraries or development code do not imply supported release features.
 
-> **Live editors in 1.1.3:** Shift+F11/F12 authoring is enabled for single-player and local multiplayer and blocked during online server matches. Authored environments still load.
+> **OpenHW 1.1.1 release:** Shift+F11/F12 live map, lighting and texture authoring menus are disabled in both game executables. Authored environments still load normally. The reference below describes the developer tools; source builds can explicitly enable them with `-DHW_ENABLE_LIVE_MAP_AUTHORING=ON`. The ship and parade editors are separate tools.
 
 
 **Publication:** compiled downloads are hosted on openhw.tech. GitHub hosts source code and release notes; its update feed is a metadata fallback only.

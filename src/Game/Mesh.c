@@ -421,6 +421,8 @@ static void meshModernSurfaceTextureKey(char *key, size_t capacity,
     snprintf(key, capacity, "%s|emissive=%u:%u", name,
         bitTest(material->flags, MDF_SelfIllum) ? 1u : 0u,
         (unsigned int)material->nFullAmbient);
+    if (bitTest(material->flags, MDF_NativeBay) && strlen(key) + 4 < capacity)
+        strcat(key, "|bay");
     if (strlen(name) >= 4 && strlen(name) + 10 < FL_Path &&
         strcasecmp(name + strlen(name) - 4, ".dds") == 0)
     {
@@ -654,6 +656,22 @@ static bool32 meshModernTryRegisterLoosePng(
     {
         trhandle handle=paintMaterialHandle(material);
         if(handle!=TR_Invalid)trColorizeSurfaceRgba(handle,lif,pngName,(color *)surfaceRgba,width,height);
+    }
+    /* A HOD may use one texture page for both the bay and the surrounding hull.
+       Mask the private decoded copy for this material instance only. */
+    if (materialRgba != NULL && bitTest(material->flags, MDF_NativeBay))
+    {
+        size_t i, count = (size_t)width * height;
+        for (i = 0; i < count; ++i)
+        {
+            unsigned char *pixel = materialRgba + i * 4;
+            if (pixel[3] == 255) /* old control pages stored AO in red */
+            {
+                float sharpness = (0.52f - pixel[1] / 255.0f) / 0.39f;
+                pixel[0] = (unsigned char)(255.0f * min(1.0f, max(0.0f, sharpness)));
+            }
+            pixel[3] = 128;
+        }
     }
     meshModernSurfaceTextureKey(textureKey, sizeof(textureKey), pngName, material);
     hwModernGraphicsRegisterSurfaceTextureNamed(

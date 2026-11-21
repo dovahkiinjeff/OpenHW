@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <iterator>
+#include <utility>
 
 #pragma pack(push,1)
 struct ObigHeader { char magic[8]; uint32_t version,count; uint64_t dataOffset; };
@@ -18,6 +20,15 @@ static const unsigned char *archiveView=nullptr;
 static const ObigHeader *archiveHeader=nullptr;
 static const ObigEntry *archiveEntries=nullptr;
 static std::string archiveRoot;
+static const std::pair<const char*,const char*> archiveAliases[]={
+#include "ArchiveAssetAliases.inc"
+};
+static const char* archiveAlias(const std::string& key) {
+    const auto alias=std::lower_bound(std::begin(archiveAliases),std::end(archiveAliases),key,
+        [](const auto& entry,const std::string& name){return entry.first<name;});
+    return alias!=std::end(archiveAliases)&&key==alias->first?alias->second:nullptr;
+}
+
 static HANDLE presentationFile=INVALID_HANDLE_VALUE,presentationMapping=nullptr;
 static const unsigned char *presentationView=nullptr;
 static const ObigHeader *presentationHeader=nullptr;
@@ -147,12 +158,26 @@ extern "C" const void *openhwArchiveView(const char *relative,int *size){
     while(first<last){uint32_t mid=first+(last-first)/2;int order=strcmp(key.c_str(),archiveEntries[mid].path);
         if(order==0){if(size)*size=static_cast<int>(archiveEntries[mid].size);return archiveView+archiveEntries[mid].offset;}
         if(order<0)last=mid;else first=mid+1;}
+    // Native subsystem definitions share models and texture pages already
+    // stored under ship components in the base archive.
+    if(const char* target=archiveAlias(key))
+        return openhwArchiveView(target,size);
     return nullptr;
 }
 extern "C" int openhwModOverride(const char *relative,char *path,size_t capacity){
     if(!path||!capacity||archiveRoot.empty())return 0;
-    static bool initialized=false;static std::vector<std::string> mods;
-    if(!initialized){initialized=true;std::ifstream input(archiveRoot+"mods/load-order.txt");std::string name;
+    thread_local bool initialized=false;
+    thread_local std::string cachedRoot;
+    thread_local ULONGLONG cachedStamp=0;
+    thread_local std::vector<std::string> mods;
+    WIN32_FILE_ATTRIBUTE_DATA attributes={};
+    const std::string orderPath=archiveRoot+"mods/load-order.txt";
+    ULONGLONG stamp=0;
+    if(GetFileAttributesExA(orderPath.c_str(),GetFileExInfoStandard,&attributes))
+        stamp=(ULONGLONG(attributes.ftLastWriteTime.dwHighDateTime)<<32)|attributes.ftLastWriteTime.dwLowDateTime;
+    if(!initialized || cachedRoot!=archiveRoot || cachedStamp!=stamp){
+        initialized=true;cachedRoot=archiveRoot;cachedStamp=stamp;mods.clear();
+        std::ifstream input(orderPath);std::string name;
         while(std::getline(input,name)&&mods.size()<128){if(!name.empty()&&name.back()=='\r')name.pop_back();
             if(name.empty()||name[0]=='#')continue;
             if(name.size()>64||!std::all_of(name.begin(),name.end(),[](char c){return (c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='_'||c=='-';}))continue;
@@ -161,11 +186,21 @@ extern "C" int openhwModOverride(const char *relative,char *path,size_t capacity
     }
     std::string key;if(!normalize(relative,key))return 0;
     // Gameplay content only: never redirect writes, DLLs or user settings.
-    if(key.find('/')==std::string::npos)return 0;
+    if(key=="parade-kushan.cfg" || key=="parade-taiidan.cfg")return 0;
     for(auto it=mods.rbegin();it!=mods.rend();++it){std::string candidate=archiveRoot+"mods/"+*it+"/"+key;
         DWORD attrs=GetFileAttributesA(candidate.c_str());
         if(attrs!=INVALID_FILE_ATTRIBUTES&&!(attrs&FILE_ATTRIBUTE_DIRECTORY)&&candidate.size()<capacity){
             memcpy(path,candidate.c_str(),candidate.size()+1);return 1;}}
+    // Regenerated official material pages also serve their shared aliases.
+    if(const char* target=archiveAlias(key)) {
+        for(const std::string prefix:{archiveRoot,archiveRoot+"Data/"}) {
+            const std::string candidate=prefix+target;
+            const DWORD attrs=GetFileAttributesA(candidate.c_str());
+            if(attrs!=INVALID_FILE_ATTRIBUTES && !(attrs&FILE_ATTRIBUTE_DIRECTORY) && candidate.size()<capacity) {
+                memcpy(path,candidate.c_str(),candidate.size()+1);return 1;
+            }
+        }
+    }
     // Shipped definition updates live in Data, while the portable override
     // directory is the installation root. Resolve these before the OBIG
     // fallback so editor, simulation and visual loading see the same document.

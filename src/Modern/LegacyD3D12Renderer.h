@@ -16,7 +16,7 @@ void beginScene(const float view[16]);
 void endScene();
 const float *sceneView();
 void setMissionLighting(bool enabled,const std::vector<hwmodern::ResolvedSceneLight>& lights,
-    float exposure,float shadowStrength,float receiverBias,float normalBias);
+    float exposure,float shadowStrength,float receiverBias,float normalBias,unsigned sky,float fade,float reflectivity,float environment);
 bool initialize(ID3D12Device *device, unsigned int width, unsigned int height);
 void shutdown();
 bool resize(ID3D12Device *device, unsigned int width, unsigned int height);

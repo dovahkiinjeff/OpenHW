@@ -349,14 +349,14 @@ class App:
         self.tree.bind('<Double-1>',lambda e:self.guarded(self.toggle_mod));self.tree.bind('<space>',lambda e:self.guarded(self.toggle_mod))
         actions=tk.Frame(page,bg=PANEL);actions.pack(side='bottom',before=box,fill='x',padx=34,pady=(10,12))
         buttons=[]
-        for text,action,width in (('ENABLE / DISABLE',self.toggle_mod,174),('MOVE UP',lambda:self.move_mod(-1),120),('MOVE DOWN',lambda:self.move_mod(1),136),('REFRESH',self.refresh_mods,112),('SAVE LOADOUT',self.save_mods,170)):
+        for text,action,width in (('CREATE MOD',self.create_mod,140),('ENABLE / DISABLE',self.toggle_mod,174),('MOVE UP',lambda:self.move_mod(-1),120),('MOVE DOWN',lambda:self.move_mod(1),136),('REFRESH',self.refresh_mods,112),('SAVE LOADOUT',self.save_mods,170)):
             buttons.append(Button(actions,text,lambda f=action:self.guarded(f),width=width,height=42,primary=text=='SAVE LOADOUT'))
         def arrange(event):
             columns=5 if event.width>=800 else 3
-            for i in range(5):actions.columnconfigure(i,weight=1 if i<columns else 0,uniform='actions' if i<columns else '',minsize=0)
+            for i in range(len(buttons)):actions.columnconfigure(i,weight=1 if i<columns else 0,uniform='actions' if i<columns else '',minsize=0)
             for i,button in enumerate(buttons):button.grid(row=i//columns,column=i%columns,sticky='ew',padx=(0,8),pady=(0,8))
         actions.bind('<Configure>',arrange)
-        label(page,'New packages start disabled. Restart the game after changing your loadout.',size=SMALL,color=MUTED,wraplength=650,justify='left').pack(side='bottom',before=box,anchor='w',padx=34,pady=(12,0))
+        label(page,'Restart the game after changing your loadout.',size=SMALL,color=MUTED,wraplength=650,justify='left').pack(side='bottom',before=box,anchor='w',padx=34,pady=(12,0))
         self.redraw_mods()
     def redraw_mods(self,selected=None):
         self.tree.delete(*self.tree.get_children())
@@ -372,6 +372,14 @@ class App:
         index=self.mod_index()
         if index is not None and 0<=index+direction<len(self.mods):self.mods[index],self.mods[index+direction]=self.mods[index+direction],self.mods[index];self.redraw_mods(index+direction)
     def refresh_mods(self):self.mods=self.api.read_mods(self.root);self.redraw_mods()
+    def create_mod(self):
+        from tkinter import simpledialog
+        name=simpledialog.askstring('Create mod','Mod name',parent=self.window)
+        if name is None:return
+        self.api.create_mod(self.root,name.strip())
+        self.refresh_mods()
+        self.status.set('MOD CREATED / Enabled for the next launch.')
+
     def save_mods(self):self.api.save_mods(self.root,self.mods);self.status.set('LOADOUT SAVED / Mod priority applies on next launch.')
     def make_system(self):
         page=self.pages['system'];self.page_heading(page,'SHIP SYSTEMS','MAINTENANCE & UPDATES  /  ALL FILES STAY IN YOUR OPENHW FOLDER')

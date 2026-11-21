@@ -2,11 +2,12 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 from release_content_policy import verify_profile, digest, UI_PLATES
 
-CODE_EXTENSIONS={'.c','.cpp','.h','.hlsl','.inc','.json','.md','.txt','.kas',
+CODE_EXTENSIONS={'.c','.cpp','.h','.hlsl','.hlsli','.inc','.json','.md','.txt','.kas',
                  '.kash','.l','.y','.ps1','.manifest','.in','.cmake','.py','.omwfx',
                  '.yml','.yaml','.cfg','.rc','.cmd'}
 SOURCE_DIRECTORIES=('src','tools','tests','cmake','Windows','docs','documentation',
@@ -27,7 +28,13 @@ def export(repo, output, profile=None, version='1.1'):
         target=output/path.relative_to(repo);target.parent.mkdir(parents=True,exist_ok=True)
         shutil.copyfile(path,target)
     for directory in SOURCE_DIRECTORIES:
-        for path in (repo/directory).rglob('*'):
+        def files():
+            for parent, dirs, names in os.walk(repo/directory):
+                if Path(parent) == repo/'tools' and 'hod-editor' in dirs:
+                    dirs.remove('hod-editor')
+                for name in names:
+                    yield Path(parent)/name
+        for path in files():
             if not path.is_file() or '__pycache__' in path.parts or '.texture-tools' in path.parts:continue
             # The public server tree contains code and its service unit only.
             # Private state/configuration, logs, Wine prefixes and game data are
@@ -35,6 +42,13 @@ def export(repo, output, profile=None, version='1.1'):
             extensions=SERVER_EXTENSIONS if directory=='server' else CODE_EXTENSIONS
             if directory=='server' and any(part.lower() in {'state','logs','game','data','venv','.venv'} for part in path.relative_to(repo/'server').parts):continue
             if path.suffix.lower() in extensions or path.name in {'LICENSE','COPYING','NOTICE'}:copy(path)
+    editor = repo/'tools/hod-editor'
+    for parent, dirs, names in os.walk(editor):
+        dirs[:] = [d for d in dirs if d not in {'target','node_modules','dist','gen','.git'}]
+        for name in names:
+            path = Path(parent)/name
+            if path.suffix.lower() in {'.ts','.tsx','.js','.json','.rs','.toml','.lock','.css','.html','.svg','.png','.ico','.icns','.nsh','.md'} or name in {'LICENSE','.gitignore'}:
+                copy(path)
     for path in repo.iterdir():
         if path.is_file() and path.name not in ('.git','CMakeUserPresets.json','SOURCE_MANIFEST.json') and (
             path.suffix.lower() in {'.md','.txt','.json'} or path.name in {

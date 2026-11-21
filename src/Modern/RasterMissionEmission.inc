@@ -17,7 +17,8 @@ bool missionEmissionAdapterChecked=false;
 UINT64 missionEmissionStagingLastBusy[kFrameSlots]={};
 float missionEmissionBrightness=1.0f;
 bool missionEmissionBindingsValid=false;
-unsigned missionEmissionBoundSlots[2]={};
+unsigned missionEmissionBoundSlots[7]={};
+unsigned reflectionSkyName=0;
 struct MissionEmissionParameters {unsigned flags;float gain,idleGain,padding;};
 MissionEmissionParameters missionEmissionBoundParameters={};
 void trimMissionEmissionStaging(unsigned slot) {
@@ -57,10 +58,10 @@ void clearMissionEmission() {
     missionEmissionAdapterBudget=1024ull*1024*1024;
     std::fill(std::begin(missionEmissionStagingLastBusy),std::end(missionEmissionStagingLastBusy),0);
 }
-TextureRecord*missionEmissionTexture(ID3D12Device*device,ID3D12GraphicsCommandList*list,const void*material) {
+TextureRecord*missionEmissionTexture(ID3D12Device*device,ID3D12GraphicsCommandList*list,const void*material, hwmodern::RasterChannel channel) {
     if(!material || !missionEmissionDescribe || !missionEmissionRead)return nullptr;
     hwmodern::RasterEmissionSource source;
-    if(!missionEmissionDescribe(material,source) || !source.token || !source.width || !source.height)return nullptr;
+    if(!missionEmissionDescribe(material,channel,source) || !source.token || !source.width || !source.height)return nullptr;
     auto found=missionEmissionTextures.find(source.token);
     if(found!=missionEmissionTextures.end()){found->second.lastUse=gPersistentSequence;return &found->second.texture;}
     MissionEmissionTexture entry;
@@ -78,15 +79,32 @@ TextureRecord*missionEmissionTexture(ID3D12Device*device,ID3D12GraphicsCommandLi
 }
 void bindMissionEmission(ID3D12Device*device,ID3D12GraphicsCommandList*list,const RasterCommand&command,bool enabled) {
     MissionEmissionParameters p={};
-    TextureRecord*active=nullptr,*idle=nullptr;
-    if(enabled && command.state.emissionGain>0)active=missionEmissionTexture(device,list,command.state.materialIdentity);
-    if(enabled && command.state.engineBlend>=0 && command.state.engineIdleEmissionGain>0)idle=missionEmissionTexture(device,list,command.state.engineIdleMaterial);
-    p.flags=(active?1u:0u)|(idle?2u:0u);p.gain=command.state.emissionGain*missionEmissionBrightness;p.idleGain=command.state.engineIdleEmissionGain*missionEmissionBrightness;
-    if(!active)p.gain=0;if(!idle)p.idleGain=0;
-    for(unsigned i=0;i<2;++i){const auto*tex=i?idle:active;
-        const unsigned slot=tex?tex->descriptorSlot:texture(0).descriptorSlot;
-        if(!missionEmissionBindingsValid || missionEmissionBoundSlots[i]!=slot){auto srv=r.srvHeap->GetGPUDescriptorHandleForHeapStart();srv.ptr+=UINT64(slot)*r.srvStride;
-            list->SetGraphicsRootDescriptorTable(10+i,srv);missionEmissionBoundSlots[i]=slot;}}
+    using Channel = hwmodern::RasterChannel;
+    TextureRecord* pages[7]={};
+    const auto active=command.state.materialIdentity, idle=command.state.engineIdleMaterial;
+    if(enabled){
+        if(command.state.emissionGain>0) pages[0]=missionEmissionTexture(device,list,active,Channel::emission);
+        pages[2]=missionEmissionTexture(device,list,active,Channel::nativeControl);
+        if(pages[2]) pages[3]=missionEmissionTexture(device,list,active,Channel::nativeNormal);
+        if(command.state.engineBlend>=0){
+            if(command.state.engineIdleEmissionGain>0) pages[1]=missionEmissionTexture(device,list,idle,Channel::emission);
+            pages[4]=missionEmissionTexture(device,list,idle,Channel::nativeControl);
+            if(pages[4]) pages[5]=missionEmissionTexture(device,list,idle,Channel::nativeNormal);
+        }
+        auto sky=gTextures.find(reflectionSkyName);
+        if(pages[2] && reflectionSkyName && sky!=gTextures.end() && ensureTextureGpu(device,list,sky->second))pages[6]=&sky->second;
+    }
+    p.gain=pages[0]?command.state.emissionGain*missionEmissionBrightness:0;
+    p.idleGain=pages[1]?command.state.engineIdleEmissionGain*missionEmissionBrightness:0;
+    for(unsigned i=0;i<7;++i){
+        if(pages[i])p.flags|=1u<<i;
+        const unsigned slot=pages[i]?pages[i]->descriptorSlot:texture(0).descriptorSlot;
+        if(!missionEmissionBindingsValid || missionEmissionBoundSlots[i]!=slot){
+            auto srv=r.srvHeap->GetGPUDescriptorHandleForHeapStart();srv.ptr+=UINT64(slot)*r.srvStride;
+            list->SetGraphicsRootDescriptorTable(i<2?10+i:11+i,srv);
+            missionEmissionBoundSlots[i]=slot;
+        }
+    }
     if(!missionEmissionBindingsValid || std::memcmp(&p,&missionEmissionBoundParameters,sizeof(p))){list->SetGraphicsRoot32BitConstants(12,4,&p,0);missionEmissionBoundParameters=p;}
     missionEmissionBindingsValid=true;
 }
@@ -117,10 +135,10 @@ void prepareMissionEmissionResidency(ID3D12Device*device,size_t count) {
     UINT64 requiredBytes=0;
     for(size_t i=0;i<count;++i){
         const auto&c=gCommands[i];if(!missionCaster(c))continue;
-        const void*ids[]={c.state.emissionGain>0?c.state.materialIdentity:nullptr,
-            c.state.engineBlend>=0 && c.state.engineIdleEmissionGain>0?c.state.engineIdleMaterial:nullptr};
-        for(const void*id:ids){hwmodern::RasterEmissionSource source;
-            if(!id || !missionEmissionDescribe(id,source))continue;
+        const void*ids[]={c.state.materialIdentity,c.state.engineBlend>=0?c.state.engineIdleMaterial:nullptr};
+        for(const void*id:ids) for(auto channel:{hwmodern::RasterChannel::emission,hwmodern::RasterChannel::nativeControl,hwmodern::RasterChannel::nativeNormal}){
+            hwmodern::RasterEmissionSource source;
+            if(!id || !missionEmissionDescribe(id,channel,source))continue;
             auto found=missionEmissionTextures.find(source.token);
             if(found!=missionEmissionTextures.end()){
                 if(found->second.lastUse!=gPersistentSequence)requiredBytes+=found->second.bytes;

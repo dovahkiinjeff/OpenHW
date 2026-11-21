@@ -40,6 +40,7 @@ def audit(installer,source):
             game_exes=sorted(n for n in runtime.namelist() if n.lower().endswith('.exe'))
             if game_exes!=['Launcher.exe','OpenHW-Daignostics.exe','OpenHW.exe','Updater.exe']:
                 raise ValueError('Unexpected runtime executables; fresh setup requires the game variants, Launcher and Updater')
+            if 'Data/Workshop/OpenHWHodEditor.dll' not in runtime.namelist():raise ValueError('Missing in-game HOD editor')
             builds={}
             for name,logging in [('OpenHW.exe',False),('OpenHW-Daignostics.exe',True)]:
                 data=runtime.read(name)

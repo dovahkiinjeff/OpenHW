@@ -18,7 +18,7 @@ def stage(install, output, reader):
     if output == install or output.is_relative_to(install / 'Data'):
         raise ValueError('Stage outside live Data')
     roots = [install/'Data'] + sorted(p for p in (install/'mods').glob('*') if p.is_dir())
-    records, seen, errors = [], {}, []
+    records, seen, errors = {}, {}, []
     for root in roots:
         def resolve(folder, token, texture=False):
             if token.startswith('@/'):
@@ -46,21 +46,28 @@ def stage(install, output, reader):
                         material = materials[int(row[2])]
                         shader = material['shader']
                         if shader=='Ship': shader='ship'
+                        if shader=='shipglow_ns': shader='shipglow'
                         if shader not in ('ship','badge','bay','shipglow','badgeglow','thruster','matte','matteAlpha','matteScissor','default'):
                             raise ValueError('Unsupported surface shader '+shader)
                         label = resolve(definition.parent,row[3],texture=True)
                         variants = [('', 'Off'), ('_engineOn', 'On')] if shader=='thruster' else [('', '')]
                         for suffix,state in variants:
                             target = Path(str(label)+suffix+'_material.dds')
-                            signature = (str(model).lower(),int(row[2]),state)
+                            parameters=material['parameters']
+                            # Some HODs share one output texture between a bay and
+                            # a hull surface. The runtime applies bay policy per draw.
+                            family = 'ship' if shader=='bay' else shader
+                            signature = (model, family, state, parameters.get('$glow'+state),
+                                         parameters.get('$team'), parameters.get('$spec'))
                             if target in seen:
-                                if seen[target]!=signature: raise ValueError('Conflicting material mapping '+str(target))
-                                continue
+                                if seen[target] != signature:
+                                    raise ValueError('Conflicting material mapping '+str(target))
+                                if shader=='bay' or records[target]['shader']!='bay':
+                                    continue
                             seen[target]=signature
                             diffuse = Path(str(label)+suffix+'.dds')
                             if not diffuse.is_file(): raise ValueError('Missing staged diffuse '+str(diffuse))
                             with Image.open(diffuse) as image: size=image.size
-                            parameters=material['parameters']
                             def image(name):
                                 index=parameters.get(name)
                                 return native.image(index) if index is not None else None
@@ -70,14 +77,14 @@ def stage(install, output, reader):
                             staged=output/relative
                             staged.parent.mkdir(parents=True,exist_ok=True)
                             staged.write_bytes(data)
-                            records.append(dict(path=relative.as_posix(),sha256=hashlib.sha256(data).hexdigest(),
-                                                model=str(model),material=int(row[2]),shader=shader))
+                            records[target]=dict(path=relative.as_posix(),sha256=hashlib.sha256(data).hexdigest(),
+                                                model=str(model),material=int(row[2]),shader=shader)
                 print('Staged',definition.relative_to(install),flush=True)
             except Exception as error:
                 errors.append(dict(definition=str(definition),error=str(error)))
                 print('ERROR',definition,error,flush=True)
     output.mkdir(parents=True,exist_ok=True)
-    (output/'material-controls-report.json').write_text(json.dumps(dict(files=records,errors=errors),indent=2))
+    (output/'material-controls-report.json').write_text(json.dumps(dict(files=list(records.values()),errors=errors),indent=2))
     print('Material maps:',len(records),'errors:',len(errors),flush=True)
     return bool(errors)
 

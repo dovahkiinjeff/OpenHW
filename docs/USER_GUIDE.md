@@ -1,4 +1,4 @@
-> **Current 1.1.13 update:** choose Update now in Launcher for hardened installer/updater packaging and current utilities. The manual Previous Version / Roll Back option is removed. Existing installations update in place; do not run the full installer over them. See [1.1.13 release notes](RELEASE_NOTES_1.1.13.md).
+> **Current 1.1.14 update:** choose Update now in Launcher for native reflections and integrated HOD modding. See [release notes](RELEASE_NOTES_1.1.14.md).
 
 # OpenHW 1.1 installation and diagnostics
 
@@ -118,3 +118,9 @@ Completing NVIDIA DLSS and Intel support and addressing player-reported bugs/gli
 ## Launcher, menus and individual paint
 
 See [Launcher](LAUNCHER.md), [live fleet preview and ship colours](FRONTEND.md), and the [16-image feature tour](FEATURE_TOUR_1.0.7.md).
+
+## Named HOD mods
+
+Use **Create Mod** in Mod Manager, or **Save to mod** in the integrated HOD editor. The mod lives under `mods/<name>/`. Enabled mods override matching game-data paths; later enabled entries have priority. Restart the game after changing a mod. Personal parade settings stay outside mods.
+
+Open a game model, use **Quick Add subsystem** (or copy/paste) to mount a turret, position it, and choose **Save to mod**. The editor generates the ship definition, runtime material maps, weapon slots and hardpoints, and preserves the turret’s weapon-fire/event references. **Ship file**, **Events file**, and **Weapon file** open the associated mod files inside the editor. Events are presented as JSON and saved back to their binary game format.

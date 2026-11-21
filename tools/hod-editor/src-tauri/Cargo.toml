@@ -1,0 +1,40 @@
+[package]
+name = "hodeditorjs"
+version = "1.2.17"
+description = "HODEditorJS App"
+authors = ["willywolfy"]
+edition = "2021"
+autobins = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "hodeditorjs_lib"
+crate-type = ["rlib", "cdylib"]
+
+
+[dependencies]
+wry = "=0.55.1"
+raw-window-handle = "0.6"
+tempfile = "3"
+crc32fast = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+byteorder = "1.5"
+image = { version = "0.24", default-features = false, features = ["png", "tga", "jpeg"] }
+hwr_hod_parser = { path = "../parser" }
+rfd = "0.14"
+chrono = "0.4.44"
+base64 = "0.22.1"
+regex = "1.12.3"
+
+
+
+[features]
+
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_System_LibraryLoader", "Win32_System_DataExchange", "Win32_Foundation"] }

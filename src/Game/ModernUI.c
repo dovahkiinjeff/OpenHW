@@ -6223,7 +6223,7 @@ static void muiMainSettingsUpdate(void)
 }
 
 #include "MilitaryParadeEditor.inc"
-#include "ShipEditor.inc"
+/* Fleet Workshop hosts the integrated HOD editor. */
 
 static featom *muiMainActionAtom(fescreen *screen, sdword index)
 {

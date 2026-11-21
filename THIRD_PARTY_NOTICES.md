@@ -167,3 +167,7 @@ without warranty.
 ## Launcher fonts
 
 The launcher privately loads Rajdhani and Share Tech Mono, distributed under the SIL Open Font License 1.1. Complete notices accompany the fonts in `assets/Launcher/Rajdhani-OFL.txt` and `assets/Launcher/ShareTechMono-OFL.txt` and are embedded with Launcher.exe under `Development/Launcher/Theme`. Artwork treatment and source records are in `assets/Launcher/provenance.json`; original concept-art provenance remains in `assets/UI/ART_PROVENANCE.md`.
+
+## HODEditorJS
+
+The OpenHW HOD Editor derives from HODEditorJS v1.2.17 by GuillermoOM and contributors (commit 4cb39196f0328096044c9c2b9589c417fc3f0ffb). OpenHW adds game-window hosting, installed model browsing and document handling. The upstream work is licensed under CC BY-NC 4.0. See Licenses/HODEditorJS-LICENSE.txt in the installation or tools/hod-editor/LICENSE in the source tree. [Upstream release](https://github.com/GuillermoOM/HODEditorJS/releases/tag/v1.2.17)

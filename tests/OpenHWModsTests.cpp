@@ -35,6 +35,12 @@ int main(){
  assert(get(root/"mods/Custom/unrelated/keep.txt")=="keep");
  assert(openhwModPublish(r.c_str(),"../bad",0,path,ship,strlen(ship),0,error,sizeof(error))==0);
  assert(openhwModPublish(r.c_str(),"Custom",0,path,ship,strlen(ship),0,error,sizeof(error))==0);
+ assert(openhwModCreate(r.c_str(),"NewMod",error,sizeof(error)));
+ assert(fs::is_directory(root/"mods/NewMod"));
+ int count=openhwModsRead(r.c_str(),rows,128,error,sizeof(error));
+ assert(count==4 && std::string(rows[count-1].name)=="NewMod" && rows[count-1].enabled);
+ assert(!openhwModCreate(r.c_str(),"NewMod",error,sizeof(error)));
+ assert(!openhwModCreate(r.c_str(),"../escape",error,sizeof(error)));
  // Only this uniquely created test directory is removed.
  assert(fs::equivalent(root.parent_path(),fs::temp_directory_path())&&root.filename().string().rfind("openhw-mod-test-",0)==0);
  fs::remove_all(root);

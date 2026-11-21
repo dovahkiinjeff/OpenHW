@@ -38,6 +38,9 @@ def stage(repo, profile, destination, normal_build=None, diagnostic_build=None, 
     runtime=dev/'Runtime';runtime.mkdir()
     shutil.copyfile(normal/'HomeworldModern.exe',runtime/'OpenHW.exe')
     shutil.copyfile(diag/'HomeworldModern.exe',runtime/'OpenHW-Daignostics.exe')
+    editor = Path('Data/Workshop/OpenHWHodEditor.dll')
+    (runtime/editor.parent).mkdir(parents=True,exist_ok=True)
+    shutil.copyfile(normal/editor,runtime/editor)
     shutil.copyfile(launcher,runtime/'Launcher.exe')
     shutil.copyfile(updater,runtime/'Updater.exe')
     libraries=('SDL2.dll','avcodec-63.dll','avformat-63.dll','avutil-61.dll','swscale-10.dll',
@@ -52,6 +55,7 @@ def stage(repo, profile, destination, normal_build=None, diagnostic_build=None, 
     (runtime/'openhw.portable').write_text('OpenHW '+version+' portable installation\n')
     (runtime/'mods').mkdir();(runtime/'mods/load-order.txt').write_text('# Enabled mods, one per line; no custom mods enabled by default.\n')
     shutil.copytree(profile/'Licenses',runtime/'Licenses',dirs_exist_ok=True)
+    shutil.copyfile(repo/'tools/hod-editor/LICENSE',runtime/'Licenses/HODEditorJS-LICENSE.txt')
     shutil.copyfile(repo/'src/ThirdParty/ThreeGoodGodRays/LICENSE',runtime/'Licenses/ThreeGoodGodRays-LICENSE.txt')
     shutil.copyfile(repo/'LICENSE.txt',runtime/'LICENSE.txt')
     shutil.copyfile(repo/'THIRD_PARTY_NOTICES.md',runtime/'THIRD_PARTY_NOTICES.md')
