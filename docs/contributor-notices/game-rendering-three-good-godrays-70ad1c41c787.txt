@@ -1,0 +1,37 @@
+===== LICENSE =====
+Copyright © 2022 Casey Primozic
+
+Adapted from original code (https://github.com/N8python/goodGodRays)
+by https://github.com/n8python
+
+This software is provided 'as-is', without any express or implied warranty. In
+no event will the authors be held liable for any damages arising from the use of
+this software.
+
+Permission is granted to anyone to use this software for any purpose, including
+commercial applications, and to alter it and redistribute it freely, subject to
+the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim
+   that you wrote the original software. If you use this software in a product,
+   an acknowledgment in the product documentation would be appreciated but is
+   not required.
+
+2. Altered source versions must be plainly marked as such, and must not be
+   misrepresented as being the original software.
+
+3. This notice may not be removed or altered from any source distribution.
+
+
+===== PROVENANCE.md =====
+# three-good-godrays provenance
+
+- Project: https://github.com/Ameobea/three-good-godrays
+- Inspected revision: `70ad1c41c78796637064b3bb9246be08e81ee777`
+- Original implementation acknowledged upstream: https://github.com/N8python/goodGodRays
+- Copyright: Casey Primozic, 2022; see the complete unmodified [LICENSE](LICENSE).
+- Upstream license: https://github.com/Ameobea/three-good-godrays/blob/70ad1c41c78796637064b3bb9246be08e81ee777/LICENSE
+
+The candidate OpenHW renderer is an **altered Direct3D 12/HLSL adaptation**, not an unmodified copy of the Three.js package. It adapts the reduced-resolution shadow-visibility integration and joint bilateral upsampling structure described by `src/godrays.frag` and `src/compositor.frag` at the revision above. OpenHW retains its own finite mission bounds, camera/depth conventions, sun visibility and authoring controls. The Three.js runtime and demo assets are not incorporated.
+
+The adaptation is under development. It must preserve dark-scene contrast and treat shaft radiance separately, rather than applying a whole-scene haze. No performance improvement or visual parity is asserted before production-path validation. See [the development notes](../../../docs/GOD_RAYS.md).

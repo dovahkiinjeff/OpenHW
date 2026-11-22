@@ -143,8 +143,8 @@
     },
     {
       "path": "THIRD_PARTY_NOTICES.md",
-      "size": 8554,
-      "sha256": "4ae980e488dd036d9912ff4265cbbbe9ba7b2e0c850ec5fdedf0b47e53fd155f"
+      "size": 9211,
+      "sha256": "1adf1e28fa48ba6bbfcda1cdd39287742b6e6b0c026747582f02a61c3454cb99"
     },
     {
       "path": "WINDOWS_SOURCE_PACKAGE.md",
@@ -23227,6 +23227,11 @@
       "sha256": "7ace460e54d1e28d926f9df4b37b3aef60f461ac3f8089e702e6cb6ecaed3672"
     },
     {
+      "path": "docs/CONTRIBUTORS.md",
+      "size": 58898,
+      "sha256": "b262a0c0dfbbba90dc8510559c17345961f3796e9c8f57a4255f5d65c08693e0"
+    },
+    {
       "path": "docs/DX11_COMPATIBILITY.md",
       "size": 2847,
       "sha256": "fabcd2389972631b90a19c3e0ae710c5f5a15244dfceb94ca1e76d73fb6cb430"
@@ -23545,6 +23550,1031 @@
       "path": "docs/WIP_LOOSE_LAYOUT.md",
       "size": 1378,
       "sha256": "783ddc6c30a531f03c9739859add7917fe434334355c442067446b94ff9f7e8e"
+    },
+    {
+      "path": "docs/contributor-notices/fonts-artwork-homeworld-artwork-and-community-captures-supplied-material.txt",
+      "size": 3001,
+      "sha256": "9880ae9464d83cab334f22ad16fae4851a31664caa1d3df2386c224f797a1a11"
+    },
+    {
+      "path": "docs/contributor-notices/fonts-artwork-rajdhani-bundled-font.txt",
+      "size": 4402,
+      "sha256": "23342cab4df9968c0ec7a2c6c2a904a3ee61875640509c4194497285d3d822c2"
+    },
+    {
+      "path": "docs/contributor-notices/fonts-artwork-share-tech-mono-bundled-font.txt",
+      "size": 4463,
+      "sha256": "7f7d37314c776d04606b4b91e98d6107208c1d5956d4cc17b075b9a5d379c71d"
+    },
+    {
+      "path": "docs/contributor-notices/game-rendering-d3d12-memory-allocator-3.2.0.txt",
+      "size": 1123,
+      "sha256": "a7c208748a3916541a489581340d921e829d817a09c6aa14135b381e47b9f873"
+    },
+    {
+      "path": "docs/contributor-notices/game-rendering-homeworld-homeworldsdl-original-engine-baseline.txt",
+      "size": 13930,
+      "sha256": "ff7b47c3c0d38e2aa1ba8725e5e8ae9d840bcf3b8faef308f556ec2eba3040d8"
+    },
+    {
+      "path": "docs/contributor-notices/game-rendering-lzss-bitio-legacy-source.txt",
+      "size": 25421,
+      "sha256": "7fbce4d76ea3ab0944437d091b7fca2dad68dd36e0a73760690d664b82168f8e"
+    },
+    {
+      "path": "docs/contributor-notices/game-rendering-meshoptimizer-1.0.txt",
+      "size": 1102,
+      "sha256": "4f1767455bf3644f81d3efb3002e27b0c68525220783bd198c5d12ab3839fa5c"
+    },
+    {
+      "path": "docs/contributor-notices/game-rendering-openmw-volumetric-clouds-c8830bcd2de0.txt",
+      "size": 4880,
+      "sha256": "2903148ca6c28fc576b468eaee519140429f23279713c433b4d53639372fe175"
+    },
+    {
+      "path": "docs/contributor-notices/game-rendering-stb-headers-vendored-source.txt",
+      "size": 282872,
+      "sha256": "d9755d98b15021ff1ab5bb7fba914b4c125ad09eabf2df1057e155ceeb965a39"
+    },
+    {
+      "path": "docs/contributor-notices/game-rendering-three-good-godrays-70ad1c41c787.txt",
+      "size": 2231,
+      "sha256": "c5857e8f0e107e6ee10e02928dd670f1ec7e7267b9e9cf2ab52ac7cdd95209f4"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-hodeditorjs-1.2.17-4cb39196f032.txt",
+      "size": 13873,
+      "sha256": "f8cb35864af4873bad16c5c4d068e2cbb643e38d74ecadd4d8037525d0c4878b"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-code-frame-7.29.0.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-compat-data-7.29.3.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-core-7.29.0.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-generator-7.29.1.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-helper-compilation-targets-7.28.6.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-helper-globals-7.28.0.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-helper-module-imports-7.28.6.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-helper-module-transforms-7.28.6.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-helper-plugin-utils-7.28.6.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-helper-string-parser-7.27.1.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-helper-validator-identifier-7.28.5.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-helper-validator-option-7.27.1.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-helpers-7.29.2.txt",
+      "size": 1209,
+      "sha256": "8f655a4e6d3fee0a2ec9e45623830260f63d7dd4e2f5cb69298c677245ef83ff"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-parser-7.29.3.txt",
+      "size": 1106,
+      "sha256": "6be77fd880deb2aed173e4e31d103dffbb0c9abb6596882900b54eb2c2fe72bb"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-plugin-transform-react-jsx-self-7.27.1.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-plugin-transform-react-jsx-source-7.27.1.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-template-7.28.6.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-traverse-7.29.0.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--babel-types-7.29.0.txt",
+      "size": 1126,
+      "sha256": "4203d3eeb53da2b79fbef5055e1afa839d19489567e650b5c63ec24e33a9fe47"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--dimforge-rapier3d-compat-0.12.0.txt",
+      "size": 11363,
+      "sha256": "2278b536b52ce3b00715d4997f752a7836e7f05694281a58a689745ff1ddfd2e"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--jridgewell-gen-mapping-0.3.13.txt",
+      "size": 1100,
+      "sha256": "a599d7feba216ddf32d9ec4439c7ed97a8f31362e3282969f6d2ef53df7eed30"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--jridgewell-remapping-2.3.5.txt",
+      "size": 1100,
+      "sha256": "a599d7feba216ddf32d9ec4439c7ed97a8f31362e3282969f6d2ef53df7eed30"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--jridgewell-resolve-uri-3.1.2.txt",
+      "size": 1099,
+      "sha256": "d07bb37f6b960f88f8f462abeea0422e6c922007c3870e1b6aed910597853af0"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--jridgewell-sourcemap-codec-1.5.5.txt",
+      "size": 1100,
+      "sha256": "a599d7feba216ddf32d9ec4439c7ed97a8f31362e3282969f6d2ef53df7eed30"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--jridgewell-trace-mapping-0.3.31.txt",
+      "size": 1100,
+      "sha256": "a599d7feba216ddf32d9ec4439c7ed97a8f31362e3282969f6d2ef53df7eed30"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--rolldown-pluginutils-1.0.0-beta.27.txt",
+      "size": 1322,
+      "sha256": "7094bfaba81132d3b2a07a509cc99556d27c628b60dc2196c7911ba64e01a45f"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--tweenjs-tween.js-23.1.3.txt",
+      "size": 1186,
+      "sha256": "69606421f4db8ad332c70e6e5cefa7e32f156cd62440a54cd9c42dea80cb9aa9"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--types-babel-core-7.20.5.txt",
+      "size": 1161,
+      "sha256": "7e48174e1ad73f9d1eae9b692708656d4f423aedb5c4dd8f820c0f1d1b324200"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--types-babel-generator-7.27.0.txt",
+      "size": 1161,
+      "sha256": "7e48174e1ad73f9d1eae9b692708656d4f423aedb5c4dd8f820c0f1d1b324200"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--types-babel-template-7.4.4.txt",
+      "size": 1161,
+      "sha256": "7e48174e1ad73f9d1eae9b692708656d4f423aedb5c4dd8f820c0f1d1b324200"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--types-babel-traverse-7.28.0.txt",
+      "size": 1161,
+      "sha256": "7e48174e1ad73f9d1eae9b692708656d4f423aedb5c4dd8f820c0f1d1b324200"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--types-estree-1.0.8.txt",
+      "size": 1161,
+      "sha256": "7e48174e1ad73f9d1eae9b692708656d4f423aedb5c4dd8f820c0f1d1b324200"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--types-react-19.2.15.txt",
+      "size": 1161,
+      "sha256": "7e48174e1ad73f9d1eae9b692708656d4f423aedb5c4dd8f820c0f1d1b324200"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--types-react-dom-19.2.3.txt",
+      "size": 1161,
+      "sha256": "7e48174e1ad73f9d1eae9b692708656d4f423aedb5c4dd8f820c0f1d1b324200"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--types-stats.js-0.17.4.txt",
+      "size": 1161,
+      "sha256": "7e48174e1ad73f9d1eae9b692708656d4f423aedb5c4dd8f820c0f1d1b324200"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--types-three-0.184.1.txt",
+      "size": 1161,
+      "sha256": "7e48174e1ad73f9d1eae9b692708656d4f423aedb5c4dd8f820c0f1d1b324200"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--types-webxr-0.5.24.txt",
+      "size": 1161,
+      "sha256": "7e48174e1ad73f9d1eae9b692708656d4f423aedb5c4dd8f820c0f1d1b324200"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript--vitejs-plugin-react-4.7.0.txt",
+      "size": 1123,
+      "sha256": "e77f440b290a19c5d51c6838b163b435bd95c90ee476ad84c7ed2f917f53edaf"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-baseline-browser-mapping-2.10.32.txt",
+      "size": 11381,
+      "sha256": "4f1540de6c8189db1060944ccbc96ddb30f662d435e385aa1d86c21df8761f16"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-browserslist-4.28.2.txt",
+      "size": 1138,
+      "sha256": "3d39bafc2f094b95cf1ffe1f901e203e8307092b2a7ba488f65ec34fe547a08e"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-caniuse-lite-1.0.30001793.txt",
+      "size": 18671,
+      "sha256": "42261898cf7a44f1bbc2afa5acfc347064fc6435ff6306f46d481d60dc27e60c"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-clsx-2.1.1.txt",
+      "size": 1124,
+      "sha256": "891b010878c245f4fedda2fa1ac18d5ba80cd4e6da1dfe2550d05e407ff22217"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-convert-source-map-2.0.0.txt",
+      "size": 1098,
+      "sha256": "857b77bd0f437a958e8fb5a9aed3fdb309946250bc949a46b83e8a4e62c268fa"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-csstype-3.2.3.txt",
+      "size": 1082,
+      "sha256": "af2c5de843d32df5578bf6537d6ac447b285aa48f4a80414e50d2c1bb9694164"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-debug-4.4.3.txt",
+      "size": 1159,
+      "sha256": "9dd12439cb458fe63eb8b2df69eed604429527276d19efd7111e1f0e0b0b71e5"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-electron-to-chromium-1.5.361.txt",
+      "size": 748,
+      "sha256": "3d8ee2759c42aac869f47348e00f4e86838f719315cf17aba74a1238300683d4"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-esbuild-0.27.7.txt",
+      "size": 1092,
+      "sha256": "930d727f8354cae0ad6cb1a2f8083ebb28aec56b45d561a494a691ffd5f51c83"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-escalade-3.2.0.txt",
+      "size": 1124,
+      "sha256": "891b010878c245f4fedda2fa1ac18d5ba80cd4e6da1dfe2550d05e407ff22217"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-fdir-6.5.0.txt",
+      "size": 1073,
+      "sha256": "d071d82921bdc7aeccc39345551fbf438db448f90e9ce61c9eab7195984cc224"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-fflate-0.8.3.txt",
+      "size": 1089,
+      "sha256": "7f0646c08d7ffc03b55595aba5c5a0fe84a1fad4a88404d28eada04e9bdc7464"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-gensync-1.0.0-beta.2.txt",
+      "size": 1095,
+      "sha256": "80682f7f24254f8f516ab668ecb2eb77626401fd059ef9d7df48486b68894e4d"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-js-tokens-4.0.0.txt",
+      "size": 1123,
+      "sha256": "8216f1a02d6f42b0b9e943c98ea0c065b25bef8094a18da1704ff2159ebb2511"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-jsesc-3.1.0.txt",
+      "size": 1105,
+      "sha256": "5338911a0c41ac97d99068ffa41d9738de7f6e78f481d466f17d1d48246a5b41"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-json5-2.2.3.txt",
+      "size": 1168,
+      "sha256": "b590f003cae7481b540dc12755ea6d3e3257d40801c09ded42a4f7d6ec2ac0b7"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-lru-cache-5.1.1.txt",
+      "size": 785,
+      "sha256": "090468e685a5f22ceb91fe2215503f9f4415b68aa6ca43fa54ed3496547a0f54"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-lucide-react-1.16.0.txt",
+      "size": 3228,
+      "sha256": "f20659dea98ba243ff267fd8cd96b5e54f4305e295f223479378d33f85d1f116"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-meshoptimizer-1.1.1.txt",
+      "size": 1102,
+      "sha256": "16d11b0da4010237f8ebce9d288ee921828eb67a38b30540f24beffe1916bab5"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-ms-2.1.3.txt",
+      "size": 1102,
+      "sha256": "5247f179523035a131fa6cd6579642ee8775dc1018a8cc956cd8dc5a297b97ff"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-nanoid-3.3.12.txt",
+      "size": 1115,
+      "sha256": "252d5739f4c1aa0fb4980a8cc055758b382512a9ba93748046dd5a78eaef5200"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-node-releases-2.0.46.txt",
+      "size": 1127,
+      "sha256": "c4d623aa87709cfcae96b8471194507911b01d1d1089b6b198d3ebaf8358afe3"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-picocolors-1.1.1.txt",
+      "size": 807,
+      "sha256": "cab079062c1df86a5da35bb3e3992155c0a4c8649fa465bc4becbc78a96876d7"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-picomatch-4.0.4.txt",
+      "size": 1111,
+      "sha256": "a5540955da18119a3251a4a9ad80c8c96188254905cbb5ec523d4d880b1f103e"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-postcss-8.5.15.txt",
+      "size": 1115,
+      "sha256": "ff35ef1643fb8c6a29f957dc28c621c820dccaedbaacd90f7ee8b29dd2adeace"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-react-19.2.6.txt",
+      "size": 1108,
+      "sha256": "b4d34f9dbf2af33920182a86d115eba0c51a43d4e0a47ebc37e470270531a0c6"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-react-dom-19.2.6.txt",
+      "size": 1108,
+      "sha256": "b4d34f9dbf2af33920182a86d115eba0c51a43d4e0a47ebc37e470270531a0c6"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-react-refresh-0.17.0.txt",
+      "size": 1108,
+      "sha256": "b4d34f9dbf2af33920182a86d115eba0c51a43d4e0a47ebc37e470270531a0c6"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-rollup-4.60.4.txt",
+      "size": 35254,
+      "sha256": "8c585a6d206560bde7cd492f8d37193875d5db02c67c4677537bfcf1ba49dc5d"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-scheduler-0.27.0.txt",
+      "size": 1108,
+      "sha256": "b4d34f9dbf2af33920182a86d115eba0c51a43d4e0a47ebc37e470270531a0c6"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-semver-6.3.1.txt",
+      "size": 785,
+      "sha256": "090468e685a5f22ceb91fe2215503f9f4415b68aa6ca43fa54ed3496547a0f54"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-source-map-js-1.2.1.txt",
+      "size": 1546,
+      "sha256": "8ad31569d970cdddaa302bc7229d05cb0f312f36400c69da8379d47033fa6cd0"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-three-0.184.0.txt",
+      "size": 1101,
+      "sha256": "17b0009b29bf56099848cf7cda60454da8ac9f65c2de7effef4aca114f509754"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-tinyglobby-0.2.16.txt",
+      "size": 1096,
+      "sha256": "8064e840b36ded28ba6ec03f759854ce366d450835888c394412890acf92887d"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-typescript-5.8.3.txt",
+      "size": 9166,
+      "sha256": "b4ae55803f321bbb9fa43e743596639d3fdda0594906e36c714bd84a95a749f6"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-update-browserslist-db-1.2.3.txt",
+      "size": 1138,
+      "sha256": "4a09f8443d57ae56adb9790a144956ef4963c459891e8cc046695801a2dbdf2e"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-vite-7.3.3.txt",
+      "size": 101205,
+      "sha256": "411d774ddeb230fd1d64a0de777dd19800c082d06dee3c92c1dcdfd484809156"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-javascript-yallist-3.1.1.txt",
+      "size": 785,
+      "sha256": "090468e685a5f22ceb91fe2215503f9f4415b68aa6ca43fa54ed3496547a0f54"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-adler2-2.0.1.txt",
+      "size": 12628,
+      "sha256": "9c88a8f17682443b87255532ba7a4349475a3bcaab710db8ee4c8e50a4aa4602"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-aho-corasick-1.1.4.txt",
+      "size": 1253,
+      "sha256": "6dd39d12c147e9ff898f04f366c084732ac6c303b54a93b936564b0d1f832434"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-autocfg-1.5.1.txt",
+      "size": 11954,
+      "sha256": "647a79053f125caef570a2a2a039ccc53642e1224c2ead091070811f44cea056"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-base64-0.22.1.txt",
+      "size": 11976,
+      "sha256": "70cff32d803658bda6fd76877830e10de21bd51db6f4b678d7f6ee125dbde8c5"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-bitflags-1.3.2.txt",
+      "size": 11971,
+      "sha256": "394b20a2877a9aa05eb3b3f1a113d2a803515408206662390cd0a2be70c622f2"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-bitflags-2.11.1.txt",
+      "size": 11971,
+      "sha256": "394b20a2877a9aa05eb3b3f1a113d2a803515408206662390cd0a2be70c622f2"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-bytemuck-1.25.0.txt",
+      "size": 12439,
+      "sha256": "49cb49f16bdf54ac3ac122e85c0f199171b4b0b3730cd59489fd3fd050db843c"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-byteorder-1.5.0.txt",
+      "size": 1253,
+      "sha256": "6dd39d12c147e9ff898f04f366c084732ac6c303b54a93b936564b0d1f832434"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-bytes-1.11.1.txt",
+      "size": 1075,
+      "sha256": "39850b12cba668b76a867ad4f0fc4bee8b0a5d1dd4f0e171b424c478f6b3cca9"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-cc-1.2.62.txt",
+      "size": 11957,
+      "sha256": "10541abe86d070f6c97ee160f1e9036286dd459cc7c4580c1653673dc0b855e6"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-cfg-if-1.0.4.txt",
+      "size": 11957,
+      "sha256": "10541abe86d070f6c97ee160f1e9036286dd459cc7c4580c1653673dc0b855e6"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-chrono-0.4.44.txt",
+      "size": 12331,
+      "sha256": "7f0111608b48a0d1378bc2d4c0b36083804dff8ca2e426f5c2169d1b026dea76"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-color-quant-1.1.0.txt",
+      "size": 1103,
+      "sha256": "6f81ad9b61d2c5a43945f667b387c8ab51262a8f125892bd0037389b1617835f"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-cookie-0.18.1.txt",
+      "size": 12007,
+      "sha256": "008eeeecb267717957b878bd1ccb677f9c869c422615269729fd3f91d18285af"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-crc32fast-1.5.0.txt",
+      "size": 12508,
+      "sha256": "7a9cfa4340c13d579af19bc71170bad11175ff646a1225d525e1eb69e6489178"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-deranged-0.5.8.txt",
+      "size": 12464,
+      "sha256": "19b020d0c3cb5d282ad1c69ee17e2f07c9761246906466ac3ec79bf552bf465e"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-dpi-0.1.2.txt",
+      "size": 13818,
+      "sha256": "ff5acbc418ffa2721e1c1d319c43ede3785941b945901829a1ce5b526081ef06"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-dunce-1.0.5.txt",
+      "size": 7068,
+      "sha256": "19cd7ad4a8ae7116b921d5ce758d790ac9a2640a43368ecbc68895e779ef78fd"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-fastrand-2.4.1.txt",
+      "size": 11923,
+      "sha256": "65315421197e291b36746c8f44e8e9fba9cf07ad80cd323717d45cc4c1defbeb"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-fdeflate-0.3.7.txt",
+      "size": 11263,
+      "sha256": "f51a29b3b3f40aa7bf73fa9bb172eff72d66bde22bf6e5ff282c6af350952888"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-find-msvc-tools-0.1.9.txt",
+      "size": 11957,
+      "sha256": "10541abe86d070f6c97ee160f1e9036286dd459cc7c4580c1653673dc0b855e6"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-flate2-1.1.9.txt",
+      "size": 11962,
+      "sha256": "e596a048f4ddf6205b5bf7cf0161e5ed8d363b9d9daac3ce963376ab12f0d323"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-float-cmp-0.10.0.txt",
+      "size": 1095,
+      "sha256": "0c17bfbfdedd4d833623d4eeca2bc0dab01d83fbbaa03805e70463e202283209"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-getrandom-0.4.2.txt",
+      "size": 12032,
+      "sha256": "4962ff181023db9040e58a2941d97eea48ce41b7c25e2e68bc89d503fe285b70"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-http-1.4.0.txt",
+      "size": 11947,
+      "sha256": "a50923680ff7891b1e1d0db3fc3ca42a9c721b78f8011eb079eebdd44b758936"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-image-0.24.9.txt",
+      "size": 11920,
+      "sha256": "0cc9d68cc0c93ac4302e1fc5c3e3020bc032a9b4b1b438fc39e9defa35d41148"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-itoa-1.0.18.txt",
+      "size": 10799,
+      "sha256": "d3c2c6e71e0d30f5308ee5f681bbbc48fa01f63be7fe0b673a8c2df1c3a0e334"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-jpeg-decoder-0.3.2.txt",
+      "size": 11984,
+      "sha256": "cfc58a95862411c94213d1c06752d386137e386559f84bd60635cb943a4531bf"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-libm-0.2.16.txt",
+      "size": 14112,
+      "sha256": "43123fe092c44d8e457c0a835f22b9f397f2d838cbdb1a1c3ff2a9f420bd1c67"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-log-0.4.29.txt",
+      "size": 11971,
+      "sha256": "394b20a2877a9aa05eb3b3f1a113d2a803515408206662390cd0a2be70c622f2"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-memchr-2.8.0.txt",
+      "size": 1253,
+      "sha256": "6dd39d12c147e9ff898f04f366c084732ac6c303b54a93b936564b0d1f832434"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-miniz-oxide-0.8.9.txt",
+      "size": 13694,
+      "sha256": "ee7078a3ae5363e2ef2969f365caa96bf97fb22807d925ccc1757cf80a6b0aba"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-num-conv-0.2.2.txt",
+      "size": 11277,
+      "sha256": "f8646cf41dc19dec84757f732965635da146656c21ce9924bc86eb84c29ebacd"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-num-traits-0.2.19.txt",
+      "size": 11971,
+      "sha256": "394b20a2877a9aa05eb3b3f1a113d2a803515408206662390cd0a2be70c622f2"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-once-cell-1.21.4.txt",
+      "size": 11923,
+      "sha256": "65315421197e291b36746c8f44e8e9fba9cf07ad80cd323717d45cc4c1defbeb"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-png-0.17.16.txt",
+      "size": 11948,
+      "sha256": "8930ad446d651eba88d7878d05f46121640346f7bbfbb1dd90282a281943c18a"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-powerfmt-0.2.0.txt",
+      "size": 12464,
+      "sha256": "eb03da7cc7b4083dbc5c5b4a304f99acc760513dd3f3eb58e48bbd5d3c6069b5"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-proc-macro2-1.0.106.txt",
+      "size": 10799,
+      "sha256": "d3c2c6e71e0d30f5308ee5f681bbbc48fa01f63be7fe0b673a8c2df1c3a0e334"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-quote-1.0.45.txt",
+      "size": 10799,
+      "sha256": "d3c2c6e71e0d30f5308ee5f681bbbc48fa01f63be7fe0b673a8c2df1c3a0e334"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-raw-window-handle-0.6.2.txt",
+      "size": 12163,
+      "sha256": "728ab098143fe8b2915b0b787d769841cd7c52c19a70ec782530bcf46b9b7135"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-regex-1.12.3.txt",
+      "size": 11971,
+      "sha256": "394b20a2877a9aa05eb3b3f1a113d2a803515408206662390cd0a2be70c622f2"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-regex-automata-0.4.14.txt",
+      "size": 11971,
+      "sha256": "394b20a2877a9aa05eb3b3f1a113d2a803515408206662390cd0a2be70c622f2"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-regex-syntax-0.8.10.txt",
+      "size": 14848,
+      "sha256": "119706df0030b7dfbb256b046ae0bf7e8130ab5b239fdc3cace969ca6ec58814"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-rfd-0.14.1.txt",
+      "size": 1099,
+      "sha256": "a789fba68bd729147741158019137c99079ea7bbd6787e05289c04269b860991"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-roxmltree-0.21.1.txt",
+      "size": 11983,
+      "sha256": "dc3197f969cb61821c1e8e438fcb7be4065a8f4a82b7d581a5759e49fe8fe15a"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-serde-1.0.228.txt",
+      "size": 10799,
+      "sha256": "d3c2c6e71e0d30f5308ee5f681bbbc48fa01f63be7fe0b673a8c2df1c3a0e334"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-serde-core-1.0.228.txt",
+      "size": 10799,
+      "sha256": "d3c2c6e71e0d30f5308ee5f681bbbc48fa01f63be7fe0b673a8c2df1c3a0e334"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-serde-derive-1.0.228.txt",
+      "size": 10799,
+      "sha256": "d3c2c6e71e0d30f5308ee5f681bbbc48fa01f63be7fe0b673a8c2df1c3a0e334"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-serde-json-1.0.150.txt",
+      "size": 10799,
+      "sha256": "d3c2c6e71e0d30f5308ee5f681bbbc48fa01f63be7fe0b673a8c2df1c3a0e334"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-shlex-1.3.0.txt",
+      "size": 1711,
+      "sha256": "e57eb8311c538d75fbf78f406e338c75b192fce86cb147fe70c45e75e2563744"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-simd-adler32-0.3.9.txt",
+      "size": 1101,
+      "sha256": "53e44ad6ad963fa4205ba6abd448b1fff55cc7c4d4fe9b21f04c2a6af449e175"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-syn-2.0.117.txt",
+      "size": 10799,
+      "sha256": "d3c2c6e71e0d30f5308ee5f681bbbc48fa01f63be7fe0b673a8c2df1c3a0e334"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-tempfile-3.27.0.txt",
+      "size": 11956,
+      "sha256": "3a406f0b5c63c8a49831e1e9584dd80bc2ba4d76d9dfa281b5a53256781ef1e3"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-texpresso-2.0.2.txt",
+      "size": 1160,
+      "sha256": "adf42d5c46b4e6708ad65df95463c29885ae185cdc4dab4140e7178021ac9c1a"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-thiserror-2.0.18.txt",
+      "size": 10799,
+      "sha256": "d3c2c6e71e0d30f5308ee5f681bbbc48fa01f63be7fe0b673a8c2df1c3a0e334"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-thiserror-impl-2.0.18.txt",
+      "size": 10799,
+      "sha256": "d3c2c6e71e0d30f5308ee5f681bbbc48fa01f63be7fe0b673a8c2df1c3a0e334"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-time-0.3.47.txt",
+      "size": 11284,
+      "sha256": "2f20850cfbc8b9757d27f19cc157700188f6f4ab4d443b0969afe537c386adb1"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-time-core-0.1.8.txt",
+      "size": 11284,
+      "sha256": "2f20850cfbc8b9757d27f19cc157700188f6f4ab4d443b0969afe537c386adb1"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-time-macros-0.2.27.txt",
+      "size": 11284,
+      "sha256": "2f20850cfbc8b9757d27f19cc157700188f6f4ab4d443b0969afe537c386adb1"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-unicode-ident-1.0.24.txt",
+      "size": 12824,
+      "sha256": "9adb610b1aeabc447157532939bd9d1b5c215c846443bf328a5c131e82ecd226"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-version-check-0.9.5.txt",
+      "size": 11985,
+      "sha256": "feeb8b20dd2381dffd4ff9dab3eb61d2b355f758ad54faf2cdbb352742ab15ed"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-0.61.3.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-collections-0.2.0.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-core-0.61.2.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-future-0.2.1.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-implement-0.60.2.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-interface-0.59.3.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-link-0.1.3.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-link-0.2.1.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-numerics-0.2.0.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-result-0.3.4.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-strings-0.4.2.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-sys-0.48.0.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-sys-0.61.2.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-targets-0.48.5.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-threading-0.1.0.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-version-0.1.7.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-windows-x86-64-msvc-0.48.5.txt",
+      "size": 12549,
+      "sha256": "5ca34b38d1ca1303a84c045c16ef8d6244247e88b79a4b72c725e1c478a9ea78"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-wry-0.55.1.txt",
+      "size": 12881,
+      "sha256": "77648f52bb8ecf37b02cadb7a8bc8e34a15204c0a183092c4ee6d2e8a375a2f1"
+    },
+    {
+      "path": "docs/contributor-notices/hod-editor-rust-zmij-1.0.21.txt",
+      "size": 1047,
+      "sha256": "ee12cacdef6422c6fd1dd6dc6c435216396aafc3fcf8d303449e665b28b1eacb"
+    },
+    {
+      "path": "docs/contributor-notices/installer-launcher-altgraph-0.17.5.txt",
+      "size": 1022,
+      "sha256": "d1bf1d87840d1bad8eac694e6761106e54c773ff14dbc1c4f34a1d122a774fb2"
+    },
+    {
+      "path": "docs/contributor-notices/installer-launcher-charset-normalizer-3.5.2.txt",
+      "size": 1091,
+      "sha256": "6059ce3836d2f4d81aa90ad9be15470d7fda28d56b99103483d1824cd2c2c6a3"
+    },
+    {
+      "path": "docs/contributor-notices/installer-launcher-numpy-2.3.5.txt",
+      "size": 46799,
+      "sha256": "632adb73f886e4dff7b9c62ef1fb8e195d8e140cc57168b0ea7b71af11c7ae55"
+    },
+    {
+      "path": "docs/contributor-notices/installer-launcher-packaging-26.3.txt",
+      "size": 11790,
+      "sha256": "ed122d0d52c3edbe634f03f59bac68d046cf0b909c57de6a358c308c7f1e1f1d"
+    },
+    {
+      "path": "docs/contributor-notices/installer-launcher-pefile-2024.8.26.txt",
+      "size": 1103,
+      "sha256": "5c407d7479d2284b0aa9e52cbcbd8f13c653d6e04c82493c8989305805a90140"
+    },
+    {
+      "path": "docs/contributor-notices/installer-launcher-pillow-13.0.0.txt",
+      "size": 76896,
+      "sha256": "6fdb38d5d0cad617de7df3e01a3e8e165daa062bba5470a05d7d6b9557064e22"
+    },
+    {
+      "path": "docs/contributor-notices/installer-launcher-pyinstaller-6.22.3.txt",
+      "size": 32628,
+      "sha256": "f729e5365180b3896cb6e5bd9f1e2d984eae0a8c1c9075516faf627d9879458a"
+    },
+    {
+      "path": "docs/contributor-notices/installer-launcher-pyinstaller-hooks-contrib-2026.8.txt",
+      "size": 27686,
+      "sha256": "54c87c476d59e44f0cd306564d3b65f30fabe069939866e6679d30bc6416245a"
+    },
+    {
+      "path": "docs/contributor-notices/installer-launcher-pywin32-ctypes-0.2.3.txt",
+      "size": 1640,
+      "sha256": "1003985102a1d11925fae5b1c3668f9a9aeca9ed88de44f6429c9697d50ec67e"
+    },
+    {
+      "path": "docs/contributor-notices/installer-launcher-setuptools-84.0.0.txt",
+      "size": 1043,
+      "sha256": "5d22340383c56c424c2615f4a81151f8ed5d67f2d5da6088c84fe9025ff79850"
+    },
+    {
+      "path": "docs/contributor-notices/installer-launcher-setuptools-84.2.1.txt",
+      "size": 1043,
+      "sha256": "5d22340383c56c424c2615f4a81151f8ed5d67f2d5da6088c84fe9025ff79850"
+    },
+    {
+      "path": "docs/contributor-notices/installer-launcher-typing-extensions-4.16.0.txt",
+      "size": 13956,
+      "sha256": "74bb4216dc908be25dd90d98bbff519fbbee1c8c3440d72fd4ad8f8b8d75a51d"
+    },
+    {
+      "path": "docs/contributor-notices/native-libraries-build-tools-directx-dxc-2026-05-27.txt",
+      "size": 29263,
+      "sha256": "11589c8eb3a2d4df3ec4f2c315f180c1052a67f45ceb18c249dca5827142d4aa"
+    },
+    {
+      "path": "docs/contributor-notices/native-libraries-build-tools-directxmath-2026-06-12.txt",
+      "size": 1163,
+      "sha256": "ea34ec954ea9c6aba7ff44268fec2125dfef9eb224f717eb64f9b109906ddc0f"
+    },
+    {
+      "path": "docs/contributor-notices/native-libraries-build-tools-directxtex-2026-05-07.txt",
+      "size": 1163,
+      "sha256": "ea34ec954ea9c6aba7ff44268fec2125dfef9eb224f717eb64f9b109906ddc0f"
+    },
+    {
+      "path": "docs/contributor-notices/native-libraries-build-tools-ffmpeg-9.0.txt",
+      "size": 30921,
+      "sha256": "e22f3b80165cc5066242fbbdd56dcead8037e374689f3a945b4b5dbb63c5c586"
+    },
+    {
+      "path": "docs/contributor-notices/native-libraries-build-tools-ffmpeg-bin2c-9.0.txt",
+      "size": 2305,
+      "sha256": "4fbf19575996e58c15ea29543428073c36f91042bde9655e7d28ba376315bc10"
+    },
+    {
+      "path": "docs/contributor-notices/native-libraries-build-tools-pkgconf-3.0.3.txt",
+      "size": 490,
+      "sha256": "5952e1e4bc7f401f0a7b536ac100cace3c273df69f89832359757cd19b67bf4c"
+    },
+    {
+      "path": "docs/contributor-notices/native-libraries-build-tools-sdl2-2.32.10.txt",
+      "size": 906,
+      "sha256": "f75d20b01c676c43114720c1390e88e86ecd980cbd8ed57cd0536307d8d17974"
+    },
+    {
+      "path": "docs/contributor-notices/native-libraries-build-tools-sdl2-net-2.2.0.txt",
+      "size": 1816,
+      "sha256": "4a5401e67d8f93735f7ea75a93ddeb15ebee1cac07f4e1cd091bdf65ae14dbed"
+    },
+    {
+      "path": "docs/contributor-notices/native-libraries-build-tools-vcpkg-cmake-2024-04-23.txt",
+      "size": 1095,
+      "sha256": "1147029c37c82036611a733c05abe75821861c69b1e3a21e0326db31032f9b20"
+    },
+    {
+      "path": "docs/contributor-notices/native-libraries-build-tools-vcpkg-cmake-config-2026-07-21.txt",
+      "size": 1118,
+      "sha256": "933822ca4bdf2e2b13ca3ce9db05bfc1ea306115b31977b8db8683667ecf1701"
+    },
+    {
+      "path": "docs/contributor-notices/native-libraries-build-tools-vcpkg-cmake-get-vars-2025-05-29.txt",
+      "size": 1095,
+      "sha256": "1147029c37c82036611a733c05abe75821861c69b1e3a21e0326db31032f9b20"
+    },
+    {
+      "path": "docs/contributor-notices/native-libraries-build-tools-vcpkg-pkgconfig-get-modules-2024-04-03.txt",
+      "size": 1095,
+      "sha256": "1147029c37c82036611a733c05abe75821861c69b1e3a21e0326db31032f9b20"
+    },
+    {
+      "path": "docs/contributor-notices/native-libraries-build-tools-vcpkg-tool-meson-1.9.0.txt",
+      "size": 1095,
+      "sha256": "1147029c37c82036611a733c05abe75821861c69b1e3a21e0326db31032f9b20"
+    },
+    {
+      "path": "docs/contributor-notices/numpy-bundled-source-components-dragon4-numpy-notices.txt",
+      "size": 46799,
+      "sha256": "632adb73f886e4dff7b9c62ef1fb8e195d8e140cc57168b0ea7b71af11c7ae55"
+    },
+    {
+      "path": "docs/contributor-notices/numpy-bundled-source-components-gcc-runtime-library-numpy-notices.txt",
+      "size": 46799,
+      "sha256": "632adb73f886e4dff7b9c62ef1fb8e195d8e140cc57168b0ea7b71af11c7ae55"
+    },
+    {
+      "path": "docs/contributor-notices/numpy-bundled-source-components-lapack-lite-numpy-notices.txt",
+      "size": 46799,
+      "sha256": "632adb73f886e4dff7b9c62ef1fb8e195d8e140cc57168b0ea7b71af11c7ae55"
+    },
+    {
+      "path": "docs/contributor-notices/numpy-bundled-source-components-lapack-numpy-notices.txt",
+      "size": 46799,
+      "sha256": "632adb73f886e4dff7b9c62ef1fb8e195d8e140cc57168b0ea7b71af11c7ae55"
+    },
+    {
+      "path": "docs/contributor-notices/numpy-bundled-source-components-libdivide-numpy-notices.txt",
+      "size": 46799,
+      "sha256": "632adb73f886e4dff7b9c62ef1fb8e195d8e140cc57168b0ea7b71af11c7ae55"
+    },
+    {
+      "path": "docs/contributor-notices/numpy-bundled-source-components-meson-numpy-notices.txt",
+      "size": 46799,
+      "sha256": "632adb73f886e4dff7b9c62ef1fb8e195d8e140cc57168b0ea7b71af11c7ae55"
+    },
+    {
+      "path": "docs/contributor-notices/numpy-bundled-source-components-spin-numpy-notices.txt",
+      "size": 46799,
+      "sha256": "632adb73f886e4dff7b9c62ef1fb8e195d8e140cc57168b0ea7b71af11c7ae55"
+    },
+    {
+      "path": "docs/contributor-notices/numpy-bundled-source-components-tempita-numpy-notices.txt",
+      "size": 46799,
+      "sha256": "632adb73f886e4dff7b9c62ef1fb8e195d8e140cc57168b0ea7b71af11c7ae55"
+    },
+    {
+      "path": "docs/contributor-notices/website-javascript--types-trusted-types-2.0.7.txt",
+      "size": 1161,
+      "sha256": "7e48174e1ad73f9d1eae9b692708656d4f423aedb5c4dd8f820c0f1d1b324200"
+    },
+    {
+      "path": "docs/contributor-notices/website-javascript-dompurify-3.4.17.txt",
+      "size": 28130,
+      "sha256": "7182708172f1f341bebfa0c71273ec16cdeb07264513e20e9857a54971670d4a"
+    },
+    {
+      "path": "docs/contributor-notices/website-javascript-esbuild-0.28.2.txt",
+      "size": 1092,
+      "sha256": "930d727f8354cae0ad6cb1a2f8083ebb28aec56b45d561a494a691ffd5f51c83"
+    },
+    {
+      "path": "docs/contributor-notices/website-javascript-marked-18.2.0.txt",
+      "size": 2962,
+      "sha256": "6c5fded1e2e4c4027ffc61387472912c314b5b78f44dd284b3fb030998e7a38f"
+    },
+    {
+      "path": "docs/contributors.json",
+      "size": 186198,
+      "sha256": "46d075b94b69f3ebca02939adf86fa62770e2a06c030a8726de004eed36fef90"
     },
     {
       "path": "docs/frame-worker-ownership.md",
@@ -28147,6 +29177,11 @@
       "sha256": "2621bd37d20ea2d3220e78136333f7714a1a0dd7dee9a24a7748a70a509fc7c4"
     },
     {
+      "path": "tests/test_contributors_catalog.py",
+      "size": 3645,
+      "sha256": "962ef6263548e6c89943025d1bd4ef64d84698213b3d63c3bf1bc8a71f6dbc40"
+    },
+    {
       "path": "tests/test_control_group_tabs_contract.py",
       "size": 1624,
       "sha256": "210b4ad23ce2455aaacc0685acf0e453ff19717c17928fe1bd18d58e8761db00"
@@ -28655,6 +29690,11 @@
       "path": "tools/build_asset_importer.ps1",
       "size": 4366,
       "sha256": "1096d7d5425718ee6b1ed0f9d48cb1930cafdda1a7938e342267a80d043fc8f0"
+    },
+    {
+      "path": "tools/build_contributors_catalog.py",
+      "size": 19985,
+      "sha256": "6cdfc3b823ee0cf5fe356d48f2f487e12bd6a09a6452bdbe844fd5be97a9fff7"
     },
     {
       "path": "tools/build_launcher_theme.py",

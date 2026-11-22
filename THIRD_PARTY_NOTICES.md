@@ -171,3 +171,7 @@ The launcher privately loads Rajdhani and Share Tech Mono, distributed under the
 ## HODEditorJS
 
 The OpenHW HOD Editor derives from HODEditorJS v1.2.17 by GuillermoOM and contributors (commit 4cb39196f0328096044c9c2b9589c417fc3f0ffb). OpenHW adds game-window hosting, installed model browsing and document handling. The upstream work is licensed under CC BY-NC 4.0. See Licenses/HODEditorJS-LICENSE.txt in the installation or tools/hod-editor/LICENSE in the source tree. [Upstream release](https://github.com/GuillermoOM/HODEditorJS/releases/tag/v1.2.17)
+
+## Complete contributor and dependency inventory
+
+The [Contributors page](https://openhw.tech/#/contributors) and [versioned contributor inventory](docs/CONTRIBUTORS.md) document the native libraries, integrated HODEditorJS editor and its Rust/JavaScript dependencies, Python installer/launcher components, server/build tools, website dependencies and interface fonts. The inventory records versions, upstream project links, roles and individual terms, with full retained notice documents. Build-only and optional-platform packages are labeled explicitly. Original source, vendor-runtime and unresolved-permission records retain their separate status.
