@@ -213,7 +213,7 @@ def build(root, site, python_home, installed):
               entries=sorted(entries,key=lambda x:(x['group'],x['name'].casefold(),x['version'])))
     if len({e['id'] for e in entries})!=len(entries):raise ValueError('Duplicate credit identities')
     (output/'contributors.json').write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8',newline='\n')
-    print('Built contributors catalog:',len(entries),'entries;',sum(bool(e['notices']) for e in entries),'local notice documents')
+    print('Built contributors catalog:',len(entries),'entries;',len({e['notices'] for e in entries if e['notices']}),'unique local notice documents')
 
 
 if __name__=='__main__':

@@ -29693,8 +29693,8 @@
     },
     {
       "path": "tools/build_contributors_catalog.py",
-      "size": 19985,
-      "sha256": "6cdfc3b823ee0cf5fe356d48f2f487e12bd6a09a6452bdbe844fd5be97a9fff7"
+      "size": 20004,
+      "sha256": "47515df3a989fbe6a11797d1bde65976664ccc53f39dc5db1e622a0a84ce110f"
     },
     {
       "path": "tools/build_launcher_theme.py",
