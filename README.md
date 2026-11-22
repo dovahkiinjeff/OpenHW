@@ -1,19 +1,13 @@
-# OpenHW 1.1.14
+# OpenHW 1.1.15
 
-**Latest update:** [1.1.14 — reflections and integrated HOD modding](docs/RELEASE_NOTES_1.1.14.md). Choose **Update now** in Launcher. Includes the integrated HOD editor, named mod workspaces, and connected weapon/event editing. No reinstall is needed. [Website update entry](https://openhw.tech/#/updates/v1.1.14).
+**Latest release:** [1.1.15 — consolidated full release](docs/RELEASE_NOTES_1.1.15.md). New installations and every earlier version use the same [full GitHub package](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/OpenHW-Setup.exe). Existing installations update in place; player files are preserved. Future patches start from 1.1.15.
 
 > [!IMPORTANT]
-> **1.1.1 is the full base release. Start here; no 1.1 install or old patch chain is required.** Setup includes the working Launcher, Updater and Diagnostics. Install in a new writable folder using your owned Homeworld Remastered Collection.
->
-> **Why 1.1 was retired:** its bundled utilities omitted a required HTTPS support file and could not complete Launcher updates from inside Launcher. The full 1.1.1 package includes those fixes and the completed Diagnostics workflow. 1.1 has been removed from public downloads.
->
-> **Existing 1.1 players:** close the game and Launcher, [replace Updater.exe](https://openhw.tech/downloads/v1.1.1/Updater.exe) beside OpenHW.exe and run it once to preserve your installation while moving to 1.1.1. Already on 1.1.1? No reinstall is required.
-
-**The best of both worlds: high-fidelity Homeworld Remastered assets and original Homeworld 1 gameplay.** OpenHW combines RM and HW1 assets with modern rendering and in-game creation tools to build the ultimate classic Homeworld experience.
+> **New baseline:** download and run the complete 1.1.15 installer, or choose Update now in Launcher. Select an existing OpenHW folder to replace its program files while preserving player files. An owned Collection is required for new or older-data imports. Earlier patch-chain and separate-folder instructions below are historical and superseded by the [1.1.15 notes](docs/RELEASE_NOTES_1.1.15.md).
 
 [![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-[**Download OpenHW 1.1.1**](https://openhw.tech/downloads/v1.1.10/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.14) · [Complete 1.1.14 source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.14/OpenHW-1.1.14-Source.zip) · [Release notes](docs/RELEASE_NOTES_1.1.1.md) · [Installation and controls](docs/USER_GUIDE.md) · [Editors](docs/EDITING_GUIDE.md) · [Modding](docs/MODDING.md) · [Build the installer](BUILD_INSTALLER.md)
+[**Download OpenHW 1.1.1**](https://openhw.tech/downloads/v1.1.10/OpenHW-Setup.exe) · [Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.15) · [Complete 1.1.15 source](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/OpenHW-1.1.15-Source.zip) · [Release notes](docs/RELEASE_NOTES_1.1.1.md) · [Installation and controls](docs/USER_GUIDE.md) · [Editors](docs/EDITING_GUIDE.md) · [Modding](docs/MODDING.md) · [Build the installer](BUILD_INSTALLER.md)
 
 **The full 1.1.1 installer requires a fresh installation in a separate folder. Do not apply the old 1.0 patch chain to it.** Put OpenHW-Setup.exe in the new folder, select your owned Homeworld Remastered Collection, and let setup build the game there. Your old installation, saves and settings are not overwritten. Launcher.exe and Updater.exe are included.
 

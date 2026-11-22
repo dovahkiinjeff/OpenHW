@@ -1,3 +1,5 @@
+> **Current 1.1.15 baseline:** new and earlier installations use the complete GitHub installer. Choose Update now in Launcher or select your existing folder in the full installer. Saves/settings/mods are preserved. Older fresh-folder-only and prerequisite-patch guidance below is superseded. [Release notes](RELEASE_NOTES_1.1.15.md).
+
 > **Current 1.1.14 update:** choose Update now in Launcher for native reflections and integrated HOD modding. See [release notes](RELEASE_NOTES_1.1.14.md).
 
 # OpenHW 1.1 installation and diagnostics

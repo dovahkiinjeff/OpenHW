@@ -10,3 +10,7 @@ When the owner says "publish the update", complete this workflow:
 - Update the website server-download catalog alongside the release entry so downloads remain available even though GitHub hosts no compiled assets.
 - Verify the live website, release entry, server assets and both metadata feeds before reporting success.
 - Source-only publication is the standing default for all future releases unless the owner explicitly changes it.
+
+## Owner-directed 1.1.15 baseline reset
+
+For release 1.1.15, the owner explicitly requests a fully consolidated compiled installer on GitHub. Every earlier release moves directly to that complete package, replacing program files in place while preserving player files. This overrides the source-only GitHub and separate-new-folder rules above for the 1.1.15 baseline package. Keep the full baseline available for later upgrade paths.

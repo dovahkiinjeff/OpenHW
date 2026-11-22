@@ -14,7 +14,7 @@ def defaults(text):
     return '\n'.join(lines).rstrip()+'\n\ndetectDisplayOnFirstBoot    1\n'
 
 def stage(repo, profile, destination, normal_build=None, diagnostic_build=None, tools_dir=None,
-          version='1.1.13', launcher=None, updater=None):
+          version='1.1.15', launcher=None, updater=None):
     from release_content_policy import verify_profile
     repo,profile,destination=map(lambda p:Path(p).resolve(),(repo,profile,destination))
     inventory=verify_profile(profile)
@@ -57,6 +57,8 @@ def stage(repo, profile, destination, normal_build=None, diagnostic_build=None, 
     shutil.copytree(profile/'Licenses',runtime/'Licenses',dirs_exist_ok=True)
     shutil.copyfile(repo/'tools/hod-editor/LICENSE',runtime/'Licenses/HODEditorJS-LICENSE.txt')
     shutil.copyfile(repo/'src/ThirdParty/ThreeGoodGodRays/LICENSE',runtime/'Licenses/ThreeGoodGodRays-LICENSE.txt')
+    shutil.copytree(repo/'docs/contributor-notices',runtime/'Licenses/ThirdParty',dirs_exist_ok=True)
+    shutil.copyfile(repo/'docs/contributors.json',runtime/'Licenses/Contributors.json')
     shutil.copyfile(repo/'LICENSE.txt',runtime/'LICENSE.txt')
     shutil.copyfile(repo/'THIRD_PARTY_NOTICES.md',runtime/'THIRD_PARTY_NOTICES.md')
     (runtime/'version.json').write_text(json.dumps({'version':version,'normal':sha(runtime/'OpenHW.exe'),'diagnostic':sha(runtime/'OpenHW-Daignostics.exe')},indent=2))
@@ -95,6 +97,6 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     for key in ('repo','profile','output'):p.add_argument('--'+key,type=Path,required=True)
     for key in ('normal-build','diagnostic-build','tools-dir'):p.add_argument('--'+key,type=Path)
-    p.add_argument('--version',default='1.1.13')
+    p.add_argument('--version',default='1.1.15')
     for key in ('launcher','updater'):p.add_argument('--'+key,type=Path,required=True)
     a=p.parse_args();stage(a.repo,a.profile,a.output,a.normal_build,a.diagnostic_build,a.tools_dir,a.version,a.launcher,a.updater)

@@ -5,8 +5,9 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <bcrypt.h>
-#ifdef OPENHW_PATCH_INSTALLER
+#if defined(OPENHW_PATCH_INSTALLER) || defined(OPENHW_FULL_INSTALLER)
 #include <shlobj.h>
+#include <shellapi.h>
 #include <tlhelp32.h>
 #endif
 #include <array>
@@ -53,7 +54,7 @@ static void createProgress(){
 #elif defined(OPENHW_PATCH_INSTALLER)
         L"OpenHW patch",
 #else
-        L"OpenHW 1.1.1 setup",
+        L"OpenHW 1.1.15 setup",
 #endif
         WS_OVERLAPPED|WS_CAPTION|WS_VISIBLE,
         CW_USEDEFAULT,CW_USEDEFAULT,560,165,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
@@ -103,6 +104,41 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
     try{
         wchar_t executable[32768]={};check(GetModuleFileNameW(nullptr,executable,32768)!=0,"Cannot locate this installer.");
         auto root=std::filesystem::path(executable).parent_path();
+#ifdef OPENHW_FULL_INSTALLER
+        std::filesystem::path installation=root;
+        std::wstring fullArguments;
+        bool explicitRoot=false;
+        int argumentCount=0;
+        auto arguments=CommandLineToArgvW(GetCommandLineW(),&argumentCount);
+        check(arguments!=nullptr,"Cannot read setup arguments.");
+        for(int i=1;i<argumentCount;++i){
+            const std::wstring option=arguments[i];
+            if(option==L"--install-root" && i+1<argumentCount){installation=arguments[++i];explicitRoot=true;}
+            else if(option==L"--collection" && i+1<argumentCount){fullArguments+=L" --collection "+quote(arguments[++i]);}
+            else if(option==L"--headless"){fullArguments+=L" --headless";}
+            else if((option==L"--wait-engine" || option==L"--wait-bootstrap") && i+1<argumentCount){
+                const auto pid=wcstoul(arguments[++i],nullptr,10);
+                HANDLE process=OpenProcess(SYNCHRONIZE,FALSE,pid);
+                if(process){const DWORD waited=WaitForSingleObject(process,120000);CloseHandle(process);check(waited==WAIT_OBJECT_0,"The updater has not closed. Close it and run the full installer again.");}
+            }
+        }
+        LocalFree(arguments);
+        if(!explicitRoot && !quiet){
+            CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
+            BROWSEINFOW selection={};selection.lpszTitle=L"Select an existing OpenHW folder, or a new folder for OpenHW 1.1.15";
+            selection.ulFlags=BIF_RETURNONLYFSDIRS|BIF_NEWDIALOGSTYLE;
+            auto item=SHBrowseForFolderW(&selection);if(!item)return 0;
+            wchar_t selected[MAX_PATH]={};const BOOL ok=SHGetPathFromIDListW(item,selected);CoTaskMemFree(item);
+            check(ok!=0,"Cannot read the installation folder.");installation=selected;
+        }
+        installation=std::filesystem::absolute(installation).lexically_normal();
+        check(installation!=installation.root_path(),"Choose a dedicated OpenHW folder, not a drive root.");
+        SetEnvironmentVariableW(L"OPENHW_FULL_INSTALL_ROOT",installation.c_str());
+        root=installation/L"Development/Temp"/(L"FullSetup-1.1.15-"+std::to_wstring(GetCurrentProcessId()));
+        check(!std::filesystem::exists(root),"This setup staging folder is already in use.");
+        std::filesystem::create_directories(root);
+#endif
+
 #ifdef OPENHW_UPDATER
         check(std::filesystem::is_regular_file(root/L"setup-complete.json") &&
               std::filesystem::is_regular_file(root/L"OpenHW.exe"),
@@ -348,13 +384,22 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
             +(wcsstr(GetCommandLineW(),L"--diagnostics-report")?L" --diagnostics-report":L"")
 #endif
             ,
+#elif defined(OPENHW_FULL_INSTALLER)
+            quiet?L"--verify-payload":L"--consolidated-install"+fullArguments,
 #elif defined(OPENHW_PATCH_INSTALLER)
             L"--apply-hotfix",
 #else
             quiet?L"--verify-payload":L"",
 #endif
             log,!quiet);
-        if(log!=INVALID_HANDLE_VALUE)CloseHandle(log);return int(result);
+        if(log!=INVALID_HANDLE_VALUE)CloseHandle(log);
+#ifdef OPENHW_FULL_INSTALLER
+        if(result==0){
+            check(root.parent_path()==installation/L"Development/Temp" && root.filename().wstring().find(L"FullSetup-1.1.15-")==0,"Unsafe setup staging cleanup.");
+            std::filesystem::remove_all(root);
+        }
+#endif
+        return int(result);
     }catch(const std::exception& error){
         if(preparationMutex){ReleaseMutex(preparationMutex);CloseHandle(preparationMutex);}
         if(log!=INVALID_HANDLE_VALUE){DWORD written=0;WriteFile(log,error.what(),DWORD(std::strlen(error.what())),&written,nullptr);WriteFile(log,"\r\n",2,&written,nullptr);}

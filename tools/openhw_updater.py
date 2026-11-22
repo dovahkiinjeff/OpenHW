@@ -18,8 +18,8 @@ import urllib.parse
 import uuid
 import zipfile
 
-UPDATER_VERSION = '1.1.8'
-PROTOCOL = 3
+UPDATER_VERSION = '1.1.9'
+PROTOCOL = 4
 MANIFEST_URL = 'https://openhw.tech/updates/stable.json'
 FALLBACK_MANIFEST_URL = 'https://raw.githubusercontent.com/dovahkiinjeff/OpenHW/main/updates/stable.json'
 REPOSITORY_DOWNLOAD = 'https://github.com/dovahkiinjeff/OpenHW/releases/download/'
@@ -197,6 +197,10 @@ def validate_manifest(manifest):
         version_key(fresh['version']); validate_download(fresh)
         if compare_versions(fresh['version'], manifest['latest']) > 0:
             raise UpdateError('Fresh installer is newer than the published release')
+    full=manifest.get('full_install')
+    if full:
+        validate_download(full)
+        if full.get('format')!='openhw-full-v1' or compare_versions(full.get('version','0'),manifest['latest'])>0:raise UpdateError('Invalid consolidated release metadata')
     patches = manifest.get('patches', [])
     if not isinstance(patches, list) or len(patches) > 4096: raise UpdateError('Invalid update chain')
     seen = set()
@@ -216,6 +220,8 @@ def validate_manifest(manifest):
 
 def update_plan(manifest, installed):
     if compare_versions(installed, manifest['latest']) >= 0: return []
+    full=manifest.get('full_install')
+    if full and compare_versions(installed,full['version'])<0:return [full]+update_plan(manifest,full['version'])
     start, goal = version_key(installed), version_key(manifest['latest'])
     pending = collections.deque([(start, [])]); visited = {start}
     while pending:
@@ -524,6 +530,12 @@ def update(root, progress, cancelled=lambda: False, select_collection=lambda: No
             progress(f'Patch {index} of {len(route)}: {installed} → {patch["to"]}', None)
             package = download(patch, inside(root,'Development/Updater/Downloads'), progress, cancelled)
             if cancelled(): raise Cancelled('Update paused. Run the updater again to continue.')
+            if patch.get('format')=='openhw-full-v1':
+                progress('Starting the complete OpenHW '+patch['version']+' installer...',None)
+                subprocess.Popen([str(package),'--install-root',str(root),
+                    '--wait-engine',str(os.getpid()),'--wait-bootstrap',os.environ.get('OPENHW_UPDATER_BOOTSTRAP_PID','0')],
+                    cwd=root,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+                return 'full-install'
             installed = apply_patch(root, patch, package, progress, select_collection)
         install_launcher_component(root, manifest, progress, cancelled)
         return installed
@@ -584,8 +596,8 @@ def run_gui(root, manifest=None):
         with contextlib.redirect_stdout(Output()), contextlib.redirect_stderr(Output()):
             try:
                 value = update(root, progress, cancel.is_set, select_collection, manifest=manifest, self_update=manifest is None)
-                messages.put(('restart' if value == 'restart' else 'done',
-                    'Restarting the updated updater...' if value == 'restart' else 'OpenHW '+value+' is up to date. You can start the game.', None))
+                messages.put(('restart' if value in ('restart','full-install') else 'done',
+                    'Starting the full installation...' if value=='full-install' else 'Restarting the updated updater...' if value == 'restart' else 'OpenHW '+value+' is up to date. You can start the game.', None))
             except FreshInstallRequired as error:
                 messages.put(('fresh',str(error),None))
             except Exception as error:

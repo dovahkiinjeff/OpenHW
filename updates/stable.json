@@ -1,318 +1,94 @@
 {
   "schema": 1,
   "channel": "stable",
-  "latest": "1.1.14",
-  "minimum_protocol": 3,
+  "latest": "1.1.15",
+  "minimum_protocol": 4,
+  "full_install": {
+    "version": "1.1.15",
+    "to": "1.1.15",
+    "format": "openhw-full-v1",
+    "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/OpenHW-Setup.exe",
+    "mirrors": [
+      "https://openhw.tech/downloads/v1.1.15/OpenHW-Setup.exe"
+    ],
+    "size": 511225424,
+    "sha256": "c79e2933a28da4205477b97311cba92758b7294846bb81de11908084ddfe9855"
+  },
   "patches": [
     {
-      "to": "1.0.1",
-      "from": [
-        "1.0"
-      ],
-      "format": "openhw-exe-zip-v1",
-      "url": "https://openhw.tech/downloads/v1.0.1/OpenHW-Patch-1.0.1.exe",
-      "size": 39855020,
-      "sha256": "51a46e875c63b35fec72b727e8095fa1613dace8d1e21e478e220bbb20ffe66d",
-      "post_actions": [
-        {
-          "kind": "repair-mission-skies-v1"
-        }
-      ]
-    },
-    {
-      "to": "1.0.2",
-      "from": [
-        "1.0.1"
-      ],
-      "format": "openhw-exe-zip-v1",
-      "url": "https://openhw.tech/downloads/v1.0.2/OpenHW-Patch-1.0.2.exe",
-      "size": 39905282,
-      "sha256": "21858f01dc349f1b006a946766e904afead54131cd1add8c77b71adafeb3ed42",
-      "post_actions": [
-        {
-          "kind": "repair-mission-skies-v1"
-        }
-      ]
-    },
-    {
-      "to": "1.0.3",
-      "from": [
-        "1.0.2"
-      ],
-      "format": "openhw-exe-zip-v1",
-      "url": "https://openhw.tech/downloads/v1.0.3/OpenHW-Patch-1.0.3.exe",
-      "size": 39839513,
-      "sha256": "30f79074ac5942312cdfa0e2fad3925a9d908fba6f2bb7438d58e914680afd3a",
-      "post_actions": [
-        {
-          "kind": "repair-mission-skies-v1"
-        }
-      ]
-    },
-    {
-      "to": "1.0.4",
-      "from": [
-        "1.0.3"
-      ],
-      "format": "openhw-exe-zip-v1",
-      "url": "https://openhw.tech/downloads/v1.0.4/OpenHW-Patch-1.0.4.exe",
-      "size": 39756458,
-      "sha256": "14edadf7d192380137368fe26cea3e2440f0bb96e9e66047b73551c6bd2c0dff",
-      "post_actions": [
-        {
-          "kind": "repair-mission-skies-v1"
-        }
-      ]
-    },
-    {
-      "to": "1.0.4.5",
-      "from": [
-        "1.0.4"
-      ],
-      "format": "openhw-exe-zip-v1",
-      "url": "https://openhw.tech/downloads/v1.0.4.5/OpenHW-Patch-1.0.4.5.exe",
-      "size": 39826037,
-      "sha256": "c6f79617296c9d2773be3a57d06ac72c8b98203f19e42c932c39926fe2221f68",
-      "post_actions": [
-        {
-          "kind": "repair-mission-skies-v1"
-        }
-      ]
-    },
-    {
-      "to": "1.0.5",
-      "from": [
-        "1.0.4.5"
-      ],
-      "format": "openhw-exe-zip-v1",
-      "url": "https://openhw.tech/downloads/v1.0.5/OpenHW-Patch-1.0.5.exe",
-      "size": 39807287,
-      "sha256": "17ea23cf6294548f689f9a672c13146e33fc6dd204e79fde3f1068d4a1608bcb",
-      "post_actions": [
-        {
-          "kind": "repair-mission-skies-v1"
-        }
-      ]
-    },
-    {
-      "to": "1.0.6",
-      "from": [
-        "1.0.5"
-      ],
-      "format": "openhw-exe-zip-v1",
-      "url": "https://openhw.tech/downloads/v1.0.6/OpenHW-Patch-1.0.6.exe",
-      "size": 40078846,
-      "sha256": "f28f6d548247920fa332c995822a49ffbc8f30439bacbb220eea08a22a843dfd",
-      "post_actions": [
-        {
-          "kind": "repair-mission-skies-v1"
-        }
-      ]
-    },
-    {
-      "to": "1.0.7",
-      "from": [
-        "1.0.6"
-      ],
-      "format": "openhw-exe-zip-v1",
-      "url": "https://openhw.tech/downloads/v1.0.7/OpenHW-Patch-1.0.7.exe",
-      "size": 49476136,
-      "sha256": "11702e4fcc5b875eeebe5ca0f52a2eb95fb9fe5a34473b6508949455b47a4bed",
-      "post_actions": [
-        {
-          "kind": "repair-mission-skies-v1"
-        }
-      ]
-    },
-    {
-      "to": "1.1.1",
-      "from": [
-        "1.1"
-      ],
-      "format": "openhw-exe-zip-v1",
-      "url": "https://openhw.tech/downloads/v1.1.1/OpenHW-Patch-1.1.1.exe",
-      "size": 15591334,
-      "sha256": "9e48566cc0ebd11bb26cfaef03080ffc1ddeaa6cf4544e658b0cadb80b2f649a",
-      "post_actions": []
-    },
-    {
-      "to": "1.1.2",
+      "to": "1.1.15",
       "format": "openhw-exe-zip-v1",
       "post_actions": [],
       "from": [
-        "1.1.1"
-      ],
-      "url": "https://openhw.tech/downloads/v1.1.2/OpenHW-Patch-1.1.2.exe",
-      "size": 68956051,
-      "sha256": "6f79041c716e6a4e3be94fdb48d9ca4fbfb658e84177b2c36d76d957f22d6b87"
-    },
-    {
-      "to": "1.1.3",
-      "format": "openhw-exe-zip-v1",
-      "post_actions": [],
-      "from": [
-        "1.1.2"
-      ],
-      "url": "https://openhw.tech/downloads/v1.1.3/OpenHW-Patch-1.1.3.exe",
-      "size": 40711171,
-      "sha256": "93ad5722294ce113920765d808a9b96ad52f323acbf8986c275dac101b73a4ee"
-    },
-    {
-      "to": "1.1.4",
-      "format": "openhw-exe-zip-v1",
-      "post_actions": [],
-      "from": [
-        "1.1.3"
-      ],
-      "url": "https://openhw.tech/downloads/v1.1.4/OpenHW-Patch-1.1.4.exe",
-      "size": 40711597,
-      "sha256": "c80be128db8ed1f77e44b627fb0dd540f6569feaec3b47f124cb9931128705aa"
-    },
-    {
-      "to": "1.1.5",
-      "format": "openhw-exe-zip-v1",
-      "post_actions": [],
-      "from": [
-        "1.1.4"
-      ],
-      "url": "https://openhw.tech/downloads/v1.1.5/OpenHW-Patch-1.1.5.exe",
-      "size": 40697339,
-      "sha256": "f72cf68867f64e11f0de845644c22476b2070590d28059581f77490d76b8a28f"
-    },
-    {
-      "to": "1.1.6",
-      "format": "openhw-exe-zip-v1",
-      "post_actions": [],
-      "from": [
-        "1.1.5"
-      ],
-      "url": "https://openhw.tech/downloads/v1.1.6/OpenHW-Patch-1.1.6.exe",
-      "size": 40801172,
-      "sha256": "5245b48df547d5205e873e86901404452e9ddd75c1b111d3adb3bdaed3080b9a"
-    },
-    {
-      "to": "1.1.7",
-      "format": "openhw-exe-zip-v1",
-      "post_actions": [],
-      "from": [
-        "1.1.6"
-      ],
-      "url": "https://openhw.tech/downloads/v1.1.7/OpenHW-Patch-1.1.7.exe",
-      "size": 40773491,
-      "sha256": "8c6fce31c47db09fe513770925f161fb44a336d02e92fa3493ef37f0854a210d"
-    },
-    {
-      "to": "1.1.8",
-      "format": "openhw-exe-zip-v1",
-      "post_actions": [],
-      "from": [
-        "1.1.7"
-      ],
-      "url": "https://openhw.tech/downloads/v1.1.8/OpenHW-Patch-1.1.8.exe",
-      "size": 41940813,
-      "sha256": "1d473385bb636373644e38f25e844091aded27bb7f42d0b682457dd404207061"
-    },
-    {
-      "to": "1.1.9",
-      "format": "openhw-exe-zip-v1",
-      "post_actions": [],
-      "from": [
-        "1.1.8"
-      ],
-      "url": "https://openhw.tech/downloads/v1.1.9/OpenHW-Patch-1.1.9.exe",
-      "size": 41951792,
-      "sha256": "f91d4613c8814f02234d906ccd5d0ce7bb8a98c6212f88c9710a3506aa0c7788"
-    },
-    {
-      "to": "1.1.10",
-      "format": "openhw-exe-zip-v1",
-      "post_actions": [],
-      "from": [
+        "0.91.3",
+        "0.92.0",
+        "1.0",
+        "1.0.0",
+        "1.0.1",
+        "1.0.2",
+        "1.0.3",
+        "1.0.4",
+        "1.0.4.5",
+        "1.0.5",
+        "1.0.6",
+        "1.0.7",
+        "1.1",
+        "1.1.0",
+        "1.1.1",
+        "1.1.10",
+        "1.1.11",
+        "1.1.12",
+        "1.1.13",
+        "1.1.14",
+        "1.1.2",
+        "1.1.3",
+        "1.1.4",
+        "1.1.5",
+        "1.1.6",
+        "1.1.7",
+        "1.1.8",
         "1.1.9"
       ],
-      "url": "https://openhw.tech/downloads/v1.1.10/OpenHW-Patch-1.1.10.exe",
-      "size": 5969871,
-      "sha256": "f4e7c07b5746b8bf5ee0cbd071960b9cfef0ffe1e60b69f40afed7c4f2469870"
-    },
-    {
-      "to": "1.1.11",
-      "format": "openhw-exe-zip-v1",
-      "post_actions": [],
-      "from": [
-        "1.1.10"
+      "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/OpenHW-Setup.exe",
+      "mirrors": [
+        "https://openhw.tech/downloads/v1.1.15/OpenHW-Setup.exe"
       ],
-      "url": "https://openhw.tech/downloads/v1.1.11/OpenHW-Patch-1.1.11.exe",
-      "size": 42205239,
-      "sha256": "a8c2b63193323b3719f0ccbd0f5a2dc285bf6bed4ee8723854a234730cb9dd4e"
-    },
-    {
-      "to": "1.1.12",
-      "format": "openhw-exe-zip-v1",
-      "post_actions": [],
-      "from": [
-        "1.1.11"
-      ],
-      "url": "https://openhw.tech/downloads/v1.1.12/OpenHW-Patch-1.1.12.exe",
-      "size": 42009792,
-      "sha256": "fe5e4b5c3b72347f3e6d8823981de7bd8f81e385ba2509a9f7742a8b273f7293"
-    },
-    {
-      "to": "1.1.13",
-      "format": "openhw-exe-zip-v1",
-      "post_actions": [],
-      "from": [
-        "1.1.12"
-      ],
-      "url": "https://openhw.tech/downloads/v1.1.13/OpenHW-Patch-1.1.13.exe",
-      "size": 5977040,
-      "sha256": "c2bbc5194de924701ee8f19613cffdff17676fe3cd40421eb19d7172419fc378"
-    },
-    {
-      "to": "1.1.14",
-      "format": "openhw-exe-zip-v1",
-      "post_actions": [
-        {
-          "kind": "verified-helper-v1",
-          "path": "Development/Installer/OpenHW-SetupEngine.exe",
-          "args": [
-            "--repair-native-materials"
-          ],
-          "timeout_seconds": 7200
-        }
-      ],
-      "from": [
-        "1.1.13"
-      ],
-      "url": "https://openhw.tech/downloads/v1.1.14/OpenHW-Patch-1.1.14.exe",
-      "size": 44772533,
-      "sha256": "21b2baf25b36bd5a4e2285d233ad7aea955e18d03c65713aee48b8c7412da9b9"
+      "size": 511225424,
+      "sha256": "c79e2933a28da4205477b97311cba92758b7294846bb81de11908084ddfe9855"
     }
   ],
   "launcher": {
-    "version": "1.1.8",
-    "url": "https://openhw.tech/downloads/v1.1.14/Launcher.exe",
-    "size": 10039724,
-    "sha256": "3e37293e082414e1b41913303dff05a4354df64ad45bf6801c9ae6ce981f7237"
+    "version": "1.1.9",
+    "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/Launcher.exe",
+    "mirrors": [
+      "https://openhw.tech/downloads/v1.1.15/Launcher.exe"
+    ],
+    "size": 10053651,
+    "sha256": "959af42b777846dd21f4ddc986e73ab0737650b788ddb0e1d1aef984f75f1d3b"
   },
   "updater": {
-    "version": "1.1.8",
-    "url": "https://openhw.tech/downloads/v1.1.14/Updater.exe",
-    "size": 10023839,
-    "sha256": "1d59a02a34bc3fd87c829c9440d3c0232fd3a22cbe5e4ca641659f36ee86a686",
-    "protocol": 3
+    "version": "1.1.9",
+    "protocol": 4,
+    "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/Updater.exe",
+    "mirrors": [
+      "https://openhw.tech/downloads/v1.1.15/Updater.exe"
+    ],
+    "size": 10037765,
+    "sha256": "199fc90459c5ea48cac40a4c586b331e2ef3fc7aee647aab99c5e11cfdd3d526"
   },
   "fresh_install": {
     "schema": 1,
-    "version": "1.1.1",
-    "url": "https://openhw.tech/downloads/v1.1.13/OpenHW-Setup.exe",
-    "size": 496493002,
-    "sha256": "551ba0ba6dce56888cb23609a0291021588e25505db4c4278efa50052c20a184"
+    "version": "1.1.15",
+    "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/OpenHW-Setup.exe",
+    "mirrors": [
+      "https://openhw.tech/downloads/v1.1.15/OpenHW-Setup.exe"
+    ],
+    "size": 511225424,
+    "sha256": "c79e2933a28da4205477b97311cba92758b7294846bb81de11908084ddfe9855"
   },
   "installation_policy": {
-    "new_install_required_before": "1.1",
-    "base_version": "1.1.1",
+    "base_version": "1.1.15",
     "recovery_page": "https://openhw.tech/#/download",
-    "legacy_patches_archived": true,
-    "explanation": "The 1.0 series uses older game data and requires a separate new 1.1-series installation. The 1.1 recovery and every 1.1.1-or-newer release update in place."
+    "explanation": "1.1.15 is the consolidated full baseline. Earlier versions use the same complete GitHub package in place; player files are preserved. Compatible 1.1 archives are reused; older data is rebuilt from the owned Collection."
   }
 }

@@ -2,7 +2,7 @@
 import argparse,datetime,hashlib,json,os,shutil,sys,threading,queue,zipfile,subprocess
 from pathlib import Path
 
-RELEASE_VERSION='1.1.13'
+RELEASE_VERSION='1.1.15'
 
 def validate_destination(root):
     """Allow only a fresh folder or the same payload's interrupted installation."""
@@ -113,8 +113,15 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--collection',type=Path);p.add_argument('--check',action='store_true');p.add_argument('--verify-payload',action='store_true')
     p.add_argument('--apply-hotfix',action='store_true')
+    p.add_argument('--consolidated-install',action='store_true')
+    p.add_argument('--headless',action='store_true')
     p.add_argument('--repair-native-materials',action='store_true')
     a=p.parse_args();root=root_directory();local_environment(root)
+    if a.consolidated_install:
+        from release_full import run
+        target=Path(os.environ['OPENHW_FULL_INSTALL_ROOT']).resolve()
+        run(target,root,a.collection,a.headless)
+        return
     if a.repair_native_materials:
         from repair_installed_reflections import repair
         repair(root)

@@ -23,7 +23,7 @@ def main():
     from PyInstaller.archive.readers import CArchiveReader
     from PyInstaller.archive.writers import CArchiveWriter
     from PyInstaller.loader.pyimod01_archive import ZlibArchiveReader
-    version = '1.1.8'
+    version = '1.1.9'
     source = args.source.resolve(); args.work.mkdir(parents=True, exist_ok=True)
     for path in (('tools/openhw_launcher.py' if args.launcher else 'tools/openhw_updater.py'),'tools/UpdaterVersion.h'):
         if version not in (source/path).read_text(encoding='utf-8'): raise ValueError('Updater version mismatch')
@@ -110,7 +110,7 @@ except Exception:
     payload = archive.read_bytes(); bootstrap = args.bootstrap.read_bytes()
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_bytes(bootstrap+payload+struct.pack('<16sQQ32s',b'OPENHW1SETUPZIP\0',len(bootstrap),len(payload),hashlib.sha256(payload).digest()))
-    receipt = dict(version=version,protocol=3,file=str(args.output),size=args.output.stat().st_size,
+    receipt = dict(version=version,protocol=4,file=str(args.output),size=args.output.stat().st_size,
         sha256=hashlib.sha256(args.output.read_bytes()).hexdigest(), gameRun=False, liveInstallationUpdated=False)
     (args.work/'build-receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
     print(json.dumps(receipt,indent=2))

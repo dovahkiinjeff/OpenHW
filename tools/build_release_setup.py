@@ -6,7 +6,7 @@ def main():
     p.add_argument('--pyinstaller-modules',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
     a=p.parse_args();repo=Path(__file__).resolve().parents[1]
     sys.path.insert(0,str(a.pyinstaller_modules.resolve()));sys.path.insert(0,str(repo/'tools'))
-    modules=['release_compact','portable_setup','portable_convert','release_import','release_content_policy','release_local_art','release_event_edits','release_mission_authoring','openhw_obig','openhw_ship_definitions','openhw_update',
+    modules=['release_full','repair_installed_reflections','stage_archive_reflections','openhw_updater','release_compact','portable_setup','portable_convert','release_import','release_content_policy','release_local_art','release_event_edits','release_mission_authoring','openhw_obig','openhw_ship_definitions','openhw_update',
       'stage_openhw_subsystems','migrate_openhw_ship_documents','audit_openhw_weapon_subsystems',
       'extract_remastered_big','extract_vanilla_ship_textures','classic_mesh_layout','native_hod_surfaces',
       'plan_kushan_hod_bindings','stage_kushan_native_materials','stage_kushan_native_packages',
