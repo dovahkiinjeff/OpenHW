@@ -17,6 +17,9 @@ def prepare(source,destination):
  edit('src/Network/DedicatedServer.c','if(request.type==OH_STOP && !request.length)return 0;','if(request.type==OH_STOP && !request.length)return 0;\n        if(aiLab && request.type==206 && !request.length){aiLabSnapshot(expected);if(!sendMessage(206,&expected,sizeof(expected)))return 6;continue;}')
  edit('src/Network/DedicatedServer.c','else if(!strcmp(argv[i],"--list-maps"))listMaps=1;','else if(!strcmp(argv[i],"--list-maps"))listMaps=1;\n        else if(!strcmp(argv[i],"--ai-lab")){aiLab=1;aiplayerLogEnable=TRUE;}')
  edit('src/Network/DedicatedServer.c','if(!hwMatchInstall(&load))return 7;','if(!(aiLab?hwMatchInstallAiLab(&load):hwMatchInstall(&load)))return 7;')
+ # The ordinary frontend initializes hyperspace state before gameStart.
+ # Dedicated startup skips it; enabling normal skirmish hyperspace requires it.
+ edit('src/Network/DedicatedServer.c','    gameStart(NULL);','    if(aiLab)singlePlayerInit();\n    gameStart(NULL);')
  edit('src/Game/AIPlayer.h','#ifdef HW_BUILD_FOR_DEBUGGING\n#define aiplayerLog(x)    aiplayerDebugLog x','#if defined(OPENHW_AI_LAB)\n#define aiplayerLog(x) do { if(aiplayerLogEnable) aiplayerDebugLog x; } while(0)\n#elif defined(HW_BUILD_FOR_DEBUGGING)\n#define aiplayerLog(x)    aiplayerDebugLog x')
  edit('src/Game/AIPlayer.c','if (aiplayerLogEnable)\n    {\n        logfileClear','if (aiplayerLogEnable && !getenv("OPENHW_AI_LAB"))\n    {\n        logfileClear')
  edit('src/Game/AIPlayer.c','void aiplayerDebugLog(uword playerIndex, char *format, ...)\n{','''void aiplayerDebugLog(uword playerIndex, char *format, ...)

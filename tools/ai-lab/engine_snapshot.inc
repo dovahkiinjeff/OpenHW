@@ -2,6 +2,7 @@
 #include "AITeam.h"
 #include "CommandLayer.h"
 #include "CommandDefs.h"
+#include "SinglePlayer.h"
 #include <math.h>
 static double labFinite(double v){return isfinite(v)?v:0;}
 static void aiLabSnapshot(uint32_t frame)
