@@ -20,6 +20,10 @@ def prepare(source,destination):
  # The ordinary frontend initializes hyperspace state before gameStart.
  # Dedicated startup skips it; enabling normal skirmish hyperspace requires it.
  edit('src/Network/DedicatedServer.c','    gameStart(NULL);','    if(aiLab)singlePlayerInit();\n    gameStart(NULL);')
+ # Use the existing no-visual-effect path. Its logical hyperspace state and
+ # tick-based progression remain identical; no renderer exists in the lab.
+ edit('src/Game/HS.c','#include "HS.h"','#include "HS.h"\n#include "../Network/DedicatedServer.h"')
+ edit('src/Game/HS.c','if (!displayEffect)','if (!displayEffect || hwDedicatedMode)')
  edit('src/Game/AIPlayer.h','#ifdef HW_BUILD_FOR_DEBUGGING\n#define aiplayerLog(x)    aiplayerDebugLog x','#if defined(OPENHW_AI_LAB)\n#define aiplayerLog(x) do { if(aiplayerLogEnable) aiplayerDebugLog x; } while(0)\n#elif defined(HW_BUILD_FOR_DEBUGGING)\n#define aiplayerLog(x)    aiplayerDebugLog x')
  edit('src/Game/AIPlayer.c','if (aiplayerLogEnable)\n    {\n        logfileClear','if (aiplayerLogEnable && !getenv("OPENHW_AI_LAB"))\n    {\n        logfileClear')
  edit('src/Game/AIPlayer.c','void aiplayerDebugLog(uword playerIndex, char *format, ...)\n{','''void aiplayerDebugLog(uword playerIndex, char *format, ...)
