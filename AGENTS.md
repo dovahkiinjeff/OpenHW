@@ -1,5 +1,13 @@
 # Publication policy
 
+## AI laboratory separation
+
+- `tools/ai-lab/` is source-only administrator research tooling. Its instrumented engine is built from an isolated source copy and must never be packaged in installers, Launcher/Updater payloads, game patches, or installed over the public multiplayer worker.
+- Keep filled server configuration, SSH aliases, credentials, private keys, collected logs and private binaries out of public source. Publish only generic templates and source.
+- Notify the owner immediately before starting real AI matches. Default experiments are ten concurrent 4v4 Hard matches with reproducible randomized teams, fixed original simulation ticks and a shared 100 GB diagnostic-log ceiling across retained runs.
+
+## Release workflow
+
 When the owner says "publish the update", complete this workflow:
 
 - Publish a versioned update entry and release notes on the website and GitHub.

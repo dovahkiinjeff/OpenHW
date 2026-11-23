@@ -1,0 +1,10 @@
+{
+  "worker_executable": "/path/to/private/lab/OpenHW-AI-Lab.exe",
+  "worker_command": ["/usr/lib/wine/wine64", "/path/to/private/lab/OpenHW-AI-Lab.exe", "--dedicated-worker", "--ai-lab"],
+  "content_root": "/path/to/private/runtime",
+  "results_root": "/path/to/private/results",
+  "worker_environment": {"WINEPREFIX": "/path/to/private/wine-prefix"},
+  "max_log_bytes": 100000000000,
+  "min_free_bytes": 5000000000,
+  "maps": {"ExampleEightPlayer%d": [2, 8]}
+}
