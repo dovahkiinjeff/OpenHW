@@ -1,5 +1,7 @@
 # OpenHW 1.1.16
 
+**Launcher maintenance 1.1.11:** fixes the update-button error and locked-font handoff. In an affected old Launcher, use Ship Systems → Check for updates once. [Repair notes](docs/LAUNCHER_REPAIR_1.1.11.md).
+
 **Latest update:** [1.1.16 — AI production, Expert difficulty and update handoff](docs/RELEASE_NOTES_1.1.16.md). Choose **Update now** in Launcher. Compiled updates are served by openhw.tech; GitHub contains source. The complete 1.1.15 installer remains the base for new installations.
 
 > [!IMPORTANT]

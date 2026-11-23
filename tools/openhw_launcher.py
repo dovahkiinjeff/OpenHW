@@ -15,7 +15,7 @@ import openhw_updater as updater
 from launcher_settings import SETTINGS
 import launcher_languages
 
-VERSION = '1.1.10'
+VERSION = '1.1.11'
 MOD_NAME = re.compile(r'[A-Za-z0-9_-]{1,64}\Z')
 LANGUAGES = ('English', 'French', 'German', 'Spanish', 'Italian')
 
@@ -233,8 +233,10 @@ def main():
         import extract_vanilla_ship_textures
         import openhw_launcher_ui
         import openhw_diagnostics
-        for name in ('hangar-1000.png','hangar-1440.png','hangar-2200.png','mark.png','Rajdhani-Regular.ttf','Rajdhani-Bold.ttf','ShareTechMono-Regular.ttf'):
+        for name in ('hangar-1000.png','hangar-1440.png','hangar-2200.png','mark.png'):
             if not safe(root,'Development/Launcher/Theme/'+name).is_file(): raise RuntimeError('Launcher theme file missing: '+name)
+        for name in ('Rajdhani-Regular.ttf','Rajdhani-Bold.ttf','ShareTechMono-Regular.ttf'):
+            if not (openhw_launcher_ui.utility_font_folder(root)/name).is_file():raise RuntimeError('Launcher font missing: '+name)
         updater.atomic_json(safe(root,'Development/Launcher/self-check.json'),dict(status='passed',version=VERSION,settings=len(SETTINGS),gameRun=False))
     elif args.diagnostics_report:
         from openhw_diagnostics import run

@@ -24194,6 +24194,11 @@
       "sha256": "7aebedcdad245e8b4a8c84b921f84c8b34030f41134783b37638ef24abe7d5b1"
     },
     {
+      "path": "docs/LAUNCHER_REPAIR_1.1.11.md",
+      "size": 1700,
+      "sha256": "e175ef52625c23b5a77c3cf3ad656a5f78a72fca769cfea483adde4b9622d074"
+    },
+    {
       "path": "docs/LIMITATIONS.md",
       "size": 3226,
       "sha256": "f6167df3588e873966936d0cf011d2fa8a34d7ba943dbe9b3f59d3df7d578791"
@@ -24620,8 +24625,8 @@
     },
     {
       "path": "README.md",
-      "size": 41185,
-      "sha256": "e953082b9805bda134625dbcd05f2ba4fdc51447e8e6e3b09886c02a84155bfa"
+      "size": 41398,
+      "sha256": "fc8714c2ce10edb88b6d137de2e8e2c1b825bdea7b1cdbcfc4685895c992d9af"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -29254,6 +29259,11 @@
       "sha256": "6755d3ade21c82fb5547c65d3e08b4649ad59c6c8672a2d94294395961f91637"
     },
     {
+      "path": "tests/test_launcher_real_controls.py",
+      "size": 2549,
+      "sha256": "ae47b854b98fed0fac1e2b55849d33c9c87d4e36bb41455a7d7d4a221e638f65"
+    },
+    {
       "path": "tests/test_launcher_update_completion.py",
       "size": 1053,
       "sha256": "c4e5301a0b780026a4be03257c2f505f106fd6191a55ead6b3eee69371b3a007"
@@ -29552,6 +29562,11 @@
       "path": "tests/UnlimitedResourceUnitsTests.c",
       "size": 2075,
       "sha256": "981c4fbd193e79e4586656d84aaff2adbc0f55f48847c90feb526fc560929300"
+    },
+    {
+      "path": "tests/UtilityFontHandoffProbe.py",
+      "size": 4424,
+      "sha256": "3ebb0fd4c8d9aab9be185756c002571ef9ab92ad2d703ead388507d35f785686"
     },
     {
       "path": "tests/VeterancyToggleTests.c",
@@ -30380,13 +30395,13 @@
     },
     {
       "path": "tools/openhw_launcher.py",
-      "size": 12041,
-      "sha256": "c93317a329c2acabf76125e517c8a2a06177a4ef230f89f654fe886886288f93"
+      "size": 12443,
+      "sha256": "dbcca9b0132370822c97c09673364dcd4ca452364bc4c1da7b19fb09da438210"
     },
     {
       "path": "tools/openhw_launcher_ui.py",
-      "size": 50388,
-      "sha256": "41ae73d8b235fa34308d866cd581553e57941b5c953a576072431b6858a0aeef"
+      "size": 51511,
+      "sha256": "1f765afd46253d182fd219bf8f3f273a07ca03009fdf4e24e18676fb81f87f44"
     },
     {
       "path": "tools/openhw_obig.py",
@@ -30410,8 +30425,8 @@
     },
     {
       "path": "tools/openhw_updater.py",
-      "size": 39304,
-      "sha256": "4e4c25386951a33bf0ae43166956003df36e80fbad765c5a65b9168319a279d6"
+      "size": 40002,
+      "sha256": "6e18716b7787a57b34d9f08b1cc6c6e07d5bf2479a785cb6c2e933900966b2b6"
     },
     {
       "path": "tools/openhw_weapon_presentation.py",
@@ -30450,8 +30465,8 @@
     },
     {
       "path": "tools/package_updater.py",
-      "size": 7812,
-      "sha256": "d649355bd9fe57d6fc4b41af4ff716521ab34a0696e031b20faa6185337be4db"
+      "size": 8020,
+      "sha256": "120ceca19ba79ee0a548e69ac2ed7b59b3947bb6f681972376812dcc0181c923"
     },
     {
       "path": "tools/plan_kushan_hod_bindings.py",
@@ -30490,8 +30505,8 @@
     },
     {
       "path": "tools/release_bootstrap.cpp",
-      "size": 28183,
-      "sha256": "e837ce593de00a8562efbb6e77a92b47bf6681c92d8d8ccbcd6c038673cb24c6"
+      "size": 29769,
+      "sha256": "2d8de7216f3a3ea81dbd7892bee42312d10948d9e3ed556bfa4b5d62639c73be"
     },
     {
       "path": "tools/release_compact.py",
@@ -30846,7 +30861,7 @@
     {
       "path": "tools/UpdaterVersion.h",
       "size": 99,
-      "sha256": "05eee525ccdfe9e3511c80485cb1c425119f83b54c3bb6ef27471afc47842a37"
+      "sha256": "ca9c218d5f2b97c9ef285c101034327bb8ce36eff0768289254e7cf409b961a7"
     },
     {
       "path": "tools/validate_presenter_shaders.ps1",
@@ -30860,8 +30875,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 3010,
-      "sha256": "965f361476e6773b4ba575ed251769e843717b17651ee0b6238dec7acee40e76"
+      "size": 3154,
+      "sha256": "71934d949b107abcac500f77d21f879e8071252f94dd50580ac38f10f0bdfdb6"
     },
     {
       "path": "vcpkg.json",

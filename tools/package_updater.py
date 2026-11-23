@@ -23,7 +23,7 @@ def main():
     from PyInstaller.archive.readers import CArchiveReader
     from PyInstaller.archive.writers import CArchiveWriter
     from PyInstaller.loader.pyimod01_archive import ZlibArchiveReader
-    version = '1.1.10'
+    version = '1.1.11'
     source = args.source.resolve(); args.work.mkdir(parents=True, exist_ok=True)
     for path in (('tools/openhw_launcher.py' if args.launcher else 'tools/openhw_updater.py'),'tools/UpdaterVersion.h'):
         if version not in (source/path).read_text(encoding='utf-8'): raise ValueError('Updater version mismatch')
@@ -106,7 +106,10 @@ except Exception:
         theme=source/'assets/Launcher'
         for asset in sorted(theme.iterdir()):
             if asset.is_file() and asset.suffix in ('.png','.ttf','.txt','.json','.ico'):
-                out.write(asset,'Development/Launcher/Theme/'+asset.name)
+                if asset.suffix=='.ttf':
+                    out.write(asset,'Development/'+('Launcher' if args.launcher else 'Updater')+'/Runtime/'+version+'/Theme/'+asset.name)
+                else:
+                    out.write(asset,'Development/Launcher/Theme/'+asset.name)
     payload = archive.read_bytes(); bootstrap = args.bootstrap.read_bytes()
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_bytes(bootstrap+payload+struct.pack('<16sQQ32s',b'OPENHW1SETUPZIP\0',len(bootstrap),len(payload),hashlib.sha256(payload).digest()))

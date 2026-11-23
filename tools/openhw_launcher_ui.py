@@ -6,6 +6,7 @@ import json
 import os
 import queue
 import threading
+import sys
 import tkinter as tk
 from tkinter import ttk,filedialog,font as tkfont
 
@@ -46,6 +47,12 @@ def load_fonts(folder):
     for name in ('Rajdhani-Regular.ttf','Rajdhani-Bold.ttf','ShareTechMono-Regular.ttf'):
         if not add(str(folder/name),0x10,None):raise RuntimeError('Launcher font is missing: '+name)
 
+def utility_font_folder(root):
+    # Frozen utilities each own their versioned font files. An updater must
+    # never overwrite fonts currently registered by the Launcher or Diagnostics.
+    private=Path(sys.executable).resolve().parent/'Theme'
+    return private if (private/'Rajdhani-Regular.ttf').is_file() else Path(root)/'Development/Launcher/Theme'
+
 def label(parent,text,*,size=BODY,color=INK,bg=PANEL,**kwargs):
     return tk.Label(parent,text=text,font=size,fg=color,bg=bg,bd=0,anchor='w',**kwargs)
 
@@ -57,6 +64,19 @@ class Button(tk.Canvas):
         self.bind('<Configure>',self.paint);self.bind('<Enter>',lambda e:self.state(True));self.bind('<Leave>',lambda e:self.state(False))
         self.bind('<FocusIn>',lambda e:self.focus(True));self.bind('<FocusOut>',lambda e:self.focus(False))
         self.bind('<ButtonRelease-1>',lambda e:self.invoke());self.bind('<Return>',lambda e:self.invoke());self.bind('<space>',lambda e:self.invoke())
+    def configure(self,cnf=None,**kwargs):
+        # This is a Canvas, so Tk does not implement Button's text/command
+        # options. Keep those in our drawing model instead of forwarding them
+        # to Tcl (which raises "unknown option -text").
+        if cnf is None and not kwargs:return super().configure()
+        if isinstance(cnf,str):return super().configure(cnf,**kwargs)
+        options=dict(cnf or {});options.update(kwargs);redraw=False
+        for name in ('text','command','primary','icon'):
+            if name in options:setattr(self,name,options.pop(name));redraw=True
+        result=super().configure(**options) if options else None
+        if redraw and hasattr(self,'text'):self.paint()
+        return result
+    config=configure
     def state(self,value):self.hover=value;self.paint()
     def focus(self,value):self.focused=value;self.paint()
     def invoke(self):self.focus_set();self.command();return 'break'
@@ -187,7 +207,7 @@ class App:
     def __init__(self,root,backend,*,preview=False):
         self.root=Path(root).resolve();self.api=backend;self.preview=preview
         backend.updater.detect_version(self.root)
-        self.theme=backend.safe(self.root,'Development/Launcher/Theme');load_fonts(self.theme)
+        self.theme=backend.safe(self.root,'Development/Launcher/Theme');load_fonts(utility_font_folder(self.root))
         self.window=tk.Tk();self.window.withdraw();self.window.title('OpenHW Launcher');self.window.configure(bg=LINE)
         self.window.tk.call('tk','scaling',1.0)
         for name in ('TkDefaultFont','TkTextFont','TkMenuFont','TkHeadingFont','TkCaptionFont'):
@@ -440,7 +460,7 @@ class App:
             try:
                 command=self.api.prepare_launcher_update(self.root,lambda text,value=None:self.messages.put(('progress',text,value)))
                 if command:self.messages.put(('handoff',command,0))
-                else:self.messages.put(('done','OPENHW '+self.version+' / All available updates installed.',1))
+                else:self.messages.put(('done',"You're up to date. OpenHW "+self.version+' / No updates available.',0))
             except Exception as error:self.messages.put(('error',str(error),0))
         threading.Thread(target=worker,daemon=False).start()
     def check_channel(self):
@@ -473,7 +493,7 @@ class App:
             self.channel_status.set('UPDATE AVAILABLE / OpenHW '+feed['latest']+' - ready to download and install.')
             self.update_now.place(relx=1,x=-244,y=72,width=220,height=38)
         else:
-            self.channel_status.set('UPDATE SERVER ONLINE / OpenHW '+self.version+' is up to date.')
+            self.channel_status.set("YOU'RE UP TO DATE / OpenHW "+self.version)
             self.update_now.place_forget()
     def cache(self):
         if self.dialog('REBUILD SHADER LIBRARY','Back up the current local cache? OpenHW will rebuild it at the next startup.',confirm=True):self.status.set(self.api.rebuild_shader_cache(self.root))
@@ -619,7 +639,7 @@ def run_update(root, process_ids=(), manifest=None):
     """Launcher-styled automatic handoff; no manual external-updater step."""
     import subprocess
     import openhw_updater as updater
-    root=Path(root).resolve();load_fonts(root/'Development/Launcher/Theme')
+    root=Path(root).resolve();load_fonts(utility_font_folder(root))
     window=tk.Tk();window.withdraw();window.configure(bg=LINE);window.title('OpenHW / Updating')
     messages=queue.Queue();responses=queue.Queue();cancel=threading.Event();busy=False
     status=tk.StringVar(value='Preparing your update...');amount=[None];tick=[0]

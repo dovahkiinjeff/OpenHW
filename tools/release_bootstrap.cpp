@@ -85,6 +85,24 @@ static DWORD launch(const std::wstring& application,std::wstring arguments,HANDL
     while(WaitForSingleObject(process.hProcess,100)==WAIT_TIMEOUT)pump();
     DWORD code=1;GetExitCodeProcess(process.hProcess,&code);CloseHandle(process.hProcess);return code;
 }
+#if defined(OPENHW_UPDATER) && !defined(OPENHW_LAUNCHER)
+static void waitForLauncherHandoff(const std::wstring& arguments){
+    if(arguments.find(L"--launcher-update")==std::wstring::npos)return;
+    const std::wregex pattern(L"--wait-(engine|bootstrap)\\s+([0-9]{1,10})");
+    const ULONGLONG deadline=GetTickCount64()+120000;
+    for(std::wsregex_iterator it(arguments.begin(),arguments.end(),pattern),end;it!=end;++it){
+        const auto identity=std::stoull((*it)[2].str());
+        if(identity==0)continue;
+        check(identity<=MAXDWORD && identity!=GetCurrentProcessId(),"Invalid launcher handoff process.");
+        HANDLE process=OpenProcess(SYNCHRONIZE,FALSE,static_cast<DWORD>(identity));
+        if(!process){check(GetLastError()==ERROR_INVALID_PARAMETER,"Cannot confirm that Launcher has finished closing.");continue;}
+        DWORD result=WAIT_TIMEOUT;
+        while(GetTickCount64()<deadline && (result=WaitForSingleObject(process,100))==WAIT_TIMEOUT)pump();
+        CloseHandle(process);
+        check(result==WAIT_OBJECT_0,"Launcher is still closing. Close its window, then retry the update.");
+    }
+}
+#endif
 int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
     const bool verify=args && std::wstring(args).find(L"--verify-payload")!=std::wstring::npos;
     const bool checkFeed=args && std::wstring(args).find(L"--check-update-feed")!=std::wstring::npos;
@@ -278,6 +296,13 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
             ).c_str(),FILE_APPEND_DATA,FILE_SHARE_READ|FILE_SHARE_WRITE,&security,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
 #ifndef OPENHW_LAUNCHER
         if(!quiet)createProgress();
+#endif
+#if defined(OPENHW_UPDATER) && !defined(OPENHW_LAUNCHER)
+        // Launcher privately registers the three theme fonts. Their files stay
+        // locked until its engine exits. Waiting in Python is too late: tar
+        // must not overwrite those fonts before the handoff has completed.
+        status(L"Waiting for Launcher to finish closing...");
+        waitForLauncherHandoff(args?std::wstring(args):std::wstring());
 #endif
 #ifdef OPENHW_LAUNCHER
         // Serialize first extraction only. The main Launcher remains open while
