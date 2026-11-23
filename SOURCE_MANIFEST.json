@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.1.17a",
+  "version": "1.1.18",
   "snapshot": "Complete current build inputs",
   "excluded": [
     "generated out/ and .deps/",
@@ -45,8 +45,8 @@
     },
     {
       "path": "AGENTS.md",
-      "size": 2316,
-      "sha256": "7ffd864e7f80389a3d0e7e88b89efedb477f316aa789910d066ae82d334cfe02"
+      "size": 3434,
+      "sha256": "3fd8381aa3002dba72506273bcdc589ef019447d328b9aea638213c22d4c7d6c"
     },
     {
       "path": "assets/Asteroids/asteroid1.obj",
@@ -23080,8 +23080,8 @@
     },
     {
       "path": "CMakeLists.txt",
-      "size": 89189,
-      "sha256": "93b74575bcde1f5bdf7ee0aaf74fff54abf98d7fe41c0d0d6082fff1050c300c"
+      "size": 89188,
+      "sha256": "a9580bf56145f99076f9dae21b6f90b37a0ca6aa0dd0aef7a615762214bd5ae0"
     },
     {
       "path": "CMakePresets.json",
@@ -24459,6 +24459,11 @@
       "sha256": "e222a5a2ace7dafe5814f61c15cf9036c1b90b7d9311fe4699adb3ce6d465936"
     },
     {
+      "path": "docs/RELEASE_NOTES_1.1.18.md",
+      "size": 1091,
+      "sha256": "8fe33a954224dec28fb5d997466aab6f12424c32794d6817d893a23b89a64eaa"
+    },
+    {
       "path": "docs/RELEASE_NOTES_1.1.2.md",
       "size": 2461,
       "sha256": "c8c42ed25afde86bd2bfa27d343fc6690cb5fbe7f2a64f2cb5ae31abe401db2d"
@@ -24540,8 +24545,8 @@
     },
     {
       "path": "docs/SKIRMISH_AI.md",
-      "size": 2355,
-      "sha256": "30d83effad94d6bf233ab01599e5a4551080939f3c9c4d50f97eb2ff7e3df489"
+      "size": 2722,
+      "sha256": "b8bb76a4ca5eb1ef49c02baa4ec78f1de88478061ba075ddb5b2d25ec5591707"
     },
     {
       "path": "docs/SKIRMISH_AND_MULTIPLAYER_FIX.md",
@@ -24640,8 +24645,8 @@
     },
     {
       "path": "README.md",
-      "size": 41517,
-      "sha256": "28c06472ed88b2f2963336019ca783ca14066fa3df298200e6d23d52be1c8986"
+      "size": 41580,
+      "sha256": "d2793af5dcaa80d6b6c45fc2ca69ca18e8b106516762e98169dd34fbcaa612b1"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -24830,8 +24835,8 @@
     },
     {
       "path": "src/Game/AIAttackMan.c",
-      "size": 54461,
-      "sha256": "d52616318e78ca1f32556a1b8e22d496d1d7a1bee461a063beebee0e88391b4a"
+      "size": 57438,
+      "sha256": "b13112ba9eb5c0687e29ac2150e41b002cb1f1cf4afb7012f966d9b09e1f7ef2"
     },
     {
       "path": "src/Game/AIAttackMan.h",
@@ -24840,8 +24845,8 @@
     },
     {
       "path": "src/Game/AIDefenseMan.c",
-      "size": 34899,
-      "sha256": "f8f0ad64350035ae39e04a358d73ab29ae58c60f8c2f60cd7ad5e544123bd2aa"
+      "size": 35853,
+      "sha256": "70219e8fc941d6a4efcced7fe969ece344516eb677297918343a003be11c782c"
     },
     {
       "path": "src/Game/AIDefenseMan.h",
@@ -24865,8 +24870,8 @@
     },
     {
       "path": "src/Game/AIFleetMan.c",
-      "size": 34546,
-      "sha256": "3249ac9b79eab67a81ae2faa987302578dbcf14fbdffb1d96bf853b8e6417c72"
+      "size": 35727,
+      "sha256": "9a60e7b0c24e358eec6084503daeafe7d8bdecd9011ec52ceaec4a21af6f69c4"
     },
     {
       "path": "src/Game/AIFleetMan.h",
@@ -24915,18 +24920,18 @@
     },
     {
       "path": "src/Game/AIPolicy.h",
-      "size": 2369,
-      "sha256": "e4d0e0868f981724f10bbda4a1f735d259bf21217cde063feaaaf20704ef0703"
+      "size": 3111,
+      "sha256": "4b92e6b50407e9b7e3447ae660bdb7065943b0da18e0fb691ecd72b9a5731dae"
     },
     {
       "path": "src/Game/AIProduction.inc",
-      "size": 6657,
-      "sha256": "da809e84434f1a0efeb44803e423d63fb920c4c92a83041244c24593bcb25b71"
+      "size": 8322,
+      "sha256": "41e8bf6265308639bb57e87996644a4e588daf3faa649e6d83dff07e00299a4b"
     },
     {
       "path": "src/Game/AIResourceMan.c",
-      "size": 36008,
-      "sha256": "b0755e648a9e8944d824d4a7a9ced61a19d73ca941b3b1881e79099f3cc8c4c2"
+      "size": 37436,
+      "sha256": "48d3d6912259e9fb6641b09ca112cdbcaf4e0d0e36a0884da409d67537261f98"
     },
     {
       "path": "src/Game/AIResourceMan.h",
@@ -24965,8 +24970,8 @@
     },
     {
       "path": "src/Game/AIUtilities.c",
-      "size": 166688,
-      "sha256": "5473e2a855bf9a8624d1e1569ee446be2e3743aa4c8c478d6583d324d25f89c9"
+      "size": 171687,
+      "sha256": "6c063c2b7221bf58f4c26cd548108760122bd5e6c7d7371a11ab0f2fe0a76dbd"
     },
     {
       "path": "src/Game/AIUtilities.h",
@@ -25585,8 +25590,8 @@
     },
     {
       "path": "src/Game/HS.c",
-      "size": 34588,
-      "sha256": "d095f782a9ddd55dfa29154bfa1a94ebe2ce786d4c7eefcec694c75ddc2ab2f5"
+      "size": 35866,
+      "sha256": "0e265f99081ec488a551405066e3bf98eedb8a1d8111a9be827316facd66c73e"
     },
     {
       "path": "src/Game/HS.h",
@@ -26340,8 +26345,8 @@
     },
     {
       "path": "src/Game/ResearchPlanning.inc",
-      "size": 7423,
-      "sha256": "bbc99b24d28a81059e2e33113536b8c420f31b3efba405e9d0ea0fb6e6511f5f"
+      "size": 8300,
+      "sha256": "66798049bd8bfbca5ad70c77cf10c6e134d97acbcbc64bbe0cf973b76b35325f"
     },
     {
       "path": "src/Game/ResourceScalingPolicy.h",
@@ -27630,8 +27635,8 @@
     },
     {
       "path": "src/Network/DedicatedServer.c",
-      "size": 15431,
-      "sha256": "774e158616c7564e0a82a3361bf807ff9574e4d16eabe6d1e25414edb75d253e"
+      "size": 15551,
+      "sha256": "66e50fd18a51659f59e8772711ac4b3a7b76275f54ff77b1e1e4f53e0d63402a"
     },
     {
       "path": "src/Network/DedicatedServer.h",
@@ -27640,13 +27645,13 @@
     },
     {
       "path": "src/Network/MatchRules.c",
-      "size": 8371,
-      "sha256": "274ca105830fdbbb38328f814a0a4f3047aecae90dba0687d3ffdd2cf60cf608"
+      "size": 8714,
+      "sha256": "ee2d35e95aa95ed0efd301feb4538f9e12bd54ca278aec53d1adb0bf01545f33"
     },
     {
       "path": "src/Network/MatchRules.h",
-      "size": 590,
-      "sha256": "b486422a336aa54bbc75ded9a66218049f69fe11b6a0f996c25e7ce3290ad2b3"
+      "size": 639,
+      "sha256": "78c9cf2dbc97122b7eb8991614092e7f8b968158b9887b609f49bd75a767b6e5"
     },
     {
       "path": "src/Network/OnlineClient.h",
@@ -28585,8 +28590,8 @@
     },
     {
       "path": "tests/AIProductionTests.c",
-      "size": 7077,
-      "sha256": "2f63cc694b22578d860fd445ea127746ecd6a1ad9d4604fa94045027418096e9"
+      "size": 7525,
+      "sha256": "1dfb76804b07439d1f0da22ea2c1c8ec94daa22719792a76922c665f69881b53"
     },
     {
       "path": "tests/AudioBusTests.c",
@@ -29604,6 +29609,41 @@
       "sha256": "1adf1e28fa48ba6bbfcda1cdd39287742b6e6b0c026747582f02a61c3454cb99"
     },
     {
+      "path": "tools/ai-lab/config.example.json",
+      "size": 463,
+      "sha256": "9a179d52037ca1568dfc7a098e5d27ba657019ab55896e81d636ee880064aca7"
+    },
+    {
+      "path": "tools/ai-lab/control.py",
+      "size": 3594,
+      "sha256": "b15ad81cc515b02f15e58d635dff183ea68e8f0ddfad074170e171001119887d"
+    },
+    {
+      "path": "tools/ai-lab/engine_snapshot.inc",
+      "size": 4314,
+      "sha256": "4c0a14adba5508d5e26130384cb8a848c7d6c626a13ad9b74201b900424bad72"
+    },
+    {
+      "path": "tools/ai-lab/lab.py",
+      "size": 13697,
+      "sha256": "4491e6f35f88c92a38f2430712b304e6676859ae42f01e20f8b502145f753f5f"
+    },
+    {
+      "path": "tools/ai-lab/prepare_engine.py",
+      "size": 3875,
+      "sha256": "643f37a8f017d65759e7e42ff1a805a13ce416d3e6e0276e135d42d49bb892a6"
+    },
+    {
+      "path": "tools/ai-lab/README.md",
+      "size": 5388,
+      "sha256": "a19de2a4b0587f865cb7402e04a3025a8dd2f73cdb5cdf38eb4797e5b92d2e5c"
+    },
+    {
+      "path": "tools/ai-lab/test_lab.py",
+      "size": 4340,
+      "sha256": "110be0cdc63b789940f3293d37c9b45dd1b8037d1486fe391fc63aec6e68edcb"
+    },
+    {
       "path": "tools/audit_classic_kushan_bindings.py",
       "size": 3781,
       "sha256": "09067dc5188af0b0d07fcbcfa48ac2c0286696bcfa3181f1de6ea3cf8f8d6965"
@@ -30470,8 +30510,8 @@
     },
     {
       "path": "tools/package_release_patch.py",
-      "size": 7942,
-      "sha256": "0254cc0ede8f9ff05b466f8e31bfd5f03fa8242af8c74ba80a738f8611ca9190"
+      "size": 7987,
+      "sha256": "905fa43ee57132e87131e6274b23605e7b418557c34a180fb1b40164721fbebc"
     },
     {
       "path": "tools/package_ship_document_update.py",
@@ -30525,8 +30565,8 @@
     },
     {
       "path": "tools/release_bootstrap.cpp",
-      "size": 30468,
-      "sha256": "267ddfc4fe6b6b6580e26765985c4a7e155fb72a9c2be479ae23ef3004daf5df"
+      "size": 30828,
+      "sha256": "d5f60c8fe0f6ed81bad09a668b3d6977e8f9b5f886c33c002752f70c09d771b6"
     },
     {
       "path": "tools/release_compact.py",
@@ -30612,6 +30652,11 @@
       "path": "tools/release_patch11171.py",
       "size": 3758,
       "sha256": "e7e00636ac143d052d9d79315e2f64b36690b6c03f8e9602c87a87be3fc609f7"
+    },
+    {
+      "path": "tools/release_patch1118.py",
+      "size": 3742,
+      "sha256": "ae46ed323dadf8d7ac0686ff703957dc396cd5b9bf0609e1914ebf583929d340"
     },
     {
       "path": "tools/release_patch112.py",
@@ -30905,8 +30950,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 3601,
-      "sha256": "8a9026261abbf82317b8e15f2d46b93923c41dbd36441cb1f460635e03c6c70a"
+      "size": 3959,
+      "sha256": "3e5ec8703379ef0da20bf782d5d72e6e0a573db159317f2232e536bd9e5007a8"
     },
     {
       "path": "vcpkg.json",
