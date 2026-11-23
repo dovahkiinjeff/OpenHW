@@ -3,6 +3,8 @@
 When the owner says "publish the update", complete this workflow:
 
 - Publish a versioned update entry and release notes on the website and GitHub.
+- Build and publish a fully assembled fresh-install package for every current game release. The website's main download and fresh_install metadata must point to the latest game version, including all patches and current Launcher/Updater, so a new player does not install an old base and then download a patch chain. Replace the promoted full download whenever a release completes; retain older files only for supported upgrade/recovery paths.
+- Keep fresh-install downloads separate from existing-player updates. Updating the main full download must not force current players to reinstall or remove any supported incremental update paths.
 - GitHub release assets contain source code only, with source checksums if needed. Never attach compiled installers, game executables, Launcher.exe, Updater.exe or binary patches to GitHub.
 - Upload compiled files to the OpenHW server under /srv/openhw-downloads/downloads/vVERSION/, verify size and SHA-256 before publishing metadata, then atomically enable the server update feed.
 - The Launcher detects newer versions from https://openhw.tech/updates/stable.json. The GitHub updates/stable.json is a metadata fallback only; its download URLs must point to the server.

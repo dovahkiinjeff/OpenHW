@@ -14,9 +14,12 @@ def defaults(text):
     return '\n'.join(lines).rstrip()+'\n\ndetectDisplayOnFirstBoot    1\n'
 
 def stage(repo, profile, destination, normal_build=None, diagnostic_build=None, tools_dir=None,
-          version='1.1.15', launcher=None, updater=None):
+          version=None, launcher=None, updater=None):
     from release_content_policy import verify_profile
     repo,profile,destination=map(lambda p:Path(p).resolve(),(repo,profile,destination))
+    if version is None:version=json.loads((repo/'updates/stable.json').read_text())['latest']
+    from openhw_updater import version_key
+    version_key(version)
     inventory=verify_profile(profile)
     if not launcher or not updater:raise ValueError('Fresh releases require explicit Launcher.exe and Updater.exe inputs')
     launcher,updater=Path(launcher).resolve(strict=True),Path(updater).resolve(strict=True)
@@ -50,6 +53,8 @@ def stage(repo, profile, destination, normal_build=None, diagnostic_build=None, 
     for name in libraries:shutil.copyfile(diag/name,runtime/name)
     for name in ('msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll'):
         shutil.copyfile(imports/name,runtime/name)
+    (runtime/'Data/UI').mkdir(parents=True,exist_ok=True)
+    shutil.copyfile(repo/'assets/UI/archive_signal.wav',runtime/'Data/UI/archive_signal.wav')
     (runtime/'Homeworld.cfg').write_text(defaults((profile/'defaults.cfg').read_text()))
     for path in (profile/'Presets').glob('*.cfg'):shutil.copyfile(path,runtime/path.name)
     (runtime/'openhw.portable').write_text('OpenHW '+version+' portable installation\n')
@@ -97,6 +102,6 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     for key in ('repo','profile','output'):p.add_argument('--'+key,type=Path,required=True)
     for key in ('normal-build','diagnostic-build','tools-dir'):p.add_argument('--'+key,type=Path)
-    p.add_argument('--version',default='1.1.15')
+    p.add_argument('--version',help='Game release; defaults to the current stable feed version')
     for key in ('launcher','updater'):p.add_argument('--'+key,type=Path,required=True)
     a=p.parse_args();stage(a.repo,a.profile,a.output,a.normal_build,a.diagnostic_build,a.tools_dir,a.version,a.launcher,a.updater)

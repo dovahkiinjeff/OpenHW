@@ -6,12 +6,13 @@ param(
     [string]$SdkRoot,
     [string]$OutputDirectory,
     [string]$SourceDirectory,
-    [string]$ReleaseVersion = '1.1.13',
+    [string]$ReleaseVersion,
     [switch]$SkipBootstrap,
     [switch]$SkipTests
 )
 $ErrorActionPreference = 'Stop'
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if (-not $ReleaseVersion) { $ReleaseVersion = (Get-Content -LiteralPath (Join-Path $repo 'updates\stable.json') -Raw | ConvertFrom-Json).latest }
 if (-not $VcpkgRoot) { $VcpkgRoot = Join-Path $repo '.deps\vcpkg' }
 if (-not $VcpkgInstalledRoot) { $VcpkgInstalledRoot = Join-Path $repo '.deps\installed' }
 if (-not $SdkRoot) { $SdkRoot = Join-Path $repo '.deps' }
@@ -51,7 +52,7 @@ foreach ($variant in @(@{Path=$normalBuild; Logging='OFF'},@{Path=$diagnosticBui
     Run-Checked $cmake @('--build',$variant.Path,'--config','Release','--parallel',
         '--','/v:minimal','/clp:ErrorsOnly;Summary')
     Run-Checked $cmake @('--build',$variant.Path,'--config','Release','--parallel','--target',
-        'OpenHWSetupBootstrap','OpenHWUpdaterBootstrap','OpenHWLauncherBootstrap','bc6h_encode','ship_texture_dds','remastered_asset_reader','OpenHWAssetCheck',
+        'OpenHWFullSetupBootstrap','OpenHWUpdaterBootstrap','OpenHWLauncherBootstrap','bc6h_encode','ship_texture_dds','remastered_asset_reader','OpenHWAssetCheck',
         '--','/v:minimal','/clp:ErrorsOnly;Summary')
     if (-not $SkipTests) { Run-Checked $ctest @('--test-dir',$variant.Path,'-C','Release','--output-on-failure') }
 }
@@ -94,7 +95,7 @@ try {
     # which may contain private imported content and unrelated work folders.
     Run-Checked $venvPython @('tools\export_release_source.py','--repo',$repo,'--output',$SourceDirectory,'--version',$ReleaseVersion)
     Run-Checked $venvPython @('tools\package_release_installer.py','--stage',$stage,
-        '--frozen',"$frozen\OpenHW-Setup",'--bootstrap',"$diagnosticBuild\Release\OpenHWSetupBootstrap.exe",
+        '--frozen',"$frozen\OpenHW-Setup",'--bootstrap',"$diagnosticBuild\Release\OpenHWFullSetupBootstrap.exe",
         '--output',"$OutputDirectory\OpenHW-Setup.exe")
     Run-Checked $venvPython @('tools\audit_release_bundle.py','--installer',"$OutputDirectory\OpenHW-Setup.exe",'--source',$SourceDirectory,
         '--output',"$OutputDirectory\Release-Audit.json")

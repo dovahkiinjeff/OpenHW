@@ -1,5 +1,5 @@
 """Exercise real hidden Tk widgets; mocks cannot catch unsupported Tcl options."""
-import json,sys,unittest,tkinter as tk,tempfile
+import json,sys,unittest,tkinter as tk,tempfile,queue,threading,time,contextlib
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock,patch
@@ -40,5 +40,30 @@ class RealLauncherControls(unittest.TestCase):
    (private/'Rajdhani-Regular.ttf').write_bytes(b'font path fixture')
    with patch.object(ui.sys,'executable',str(root/'Runtime/UpdaterEngine.exe')):
     self.assertEqual(ui.utility_font_folder(root),private)
+ def test_check_does_not_run_game_process_probe_on_ui_thread(self):
+  entered=threading.Event();release=threading.Event();messages=queue.Queue()
+  def prepare(*args):
+   entered.set();release.wait(3)
+   raise launcher.updater.UpdateError('Close OpenHW before updating.')
+  api=SimpleNamespace(prepare_launcher_update=prepare,save_mods=Mock(),
+      updater=SimpleNamespace(stop_if_game_running=Mock(side_effect=AssertionError('UI thread blocked'))))
+  app=SimpleNamespace(api=api,root=Path('.'),mods=[],save=Mock(),busy=False,
+      status=tk.StringVar(self.window),messages=messages,version='1.1.17')
+  try:
+   ui.App.update(app);self.assertTrue(entered.wait(1))
+   heartbeat=[];self.window.after(0,lambda:heartbeat.append(True));self.window.update()
+   self.assertEqual(heartbeat,[True]);self.assertTrue(app.busy)
+  finally:release.set()
+  kind,text,value=messages.get(timeout=2)
+  app.channel_status=tk.StringVar(self.window);app.update_now=ui.Button(self.window,'UPDATE',Mock())
+  ui.App.finish_update(app,kind,text,value)
+  self.assertFalse(app.busy);self.assertIn('Close OpenHW',app.status.get())
+ def test_no_update_is_allowed_while_game_is_running(self):
+  feed={'latest':'1.1.17','patches':[],'launcher':{'version':launcher.VERSION}}
+  with patch.object(launcher.updater,'update_lock',return_value=contextlib.nullcontext()), \
+       patch.object(launcher.updater,'fetch_manifest',return_value=feed), \
+       patch.object(launcher.updater,'detect_version',return_value='1.1.17'), \
+       patch.object(launcher.updater,'stop_if_game_running',side_effect=AssertionError('Unneeded process check')):
+   self.assertIsNone(launcher.prepare_launcher_update(Path('.'),Mock()))
 
 if __name__=='__main__':unittest.main()

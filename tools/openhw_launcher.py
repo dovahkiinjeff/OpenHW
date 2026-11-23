@@ -15,7 +15,7 @@ import openhw_updater as updater
 from launcher_settings import SETTINGS
 import launcher_languages
 
-VERSION = '1.1.11'
+VERSION = '1.1.12'
 MOD_NAME = re.compile(r'[A-Za-z0-9_-]{1,64}\Z')
 LANGUAGES = ('English', 'French', 'German', 'Spanish', 'Italian')
 
@@ -192,12 +192,13 @@ def run_gui(root):
 
 def prepare_launcher_update(root, progress):
     """Verify/cache everything before handing off the locked Launcher EXE."""
-    root=Path(root).resolve();updater.stop_if_game_running()
+    root=Path(root).resolve()
     with updater.update_lock(root):
         feed=updater.fetch_manifest();installed=updater.detect_version(root)
         route=updater.update_plan(feed,installed)
         component=feed.get('launcher')
         if not route and (not component or updater.compare_versions(VERSION,component['version'])>=0):return None
+        updater.stop_if_game_running()
         for patch in route:updater.download(patch,updater.inside(root,'Development/Updater/Downloads'),progress,lambda:False)
         if component:updater.download(component,updater.inside(root,'Development/Updater/Downloads'),progress,lambda:False)
         own=feed.get('updater')

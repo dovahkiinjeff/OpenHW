@@ -97,11 +97,13 @@ def main():
     feed=json.loads(args.output.read_text(encoding='utf-8-sig'))
     validate_manifest(feed)
     floor=feed.get('fresh_install',{}).get('version','1.0')
+    if version_key(floor)!=version_key(feed['latest']):
+        raise ValueError('Publish a complete fresh installer for the latest game release before enabling its feed')
     versions={v for p in feed['patches'] for v in p['from']} | {p['to'] for p in feed['patches']}
     for version in versions:
         try: update_plan(feed,version)
         except FreshInstallRequired: pass  # An explicit base-install boundary is a supported recovery route.
-    active=[r for r in (feed.get('updater'),feed.get('launcher'),feed.get('fresh_install')) if r]
+    active=[r for r in (feed.get('updater'),feed.get('launcher'),feed.get('fresh_install'),feed.get('full_install')) if r]
     active += feed['patches']
     for row in active:
         if not row['url'].startswith('https://openhw.tech/downloads/') or any(not u.startswith('https://openhw.tech/downloads/') for u in row.get('mirrors',[])):

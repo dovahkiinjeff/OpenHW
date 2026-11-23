@@ -54,7 +54,7 @@ static void createProgress(){
 #elif defined(OPENHW_PATCH_INSTALLER)
         L"OpenHW patch",
 #else
-        L"OpenHW 1.1.15 setup",
+        L"OpenHW complete setup",
 #endif
         WS_OVERLAPPED|WS_CAPTION|WS_VISIBLE,
         CW_USEDEFAULT,CW_USEDEFAULT,560,165,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
@@ -143,7 +143,7 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         LocalFree(arguments);
         if(!explicitRoot && !quiet){
             CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
-            BROWSEINFOW selection={};selection.lpszTitle=L"Select an existing OpenHW folder, or a new folder for OpenHW 1.1.15";
+            BROWSEINFOW selection={};selection.lpszTitle=L"Select an existing OpenHW folder, or a new folder for OpenHW";
             selection.ulFlags=BIF_RETURNONLYFSDIRS|BIF_NEWDIALOGSTYLE;
             auto item=SHBrowseForFolderW(&selection);if(!item)return 0;
             wchar_t selected[MAX_PATH]={};const BOOL ok=SHGetPathFromIDListW(item,selected);CoTaskMemFree(item);
@@ -152,7 +152,7 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         installation=std::filesystem::absolute(installation).lexically_normal();
         check(installation!=installation.root_path(),"Choose a dedicated OpenHW folder, not a drive root.");
         SetEnvironmentVariableW(L"OPENHW_FULL_INSTALL_ROOT",installation.c_str());
-        root=installation/L"Development/Temp"/(L"FullSetup-1.1.15-"+std::to_wstring(GetCurrentProcessId()));
+        root=installation/L"Development/Temp"/(L"FullSetup-"+std::to_wstring(GetCurrentProcessId()));
         check(!std::filesystem::exists(root),"This setup staging folder is already in use.");
         std::filesystem::create_directories(root);
 #endif
@@ -188,10 +188,12 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         check(std::filesystem::is_regular_file(root/L"setup-complete.json") &&
               std::filesystem::is_regular_file(root/L"Development/Installer/Development/python312.dll"),
               "Select an installed OpenHW 1.0 folder, not the original Collection.");
-#if defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114) || defined(OPENHW_PATCH_115) || defined(OPENHW_PATCH_116) || defined(OPENHW_PATCH_117) || defined(OPENHW_PATCH_118) || defined(OPENHW_PATCH_119) || defined(OPENHW_PATCH_1110) || defined(OPENHW_PATCH_1111) || defined(OPENHW_PATCH_1112) || defined(OPENHW_PATCH_1113) || defined(OPENHW_PATCH_1114) || defined(OPENHW_PATCH_1116)
+#if defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114) || defined(OPENHW_PATCH_115) || defined(OPENHW_PATCH_116) || defined(OPENHW_PATCH_117) || defined(OPENHW_PATCH_118) || defined(OPENHW_PATCH_119) || defined(OPENHW_PATCH_1110) || defined(OPENHW_PATCH_1111) || defined(OPENHW_PATCH_1112) || defined(OPENHW_PATCH_1113) || defined(OPENHW_PATCH_1114) || defined(OPENHW_PATCH_1116) || defined(OPENHW_PATCH_1117)
         std::ifstream versionFile(root/L"version.json");
         std::string versionText((std::istreambuf_iterator<char>(versionFile)),std::istreambuf_iterator<char>());
-#ifdef OPENHW_PATCH_1116
+#ifdef OPENHW_PATCH_1117
+        check(std::regex_search(versionText,std::regex(R"version("version"\s*:\s*"1\.1\.16")version")),"Install OpenHW 1.1.16 before applying this patch.");
+#elif defined(OPENHW_PATCH_1116)
         check(std::regex_search(versionText,std::regex(R"version("version"\s*:\s*"1\.1\.15")version")),"Install OpenHW 1.1.15 before applying this patch.");
 #elif defined(OPENHW_PATCH_1114)
         check(std::regex_search(versionText,std::regex(R"version("version"\s*:\s*"1\.1\.13")version")),"Install OpenHW 1.1.13 before applying this patch.");
@@ -242,8 +244,10 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         }while(Process32NextW(snapshot,&entry));CloseHandle(snapshot);
         check(!running,"Close OpenHW, OpenHW-Daignostics and Launcher before applying this patch.");
         #endif
-#if defined(OPENHW_PATCH_111) || defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114) || defined(OPENHW_PATCH_115) || defined(OPENHW_PATCH_116) || defined(OPENHW_PATCH_117) || defined(OPENHW_PATCH_118) || defined(OPENHW_PATCH_119) || defined(OPENHW_PATCH_1110) || defined(OPENHW_PATCH_1111) || defined(OPENHW_PATCH_1112) || defined(OPENHW_PATCH_1113) || defined(OPENHW_PATCH_1114) || defined(OPENHW_PATCH_1116)
-#ifdef OPENHW_PATCH_1116
+#if defined(OPENHW_PATCH_111) || defined(OPENHW_PATCH_112) || defined(OPENHW_PATCH_113) || defined(OPENHW_PATCH_114) || defined(OPENHW_PATCH_115) || defined(OPENHW_PATCH_116) || defined(OPENHW_PATCH_117) || defined(OPENHW_PATCH_118) || defined(OPENHW_PATCH_119) || defined(OPENHW_PATCH_1110) || defined(OPENHW_PATCH_1111) || defined(OPENHW_PATCH_1112) || defined(OPENHW_PATCH_1113) || defined(OPENHW_PATCH_1114) || defined(OPENHW_PATCH_1116) || defined(OPENHW_PATCH_1117)
+#ifdef OPENHW_PATCH_1117
+        const auto backup=root/L"Development/Patches/1.1.17/Backup";
+#elif defined(OPENHW_PATCH_1116)
         const auto backup=root/L"Development/Patches/1.1.16/Backup";
 #elif defined(OPENHW_PATCH_1114)
         const auto backup=root/L"Development/Patches/1.1.14/Backup";
@@ -424,7 +428,7 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         if(log!=INVALID_HANDLE_VALUE)CloseHandle(log);
 #ifdef OPENHW_FULL_INSTALLER
         if(result==0){
-            check(root.parent_path()==installation/L"Development/Temp" && root.filename().wstring().find(L"FullSetup-1.1.15-")==0,"Unsafe setup staging cleanup.");
+            check(root.parent_path()==installation/L"Development/Temp" && root.filename().wstring().find(L"FullSetup-")==0,"Unsafe setup staging cleanup.");
             std::filesystem::remove_all(root);
         }
 #endif

@@ -455,7 +455,8 @@ class App:
     def launch(self,diagnostics=False):
         self.save();self.api.save_mods(self.root,self.mods);self.api.start_game(self.root,diagnostics);self.status.set('OPENHW DEPLOYED / '+('Diagnostics enabled.' if diagnostics else 'Have a good flight.'))
     def update(self):
-        self.api.updater.stop_if_game_running();self.save();self.api.save_mods(self.root,self.mods);self.busy=True;self.amount=None;self.status.set('CONTACTING UPDATE CHANNEL...')
+        if self.busy:return
+        self.save();self.api.save_mods(self.root,self.mods);self.busy=True;self.amount=None;self.status.set('CONTACTING UPDATE CHANNEL...')
         def worker():
             try:
                 command=self.api.prepare_launcher_update(self.root,lambda text,value=None:self.messages.put(('progress',text,value)))
@@ -535,8 +536,10 @@ class App:
         # window can end up behind its parent and trap all input in a grab.
         self.busy=False;self.amount=value if kind=='done' else 0
         if kind=='done':
-            self.config=self.api.Configuration(self.root)
-            self.version=self.api.updater.detect_version(self.root);self.draw_rail()
+            # A check with no handoff did not change any installed files.
+            # Complete it without rebuilding the UI or reading files here.
+            self.channel_status.set("YOU'RE UP TO DATE / OpenHW "+self.version)
+            self.update_now.place_forget()
         elif kind=='error':
             self.status.set('UPDATE CHECK FAILED / '+text+'. You can retry or close the Launcher.')
     def popup(self,title,width=560,height=300):

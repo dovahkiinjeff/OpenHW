@@ -2,25 +2,33 @@
 import argparse,datetime,hashlib,json,os,shutil,sys,threading,queue,zipfile,subprocess
 from pathlib import Path
 
-RELEASE_VERSION='1.1.15'
+RELEASE_VERSION='1.1.16'  # Compatibility default; payload metadata is authoritative.
+
+def payload_version(root):
+    from openhw_updater import version_key
+    manifest=json.loads((Path(root)/'Development/release.json').read_text())
+    if manifest.get('schema')!=1:raise ValueError('Unrecognized release payload')
+    version=manifest.get('version');version_key(version)
+    return version
 
 def validate_destination(root):
     """Allow only a fresh folder or the same payload's interrupted installation."""
     root=Path(root).resolve()
     if (root/'setup-complete.json').exists():
         raise ValueError('This folder already contains an installed OpenHW game. Put the 1.1.3 installer in a new folder; existing files were preserved.')
+    version=payload_version(root)
     payload=root/'Development/release.json'
     payload_hash=hashlib.sha256(payload.read_bytes()).hexdigest()
     session=root/'Development/setup-session.json'
     if session.exists():
         try:state=json.loads(session.read_text())
         except (OSError,ValueError) as error:raise ValueError('The setup resume record is invalid. Use a new folder; existing files were preserved.') from error
-        if state.get('schema')!=1 or state.get('version')!=RELEASE_VERSION or state.get('payloadSha256')!=payload_hash:
+        if state.get('schema')!=1 or state.get('version')!=version or state.get('payloadSha256')!=payload_hash:
             raise ValueError('This folder belongs to a different setup payload. Resume with the original installer or use a new folder; existing files were preserved.')
         return state
     if any((root/name).exists() for name in ('OpenHW.exe','OpenHW-Daignostics.exe','OpenHW-HW1.obig','version.json')):
         raise ValueError('An existing OpenHW installation was detected, even though its completion receipt is missing. Put the 1.1.3 installer in a new folder; existing files were preserved.')
-    return {'schema':1,'version':RELEASE_VERSION,'payloadSha256':payload_hash}
+    return {'schema':1,'version':version,'payloadSha256':payload_hash}
 
 def begin_install(root):
     state=validate_destination(root)
@@ -55,7 +63,7 @@ def local_environment(root):
 
 def verify_payload(root):
     manifest=json.loads((root/'Development/release.json').read_text())
-    if manifest.get('schema')!=1 or manifest.get('version')!=RELEASE_VERSION:raise ValueError('Unrecognized release payload')
+    payload_version(root)
     if manifest.get('content_policy')!=2:raise ValueError('Installer predates the reviewed content inventory; rebuild it.')
     seen=set()
     for record in manifest['files']:
@@ -97,7 +105,7 @@ def install(root,selected):
     authored=verify_published_missions(dev/'Content/missions',root)
     (dev/'installed-mission-authoring.json').write_text(json.dumps(authored,indent=2))
     result['authoredMaps']=authored['maps'];result['authoredLighting']=authored['lighting']
-    result.update(schema=1,status='ready',version=RELEASE_VERSION,archive='OpenHW-HW1.obig',sha256=sha256(root/'OpenHW-HW1.obig'))
+    result.update(schema=1,status='ready',version=payload_version(root),archive='OpenHW-HW1.obig',sha256=sha256(root/'OpenHW-HW1.obig'))
     pending=root/'setup-complete.pending';pending.write_text(json.dumps(result,indent=2));pending.replace(root/'setup-complete.json')
     shutil.copyfile(dev/'SetupSources/source-receipt.json',dev/'build-source-receipt.json')
     print('Validated game package; removing temporary conversion copies…',flush=True)
@@ -176,8 +184,9 @@ def main():
             if text.strip():messages.put(('progress',text.strip()[-400:]))
         def flush(self):log.flush()
         def fileno(self):return log.fileno()
-    sys.stdout=sys.stderr=Progress();window.deiconify();window.title('OpenHW '+RELEASE_VERSION+' setup');window.geometry('720x300')
-    ttk.Label(window,text='Installing OpenHW '+RELEASE_VERSION,font=('Segoe UI',17)).pack(pady=18)
+    version=payload_version(root)
+    sys.stdout=sys.stderr=Progress();window.deiconify();window.title('OpenHW '+version+' setup');window.geometry('720x300')
+    ttk.Label(window,text='Installing OpenHW '+version,font=('Segoe UI',17)).pack(pady=18)
     ttk.Label(window,text='Installation folder: '+str(root),wraplength=680).pack()
     status=tk.StringVar(value='Checking installer and importing your Collection files…')
     ttk.Label(window,textvariable=status,wraplength=680).pack(pady=18)

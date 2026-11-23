@@ -10,7 +10,7 @@ import tempfile
 import zipfile
 import zlib
 
-VERSION='1.1.15'
+
 
 
 def atomic_json(path, value):
@@ -46,7 +46,7 @@ def find_collection(root):
     return None
 
 
-def destination(root):
+def destination(root,target_version):
     from openhw_updater import inside,compare_versions
     root=Path(root).resolve()
     if root.parent==root:raise ValueError('Choose a dedicated writable OpenHW folder')
@@ -55,7 +55,7 @@ def destination(root):
         inside(root,name)
     if (root/'version.json').is_file():
         version=json.loads((root/'version.json').read_text()).get('version','0')
-        if compare_versions(version,VERSION)>0:raise ValueError('This installer cannot downgrade a newer OpenHW installation')
+        if compare_versions(version,target_version)>0:raise ValueError('This installer cannot downgrade a newer OpenHW installation')
     if not (root/'setup-complete.json').exists() and not (root/'OpenHW.exe').exists():
         # Downloaded installer and its own staging directory are permitted.
         unexpected=[p for p in root.iterdir() if p.name!='Development' and p.suffix.lower()!='.exe']
@@ -98,9 +98,10 @@ def recover(root):
 def commit(root, staging, progress=print):
     from openhw_updater import inside
     import uuid
+    version=json.loads((staging/'version.json').read_text())['version']
     folder=inside(root,'Development/FullInstall/'+uuid.uuid4().hex)
     folder.mkdir(parents=True)
-    journal=folder/'transaction.json';state=dict(schema=1,state='applying',version=VERSION,files=[])
+    journal=folder/'transaction.json';state=dict(schema=1,state='applying',version=version,files=[])
     files=[]
     for p in staging.rglob('*'):
         if p.is_symlink():raise ValueError('Unsafe installation source')
@@ -143,13 +144,12 @@ def commit(root, staging, progress=print):
 
 def install(root, staging, collection=None, progress=print):
     from openhw_updater import stop_if_game_running,wait_for_install_launcher,inside,update_lock
-    root=destination(root);staging=Path(staging).resolve()
+    from release_setup import verify_payload
+    staging=Path(staging).resolve();manifest=verify_payload(staging);version=manifest['version']
+    root=destination(root,version)
     if root==staging or not staging.is_relative_to(root/'Development/Temp'):raise ValueError('Full setup must use its private staging folder inside the selected game folder')
     stop_if_game_running()
     wait_for_install_launcher(root,progress)
-    from release_setup import verify_payload
-    manifest=verify_payload(staging)
-    if manifest['version']!=VERSION:raise ValueError('Wrong full release payload')
     reuse=compatible(root)
     collection=Path(collection) if collection else find_collection(root)
     if not reuse:
@@ -159,7 +159,7 @@ def install(root, staging, collection=None, progress=print):
         if root.is_relative_to(collection.resolve()) or collection.resolve().is_relative_to(root):raise ValueError('OpenHW must be separate from the owned Collection')
     with update_lock(root):
         recover(root)
-        progress('Installing the complete OpenHW '+VERSION+' release...')
+        progress('Installing the complete OpenHW '+version+' release...')
         with zipfile.ZipFile(staging/'Development/runtime.zip') as archive:
             for row in archive.infolist():
                 if row.is_dir():continue
@@ -183,19 +183,21 @@ def install(root, staging, collection=None, progress=print):
         # Newly supplied UI art must also reach older existing installations.
         ui=staging/'Development/Content/ui'
         if ui.exists():shutil.copytree(ui,staging/'Data/UI',dirs_exist_ok=True)
-        receipt.update(schema=1,status='ready',version=VERSION,archive='OpenHW-HW1.obig')
+        receipt.update(schema=1,status='ready',version=version,archive='OpenHW-HW1.obig')
         atomic_json(staging/'setup-complete.json',receipt)
         count=commit(root,staging,progress)
-        result=dict(version=VERSION,archive_reused=reuse,archive_copied=False,files=count,completed=datetime.datetime.now(datetime.timezone.utc).isoformat())
+        result=dict(version=version,archive_reused=reuse,archive_copied=False,files=count,completed=datetime.datetime.now(datetime.timezone.utc).isoformat())
         atomic_json(root/'Development/FullInstall/last-install.json',result)
-        progress('OpenHW '+VERSION+' is installed. Start Launcher when ready.')
+        progress('OpenHW '+version+' is installed. Start Launcher when ready.')
         return result
 
 
 def run(root,staging,collection=None,headless=False):
+    from release_setup import payload_version
+    version=payload_version(staging)
     root=Path(root);root.mkdir(parents=True,exist_ok=True)
     logs=root/'Development/Logs';logs.mkdir(parents=True,exist_ok=True)
-    with (logs/'full-install-1.1.15.log').open('a',encoding='utf-8',buffering=1) as log,contextlib.redirect_stdout(log),contextlib.redirect_stderr(log):
+    with (logs/('full-install-'+version+'.log')).open('a',encoding='utf-8',buffering=1) as log,contextlib.redirect_stdout(log),contextlib.redirect_stderr(log):
         if headless:
             install(root,staging,collection)
             return
@@ -206,8 +208,8 @@ def run(root,staging,collection=None,headless=False):
         if not compatible(root) and not collection:
             collection=find_collection(root) or filedialog.askdirectory(parent=window,title='Select your owned Homeworld Remastered Collection')
             if not collection:window.destroy();raise ValueError('Installation cancelled; the existing game was preserved')
-        window.deiconify();window.title('OpenHW '+VERSION+' full installation');window.geometry('740x285')
-        ttk.Label(window,text='OpenHW '+VERSION+' — Complete release',font=('Segoe UI',17)).pack(pady=18)
+        window.deiconify();window.title('OpenHW '+version+' full installation');window.geometry('740x285')
+        ttk.Label(window,text='OpenHW '+version+' — Complete release',font=('Segoe UI',17)).pack(pady=18)
         ttk.Label(window,text=str(root),wraplength=690).pack()
         status=tk.StringVar(value='Preparing the full installation...')
         ttk.Label(window,textvariable=status,wraplength=690).pack(pady=20)
@@ -215,7 +217,7 @@ def run(root,staging,collection=None,headless=False):
         messages=queue.Queue();done=False;success=False
         def progress(text):print(text,flush=True);messages.put(('progress',text))
         def worker():
-            try:install(root,staging,collection,progress);messages.put(('done','OpenHW '+VERSION+' is ready.'))
+            try:install(root,staging,collection,progress);messages.put(('done','OpenHW '+version+' is ready.'))
             except BaseException as error:traceback.print_exc();messages.put(('error',str(error)))
         def poll():
             nonlocal done,success
@@ -228,4 +230,4 @@ def run(root,staging,collection=None,headless=False):
             if not done:window.after(100,poll)
         window.protocol('WM_DELETE_WINDOW',lambda:window.destroy() if done else None)
         threading.Thread(target=worker,daemon=False).start();window.after(100,poll);window.mainloop()
-        if not success:raise ValueError('Full installation did not complete; see Development/Logs/full-install-1.1.15.log')
+        if not success:raise ValueError('Full installation did not complete; see Development/Logs for the installation log')

@@ -67,6 +67,7 @@
 #include "prim2d.h"
 #include "render.h"
 #include "soundlow.h"
+#include "RemasteredPcmStream.h"
 #include "texreg.h"
 #include "uiscale.h"
 #include "utility.h"
@@ -6399,6 +6400,19 @@ static void muiDrawMain(regionhandle region)
                  "ARCHIVE PLATE 01 / FLEET COMMAND", muiBodyFont);
 }
 
+static bool32 muiArchivePressed = FALSE;
+static int muiArchiveVoice;
+static bool32 muiArchiveHit(void)
+{
+    fonthandle old = fontMakeCurrent(muiBodyFont);
+    rectangle bounds;
+    bounds.x0 = uiScaleSize(38); bounds.y0 = uiScaleSize(34);
+    bounds.x1 = bounds.x0 + fontWidth("R");
+    bounds.y1 = bounds.y0 + fontHeight("R");
+    fontMakeCurrent(old);
+    return muiPointIn(&bounds, mouseCursorX(), mouseCursorY());
+}
+
 static udword muiMainProcess(regionhandle region, smemsize ID,
                              udword event, udword data)
 {
@@ -6407,6 +6421,22 @@ static udword muiMainProcess(regionhandle region, smemsize ID,
     (void)data;
 
     if(mpe.stage)return mpeProcess(ID,event);
+    if (event == RPE_PressLeft)
+    {
+        muiArchivePressed = muiArchiveHit();
+        if (muiArchivePressed) return 0;
+    }
+    if (event == RPE_ReleaseLeft && muiArchivePressed)
+    {
+        muiArchivePressed = FALSE;
+        if (muiArchiveHit() && !rmPcmEffectActive(muiArchiveVoice))
+        {
+            int clip = rmPcmEffectPrecache("UI\\archive_signal.wav");
+            muiArchiveVoice = rmPcmEffectPlay(clip, 1.0f, 0.0f);
+        }
+        return 0;
+    }
+
 
     if (event == RPE_PressLeft)
     {

@@ -52,8 +52,10 @@ def sync(root=ROOT):
             raise ValueError('Upstream base installer is older than the hosted base; existing feed retained')
         if feed.get('updater') and previous.get('updater') and compare_versions(feed['updater']['version'],previous['updater']['version'])<0:
             raise ValueError('Upstream updater is older than the hosted updater; existing feed retained')
-    floor=feed.get('fresh_install',{}).get('version','1.0')
-    rows=[r for r in (feed.get('updater'),feed.get('launcher'),feed.get('fresh_install')) if r]
+    # New-player bundles move forward independently of the legacy upgrade
+    # baseline. Keep verifying the patches that existing installations need.
+    floor=feed.get('full_install',feed.get('fresh_install',{})).get('version','1.0')
+    rows=[r for r in (feed.get('updater'),feed.get('launcher'),feed.get('fresh_install'),feed.get('full_install')) if r]
     rows += [p for p in feed.get('patches',[]) if compare_versions(p['to'],floor)>0]
     if compare_versions(floor,'1.1.1')>=0 and any(not r['url'].startswith('https://openhw.tech/downloads/') for r in rows):
         raise ValueError('Compiled updates must be hosted on the game server; existing feed retained')

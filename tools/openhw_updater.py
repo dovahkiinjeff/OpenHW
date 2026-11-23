@@ -18,7 +18,7 @@ import urllib.parse
 import uuid
 import zipfile
 
-UPDATER_VERSION = '1.1.11'
+UPDATER_VERSION = '1.1.12'
 PROTOCOL = 4
 MANIFEST_URL = 'https://openhw.tech/updates/stable.json'
 FALLBACK_MANIFEST_URL = 'https://raw.githubusercontent.com/dovahkiinjeff/OpenHW/main/updates/stable.json'
@@ -258,7 +258,7 @@ def detect_version(root):
 def game_running():
     if os.name != 'nt': return False
     result = subprocess.run(['tasklist','/FO','CSV','/NH'], capture_output=True, text=True,
-        creationflags=subprocess.CREATE_NO_WINDOW, check=True)
+        creationflags=subprocess.CREATE_NO_WINDOW, check=True, timeout=10)
     import csv
     names = {'openhw.exe','openhw-daignostics.exe','openhw-diagnostics.exe','homeworldmodern.exe'}
     return any(row and row[0].lower() in names for row in csv.reader(result.stdout.splitlines()))

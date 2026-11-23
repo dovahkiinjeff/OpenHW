@@ -30,6 +30,11 @@ GAME_FORMATS = {'.big', '.obig', '.hwt', '.hod', '.mad', '.geo', '.peo',
                 '.vce', '.wxd', '.bik', '.wav', '.ogg', '.mp3', '.wem',
                 '.dds', '.lif', '.png', '.jpg', '.jpeg', '.tga', '.obj', '.owevents', '.wf'}
 
+# User-supplied menu audio, explicitly requested for inclusion; PCM conversion
+# of the supplied MP3. Pin the exact output rather than allowing audio broadly.
+RUNTIME_SUPPLIED = {'Data/UI/archive_signal.wav':
+    '1549ae3d6ce7dd661939bbaa2fdf87fd6169130e6f4558559687173d842955a6'}
+
 
 def digest(path):
     with Path(path).open('rb') as stream:
@@ -130,7 +135,8 @@ def audit_archive(archive):
                 if prefix:
                     # Only executable/library/preset/license files in runtime.zip.
                     if prefix == 'Development/runtime.zip!/' and suffix in GAME_FORMATS:
-                        raise ValueError('Retail/art data in nested runtime ZIP: '+key)
+                        if RUNTIME_SUPPLIED.get(name) != hashlib.sha256(z.read(info)).hexdigest():
+                            raise ValueError('Retail/art data in nested runtime ZIP: '+key)
                     continue
                 if name.startswith(('Development/Content/', 'Development/Authored/')):
                     if name.lower().startswith('development/authored/subsystems/'):

@@ -31,6 +31,7 @@ class ConsolidatedInstallTests(unittest.TestCase):
             for name in ('OpenHW.exe','version.json'):
                 (root/name).write_bytes(b'original');(stage/name).write_bytes(b'new')
             original=os.replace
+            (stage/'version.json').write_text('{"version":"1.1.16"}')
             def fail(source,target):
                 if str(source).endswith('version.json.full-install-pending'):raise OSError('interrupted')
                 return original(source,target)
