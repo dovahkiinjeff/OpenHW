@@ -21,7 +21,7 @@ class MirrorTests(unittest.TestCase):
             self.assertEqual(mirror.hosted_path(row['url'],root).read_bytes(),good)
             feed['latest']='1.2';feed['fresh_install']=dict(row,version='1.2',url=mirror.REPOSITORY_DOWNLOAD+'v1.2/OpenHW-Setup.exe')
             with patch.object(mirror.urllib.request,'urlopen',side_effect=[io.BytesIO(json.dumps(feed).encode()),io.BytesIO(b'x'*len(good))]):
-                with self.assertRaisesRegex(ValueError,'checksum'):mirror.sync(root)
+                with self.assertRaisesRegex(ValueError,'Compiled updates must be hosted'):mirror.sync(root)
             self.assertEqual((root/'updates/stable.json').read_bytes(),previous)
             self.assertFalse(mirror.hosted_path(feed['fresh_install']['url'],root).exists())
 

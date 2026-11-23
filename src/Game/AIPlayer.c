@@ -1,3 +1,4 @@
+#include "AIPolicy.h"
 // =============================================================================
 //  AIPlayer.h
 //  - All Computer Player (AIPlayer) interfaces with game happen here
@@ -723,7 +724,7 @@ AIPlayer *aiplayerInit(Player *player,AIPlayerLevel aiplayerLevel)
     dbgAssertOrIgnore(aiplayerLevel < AI_NUM_LEVELS);
     aiplayer->aiplayerDifficultyLevel = aiplayerLevel;
 
-    aiplayer->aiplayerUpdateRate = AIPLAYER_UPDATE_RATE[aiplayerLevel];
+    aiplayer->aiplayerUpdateRate = AIPLAYER_UPDATE_RATE[aiBaseDifficulty(aiplayerLevel)];
 
     // initialize other stuff here
     aiplayer->aiplayerFrameCount = 0;

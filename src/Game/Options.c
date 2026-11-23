@@ -1150,7 +1150,7 @@ char ConvertSliderToAIPlayerDifficulty(sdword sliderval)
         return AI_INTERMEDIATE;
     }
 
-    return AI_ADVANCED;
+    return sliderval > 100 ? AI_EXPERT : AI_ADVANCED;
 }
 
 bool32 opResHackSupported(void)
@@ -3424,7 +3424,7 @@ void opCPUDifficulty(char* name, featom* atom)
     if (FEFIRSTCALL(atom))
     {
         shandle = (sliderhandle)atom->region;
-        shandle->maxvalue = 101;
+        shandle->maxvalue = 135; /* 101..134: Expert; old values keep their difficulty. */
         shandle->value = tpGameCreated.aiplayerDifficultyLevel;
 
         f = regFilterSet(atom->region, 0);

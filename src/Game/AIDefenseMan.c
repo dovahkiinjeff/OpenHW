@@ -1,3 +1,4 @@
+#include "AIPolicy.h"
 // =============================================================================
 //  AIDefenseMan.c
 //  - Defense manager
@@ -918,6 +919,7 @@ void aidInit(AIPlayer *aiplayer)
 
     switch (aiplayer->aiplayerDifficultyLevel)
     {
+        case AI_EXPERT:
         case AI_ADVANCED:
             aiuEnableDefenseFeature(AID_ACTIVE_GUARD);
             aiuEnableDefenseFeature(AID_SPHERE_OF_INFLUENCE_INVADERS);

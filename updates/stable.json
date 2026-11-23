@@ -1,15 +1,15 @@
 {
   "schema": 1,
   "channel": "stable",
-  "latest": "1.1.15",
+  "latest": "1.1.16",
   "minimum_protocol": 4,
   "full_install": {
     "version": "1.1.15",
     "to": "1.1.15",
     "format": "openhw-full-v1",
-    "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/OpenHW-Setup.exe",
+    "url": "https://openhw.tech/downloads/v1.1.15/OpenHW-Setup.exe",
     "mirrors": [
-      "https://openhw.tech/downloads/v1.1.15/OpenHW-Setup.exe"
+      "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/OpenHW-Setup.exe"
     ],
     "size": 511225424,
     "sha256": "c79e2933a28da4205477b97311cba92758b7294846bb81de11908084ddfe9855"
@@ -49,39 +49,45 @@
         "1.1.8",
         "1.1.9"
       ],
-      "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/OpenHW-Setup.exe",
+      "url": "https://openhw.tech/downloads/v1.1.15/OpenHW-Setup.exe",
       "mirrors": [
-        "https://openhw.tech/downloads/v1.1.15/OpenHW-Setup.exe"
+        "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/OpenHW-Setup.exe"
       ],
       "size": 511225424,
       "sha256": "c79e2933a28da4205477b97311cba92758b7294846bb81de11908084ddfe9855"
+    },
+    {
+      "version": "1.1.16",
+      "url": "https://openhw.tech/downloads/v1.1.16/OpenHW-Patch-1.1.16.exe",
+      "size": 42282571,
+      "sha256": "8037d32b3ec6006219df902030fe0239bb009f55a81bfd504c17d66c4f4532df",
+      "to": "1.1.16",
+      "format": "openhw-exe-zip-v1",
+      "post_actions": [],
+      "from": [
+        "1.1.15"
+      ]
     }
   ],
   "launcher": {
-    "version": "1.1.9",
-    "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/Launcher.exe",
-    "mirrors": [
-      "https://openhw.tech/downloads/v1.1.15/Launcher.exe"
-    ],
-    "size": 10053651,
-    "sha256": "959af42b777846dd21f4ddc986e73ab0737650b788ddb0e1d1aef984f75f1d3b"
+    "version": "1.1.10",
+    "url": "https://openhw.tech/downloads/v1.1.16/Launcher.exe",
+    "size": 10078992,
+    "sha256": "cf7de71197d84df2da6212ec1a6628295f59bf656e59229c414460e5e9f9364e"
   },
   "updater": {
-    "version": "1.1.9",
-    "protocol": 4,
-    "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/Updater.exe",
-    "mirrors": [
-      "https://openhw.tech/downloads/v1.1.15/Updater.exe"
-    ],
-    "size": 10037765,
-    "sha256": "199fc90459c5ea48cac40a4c586b331e2ef3fc7aee647aab99c5e11cfdd3d526"
+    "version": "1.1.10",
+    "url": "https://openhw.tech/downloads/v1.1.16/Updater.exe",
+    "size": 10063107,
+    "sha256": "6833ac62788997c231a0b10bd7871670f39d02eda27da331f0edf335c03f94e8",
+    "protocol": 4
   },
   "fresh_install": {
     "schema": 1,
     "version": "1.1.15",
-    "url": "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/OpenHW-Setup.exe",
+    "url": "https://openhw.tech/downloads/v1.1.15/OpenHW-Setup.exe",
     "mirrors": [
-      "https://openhw.tech/downloads/v1.1.15/OpenHW-Setup.exe"
+      "https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/OpenHW-Setup.exe"
     ],
     "size": 511225424,
     "sha256": "c79e2933a28da4205477b97311cba92758b7294846bb81de11908084ddfe9855"

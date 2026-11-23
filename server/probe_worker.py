@@ -15,10 +15,10 @@ def read(stream):
     if len(payload)!=size:raise RuntimeError('Truncated worker message')
     return kind,payload
 
-def run(exe,root,steps,log):
+def run(exe,root,steps,log,difficulty=2):
     config=default_config('GardenSalad%d')
     config['slots'][0]=dict(kind=1,race=0,difficulty=1,team=1,ready=1,base=0x303030,stripe=0xff2020,emission=0xff2020,name='Probe')
-    config['slots'][1]=dict(kind=2,race=1,difficulty=2,team=2,ready=1,base=0x707070,stripe=0xffc040,emission=0xffc040,name='AI Advanced')
+    config['slots'][1]=dict(kind=2,race=1,difficulty=difficulty,team=2,ready=1,base=0x707070,stripe=0xffc040,emission=0xffc040,name='AI Probe')
     load=LOAD_PREFIX.pack(1,0,1,2,0)+pack_config(config)
     env=dict(os.environ);env['PATH']=str(root)+os.pathsep+env['PATH'];env['HW_PORTABLE_ROOT']=str(root)
     with open(log,'wb') as stderr:
@@ -29,8 +29,8 @@ def run(exe,root,steps,log):
             kind,ready=read(worker.stdout)
             if kind!=WORKER_READY:raise RuntimeError(f'Expected ready, got {kind}')
             ships,players,*ai=struct.unpack('<10I',ready[:40])
-            assert players==2 and ai[:2]==[0,3],(ships,players,ai)
-            print(f'Real world ready: {ships} ships, {players} players, advanced AI active',flush=True)
+            assert players==2 and ai[:2]==[0,difficulty+1],(ships,players,ai)
+            print(f'Real world ready: {ships} ships, {players} players, AI difficulty {difficulty} active',flush=True)
             command_count=0;frames=[]
             for frame in range(steps):
                 worker.stdin.write(envelope(WORKER_STEP,struct.pack('<IH',frame,0)));worker.stdin.flush()
@@ -64,4 +64,5 @@ def run(exe,root,steps,log):
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('exe',type=Path);parser.add_argument('root',type=Path)
     parser.add_argument('--steps',type=int,default=512);parser.add_argument('--log',default='worker-probe.log')
-    args=parser.parse_args();run(args.exe,args.root,args.steps,args.log)
+    parser.add_argument('--difficulty',type=int,choices=range(4),default=2)
+    args=parser.parse_args();run(args.exe,args.root,args.steps,args.log,args.difficulty)

@@ -1,3 +1,4 @@
+#include "AIPolicy.h"
 #include "../Network/MatchRules.h"
 // =============================================================================
 //  ConsMgr.c
@@ -4780,10 +4781,10 @@ void cmDeterministicBuildStart(
     dprog->shipRace = shipRace;
 
     //@todo is buildTime expressed in universe ticks or seconds ?
-    dprog->ticksForOne = info->buildTime;
+    dprog->ticksForOne = max(1, aiProductionValue(&universe.players[playerIndex], info->buildTime));
     dprog->ticksLeft = dprog->ticksForOne;
 
-    dprog->costPerShip = info->buildCost;
+    dprog->costPerShip = aiProductionValue(&universe.players[playerIndex], info->buildCost);
     dprog->costPerTick = (real32)dprog->costPerShip / (real32)dprog->ticksForOne;
     dprog->costSoFar = 0.0f;
 

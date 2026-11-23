@@ -609,6 +609,12 @@ def wait_for_launcher_exit(process_ids, timeout=60):
         finally:kernel.CloseHandle(handle)
 
 
+def update_result_kind(result):
+    # These results hand ownership to another process. Reopening Launcher here
+    # would race that process while it replaces Launcher or installs the game.
+    return 'restart' if result in ('restart','full-install') else 'done'
+
+
 def run_update(root, process_ids=(), manifest=None):
     """Launcher-styled automatic handoff; no manual external-updater step."""
     import subprocess
@@ -645,7 +651,7 @@ def run_update(root, process_ids=(), manifest=None):
                     wait_for_launcher_exit(process_ids)
                     version=updater.update(root,record,cancel.is_set,
                         lambda:(messages.put(('collection','',None)),responses.get())[1],manifest=manifest)
-                    messages.put(('restart' if version=='restart' else 'done',version,1))
+                    messages.put((update_result_kind(version),version,1))
                 except Exception as error:
                     import traceback
                     traceback.print_exc(file=log);messages.put(('error',str(error),0))

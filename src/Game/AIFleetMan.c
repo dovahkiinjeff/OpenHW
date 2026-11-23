@@ -1,3 +1,4 @@
+#include "AIPolicy.h"
 // =============================================================================
 //  AIFleetMan.c
 //  - Controls construction of ships requested from combatman, defenseman, resourceman
@@ -17,6 +18,10 @@
 #include "MultiplayerGame.h"
 #include "Randy.h"
 #include "SinglePlayer.h"
+#include "ConsMgr.h"
+#include "CommandDefs.h"
+#include "ResearchAPI.h"
+#include "AIProduction.inc"
 
 
 /*-----------------------------------------------------------------------------
@@ -36,6 +41,7 @@ void aifInit(AIPlayer *aiplayer)
 
     switch (aiplayer->aiplayerDifficultyLevel)
     {
+        case AI_EXPERT:
         case AI_ADVANCED:
             if (singlePlayerGame ||
                 ((!singlePlayerGame) && bitTest(tpGameCreated.flag, MG_Hyperspace)))
@@ -158,105 +164,6 @@ bool32 aifShipDied(AIPlayer *aiplayer,ShipPtr ship)
     return return_value;
 }
 
-void BuildShip(ShipStaticInfo *shipstatic,Player *player,sdword *incRUs,sdword *decRUs, ShipPtr creator)
-{
-#if(0)	
-	Node *shipnode;
-	Ship *ship;
-	sdword shipcount,classcount;
-	CommandToDo *command;
-	ShipStaticInfo *tempstat;
-#endif
-
-    aiplayerLog((player->playerIndex,"Building ship %s; Total %i",ShipTypeToStr(shipstatic->shiptype),player->shiptotals[shipstatic->shiptype]));
-
-	// unit caps checking code
-#if(0)	
-	shipnode = universe.ShipList.head;
-	shipcount = 0;
-	classcount = 0;
-	while(shipnode != NULL)
-	{
-		ship = (Ship *)listGetStructOfNode(shipnode);
-
-        if((ship->playerowner->playerIndex == player->playerIndex) &&
-		   (!bitTest(ship->flags, SOF_Dead)))
-		{
-		  if(ship->shiptype == shipstatic->shiptype)
-			{
-				shipcount++;
-			}
-			if(ship->staticinfo->shipclass == shipstatic->shipclass)
-			{
-				classcount++;
-			}
-		}
-		
-		shipnode = shipnode->next;
-	}
-
-	shipnode = universe.mainCommandLayer.todolist.head;
-	while(shipnode != NULL)
-	{
-	
-		command = (CommandToDo *)listGetStructOfNode(shipnode);
-	
-		if(command->ordertype.order == COMMAND_BUILDING_SHIP)
-		{
-			if(command->buildingship.playerIndex == player->playerIndex)
-			{
-				if(command->buildingship.shipType == shipstatic->shiptype)
-				{
-					shipcount++;
-				}
-
-				tempstat = GetShipStaticInfo(command->buildingship.shipType, player->race);
-				if(tempstat->shipclass == shipstatic->shipclass)
-				{
-					classcount++;
-				}
-			}
-		}
-		shipnode = shipnode->next;
-	}
-	if((cdLimitCaps[shipstatic->shiptype] != -1) && (shipcount+1 > cdLimitCaps[shipstatic->shiptype]))
-	{
-        dbgNonFatal(DBG_Loc,"shipstatic->shipclass: No Operation.");
-	}
-	if(classcount+1 > cdClassCaps[shipstatic->shipclass])	
-	{
-        dbgNonFatal(DBG_Loc,"shipstatic->shipclass: No Operation.");
-	}
-#endif
-
-    if (shipstatic->shiptype == ResourceCollector)
-    {
-        aiCurrentAIPlayer->NumRCollectorsBeingBuilt++;
-    }
-    else if (shipstatic->shiptype == ResourceController)
-    {
-        aiCurrentAIPlayer->NumRControllersBeingBuilt++;
-    }
-    else if (shipstatic->shiptype == AdvanceSupportFrigate)
-    {
-        aiCurrentAIPlayer->NumASFBeingBuilt++;
-    }
-    else if (shipstatic->shiptype == ResearchShip)
-    {
-        aiCurrentAIPlayer->NumResearchShipsBeingBuilt++;
-    }
-
-    if (!creator)
-    {
-        creator = player->PlayerMothership;
-    }
-
-    clWrapBuildShip(&universe.mainCommandLayer, shipstatic->shiptype, creator->shiprace, player->playerIndex, creator);
-
-    *incRUs += shipstatic->buildCost;
-    *decRUs -= shipstatic->buildCost;
-}
-
 ShipStaticInfo *GetSubstituteShipStatic(ShipRace race)
 {
     ShipStaticInfo *shipstatic = NULL;
@@ -298,291 +205,6 @@ ShipStaticInfo *GetSubstituteShipStatic(ShipRace race)
     Outputs     :
     Return      : returns the chosen request
 ----------------------------------------------------------------------------*/
-void aifBuildRequestedShips(RequestShips *scriptrequest,RequestShips *attrequest,RequestShips *defrequest,RequestShips *resourcerequest)
-{
-    ShipStaticInfo *scriptshipstatic = NULL;
-    sdword scriptnumships = 0;
-    sdword scripttotalcost = 0;
-
-    ShipStaticInfo *attshipstatic = NULL;
-    sdword attnumships = 0;
-    sdword atttotalcost = 0;
-
-    ShipStaticInfo *defshipstatic = NULL;
-    sdword defnumships = 0;
-    sdword deftotalcost = 0;
-
-    ShipStaticInfo *resourceshipstatic = NULL;
-    sdword resourcenumships = 0;
-    sdword resourcetotalcost = 0;
-
-    Player *player = aiCurrentAIPlayer->player;
-    Ship *playerMothership = player->PlayerMothership;
-    sdword i;
-    sdword RUsLeft = player->resourceUnits;
-    ShipRace race;
-
-    if (playerMothership == NULL)
-    {
-        return;     // can't build anything, return
-    }
-
-    race = playerMothership->shiprace;
-
-    if ((scriptrequest != NULL) && (scriptrequest->num_ships > 0))
-    {
-        if ((RacesAllowedForGivenShip[scriptrequest->shiptype] & RaceToRaceBits(race)))
-        {
-            scriptshipstatic = GetShipStaticInfo(scriptrequest->shiptype,race);
-            if (!bitTest(scriptshipstatic->staticheader.infoFlags, IF_InfoLoaded))
-            {
-                scriptshipstatic = NULL;
-            }
-        }
-        if (scriptshipstatic)
-        {
-            scriptnumships = (sdword)scriptrequest->num_ships;
-            scripttotalcost = scriptnumships * scriptshipstatic->buildCost;
-        }
-        else
-        {
-            aiplayerLog((player->playerIndex,"Warning Script could not build shiprace %d shiptype %d",race,scriptrequest->shiptype));
-            scriptrequest->num_ships = -1;
-        }
-    }
-
-    if ((attrequest != NULL) && (attrequest->num_ships > 0))
-    {
-        if ((RacesAllowedForGivenShip[attrequest->shiptype] & RaceToRaceBits(race)))
-        {
-            attshipstatic = GetShipStaticInfo(attrequest->shiptype,race);
-            if (!bitTest(attshipstatic->staticheader.infoFlags, IF_InfoLoaded))
-            {
-                attshipstatic = NULL;
-            }
-        }
-        if (attshipstatic)
-        {
-            attnumships = (sdword)attrequest->num_ships;
-            atttotalcost = attnumships * attshipstatic->buildCost;
-        }
-        else
-        {
-            aiplayerLog((player->playerIndex,"Warning Attack could not build shiprace %d shiptype %d",race,attrequest->shiptype));
-            attrequest->num_ships = -1;
-        }
-    }
-
-    if ((defrequest != NULL) && (defrequest->num_ships > 0))
-    {
-        if ((RacesAllowedForGivenShip[defrequest->shiptype] & RaceToRaceBits(race)))
-        {
-            defshipstatic = GetShipStaticInfo(defrequest->shiptype,race);
-            if (!bitTest(defshipstatic->staticheader.infoFlags, IF_InfoLoaded))
-            {
-                defshipstatic = NULL;
-            }
-        }
-        if (defshipstatic)
-        {
-            defnumships = (sdword)defrequest->num_ships;
-            deftotalcost = defnumships * defshipstatic->buildCost;
-        }
-        else
-        {
-            aiplayerLog((player->playerIndex,"Warning Defense could not build shiprace %d shiptype %d",race,defrequest->shiptype));
-            defrequest->num_ships = -1;
-        }
-    }
-
-    if ((resourcerequest != NULL) && (resourcerequest->num_ships > 0))
-    {
-        if ((RacesAllowedForGivenShip[resourcerequest->shiptype] & RaceToRaceBits(race)))
-        {
-            resourceshipstatic = GetShipStaticInfo(resourcerequest->shiptype,race);
-            if (!bitTest(resourceshipstatic->staticheader.infoFlags, IF_InfoLoaded))
-            {
-                resourceshipstatic = NULL;
-            }
-        }
-        if (resourceshipstatic)
-        {
-            resourcenumships = (sdword)resourcerequest->num_ships;
-            resourcetotalcost = resourcenumships * resourceshipstatic->buildCost;
-        }
-        else
-        {
-            aiplayerLog((player->playerIndex,"Warning Resource could not build shiprace %d shiptype %d",race,resourcerequest->shiptype));
-            resourcerequest->num_ships = -1;
-        }
-    }
-
-    if ((scripttotalcost + resourcetotalcost + atttotalcost + deftotalcost) <= RUsLeft)
-    {
-        // we can build everything, so let's do that
-
-        // build everything resourceman wants
-        for (i=0;i<resourcenumships;i++)
-        {
-            BuildShip(resourceshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnResourceman,&RUsLeft,resourcerequest->creator);
-        }
-
-        // build everything scriptman wants
-        for (i=0;i<scriptnumships;i++)
-        {
-            BuildShip(scriptshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnScriptman,&RUsLeft,scriptrequest->creator);
-            scriptrequest->num_ships--;
-        }
-
-        // build everything attman wants
-        for (i=0;i<attnumships;i++)
-        {
-            BuildShip(attshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnAttman,&RUsLeft,attrequest->creator);
-            attrequest->num_ships--;
-        }
-
-        // build everything defman wants
-        for (i=0;i<defnumships;i++)
-        {
-            BuildShip(defshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnDefman,&RUsLeft,defrequest->creator);
-            defrequest->num_ships--;
-        }
-
-        dbgAssertOrIgnore(RUsLeft >= 0);
-    }
-    else
-    {
-        // now choose who gets to go first, second, and third
-
-        real32 totalRUsSpent = (real32) (aiCurrentAIPlayer->NumRUsSpentOnAttman +
-                                  aiCurrentAIPlayer->NumRUsSpentOnDefman +
-                                  aiCurrentAIPlayer->NumRUsSpentOnResourceman);
-        real32 attmanbudgetratio = ((real32)aiCurrentAIPlayer->NumRUsSpentOnAttman) / totalRUsSpent;
-        real32 defmanbudgetratio = ((real32)aiCurrentAIPlayer->NumRUsSpentOnDefman) / totalRUsSpent;
-        real32 resourcemanbudgetratio = ((real32)aiCurrentAIPlayer->NumRUsSpentOnResourceman) / totalRUsSpent;
-
-        real32 attmanbudgetoverflow = attmanbudgetratio / ATTMAN_BUILDPRIORITY_RATIO;
-        real32 defmanbudgetoverflow = defmanbudgetratio / DEFMAN_BUILDPRIORITY_RATIO;
-        real32 resourcemanbudgetoverflow = resourcemanbudgetratio / RESMAN_BUILDPRIORITY_RATIO;
-
-        if ((resourcenumships) && (resourcerequest->priority & REQUESTSHIPS_HIPRI))
-        {
-            resourcemanbudgetoverflow = -1.0f;
-        }
-
-        if ((attnumships) && (attrequest->priority & REQUESTSHIPS_HIPRI))
-        {
-            attmanbudgetoverflow = -1.0f;
-        }
-
-        if ((defnumships) && (defrequest->priority & REQUESTSHIPS_HIPRI))
-        {
-            defmanbudgetoverflow = -1.0f;
-        }
-
-        if (attnumships == 0) attmanbudgetoverflow = REALlyBig;
-        if (defnumships == 0) defmanbudgetoverflow = REALlyBig;
-        if (resourcenumships == 0) resourcemanbudgetoverflow = REALlyBig;
-
-//#define buildscriptships  
-//#define buildattships     
-//#define builddefships     
-//#define buildresships     
-
-        if (scriptnumships)
-        {
-			for (i=0;(i<scriptnumships) && (RUsLeft >= scriptshipstatic->buildCost);i++)                              \
-			{                                                                                                   \
-				BuildShip(scriptshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnScriptman,&RUsLeft,scriptrequest->creator);\
-				scriptrequest->num_ships--;                                                                        \
-			}
-//            buildscriptships
-            return;
-        }
-
-        if (attmanbudgetoverflow <= defmanbudgetoverflow)
-        {
-            // attackman goes before defenseman
-            if (attmanbudgetoverflow <= resourcemanbudgetoverflow)
-            {
-                if (defmanbudgetoverflow <= resourcemanbudgetoverflow)
-                {
-//                    buildattships
-					for (i=0;(i<attnumships) && (RUsLeft >= attshipstatic->buildCost);i++)                              \
-					{                                                                                                   \
-						BuildShip(attshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnAttman,&RUsLeft,attrequest->creator); \
-						attrequest->num_ships--;                                                                        \
-					}
-//                    builddefships
-//                    buildresships
-                }
-                else
-                {
-//                    buildattships
-					for (i=0;(i<attnumships) && (RUsLeft >= attshipstatic->buildCost);i++)                              \
-					{                                                                                                   \
-						BuildShip(attshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnAttman,&RUsLeft,attrequest->creator); \
-						attrequest->num_ships--;                                                                        \
-					}
-//                    buildresships
-//                    builddefships
-                }
-            }
-            else
-            {
-				for (i=0;(i<resourcenumships) && (RUsLeft >= resourceshipstatic->buildCost);i++)                    \
-				{                                                                                                   \
-					BuildShip(resourceshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnResourceman,&RUsLeft,resourcerequest->creator);\
-				}
-//                buildresships
-//                buildattships
-//                builddefships
-            }
-        }
-        else
-        {
-            // defenseman goes before attackman
-            if (defmanbudgetoverflow <= resourcemanbudgetoverflow)
-            {
-                if (attmanbudgetoverflow <= resourcemanbudgetoverflow)
-                {
-					for (i=0;(i<defnumships) && (RUsLeft >= defshipstatic->buildCost);i++)                              \
-					{                                                                                                   \
-						BuildShip(defshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnDefman,&RUsLeft,defrequest->creator); \
-						defrequest->num_ships--;                                                                        \
-					}
-//                    builddefships
-//                    buildattships
-//                    buildresships
-                }
-                else
-                {
-					for (i=0;(i<defnumships) && (RUsLeft >= defshipstatic->buildCost);i++)                              \
-					{                                                                                                   \
-						BuildShip(defshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnDefman,&RUsLeft,defrequest->creator); \
-						defrequest->num_ships--;                                                                        \
-					}
-//                    builddefships
-//                    buildresships
-//                    buildattships
-                }
-            }
-            else
-            {
-				for (i=0;(i<resourcenumships) && (RUsLeft >= resourceshipstatic->buildCost);i++)                    \
-				{                                                                                                   \
-					BuildShip(resourceshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnResourceman,&RUsLeft,resourcerequest->creator);\
-				}
-//                buildresships
-//                builddefships
-//                buildattships
-            }
-        }
-    }
-
-    return;
-}
-
 void aifAttackManRequestsShipsCB(ShipType shiptype,sdword number,sdword priority)
 {
     // add requests to Q
@@ -590,6 +212,7 @@ void aifAttackManRequestsShipsCB(ShipType shiptype,sdword number,sdword priority
 
     dbgAssertOrIgnore(number > 0);
 
+    shiptype = aiPreferredShip(aiCurrentAIPlayer->player, shiptype);
     requestShips->shiptype  = shiptype;
     requestShips->num_ships = number;
     requestShips->priority  = priority;
@@ -612,6 +235,7 @@ void aifDefenseManRequestsShipsCB(ShipType shiptype,sdword number,sdword priorit
 
     dbgAssertOrIgnore(number > 0);
 
+    shiptype = aiPreferredShip(aiCurrentAIPlayer->player, shiptype);
     requestShips->shiptype  = shiptype;
     requestShips->num_ships = number;
     requestShips->priority  = priority;
@@ -670,6 +294,8 @@ void aifResourceManRequestsShipsCB(ShipType shiptype,sdword number,sdword priori
 void aifTeamRequestsShipsCB(ShipType shiptype,sdword number,AITeam *team,char *doneSetVar, sdword priority)
 {
     TeamWaitingForTheseShips *teamWaiting;
+    if (team->teamType != ScriptTeam)
+        shiptype = aiPreferredShip(aiCurrentAIPlayer->player, shiptype);
 
 	aiplayerLog((aiIndex, "%x Requesting %i %ss", team, number, ShipTypeToStr(shiptype)));
 
@@ -827,6 +453,21 @@ bool32 checkAddToTeam(LinkedList *TeamWaitingQ,Ship *ship)
     Outputs     :
     Return      : void
 ----------------------------------------------------------------------------*/
+static RequestShips *aifFirstReadyRequest(LinkedList *queue)
+{
+    Node *node;
+    for (node = queue->head; node; node = node->next)
+    {
+        RequestShips *request = (RequestShips *)listGetStructOfNode(node);
+        if (request->num_ships > 0 && !rmTechRequiredForShip(aiCurrentAIPlayer->player, request->shiptype) &&
+            (singlePlayerGame || (aiCurrentAIPlayer->player->PlayerMothership &&
+             aifChooseFactory(aiCurrentAIPlayer->player, request->shiptype,
+                              aiCurrentAIPlayer->player->PlayerMothership->shiprace))))
+            return request;
+    }
+    return NULL;
+}
+
 void aifProcessShipBuildRequests(void)
 {
     RequestShips *attrequest = NULL,*defrequest = NULL,*resourcerequest = NULL,*scriptrequest = NULL, *temprequest = NULL;
@@ -845,10 +486,16 @@ void aifProcessShipBuildRequests(void)
     else
     {
         research_delay = 0;
-        aiCurrentAIPlayer->ResearchDelay = AIF_RESEARCH_DELAY[aiCurrentAIPlayer->aiplayerDifficultyLevel];
+        aiCurrentAIPlayer->ResearchDelay = AIF_RESEARCH_DELAY[aiBaseDifficulty(aiCurrentAIPlayer->aiplayerDifficultyLevel)];
     }
 
     aiCurrentAIPlayer->TechnologyDeficit = 0;
+    if (aiIsExpert(player))
+    {
+        rmUpdateExpertResearch(player);
+        aiCurrentAIPlayer->TechnologyDeficit += rmTechRequiredForShip(player, HeavyCruiser);
+        aiCurrentAIPlayer->TechnologyDeficit += rmTechRequiredForShip(player, MissileDestroyer);
+    }
 
     if (aiCurrentAIPlayer->ResourceManRequestShips.num_ships > 0)
     {
@@ -879,7 +526,7 @@ void aifProcessShipBuildRequests(void)
                 aiplayerLog((player->playerIndex, "Researching %s for Offense", ShipTypeToStr(attrequest->shiptype)));
 
             //temporary
-            attrequest = NULL;
+            attrequest = aifFirstReadyRequest(&aiCurrentAIPlayer->AttackManRequestShipsQ);
 
 /*            tempnode = tempnode->next;
 
@@ -899,6 +546,9 @@ void aifProcessShipBuildRequests(void)
             }
 */        }
 
+        if (!singlePlayerGame && attrequest && player->PlayerMothership &&
+            !aifChooseFactory(player, attrequest->shiptype, player->PlayerMothership->shiprace))
+            attrequest = aifFirstReadyRequest(&aiCurrentAIPlayer->AttackManRequestShipsQ);
         if (attrequest)
         {
             oldattnumships = attrequest->num_ships;
@@ -918,7 +568,7 @@ void aifProcessShipBuildRequests(void)
             if ((!research_delay) && (rmResearchTechForShip(player, defrequest->shiptype)))
                  aiplayerLog((player->playerIndex, "Researching %s for Defense", ShipTypeToStr(defrequest->shiptype)));
             //temporary
-            defrequest = NULL;
+            defrequest = aifFirstReadyRequest(&aiCurrentAIPlayer->DefenseManRequestShipsQ);
 /*            tempnode = tempnode->next;
 
             while (tempnode)
@@ -939,6 +589,9 @@ void aifProcessShipBuildRequests(void)
             }
 */        }
 
+        if (!singlePlayerGame && defrequest && player->PlayerMothership &&
+            !aifChooseFactory(player, defrequest->shiptype, player->PlayerMothership->shiprace))
+            defrequest = aifFirstReadyRequest(&aiCurrentAIPlayer->DefenseManRequestShipsQ);
         if (defrequest)
         {
             olddefnumships = defrequest->num_ships;

@@ -1,3 +1,4 @@
+#include "AIPolicy.h"
 // =============================================================================
 //  AIAttackMan.c
 //  - Attack manager
@@ -614,7 +615,8 @@ void aiaTimeAttack(void)
             aivarValueSet(aivarFind(aiCurrentAIPlayer->attackVarLabel), -1);
             break;
         case AI_INTERMEDIATE:
-		case AI_ADVANCED:
+		case AI_EXPERT:
+        case AI_ADVANCED:
 					// if there are no resources left
             if (!aiCurrentAIPlayer->airEasilyAccesibleRUsInWorld)
             {
@@ -1317,21 +1319,21 @@ void aiaInit(struct AIPlayer *aiplayer)
 	aiplayer->aiaTimeout = frandyrandombetween(RANDOM_AI_PLAYER, 2900.0f, 3400.0f);
 
     //init attack type array
-    aiplayer->aiaAttackProbability[ATTACK_FLEET_FAST]    = aiuRandomRange(AIA_ATTACK_FLEET_FAST_PROB[aiplayer->aiplayerDifficultyLevel], AIA_ATTACK_FLEET_FAST_RANGE[aiplayer->aiplayerDifficultyLevel]);
-    aiplayer->aiaAttackProbability[ATTACK_FLEET_GUARD]   = aiuRandomRange(AIA_ATTACK_FLEET_GUARD_PROB[aiplayer->aiplayerDifficultyLevel], AIA_ATTACK_FLEET_GUARD_RANGE[aiplayer->aiplayerDifficultyLevel]);
-    aiplayer->aiaAttackProbability[ATTACK_FLEET_BIG]     = aiuRandomRange(AIA_ATTACK_FLEET_BIG_PROB[aiplayer->aiplayerDifficultyLevel], AIA_ATTACK_FLEET_BIG_RANGE[aiplayer->aiplayerDifficultyLevel]);
-    aiplayer->aiaAttackProbability[ATTACK_FLEET_HUGE]    = aiuRandomRange(AIA_ATTACK_FLEET_HUGE_PROB[aiplayer->aiplayerDifficultyLevel], AIA_ATTACK_FLEET_HUGE_RANGE[aiplayer->aiplayerDifficultyLevel]);
-    aiplayer->aiaAttackProbability[TAKEOUT_TARGET]       = aiuRandomRange(AIA_TAKEOUT_TARGET_PROB[aiplayer->aiplayerDifficultyLevel], AIA_TAKEOUT_TARGET_RANGE[aiplayer->aiplayerDifficultyLevel]);
-    aiplayer->aiaAttackProbability[FANCY_TAKEOUT_TARGET] = aiuRandomRange(AIA_FANCY_TAKEOUT_TARGET_PROB[aiplayer->aiplayerDifficultyLevel], AIA_FANCY_TAKEOUT_TARGET_RANGE[aiplayer->aiplayerDifficultyLevel]);
-    aiplayer->aiaAttackProbability[FIGHTER_STRIKE]       = aiuRandomRange(AIA_FIGHTER_STRIKE_PROB[aiplayer->aiplayerDifficultyLevel], AIA_FIGHTER_STRIKE_RANGE[aiplayer->aiplayerDifficultyLevel]);
-    aiplayer->aiaAttackProbability[CORVETTE_STRIKE]      = aiuRandomRange(AIA_CORVETTE_STRIKE_PROB[aiplayer->aiplayerDifficultyLevel], AIA_CORVETTE_STRIKE_RANGE[aiplayer->aiplayerDifficultyLevel]);
-    aiplayer->aiaAttackProbability[FRIGATE_STRIKE]       = aiuRandomRange(AIA_FRIGATE_STRIKE_PROB[aiplayer->aiplayerDifficultyLevel], AIA_FRIGATE_STRIKE_RANGE[aiplayer->aiplayerDifficultyLevel]);
-    aiplayer->aiaAttackProbability[HARASS_BIG]           = aiuRandomRange(AIA_HARASS_BIG_PROB[aiplayer->aiplayerDifficultyLevel], AIA_HARASS_BIG_RANGE[aiplayer->aiplayerDifficultyLevel]);
-    aiplayer->aiaAttackProbability[HARASS_SMALL]         = aiuRandomRange(AIA_HARASS_SMALL_PROB[aiplayer->aiplayerDifficultyLevel], AIA_HARASS_SMALL_RANGE[aiplayer->aiplayerDifficultyLevel]);
-    aiplayer->aiaAttackProbability[CAPTURE]              = aiuRandomRange(AIA_CAPTURE_PROB[aiplayer->aiplayerDifficultyLevel], AIA_CAPTURE_RANGE[aiplayer->aiplayerDifficultyLevel]);
-    aiplayer->aiaAttackProbability[MINE]                 = aiuRandomRange(AIA_MINE_PROB[aiplayer->aiplayerDifficultyLevel], AIA_MINE_RANGE[aiplayer->aiplayerDifficultyLevel]);
-    aiplayer->aiaAttackProbability[CLOAKGEN]             = aiuRandomRange(AIA_CLOAKGEN_PROB[aiplayer->aiplayerDifficultyLevel], AIA_CLOAKGEN_RANGE[aiplayer->aiplayerDifficultyLevel]);
-    aiplayer->aiaAttackProbability[GRAVWELL]             = aiuRandomRange(AIA_GRAVWELL_PROB[aiplayer->aiplayerDifficultyLevel], AIA_GRAVWELL_RANGE[aiplayer->aiplayerDifficultyLevel]);
+    aiplayer->aiaAttackProbability[ATTACK_FLEET_FAST]    = aiuRandomRange(AIA_ATTACK_FLEET_FAST_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_ATTACK_FLEET_FAST_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);
+    aiplayer->aiaAttackProbability[ATTACK_FLEET_GUARD]   = aiuRandomRange(AIA_ATTACK_FLEET_GUARD_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_ATTACK_FLEET_GUARD_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);
+    aiplayer->aiaAttackProbability[ATTACK_FLEET_BIG]     = aiuRandomRange(AIA_ATTACK_FLEET_BIG_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_ATTACK_FLEET_BIG_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);
+    aiplayer->aiaAttackProbability[ATTACK_FLEET_HUGE]    = aiuRandomRange(AIA_ATTACK_FLEET_HUGE_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_ATTACK_FLEET_HUGE_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);
+    aiplayer->aiaAttackProbability[TAKEOUT_TARGET]       = aiuRandomRange(AIA_TAKEOUT_TARGET_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_TAKEOUT_TARGET_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);
+    aiplayer->aiaAttackProbability[FANCY_TAKEOUT_TARGET] = aiuRandomRange(AIA_FANCY_TAKEOUT_TARGET_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_FANCY_TAKEOUT_TARGET_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);
+    aiplayer->aiaAttackProbability[FIGHTER_STRIKE]       = aiuRandomRange(AIA_FIGHTER_STRIKE_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_FIGHTER_STRIKE_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);
+    aiplayer->aiaAttackProbability[CORVETTE_STRIKE]      = aiuRandomRange(AIA_CORVETTE_STRIKE_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_CORVETTE_STRIKE_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);
+    aiplayer->aiaAttackProbability[FRIGATE_STRIKE]       = aiuRandomRange(AIA_FRIGATE_STRIKE_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_FRIGATE_STRIKE_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);
+    aiplayer->aiaAttackProbability[HARASS_BIG]           = aiuRandomRange(AIA_HARASS_BIG_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_HARASS_BIG_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);
+    aiplayer->aiaAttackProbability[HARASS_SMALL]         = aiuRandomRange(AIA_HARASS_SMALL_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_HARASS_SMALL_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);
+    aiplayer->aiaAttackProbability[CAPTURE]              = aiuRandomRange(AIA_CAPTURE_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_CAPTURE_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);
+    aiplayer->aiaAttackProbability[MINE]                 = aiuRandomRange(AIA_MINE_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_MINE_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);
+    aiplayer->aiaAttackProbability[CLOAKGEN]             = aiuRandomRange(AIA_CLOAKGEN_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_CLOAKGEN_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);
+    aiplayer->aiaAttackProbability[GRAVWELL]             = aiuRandomRange(AIA_GRAVWELL_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_GRAVWELL_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);
 
     if ((!singlePlayerGame) && bitTest(tpGameCreated.flag,MG_CaptureCapitalShip))
     {
@@ -1354,7 +1356,7 @@ void aiaInit(struct AIPlayer *aiplayer)
     aiplayerLog((aiplayer->player->playerIndex, "Attack Probability CloakGen             = %i", aiplayer->aiaAttackProbability[CLOAKGEN]));
     aiplayerLog((aiplayer->player->playerIndex, "Attack Probability GravWell             = %i\n", aiplayer->aiaAttackProbability[GRAVWELL]));
 
-    aiplayer->aiaArmada.numTeams   = AIA_NUM_ARMADA_TEAMS[aiplayer->aiplayerDifficultyLevel];
+    aiplayer->aiaArmada.numTeams   = AIA_NUM_ARMADA_TEAMS[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)];
     aiplayer->aiaArmada.targets    = NULL;
     aiplayer->aiaArmada.recon_team = NULL;
 
@@ -1367,6 +1369,7 @@ void aiaInit(struct AIPlayer *aiplayer)
 
     switch (aiplayer->aiplayerDifficultyLevel)
     {
+        case AI_EXPERT:
         case AI_ADVANCED:
             aiuEnableAttackFeature(AIA_ACTIVE_RECONAISSANCE);
 
@@ -1414,7 +1417,7 @@ void aiaInit(struct AIPlayer *aiplayer)
             dbgAssertOrIgnore(FALSE);
     }
 
-    if (randyrandombetween(RANDOM_AI_PLAYER, 0, 100) < aiuRandomRange(AIA_KAMIKAZE_PROB[aiplayer->aiplayerDifficultyLevel], AIA_KAMIKAZE_RANGE[aiplayer->aiplayerDifficultyLevel]))
+    if (randyrandombetween(RANDOM_AI_PLAYER, 0, 100) < aiuRandomRange(AIA_KAMIKAZE_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_KAMIKAZE_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]))
     {
         aiuEnableAttackFeature(AIA_KAMIKAZE);
     }

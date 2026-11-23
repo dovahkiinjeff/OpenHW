@@ -155,6 +155,7 @@ void   rmAssignPlayersLabToResearch(struct Player *player, sdword labnumber, Tec
 void   rmDeactivateLab(struct Player *player);
 void   rmActivateFreeLab(struct Player *player);
 void   rmUpdateResearch(void);
+void   rmUpdateExpertResearch(struct Player *player);
 void   rmInitializeResearchStruct(struct Player *player, bool32 candoresearch, sdword techlevel);
 
 sdword rmTechRequiredForShip(struct Player *player, ShipType type);

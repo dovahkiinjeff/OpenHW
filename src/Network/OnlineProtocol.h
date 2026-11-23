@@ -29,7 +29,7 @@ enum OHRule {
 typedef struct OHHeader { char magic[4]; uint16_t version,type; uint32_t length; } OHHeader;
 typedef struct OHHello { char name[48]; uint8_t fingerprint[32]; } OHHello;
 /* kind: 0 empty, 1 human, 2 AI. Difficulty: 0 beginner, 1 intermediate,
-   2 advanced. Race: 0 Kushan, 1 Taiidan. */
+   2 advanced, 3 expert. Race: 0 Kushan, 1 Taiidan. */
 typedef struct OHSlot {
     uint8_t kind,race,difficulty,ready;
     uint8_t team,reserved[3]; /* 0 free-for-all, 1..8 shared alliance */

@@ -1,3 +1,4 @@
+#include "AIPolicy.h"
 // =============================================================================
 //  AIMoves.c
 // =============================================================================
@@ -6014,6 +6015,14 @@ AITeamMove *aimCreateFancyGetShipsNoAdd(AITeam *team, ShipType shiptype, sbyte n
     newMove->params.fancyGetShips.numShips = num_ships;
     newMove->params.fancyGetShips.priority = priority;
     newMove->params.fancyGetShips.alternatives = *alternatives;
+    if (team->teamType != ScriptTeam && aiIsExpert(team->aiplayerowner->player))
+    {
+        sdword i;
+        newMove->params.fancyGetShips.shipType = aiPreferredShip(team->aiplayerowner->player, shiptype);
+        for (i = 0; i < newMove->params.fancyGetShips.alternatives.numNextPicks; ++i)
+            newMove->params.fancyGetShips.alternatives.shipTypeNextPicks[i] =
+                aiPreferredShip(team->aiplayerowner->player, alternatives->shipTypeNextPicks[i]);
+    }
     newMove->params.fancyGetShips.doneVar = NULL;
 
 //    aiplayerLog((aiIndex,"Created Fancy Getships Move"));

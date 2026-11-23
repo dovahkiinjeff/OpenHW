@@ -12,6 +12,7 @@
 #include "AIPlayer.h"
 
 void aifFleetCommand(void);
+Ship *aifChooseFactory(Player *player, ShipType type, ShipRace race);
 
 void aifInit(AIPlayer *aiplayer);
 void aifClose(void);

@@ -10015,6 +10015,23 @@ void modernUIDrawSlider(regionhandle region, bool32 vertical)
         value = track; value.x1 = position;
         thumb = muiRect(position - grip / 2, region->rect.y0, position + (grip + 1) / 2, region->rect.y1);
     }
+    if (!vertical && slider->processFunction == (uicfunction)opCPUDifficultyProcess)
+    {
+        static const char *labels[] = {"EASY", "NORMAL", "HARD", "EXPERT"};
+        sdword i, selected = ConvertSliderToAIPlayerDifficulty(slider->value);
+        muiEnsureFonts();
+        for (i = 0; i < 4; ++i)
+        {
+            rectangle option = region->rect;
+            option.x0 += (region->rect.x1 - region->rect.x0) * i / 4;
+            option.x1 = region->rect.x0 + (region->rect.x1 - region->rect.x0) * (i + 1) / 4 - uiScaleSize(2);
+            muiFill(&option, selected == i ? muiSignalSoft : muiSurface);
+            primRectOutline2(&option, 1, selected == i ? muiSignal : muiLineSoft);
+            muiTextCenteredAdaptiveFull(&option, disabled ? muiDisabled : muiPaper, labels[i],
+                muiBodyFont, muiCompactFont, muiCompactFont, uiScaleSize(2));
+        }
+        return;
+    }
     muiFill(&track, muiLineSoft);
     muiFill(&value, disabled ? muiDisabled : muiSignalSoft);
     muiFill(&thumb, disabled ? muiDisabled : muiSignal);

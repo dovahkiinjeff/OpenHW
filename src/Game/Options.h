@@ -160,5 +160,6 @@ void AddSmoothie(Smoothie *smoo);
 void RemoveSmoothie(Smoothie *smoo);
 
 char ConvertSliderToAIPlayerDifficulty(sdword sliderval);
+udword opCPUDifficultyProcess(regionhandle reg, sdword ID, udword event, udword data);
 
 #endif

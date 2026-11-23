@@ -1,3 +1,4 @@
+#include "AIPolicy.h"
 /*=============================================================================
     Name    : ResearchAPI.c
     Purpose : logic for the research manager api functions.
@@ -23,6 +24,8 @@
 #include "StringSupport.h"
 #include "TradeMgr.h"
 #include "Universe.h"
+
+#include "ResearchPlanning.inc"
 
 #define makeSPR1TechEntry(var) {"SPR1" #var, scriptSetSdwordCB, &SinglePlayerR1TechStatic.TimeToComplete[var]}
 #define makeSPR2TechEntry(var) {"SPR2" #var, scriptSetSdwordCB, &SinglePlayerR2TechStatic.TimeToComplete[var]}
@@ -340,25 +343,7 @@ TechnologyType StrToTechType(char *tech)
     Outputs     : true false
     Return      : bool32
 ----------------------------------------------------------------------------*/
-ResearchTopic *Researching(Player *player, TechnologyType tech)
-{
-    PlayerResearchInfo *research=&player->researchinfo;
-    ResearchTopic      *topic;
-    Node               *walk;
 
-    walk = research->listoftopics.head;
-
-    // walk through list of topics being researched
-    while (walk != NULL)
-    {
-        topic = (ResearchTopic *)listGetStructOfNode(walk);
-        if (topic->techresearch == tech)
-            return(topic);
-        walk = walk->next;
-    }
-
-    return(NULL);
-}
 
 //
 //  returns 1 if the player is currently researching anything
@@ -430,28 +415,7 @@ sdword rmFindFreeLab(Player *player)
     Outputs     : none
     Return      : void
 ----------------------------------------------------------------------------*/
-void rmClearResearchlab(Player *player, sdword labnumber)
-{
-    ResearchLab   *lab = &player->researchinfo.researchlabs[labnumber];
-    ResearchTopic *topic = player->researchinfo.researchlabs[labnumber].topic;
 
-    if (lab->labstatus==LS_RESEARCHITEM)
-    {
-        if (topic->numlabsresearching==1)
-        {
-            lab->topic = NULL;
-            listDeleteNode(&topic->link);
-            lab->labstatus = LS_NORESEARCHITEM;
-        }
-        else
-        {
-            lab->topic = NULL;
-            lab->labstatus = LS_NORESEARCHITEM;
-            topic->numlabsresearching--;
-        }
-        if ((player == universe.curPlayerPtr)&&(rmGUIActive)) rmUpdateTechList();
-    }
-}
 
 
 /*-----------------------------------------------------------------------------
@@ -461,28 +425,7 @@ void rmClearResearchlab(Player *player, sdword labnumber)
     Outputs     : none
     Return      : void
 ----------------------------------------------------------------------------*/
-void rmAssignPlayersLabToResearch(Player *player, sdword labnumber, TechnologyType tech)
-{
-    ResearchTopic *topic;
-    if ((topic=Researching(player, tech))!=NULL)
-    {
-        player->researchinfo.researchlabs[labnumber].labstatus = LS_RESEARCHITEM;
-        player->researchinfo.researchlabs[labnumber].topic = topic;
-        topic->numlabsresearching++;
-    }
-    else
-    {
-        topic = (ResearchTopic *)memAlloc(sizeof(ResearchTopic),"ResearchTopic",NonVolatile);
-        listAddNode(&player->researchinfo.listoftopics, &topic->link, topic);
-        player->researchinfo.researchlabs[labnumber].labstatus = LS_RESEARCHITEM;
-        player->researchinfo.researchlabs[labnumber].topic = topic;
-        topic->numlabsresearching = 1;
-        topic->techresearch       = tech;
-        topic->timeleft           = (real32)player->researchinfo.techstat->TimeToComplete[tech];
-    }
 
-    if ((player == universe.curPlayerPtr)&&(rmGUIActive)) rmUpdateTechList();
-}
 
 /*-----------------------------------------------------------------------------
     Name        : rmDeactivateLab
@@ -700,23 +643,8 @@ udword rmTechRequiredForTech(Player *player, TechnologyType type)
    Parameters  : Player *player, TechnologyType type
    Return      : udword
 -----------------------------------------------------------------------*/
-udword rmAllTechRequiredforTech(Player *player, TechnologyType type)
-{
-    udword i;
-    udword techdepend,temp;
 
-    techdepend = temp = player->researchinfo.techstat->TechNeededToResearch[type];
 
-    for (i=0;i<NumTechnologies;i--)
-    {
-        if (bitTest(temp, TechToBit(i)))
-        {
-            techdepend |= rmAllTechRequiredforTech(player, i);
-        }
-    }
-
-    return (techdepend);
-}
 
 
 /*-----------------------------------------------------------------------
@@ -727,26 +655,17 @@ udword rmAllTechRequiredforTech(Player *player, TechnologyType type)
     Parameters  : Player *player, ShipType type
     Return      : udword
 -----------------------------------------------------------------------*/
-udword rmAllTechRequredForShip(Player *player, ShipType type)
-{
-    sdword i;
-    udword techneeded, temp;
 
-    temp = player->researchinfo.techstat->TechNeededToBuildShip[type];
-    techneeded = temp;
 
-    for (i=0;i<NumTechnologies;i++)
-    {
-        if (bitTest(temp, TechToBit(i)))
-        {
-            techneeded |= rmAllTechRequiredforTech(player, i);
-        }
-    }
 
-    techneeded &= (~player->researchinfo.HasTechnology);
 
-    return (techneeded);
-}
+/* With odd lab counts, round the reserved half up (one lab can still rush).
+   Recompute from active labs, so destruction and newly built modules are safe. */
+
+
+
+
+
 
 /*-----------------------------------------------------------------------------
     Name        : rmTechRequiredForShip
@@ -756,34 +675,7 @@ udword rmAllTechRequredForShip(Player *player, ShipType type)
     Outputs     : number of research topics required
     Return      : sdword
 ----------------------------------------------------------------------------*/
-sdword rmTechRequiredForShip(Player *player, ShipType type)
-{
-    sdword i, numtech=0;
-    udword techneeded, temp;
 
-    temp = player->researchinfo.techstat->TechNeededToBuildShip[type];
-    techneeded = temp;
-
-    for (i=0;i<NumTechnologies;i++)
-    {
-        if (bitTest(temp, TechToBit(i)))
-        {
-            techneeded |= rmAllTechRequiredforTech(player, i);
-        }
-    }
-
-    techneeded &= (~player->researchinfo.HasTechnology);
-
-    for (i=0;i<NumTechnologies;i++)
-    {
-        if (bitTest(techneeded, TechToBit(i)))
-        {
-            numtech++;
-        }
-    }
-
-    return (numtech);
-}
 
 /*-----------------------------------------------------------------------------
     Name        : rmResearchTechForShip
@@ -792,48 +684,7 @@ sdword rmTechRequiredForShip(Player *player, ShipType type)
     Outputs     : none
     Return      : void
 ----------------------------------------------------------------------------*/
-bool32 rmResearchTechForShip(struct Player *player, ShipType type)
-{
-    udword numtech, techneeded;
-    sdword freelab;
-    sdword techtoresearch = -1;
-    sdword i;
-    bool32 researching = FALSE;
 
-    numtech = rmTechRequiredForShip(player, type);
-
-    if (numtech > 0)
-    {
-        techneeded = rmAllTechRequredForShip(player, type);
-
-        for (i=0;i<NumTechnologies;i++)
-        {
-            if (bitTest(techneeded, TechToBit((udword)i)))
-            {
-                if ((player->researchinfo.techstat->TechNeededToResearch[i]&(~player->researchinfo.HasTechnology)) == 0)
-                {
-                    techtoresearch = i;
-                    freelab = rmFindFreeLab(player);
-                    if (freelab != -1)
-                    {
-                        rmAssignPlayersLabToResearch(player,freelab, techtoresearch);
-                        researching = TRUE;
-                    }
-                }
-            }
-        }
-    }
-
-    if (techtoresearch != -1)
-    {
-        while ((freelab = rmFindFreeLab(player))!=-1)
-        {
-            rmAssignPlayersLabToResearch(player,freelab, techtoresearch);
-            researching = TRUE;
-        }
-    }
-    return researching;
-}
 
 /*-----------------------------------------------------------------------------
     Name        : rmGiveTechToPlayerByName

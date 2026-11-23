@@ -57,8 +57,14 @@ class LobbyTests(unittest.TestCase):
     def test_rejects_forged_human_slots_and_invalid_teams(self):
         c=deepcopy(self.room.config);c['slots'][0]['kind']=2
         with self.assertRaises(LobbyError):self.configure(c)
-        for data in (bytes([0,3,0]),bytes([2,1,0]),bytes([0,1,9]),b''):
+        for data in (bytes([0,4,0]),bytes([2,1,0]),bytes([0,1,9]),b''):
             with self.assertRaises(LobbyError):self.room.add_ai(self.host,data)
+    def test_expert_survives_configuration_roundtrip(self):
+        self.room.add_ai(self.host,bytes([1,3,2]))
+        c=deepcopy(self.room.config)
+        self.assertEqual(c['slots'][1]['difficulty'],3)
+        self.configure(c)
+        self.assertEqual(self.room.config['slots'][1]['difficulty'],3)
     def test_host_transfer_and_incompatible_build(self):
         with self.assertRaises(LobbyError):self.lobby.hello(HELLO.pack(encode_text('Other',48),b'y'*32))
         self.room.add_member(self.guest);self.room.remove_member(self.host)

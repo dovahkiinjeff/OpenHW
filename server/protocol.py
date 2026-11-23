@@ -80,7 +80,7 @@ def parse_config(payload, maps):
             raise ValueError('Reserved slot bytes must be zero')
         kind,race,difficulty,ready,team,base,stripe,emission,raw=SLOT.unpack_from(payload,CONFIG_PREFIX.size+index*SLOT.size)
         if kind==0: slots.append(None);continue
-        if kind not in (1,2) or race>1 or difficulty>2 or ready>1 or team>8: raise ValueError('Invalid player slot')
+        if kind not in (1,2) or race>1 or difficulty>3 or ready>1 or team>8: raise ValueError('Invalid player slot')
         slots.append(dict(kind=kind,race=race,difficulty=difficulty,ready=ready,team=team,
                           base=base,stripe=stripe,emission=emission,name=text(raw,47)))
     return dict(map=name,rules=rules,fleet=fleet,resources=resources,bounty=bounty,flags=flags,

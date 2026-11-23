@@ -1,3 +1,4 @@
+#include "AIPolicy.h"
 #include "NavigationOrders.h"
 // =============================================================================
 //  CommandLayer.c
@@ -7528,6 +7529,21 @@ void clDeterministicBuild(udword command, CommandLayer* comLayer,
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+static udword clBuildQueueFinish(CommandLayer *layer, Ship *factory, ShipType type)
+{
+    Node *node;
+    udword finish = universe.univUpdateCounter;
+    for (node = layer->todolist.head; node; node = node->next)
+    {
+        CommandToDo *command = (CommandToDo *)listGetStructOfNode(node);
+        if (command->ordertype.order == COMMAND_BUILDING_SHIP &&
+            command->buildingship.creator == factory && command->buildingship.shipType == type &&
+            command->buildingship.frameAtWhichToCreate > finish)
+            finish = command->buildingship.frameAtWhichToCreate;
+    }
+    return finish;
+}
+
 void clBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uword playerIndex,ShipPtr creator)
 {
     Player *player = &universe.players[playerIndex];
@@ -7549,7 +7565,7 @@ void clBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uwor
     //if (shipstaticinfo->buildCost <= player->resourceUnits)
     {
         universe.gameStats.playerStats[player->playerIndex].totalResourceUnitsSpent +=
-            resourceUnitsSpend(player, shipstaticinfo->buildCost);
+            resourceUnitsSpend(player, aiProductionValue(player, shipstaticinfo->buildCost));
         // make new command indicating delayed build:
 
         newcommand = memAlloc(sizeof(CommandToDo),"ToDo",NonVolatile);
@@ -7563,7 +7579,8 @@ void clBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uwor
         newcommand->buildingship.shipRace = shipRace;
         newcommand->buildingship.creator = creator;
         newcommand->buildingship.playerIndex = (udword)playerIndex;
-        newcommand->buildingship.frameAtWhichToCreate = universe.univUpdateCounter + ((NumberOfOtherShipsOfSameTypeBeingBuilt(shipType,creator,playerIndex)+1) * shipstaticinfo->buildTime);
+        newcommand->buildingship.frameAtWhichToCreate = max(universe.univUpdateCounter, clBuildQueueFinish(comlayer, creator, shipType)) +
+            aiProductionValue(player, shipstaticinfo->buildTime);
 
         PrepareShipsForCommand(newcommand,TRUE);
 

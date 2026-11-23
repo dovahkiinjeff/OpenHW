@@ -1,3 +1,4 @@
+#include "AIPolicy.h"
 // =============================================================================
 //  AITeam.c
 // =============================================================================
@@ -44,7 +45,7 @@ AITeam *aitCreate(TeamType teamType)
     team->TeamDiedCB            = NULL;
     team->teamStrength          = 0;
     team->teamValue             = 0;
-    team->teamDifficultyLevel   = (AITeamLevel)2*aiCurrentAIPlayer->aiplayerDifficultyLevel;
+    team->teamDifficultyLevel   = (AITeamLevel)(2*aiBaseDifficulty(aiCurrentAIPlayer->aiplayerDifficultyLevel));
     team->cooperatingTeam       = NULL;
     team->cooperatingTeamDiedCB = NULL;
     team->msgQueue              = NULL;
@@ -1839,7 +1840,7 @@ void aitSetTeamStrengthValue(AITeam *team)
 ----------------------------------------------------------------------------*/
 ubyte aitSetTeamDifficultyLevel(AITeam *team, udword playerDL, udword  teamDL)
 {
-    team->teamDifficultyLevel = (ubyte)(playerDL + teamDL);
+    team->teamDifficultyLevel = (ubyte)(min(playerDL, AI_ADVANCED) + min(teamDL, AI_ADVANCED));
 
     return team->teamDifficultyLevel;
 }

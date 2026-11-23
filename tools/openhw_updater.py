@@ -18,7 +18,7 @@ import urllib.parse
 import uuid
 import zipfile
 
-UPDATER_VERSION = '1.1.9'
+UPDATER_VERSION = '1.1.10'
 PROTOCOL = 4
 MANIFEST_URL = 'https://openhw.tech/updates/stable.json'
 FALLBACK_MANIFEST_URL = 'https://raw.githubusercontent.com/dovahkiinjeff/OpenHW/main/updates/stable.json'
@@ -268,12 +268,46 @@ def stop_if_game_running():
     if game_running(): raise UpdateError('Close OpenHW and its diagnostics version, then run the updater again.')
 
 
-def launcher_running():
+def launcher_running(root=None):
     if os.name != 'nt': return False
     import csv
     result = subprocess.run(['tasklist','/FO','CSV','/NH'], capture_output=True, text=True,
         creationflags=subprocess.CREATE_NO_WINDOW, check=True)
-    return any(row and row[0].lower() == 'launcher.exe' for row in csv.reader(result.stdout.splitlines()))
+    rows = [row for row in csv.reader(result.stdout.splitlines()) if row and row[0].lower() == 'launcher.exe']
+    if root is None: return bool(rows)
+    import ctypes
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.QueryFullProcessImageNameW.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)]
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    expected = os.path.normcase(str(Path(root).resolve() / 'Launcher.exe'))
+    for row in rows:
+        handle = kernel.OpenProcess(0x1000, False, int(row[1]))
+        if not handle:
+            if ctypes.get_last_error() == 87: continue  # process already exited
+            raise UpdateError('Cannot verify whether the Launcher has closed')
+        try:
+            size = wintypes.DWORD(32768); path = ctypes.create_unicode_buffer(size.value)
+            if not kernel.QueryFullProcessImageNameW(handle, 0, path, ctypes.byref(size)):
+                raise UpdateError('Cannot locate a running Launcher')
+            if os.path.normcase(str(Path(path.value).resolve())) == expected: return True
+        finally: kernel.CloseHandle(handle)
+    return False
+
+
+def wait_for_install_launcher(root, progress, timeout=120):
+    """Allow Windows' asynchronous Launcher shutdown to finish before replacement."""
+    deadline = time.monotonic() + timeout
+    announced = False
+    while launcher_running(root):
+        if not announced:
+            progress('Waiting for Launcher to finish closing. Close its window if it is still open.')
+            announced = True
+        if time.monotonic() >= deadline:
+            raise UpdateError('Launcher is still open in this installation. Close it, then retry; your files have not been changed.')
+        time.sleep(0.2)
 
 
 def download(row, cache, progress, cancelled):
@@ -426,7 +460,7 @@ def apply_patch(root, patch, package, progress, select_collection=lambda: None, 
     progress('Checking patch '+patch['to']+'...', None)
     payload, metadata = unpack_payload(package, transaction, patch)
     rows = payload['files']
-    if any(row['path'].lower() == 'launcher.exe' for row in rows) and launcher_running():
+    if any(row['path'].lower() == 'launcher.exe' for row in rows) and launcher_running(root):
         raise UpdateError('This patch updates the Launcher. Close Launcher.exe and run Updater.exe beside OpenHW.exe to finish it.')
     names = [r['path'] for r in rows]+[metadata,'version.json',
         'Development/Patches/'+patch['to']+'/applied.json']
@@ -547,7 +581,7 @@ def install_launcher_component(root, manifest, progress, cancelled=lambda: False
     validate_download(row)
     target = inside(root, 'Launcher.exe')
     if target.is_file() and digest(target) == row['sha256']: return
-    if launcher_running(): raise UpdateError('The Launcher has not finished its automatic restart handoff yet.')
+    if launcher_running(root): raise UpdateError('The Launcher has not finished its automatic restart handoff yet.')
     candidate = download(row, inside(root, 'Development/Updater/Downloads'), progress, cancelled)
     if cancelled(): raise Cancelled('Update cancelled before replacing the Launcher')
     if digest(candidate) != row['sha256']: raise UpdateError('Launcher download failed verification')

@@ -142,11 +142,11 @@ def commit(root, staging, progress=print):
 
 
 def install(root, staging, collection=None, progress=print):
-    from openhw_updater import stop_if_game_running,launcher_running,inside,update_lock
+    from openhw_updater import stop_if_game_running,wait_for_install_launcher,inside,update_lock
     root=destination(root);staging=Path(staging).resolve()
     if root==staging or not staging.is_relative_to(root/'Development/Temp'):raise ValueError('Full setup must use its private staging folder inside the selected game folder')
     stop_if_game_running()
-    if launcher_running():raise ValueError('Close Launcher before running the standalone full installer')
+    wait_for_install_launcher(root,progress)
     from release_setup import verify_payload
     manifest=verify_payload(staging)
     if manifest['version']!=VERSION:raise ValueError('Wrong full release payload')

@@ -1,3 +1,4 @@
+#include "AIPolicy.h"
 /*=============================================================================
     Name    : statscript.c
     Purpose : Static Scripting Utilities
@@ -203,6 +204,14 @@ scriptEntry *findEntry(scriptEntry info[],char *name)
             return curentry;
         }
         curentry++;
+    }
+    /* Retail scripts abbreviate the level names; table entries stringify the
+       descriptive C enum names. Resolve those aliases only for AI tuning. */
+    if (info == AIPlayerTweaks)
+    {
+        char canonical[MAX_LINE_CHARS];
+        if (aiCanonicalTweakName(name, canonical, sizeof(canonical)))
+            return findEntry(info, canonical);
     }
     return NULL;
 }

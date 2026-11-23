@@ -119,7 +119,7 @@ static void muiOnlineDraw(regionhandle region)
             snprintf(value,sizeof(value),"%s%s",slot->name,slot->ready?" / READY":"");
             muiOnlineButton(muiOnlineSlot(i,0),value,i==lobby.ownSlot);
             muiOnlineButton(muiOnlineSlot(i,1),slot->race?"TAIIDAN":"KUSHAN",FALSE);
-            muiOnlineButton(muiOnlineSlot(i,2),slot->kind==2?(slot->difficulty==0?"EASY":slot->difficulty==1?"NORMAL":"HARD"):"HUMAN",FALSE);
+            muiOnlineButton(muiOnlineSlot(i,2),slot->kind==2?(slot->difficulty==0?"EASY":slot->difficulty==1?"NORMAL":slot->difficulty==2?"HARD":"EXPERT"):"HUMAN",FALSE);
             if(slot->team)snprintf(value,sizeof(value),"%u",slot->team);else strcpy(value,"FFA");
             muiOnlineButton(muiOnlineSlot(i,3),value,FALSE);
             if(slot->kind==2 && lobby.host)muiOnlineButton(muiOnlineSlot(i,4),"X",FALSE);
@@ -237,7 +237,7 @@ static udword muiOnlineProcess(regionhandle region,smemsize ID,udword event,udwo
         OHSlot *slot=&lobby.config.slots[i];rect=muiOnlineSlot(i,col);
         if(!slot->kind || !muiPointIn(&rect,x,y))continue;
         if(col==1)slot->race^=1;
-        else if(col==2 && slot->kind==2)slot->difficulty=(uint8_t)((slot->difficulty+direction+3)%3);
+        else if(col==2 && slot->kind==2)slot->difficulty=(uint8_t)((slot->difficulty+direction+4)%4);
         else if(col==3)slot->team=(uint8_t)((slot->team+direction+9)%9);
         else if(col==4 && slot->kind==2){unsigned char index=(unsigned char)i;hwOnlineSend(OH_REMOVE_SLOT,&index,1);return RPR_Redraw;}
         else return RPR_Redraw;

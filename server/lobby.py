@@ -62,7 +62,7 @@ class Room:
         self.host_only(member)
         if len(payload)!=3: raise LobbyError('Expected race, difficulty and team')
         race,difficulty,team=payload
-        if race>1 or difficulty>2 or team>8: raise LobbyError('Invalid AI setup')
+        if race>1 or difficulty>3 or team>8: raise LobbyError('Invalid AI setup')
         if sum(s is not None for s in self.config['slots'])>=self.capacity(): raise LobbyError('Map has no free player slots')
         index=self.config['slots'].index(None)
         self.config['slots'][index]=dict(kind=2,race=race,difficulty=difficulty,team=team,ready=1,

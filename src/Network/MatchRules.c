@@ -30,7 +30,7 @@ int hwMatchInstall(const OHLoad *load)
     for(i=0;i<OH_MAX_PLAYERS;i++) {
         const OHSlot *slot=&load->config.slots[i];
         if(i>=load->players) { if(slot->kind)return 0;continue; }
-        if(slot->kind!=(i<load->humans?1:2) || slot->race>1 || slot->difficulty>2 || slot->team>8 ||
+        if(slot->kind!=(i<load->humans?1:2) || slot->race>1 || slot->difficulty>3 || slot->team>8 ||
            slot->ready>1 || slot->reserved[0] || slot->reserved[1] || slot->reserved[2] ||
            !memchr(slot->name,0,sizeof(slot->name)))return 0;
     }
