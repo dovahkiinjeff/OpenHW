@@ -467,8 +467,8 @@ void aidCloakDefense(void)
 
             if (aiCurrentAIPlayer->NumProxSensorsRequested < num_sensors)
             {
-                if (aiCurrentAIPlayer->aidProximitySensors &&
-                    (aiCurrentAIPlayer->aidProximitySensors->numShips < 6))
+                if (!aiCurrentAIPlayer->aidProximitySensors ||
+                    aiCurrentAIPlayer->aidProximitySensors->numShips < 6)
                 {
                     aifResourceManRequestsShipsCB(ProximitySensor, num_sensors - aiCurrentAIPlayer->NumProxSensorsRequested, 0);
                     aiCurrentAIPlayer->NumProxSensorsRequested = num_sensors;
@@ -481,8 +481,8 @@ void aidCloakDefense(void)
         {
             if (!aiCurrentAIPlayer->NumProxSensorsRequested)
             {
-                if (aiCurrentAIPlayer->aidProximitySensors &&
-                    (aiCurrentAIPlayer->aidProximitySensors->numShips < 6))
+                if (!aiCurrentAIPlayer->aidProximitySensors ||
+                    aiCurrentAIPlayer->aidProximitySensors->numShips < 6)
                 {
                     aiCurrentAIPlayer->NumProxSensorsRequested = randyrandombetween(RANDOM_AI_PLAYER, 1,3);
                     aifResourceManRequestsShipsCB(ProximitySensor, aiCurrentAIPlayer->NumProxSensorsRequested, 0);

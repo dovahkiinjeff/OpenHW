@@ -1633,7 +1633,9 @@ vector aiuFindResourceControllerDestination(void)
             totalResourcers += blob->goodGuyResourcers;
         }
     }
-    vecDivideByScalar(destination, (real32)totalResourcers, tmp);
+    if (totalResourcers) { vecDivideByScalar(destination, (real32)totalResourcers, tmp); }
+    else if (aiCurrentAIPlayer->player->PlayerMothership)
+        destination = aiCurrentAIPlayer->player->PlayerMothership->posinfo.position;
 
     return destination;
 }

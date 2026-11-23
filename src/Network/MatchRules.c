@@ -38,6 +38,13 @@ int hwMatchInstall(const OHLoad *load)
 }
 void hwMatchClear(void){active=0;memset(&match,0,sizeof(match));}
 int hwMatchActive(void){return active;}
+int hwMatchHasTeams(void)
+{
+    unsigned i;
+    if (!active) return 0;
+    for (i=0; i<match.players; ++i) if (match.config.slots[i].team) return 1;
+    return 0;
+}
 unsigned hwMatchOption(unsigned rule,unsigned localValue)
 {return active && rule<OH_RULE_COUNT ? match.config.rules[rule] : localValue;}
 int hwMatchPlayerOption(unsigned rule,unsigned localValue,unsigned player)

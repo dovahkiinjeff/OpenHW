@@ -18,6 +18,7 @@ Copyright Relic Entertainment, Inc.  All rights reserved.
 #include "Globals.h"
 #include "GravWellGenerator.h"
 #include "HS.h"
+#include "../Network/DedicatedServer.h"
 #include "Matrix.h"
 #include "Memory.h"
 #include "Particle.h"
@@ -175,7 +176,7 @@ void hsStart(Ship* ship, real32 cliptDelta, bool32 into, bool32 displayEffect)
 
     dmgStopEffect(ship, DMG_All);
 
-    if (!displayEffect)
+    if (!displayEffect || hwDedicatedMode)
     {
         //don't bother with the tons-of-alpha effect if the horsepower isn't available
         return;
@@ -285,7 +286,7 @@ void hsContinue(Ship* ship, bool32 displayEffect)
     StaticCollInfo* sinfo = &ship->staticinfo->staticheader.staticCollInfo;
     ShipSinglePlayerGameInfo* ssinfo = ship->shipSinglePlayerGameInfo;
 
-    if (!displayEffect)
+    if (!displayEffect || hwDedicatedMode)
     {
         if (ship->clampInfo != NULL)
         {
@@ -637,7 +638,7 @@ void hsEnd(Ship* ship, bool32 displayEffect)
         return;
     }
 
-    if (!displayEffect)
+    if (!displayEffect || hwDedicatedMode)
     {
         return;
     }

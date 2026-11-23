@@ -7,6 +7,7 @@ extern "C" {
 int hwMatchInstall(const OHLoad *load);
 void hwMatchClear(void);
 int hwMatchActive(void);
+int hwMatchHasTeams(void);
 unsigned hwMatchOption(unsigned rule,unsigned localValue);
 int hwMatchPlayerOption(unsigned rule,unsigned localValue,unsigned player);
 const OHLoad *hwMatchConfiguration(void);

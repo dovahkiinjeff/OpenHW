@@ -14,8 +14,10 @@
 #include "ResearchGUI.h"
 #include "StatScript.h"
 #include "Memory.h"
+#include "MultiplayerGame.h"
 
 Universe universe;
+CaptainGameInfo tpGameCreated;
 bool32 singlePlayerGame, rmGUIActive;
 AIPlayer *aiCurrentAIPlayer;
 real32 ATTMAN_BUILDPRIORITY_RATIO=.45f, DEFMAN_BUILDPRIORITY_RATIO=.1f, RESMAN_BUILDPRIORITY_RATIO=.45f;
@@ -48,6 +50,9 @@ void clWrapBuildShip(CommandLayer *layer, ShipType type, ShipRace race, uword in
 }
 
 #include "../src/Game/ResearchPlanning.inc"
+bool32 aiuCanBuildShipType(ShipType type, bool32 scripted) { return TRUE; }
+udword aiuUnitCapCanBuildShip(AIPlayer *owner, ShipType type, sdword count) { return count; }
+bool32 rmCanBuildShip(Player *owner, ShipType type) { return TRUE; }
 #include "../src/Game/AIProduction.inc"
 
 static void setup(void)
@@ -87,18 +92,18 @@ int main(void)
     assert(aiCarrierTarget(120000,4000)==11); /* No single-carrier ceiling. */
     assert(aiProductionValue(&player,100)==100);
     ai.aiplayerDifficultyLevel=AI_EXPERT;
-    assert(aiProductionValue(&player,100)==90 && aiProductionValue(&player,0)==0);
-    assert(aiPreferredShip(&player,LightInterceptor)==AttackBomber);
+    assert(aiProductionValue(&player,100)==100 && aiProductionValue(&player,0)==0);
+    assert(aiPreferredShip(&player,LightInterceptor)==LightInterceptor);
     assert(aiPreferredShip(&player,HeavyDefender)==HeavyDefender);
-    assert(aiPreferredShip(&player,MinelayerCorvette)==HeavyCorvette);
+    assert(aiPreferredShip(&player,MinelayerCorvette)==MinelayerCorvette);
     assert(aiPreferredShip(&player,MultiGunCorvette)==MultiGunCorvette);
-    assert(aiPreferredShip(&player,StandardFrigate)==IonCannonFrigate);
+    assert(aiPreferredShip(&player,StandardFrigate)==StandardFrigate);
     singlePlayerGame=TRUE;assert(aiProductionValue(&player,100)==100);singlePlayerGame=FALSE;
 
     /* All eligible factories participate even before emitted packets execute. */
     memset(&request,0,sizeof(request));request.shiptype=AttackBomber;request.num_ships=8;
     aifBuildRequestedShips(NULL,&request,NULL,NULL);
-    assert(builds==8 && request.num_ships==0 && ai.NumRUsSpentOnAttman==720);
+    assert(builds==8 && request.num_ships==0 && ai.NumRUsSpentOnAttman==800);
     for(i=0;i<8;++i)assert(builtAt[i]==&factories[i%4]);
     assert(aifChooseFactory(&player,HeavyCruiser,R1)==&factories[0]);
     factories[1].flags=SOF_Dead;factories[2].flags=SOF_Hyperspace;factories[3].playerowner=NULL;
@@ -111,26 +116,26 @@ int main(void)
     player.resourceUnits=0;request.num_ships=1;builds=0;
     aifBuildRequestedShips(NULL,&request,NULL,NULL);assert(!builds && request.num_ships==1);
 
-    /* Three of six labs rush a multi-level prerequisite chain. Normal requests
-       must not consume the reserved half, and completed rush releases it. */
+    /* Two of six labs develop a prerequisite chain. Normal requests keep the
+       other four; completed anticipation releases all capacity. */
     setup();ai.aiplayerDifficultyLevel=AI_EXPERT;
-    tech.TechNeededToBuildShip[HeavyCruiser]=TechToBit(HeavyGuns);
+    tech.TechNeededToBuildShip[StandardDestroyer]=TechToBit(HeavyGuns);
     tech.TechNeededToResearch[HeavyGuns]=TechToBit(ConstructionTech);
     tech.TechNeededToResearch[ConstructionTech]=TechToBit(Chassis3);
-    tech.TechNeededToBuildShip[MissileDestroyer]=TechToBit(MissileWeapons);
+    tech.TechNeededToBuildShip[IonCannonFrigate]=TechToBit(MissileWeapons);
     tech.TechNeededToResearch[MissileWeapons]=TechToBit(Chassis3);
     tech.TechNeededToBuildShip[AttackBomber]=TechToBit(PlasmaWeapons);
     for(i=0;i<NUM_RESEARCHLABS;++i)player.researchinfo.researchlabs[i].labstatus=LS_NORESEARCHITEM;
     rmUpdateExpertResearch(&player);
-    for(i=0;i<3;++i)assert(player.researchinfo.researchlabs[i].topic->techresearch==Chassis3);
-    assert(player.researchinfo.researchlabs[0].topic->timeleft==90.0f);
+    for(i=0;i<2;++i)assert(player.researchinfo.researchlabs[i].topic->techresearch==Chassis3);
+    assert(player.researchinfo.researchlabs[0].topic->timeleft==100.0f);
     assert(rmResearchTechForShip(&player,AttackBomber));
-    for(i=3;i<6;++i)assert(player.researchinfo.researchlabs[i].topic->techresearch==PlasmaWeapons);
-    rmUpdateExpertResearch(&player);assert(player.researchinfo.researchlabs[0].topic->numlabsresearching==3);
+    for(i=2;i<6;++i)assert(player.researchinfo.researchlabs[i].topic->techresearch==PlasmaWeapons);
+    rmUpdateExpertResearch(&player);assert(player.researchinfo.researchlabs[0].topic->numlabsresearching==2);
     for(i=0;i<6;++i)rmClearResearchlab(&player,i);
     player.researchinfo.HasTechnology=TechToBit(Chassis3)|TechToBit(ConstructionTech)|TechToBit(HeavyGuns)|TechToBit(MissileWeapons);
     assert(rmResearchTechForShip(&player,AttackBomber));
     for(i=0;i<6;++i)assert(player.researchinfo.researchlabs[i].topic->techresearch==PlasmaWeapons);
     for(i=0;i<6;++i)rmClearResearchlab(&player,i);
-    puts("AI configuration, factory scheduling, Expert economy and lab allocation passed");return 0;
+    puts("AI configuration, factory scheduling, equal costs and adaptive lab allocation passed");return 0;
 }

@@ -437,6 +437,27 @@ bool32 aiaGenerateNewAttackOrder(AttackType attacktype)
     Outputs     : Creates new teams
     Return      : void
 ----------------------------------------------------------------------------*/
+static udword aiaStrategyProbability(AttackType type)
+{
+    AIPlayer *ai = aiCurrentAIPlayer;
+    sdword weight = ai->aiaAttackProbability[type];
+    const AIStrategyProfile *policy = aiStrategy(ai->player);
+    sdword fighters, capitals;
+    if (singlePlayerGame) return weight;
+    fighters = aiKnownShipCount(ai, AttackBomber) + aiKnownShipCount(ai, HeavyInterceptor) +
+        aiKnownShipCount(ai, LightInterceptor) + aiKnownShipCount(ai, HeavyDefender);
+    capitals = aiKnownShipCount(ai, HeavyCruiser) + aiKnownShipCount(ai, StandardDestroyer) +
+        aiKnownShipCount(ai, MissileDestroyer) + aiKnownShipCount(ai, Carrier) + aiKnownShipCount(ai, IonCannonFrigate);
+    /* Bias, rather than prohibit: retain mixed forces and every specialist. */
+    if (fighters >= 6 && fighters > capitals * 3 &&
+        (type == CORVETTE_STRIKE || type == FIGHTER_STRIKE)) weight += policy->counterStrength;
+    if (capitals >= 3 && (type == FRIGATE_STRIKE || type == ATTACK_FLEET_BIG || type == ATTACK_FLEET_HUGE))
+        weight += policy->counterStrength;
+    if (type == HARASS_BIG || type == HARASS_SMALL) weight += policy->counterStrength / 3;
+    if (ai->aiplayerDifficultyLevel == AI_BEGINNER) weight = weight * 2 / 3;
+    return min(255, max(0, weight));
+}
+
 void aiaGenerateNewAttackTeam(sdword AttackTeamNumber)
 {
     AttackType randomAttack;
@@ -454,14 +475,16 @@ void aiaGenerateNewAttackTeam(sdword AttackTeamNumber)
         randomAttack = (AttackType)(ranRandom(RANDOM_AI_PLAYER)%NUM_ATTACK_TYPES);
         probability_of_attack = ranRandom(RANDOM_AI_PLAYER)&255;
 
-        if (probability_of_attack < aiCurrentAIPlayer->aiaAttackProbability[randomAttack])
+        if (probability_of_attack < aiaStrategyProbability(randomAttack))
         {
             attack_type_found = aiaGenerateAttackType(aiCurrentAIPlayer->attackTeam[AttackTeamNumber], randomAttack, FALSE);
         }
-        else
-        {
-            i++;
-        }
+        ++i;
+    }
+    if (!attack_type_found)
+    {
+        /* aiaTeamDied removes and compacts the manager slot exactly once. */
+        aitDestroy(aiCurrentAIPlayer, aiCurrentAIPlayer->attackTeam[AttackTeamNumber], TRUE);
     }
 }
 
@@ -489,7 +512,7 @@ void aiaProcessAttackTeams(void)
         {
             num_getships = aitCountTeamsWaitingForShips(AttackTeam);
 
-            if ((num_getships < 4) || ((num_getships < 10) && (aiCurrentAIPlayer->player->resourceUnits > 12000)))
+            if (num_getships < (singlePlayerGame ? 4 : aiStrategy(aiCurrentAIPlayer->player)->maxWaitingTeams))
             {
                 aiaGenerateNewAttackTeam(i);
             }
@@ -526,8 +549,6 @@ void aiaProcessAttackTeams(void)
                 {
                     // delete team for sure since there are no ships in it
                     aitDestroy(aiCurrentAIPlayer,aiCurrentAIPlayer->attackTeam[i],TRUE);
-                    aiCurrentAIPlayer->attackTeam[i] = NULL;
-                    aiCurrentAIPlayer->numAttackTeams--;
                 }
             }
         }
@@ -635,7 +656,7 @@ void aiaTimeAttack(void)
 			else if (aiCurrentAIPlayer->aiaTimeout < universe.totaltimeelapsed)
 			{
 				aivarValueSet(aivarFind(aiCurrentAIPlayer->attackVarLabel),-1);
-				aiCurrentAIPlayer->aiaTimeout += frandyrandombetween(RANDOM_AI_PLAYER, 3400.0f, 3800.0f);
+				aiCurrentAIPlayer->aiaTimeout = universe.totaltimeelapsed + (singlePlayerGame ? frandyrandombetween(RANDOM_AI_PLAYER, 3400.0f, 3800.0f) : aiStrategy(aiCurrentAIPlayer->player)->assaultInterval);
 			}
             else
             {
@@ -1316,7 +1337,7 @@ void aiaInit(struct AIPlayer *aiplayer)
     aiplayer->haveAttackedMothership = 0;
     aivarLabelGenerate(aiplayer->attackVarLabel);
     aivarValueSet(aivarCreate(aiplayer->attackVarLabel), randyrandombetween(RANDOM_AI_PLAYER, 2, 4));
-	aiplayer->aiaTimeout = frandyrandombetween(RANDOM_AI_PLAYER, 2900.0f, 3400.0f);
+	aiplayer->aiaTimeout = universe.totaltimeelapsed + (singlePlayerGame ? frandyrandombetween(RANDOM_AI_PLAYER, 2900.0f, 3400.0f) : aiStrategy(aiplayer->player)->assaultInterval);
 
     //init attack type array
     aiplayer->aiaAttackProbability[ATTACK_FLEET_FAST]    = aiuRandomRange(AIA_ATTACK_FLEET_FAST_PROB[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)], AIA_ATTACK_FLEET_FAST_RANGE[aiBaseDifficulty(aiplayer->aiplayerDifficultyLevel)]);

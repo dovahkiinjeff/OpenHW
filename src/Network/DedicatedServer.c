@@ -29,6 +29,7 @@
 #include "ShipPilot.h"
 #include "HorseRace.h"
 #include "GameChat.h"
+#include "SinglePlayer.h"
 #include "mainrgn.h"
 #include <io.h>
 #include <fcntl.h>
@@ -280,6 +281,7 @@ int hwDedicatedMain(int argc, char **argv)
         return 0;
     }
     fprintf(stderr,"SERVER loading world\n");fflush(stderr);
+    singlePlayerInit(); /* Initialize shared hyperspace state before simulation startup. */
     gameStart(NULL);
     fprintf(stderr,"SERVER world ready: %u ships, %u players\n",(unsigned)universe.ShipList.num,(unsigned)universe.numPlayers);fflush(stderr);
     if(checkChatOverlay) {

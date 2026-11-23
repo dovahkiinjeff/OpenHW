@@ -60,7 +60,7 @@ void rmAssignPlayersLabToResearch(Player *player, sdword labnumber, TechnologyTy
         topic->numlabsresearching = 1;
         topic->techresearch       = tech;
         topic->timeleft           = (real32)player->researchinfo.techstat->TimeToComplete[tech];
-        if (aiIsExpert(player)) topic->timeleft *= 0.9f;
+        /* All difficulties use the same research durations as the player. */
     }
 
     if ((player == universe.curPlayerPtr)&&(rmGUIActive)) rmUpdateTechList();
@@ -97,8 +97,20 @@ static udword rmExpertRushMask(Player *player)
 {
     if (!aiIsExpert(player) || !player->researchinfo.CanDoResearch ||
         !player->researchinfo.techstat) return 0;
-    return rmAllTechRequredForShip(player, HeavyCruiser) |
-           rmAllTechRequredForShip(player, MissileDestroyer);
+    AIPlayer *ai = player->aiPlayer;
+    sdword fighters = aiKnownShipCount(ai, AttackBomber) + aiKnownShipCount(ai, HeavyInterceptor) +
+        aiKnownShipCount(ai, LightInterceptor) + aiKnownShipCount(ai, HeavyDefender);
+    sdword capitals = aiKnownShipCount(ai, StandardDestroyer) + aiKnownShipCount(ai, HeavyCruiser) +
+        aiKnownShipCount(ai, Carrier) + aiKnownShipCount(ai, IonCannonFrigate);
+    /* One third of labs anticipates the observed fleet; the rest follows actual
+       ship requests. Keep ongoing research instead of canceling it each update. */
+    if (fighters >= 8 && fighters > capitals * 3)
+        return rmAllTechRequredForShip(player, MultiGunCorvette) |
+               rmAllTechRequredForShip(player, MissileDestroyer);
+    if (capitals > 0) return rmAllTechRequredForShip(player, IonCannonFrigate) |
+                            rmAllTechRequredForShip(player, HeavyCruiser);
+    return rmAllTechRequredForShip(player, StandardDestroyer) |
+           rmAllTechRequredForShip(player, IonCannonFrigate);
 }
 
 static bool32 rmExpertReservedLab(Player *player, sdword index)
@@ -111,7 +123,7 @@ static bool32 rmExpertReservedLab(Player *player, sdword index)
         if (lab < index) ++rank;
         ++count;
     }
-    return rank < (count + 1) / 2;
+    return count >= 3 && rank < (count + 2) / 3;
 }
 
 static sdword rmFindNormalAILab(Player *player)
@@ -141,8 +153,7 @@ void rmUpdateExpertResearch(Player *player)
     {
         ResearchLab *module = &player->researchinfo.researchlabs[lab];
         if (module->labstatus == LS_NORESEARCHSHIP || !rmExpertReservedLab(player, lab)) continue;
-        if (module->labstatus == LS_RESEARCHITEM && module->topic &&
-            (needed & TechToBit(module->topic->techresearch))) continue;
+        if (module->labstatus == LS_RESEARCHITEM) continue;
         if (chosen == -1) continue;
         if (module->labstatus == LS_RESEARCHITEM) rmClearResearchlab(player, lab);
         rmAssignPlayersLabToResearch(player, lab, (TechnologyType)chosen);

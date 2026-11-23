@@ -168,6 +168,13 @@ void airInit(AIPlayer *aiplayer)
         default:
             dbgAssertOrIgnore(FALSE);
     }
+    if (!singlePlayerGame)
+    {
+        /* Competence is shared; difficulty controls investment and pressure. */
+        aiuEnableResourceFeature(AIR_ACTIVE_RESOURCE_COLLECTION);
+        aiuEnableResourceFeature(AIR_SMART_COLLECTOR_REQUESTS);
+        aiuEnableResourceFeature(AIR_SMART_RESEARCH_SHIP_REQUESTS);
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -773,12 +780,13 @@ bool32 airDumbResearchRequests(bool32 *requestedResearch)
 ----------------------------------------------------------------------------*/
 bool32 airSmartResearchRequests(bool32 *requestedResearch)
 {
-    if (aiCurrentAIPlayer->TechnologyDeficit > 0 || aiIsExpert(aiCurrentAIPlayer->player))
+    if (aiCurrentAIPlayer->TechnologyDeficit > 0 || !singlePlayerGame)
     {
         sdword totalResearch = aiCurrentAIPlayer->airNumResearchShips + aiCurrentAIPlayer->NumResearchShipsBeingBuilt;
 
-        if (totalResearch < NUM_RESEARCHLABS &&
-            (aiIsExpert(aiCurrentAIPlayer->player) || (real32)totalResearch < (real32)aiCurrentAIPlayer->TechnologyDeficit / 2.0f))
+        if (totalResearch < (singlePlayerGame ? NUM_RESEARCHLABS : aiStrategy(aiCurrentAIPlayer->player)->researchLabs) &&
+            (singlePlayerGame ? (real32)totalResearch < (real32)aiCurrentAIPlayer->TechnologyDeficit / 2.0f :
+             totalResearch < 1 + (aiCurrentAIPlayer->NumRUsSpentOnAttman + aiCurrentAIPlayer->NumRUsSpentOnResourceman) / 4000))
         {
             if (aiuCanBuildShipType(ResearchShip,FALSE))
             {
@@ -953,7 +961,7 @@ void airResourceManager(void)
     /* Skirmish had carrier ownership/support handling, but no economy request
        ever bought one. Expand production with economic growth; budget it after essential research/harvesting; leave a
        reserve for combat, respect research/caps, and count pending builds. */
-    if (!singlePlayerGame && !requestedSomething && !requestedResearch &&
+    if (!singlePlayerGame &&
         aiCurrentAIPlayer->ResourceManRequestShips.num_ships <= 0 &&
         aiCurrentAIPlayer->airNumRCollectors >= 3 &&
         aiuCanBuildShipType(Carrier,FALSE) &&
@@ -972,11 +980,10 @@ void airResourceManager(void)
         }
         /* Expand with cumulative economic output, not a one-carrier ceiling.
            Include all spending so the target survives normal income/spending cycles. */
-        if(!queued && player->shiptotals[Carrier] < aiCarrierTarget(
-               player->resourceUnits + aiCurrentAIPlayer->NumRUsSpentOnAttman +
-               aiCurrentAIPlayer->NumRUsSpentOnDefman + aiCurrentAIPlayer->NumRUsSpentOnResourceman,
-               aiProductionValue(player, info->buildCost)) &&
-           player->resourceUnits >= aiProductionValue(player, info->buildCost)+1500 &&
+        if(!queued && player->shiptotals[Carrier] < (player->resourceUnits + aiCurrentAIPlayer->NumRUsSpentOnAttman +
+               aiCurrentAIPlayer->NumRUsSpentOnDefman + aiCurrentAIPlayer->NumRUsSpentOnResourceman) /
+               max(1, info->buildCost * aiStrategy(player)->carrierInvestment) &&
+           player->resourceUnits >= aiProductionValue(player, info->buildCost)+500 &&
            (!bitTest(tpGameCreated.flag,MG_ResearchEnabled) || rmCanBuildShip(player,Carrier)))
             aifResourceManRequestsShipsCB(Carrier,1,0);
     }

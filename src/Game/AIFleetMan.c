@@ -8,6 +8,7 @@
 // =============================================================================
 
 #include "AIFleetMan.h"
+#include "MatchRules.h"
 
 #include "AIAttackMan.h"
 #include "AIDefenseMan.h"
@@ -493,8 +494,7 @@ void aifProcessShipBuildRequests(void)
     if (aiIsExpert(player))
     {
         rmUpdateExpertResearch(player);
-        aiCurrentAIPlayer->TechnologyDeficit += rmTechRequiredForShip(player, HeavyCruiser);
-        aiCurrentAIPlayer->TechnologyDeficit += rmTechRequiredForShip(player, MissileDestroyer);
+        /* Anticipatory research follows known threats; no mandatory capital rush. */
     }
 
     if (aiCurrentAIPlayer->ResourceManRequestShips.num_ships > 0)
@@ -827,6 +827,12 @@ void aifFindAllies(void)
     AIPlayer *OtherCPU;
     udword HowMuchDoILoveMyFriends;
 
+    /* Explicit lobby teams and allied-victory teams are contracts, not diplomacy. */
+    if (!singlePlayerGame && (hwMatchActive() ? hwMatchHasTeams() : bitTest(tpGameCreated.flag, MG_AlliedVictory)))
+    {
+        aiCurrentAIPlayer->recalculateAllies = FALSE;
+        return;
+    }
     HowMuchDoILoveMyFriends = randyrandom(RANDOM_AI_PLAYER, 100);
 
     for (i=0;i<universe.numPlayers;i++)

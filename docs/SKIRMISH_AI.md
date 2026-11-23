@@ -1,15 +1,22 @@
-# Skirmish AI tuning
+# Skirmish AI — 1.1.18
 
-Difficulty values are 0 Easy, 1 Normal, 2 Hard, 3 Expert. Existing local slider values through 100 preserve their previous difficulty; 101–134 select Expert. Online slots carry the explicit 0–3 value. Expert inherits Hard planning intervals, attack weights, team capabilities and defense features.
+All four difficulties use normal player ship prices, build times and research times. No roster is prohibited. Campaign AI retains its scripted tuning.
 
-The AIPlayer.script loader accepts retail [AI_BEG], [AI_INT], [AI_ADV] and source [AI_BEGINNER], [AI_INTERMEDIATE], [AI_ADVANCED] keys. Expert uses the loaded Hard settings. Normalized keys are scoped to this AI tuning table.
+| Difficulty | Assault staging timeout | Waiting attack teams | Research capacity | Carrier investment interval | Scouted-counter mission weight |
+|---|---:|---:|---:|---:|---:|
+| Easy | 480 seconds | 2 | 2 labs | 6 carrier prices | 0 |
+| Normal | 300 seconds | 3 | 3 labs | 5 carrier prices | 32 |
+| Hard | 180 seconds | 4 | 4 labs | 4 carrier prices | 64 |
+| Expert | 120 seconds | 5 | 6 labs | 3 carrier prices | 96 |
 
-Construction selects the eligible owned factory with the earliest completion time in the requested ship type's lane. Stable ship-list order breaks ties. Temporary reservations cover commands sent into network packets before those packets execute. Factory rosters, loaded ship data and ownership still apply. Campaign/script-directed creators remain explicit.
+These are planning limits, not guaranteed attack periods or forced purchases. Existing difficulty-specific features and reaction settings remain in use. Easy also scales mission-acceptance weights to two thirds. Learned fleet composition biases attack missions without removing specialist roles or changing the ships requested by a mission.
 
-Carrier expansion target: 1 + floor(cumulative economic output / (3 × carrier price)), subject to ordinary unit caps. Output includes the bank and recorded combat/defense/economic spending. Requests require three harvesters, carrier prerequisites, no pending carrier and a carrier-price-plus-1500-RU bank; essential harvesting and research take precedence. There is no fixed one-carrier or difficulty-specific carrier ceiling.
+Carrier targets are floor(cumulative economic output / investment interval). Normal unit caps and prerequisites apply. Before an expansion, ordinary attack/defense construction leaves the carrier price plus 500 RU reserved. Urgent defense, scripts and resource-manager purchases can use that money. Queued carriers stop reserving additional expansion funds. Research capacity grows by one module per 4000 RU of recorded economic/attack spending up to the difficulty limit; initial research remains available.
 
-Expert reserves ceil(active labs / 2) for the combined Heavy Cruiser / Missile Destroyer prerequisite chain. It continues existing prerequisite topics, handles newly built or lost labs, and returns the reserved capacity to normal research after both targets finish. It aims for all six research modules as the economy permits. Remaining labs research normal production needs.
+Expert anticipatory research reserves one third of labs only after at least three are present. Observed fighter-heavy fleets favor multigun corvettes and missile destroyers; observed capitals favor ions and heavy cruisers; otherwise it develops destroyers and ions. The remaining labs follow production requests. Ongoing research is never canceled by a changing observation. There are no cost/time discounts.
 
-Expert fighter production uses bombers/defenders, corvette production uses heavy/multigun corvettes, and offensive frigate requests favor ion cannon frigates. Specialized support frigates remain available. Research dependencies and normal unit caps are not bypassed.
+Explicit online teams are preserved. Free-for-all diplomacy remains enabled when no team is assigned; local allied-victory alliances are preserved. The first proximity sensor can be requested without an existing sensor collection. Resource controllers fall back to their mothership when no remote harvesting cluster exists.
 
-Expert ship costs and build duration use ceil(normal × 0.9); research duration uses normal × 0.9. These are per-player adjustments; shared ship/technology statics and human/Easy/Normal/Hard costs are unchanged. Research topics currently have zero RU cost, so there is no topic price to reduce. Research ship construction gets the ship price reduction.
+Construction chooses the eligible factory with the earliest completion time in the requested ship lane, including commands awaiting network application. Specialist ship requests are never rewritten. Save structures are unchanged. Older saved games retain their existing initialized planning state; create a new skirmish to evaluate all settings.
+
+No gameplay tests were run for this release at the owner's request. Diagnostic lab binaries, results and deployment configuration are excluded from release packages.

@@ -18,24 +18,50 @@ static bool32 aiIsExpert(const Player *player)
         player->aiPlayer->aiplayerDifficultyLevel == AI_EXPERT;
 }
 
-/* A 10% reduction in duration/cost, rounded up; free items stay free. */
+/* Difficulty changes decisions, never prices, damage, or simulation speed. */
 static sdword aiProductionValue(const Player *player, sdword value)
 {
-    return aiIsExpert(player) && value > 0 ? value - value / 10 : value;
+    (void)player;
+    return value;
 }
 
+/* Requests retain their role, including reconnaissance, repair and detection. */
 static ShipType aiPreferredShip(const Player *player, ShipType type)
 {
-    if (!aiIsExpert(player) || (player->race != R1 && player->race != R2)) return type;
-    switch (type)
-    {
-        case LightInterceptor: case HeavyInterceptor: case CloakedFighter:
-        case DefenseFighter: return AttackBomber;
-        case LightCorvette: case MinelayerCorvette: case RepairCorvette:
-        case SalCapCorvette: return HeavyCorvette;
-        case StandardFrigate: case DDDFrigate: return IonCannonFrigate;
-        default: return type;
-    }
+    (void)player;
+    return type;
+}
+
+typedef struct AIStrategyProfile {
+    real32 assaultInterval;
+    sdword maxWaitingTeams;
+    sdword researchLabs;
+    sdword carrierInvestment;
+    sdword counterStrength;
+} AIStrategyProfile;
+
+static const AIStrategyProfile *aiStrategy(const Player *player)
+{
+    static const AIStrategyProfile profiles[4] = {
+        {480.0f, 2, 2, 6, 0},
+        {300.0f, 3, 3, 5, 32},
+        {180.0f, 4, 4, 4, 64},
+        {120.0f, 5, 6, 3, 96}
+    };
+    sdword level = player && player->aiPlayer ? player->aiPlayer->aiplayerDifficultyLevel : 0;
+    if (level < 0 || level > AI_EXPERT) level = 0;
+    return &profiles[level];
+}
+
+/* Count only acquired knowledge; no hidden-world enemy census. */
+static sdword aiKnownShipCount(const AIPlayer *ai, ShipType type)
+{
+    SelectCommand *known = ai->enemyShipsIAmAwareOf[type].selection;
+    sdword i, count = 0;
+    if (!known) return 0;
+    for (i = 0; i < known->numShips; ++i)
+        if (known->ShipPtr[i]->health > 0 && !(known->ShipPtr[i]->flags & SOF_Dead)) ++count;
+    return count;
 }
 
 /* The second carrier becomes affordable after another carrier's worth of

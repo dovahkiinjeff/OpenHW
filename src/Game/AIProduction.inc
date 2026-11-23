@@ -37,6 +37,27 @@ Ship *aifChooseFactory(Player *player, ShipType type, ShipRace race)
     return best;
 }
 
+static sdword aifExpansionReserve(Player *player)
+{
+    AIPlayer *ai = player->aiPlayer;
+    ShipStaticInfo *info;
+    Node *node;
+    sdword output, target;
+    if (singlePlayerGame || !ai || !player->PlayerMothership || ai->airNumRCollectors < 3 ||
+        !aiuCanBuildShipType(Carrier, FALSE) || !aiuUnitCapCanBuildShip(ai, Carrier, 1) ||
+        (bitTest(tpGameCreated.flag, MG_ResearchEnabled) && !rmCanBuildShip(player, Carrier))) return 0;
+    info = GetShipStaticInfo(Carrier, player->PlayerMothership->shiprace);
+    output = player->resourceUnits + ai->NumRUsSpentOnAttman + ai->NumRUsSpentOnDefman + ai->NumRUsSpentOnResourceman;
+    target = output / max(1, info->buildCost * aiStrategy(player)->carrierInvestment);
+    if (player->shiptotals[Carrier] >= target) return 0;
+    for (node = universe.mainCommandLayer.todolist.head; node; node = node->next) {
+        CommandToDo *command = (CommandToDo *)listGetStructOfNode(node);
+        if (command->ordertype.order == COMMAND_BUILDING_SHIP && command->buildingship.playerIndex == player->playerIndex &&
+            command->buildingship.shipType == Carrier) return 0;
+    }
+    return info->buildCost + 500;
+}
+
 static bool32 BuildShip(ShipStaticInfo *info, Player *player, sdword *spent,
                        sdword *available, Ship *creator, bool32 scripted)
 {
@@ -93,6 +114,7 @@ void aifBuildRequestedShips(RequestShips *scriptrequest, RequestShips *attreques
         &aiCurrentAIPlayer->NumRUsSpentOnResourceman};
     real32 weights[4] = {1.0f, ATTMAN_BUILDPRIORITY_RATIO, DEFMAN_BUILDPRIORITY_RATIO, RESMAN_BUILDPRIORITY_RATIO};
     sdword available = player->resourceUnits, i, pass;
+    sdword expansionReserve = aifExpansionReserve(player);
     aifBuildReservationCount = 0;
     if (!player->PlayerMothership) return;
     /* Preserve script precedence and the managers' configured spending shares;
@@ -118,9 +140,17 @@ void aifBuildRequestedShips(RequestShips *scriptrequest, RequestShips *attreques
             if (!(RacesAllowedForGivenShip[request->shiptype] & RaceToRaceBits(race))) continue;
             info = GetShipStaticInfo(request->shiptype, race);
             if (!bitTest(info->staticheader.infoFlags, IF_InfoLoaded)) continue;
+            /* Spend toward expansion, but always allow collectors, labs, script
+               commands and urgent defense to draw on the full bank. */
+            {
+            sdword held = (chosen == 1 || (chosen == 2 && !(request->priority & REQUESTSHIPS_HIPRI))) ?
+                min(available, expansionReserve) : 0;
+            available -= held;
             while (request->num_ships > 0 && BuildShip(info, player, spent[chosen], &available,
                                                      request->creator, chosen == 0))
                 --request->num_ships;
+            available += held;
+            }
         }
     }
     aifBuildReservationCount = 0;
