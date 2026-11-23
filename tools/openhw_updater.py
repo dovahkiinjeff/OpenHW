@@ -18,7 +18,7 @@ import urllib.parse
 import uuid
 import zipfile
 
-UPDATER_VERSION = '1.1.12'
+UPDATER_VERSION = '1.1.13'
 PROTOCOL = 4
 MANIFEST_URL = 'https://openhw.tech/updates/stable.json'
 FALLBACK_MANIFEST_URL = 'https://raw.githubusercontent.com/dovahkiinjeff/OpenHW/main/updates/stable.json'
@@ -41,6 +41,10 @@ def version_key(value):
     if any(p > 2147483647 for p in parts): raise UpdateError('Invalid version component')
     while len(parts) > 1 and parts[-1] == 0: parts.pop()
     return tuple(parts)
+
+
+def display_version(value):
+    return '1.1.17a' if value == '1.1.17.1' else value
 
 
 def compare_versions(left, right):

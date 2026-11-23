@@ -92,11 +92,17 @@ static int loadPcm(const char *resource,SDL_AudioCVT *output)
     Uint32 waveBytes = 0;
     void *file = NULL;
     int bytes,relic=0;
+    udword flags=FF_ReturnNULLOnFail;
     if(!resource || !*resource)return 0;
-    if (!fileExists((char *)resource, FF_ReturnNULLOnFail)) return 0;
-    bytes = fileSizeGet((char *)resource, FF_ReturnNULLOnFail);
+    /* Packed installs search loose overrides beside the executable first.
+       Supplied UI audio lives in Data, just like the other UI resources. */
+    if (!fileExists((char *)resource, flags)) {
+        flags |= FF_HomeworldDataPath;
+        if (!fileExists((char *)resource, flags)) return 0;
+    }
+    bytes = fileSizeGet((char *)resource, flags);
     if (bytes <= 0 || bytes > 128*1024*1024) return 0;
-    if (fileLoadAlloc((char *)resource, &file, FF_ReturnNULLOnFail) != bytes || !file) {
+    if (fileLoadAlloc((char *)resource, &file, flags) != bytes || !file) {
         if (file) memFree(file);
         return 0;
     }

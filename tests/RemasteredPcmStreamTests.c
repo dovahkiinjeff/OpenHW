@@ -18,17 +18,23 @@ static const unsigned char wav[]={
     1,0,2,0,68,172,0,0,16,177,2,0,4,0,16,0,'d','a','t','a',16,0,0,0,
     16,39,240,216,16,39,240,216,16,39,240,216,16,39,240,216
 };
+static const char *testPath(char *name,udword flags)
+{
+    static char path[4096];
+    if(flags & FF_HomeworldDataPath){snprintf(path,sizeof(path),"Data/%s",name);return path;}
+    return name;
+}
 bool32 fileExists(char *name,udword flags)
 {
     FILE *f;
     if(!strcmp(name,"fixture")) return TRUE;
-    f=fopen(name,"rb");if(!f)return FALSE;fclose(f);return TRUE;
+    f=fopen(testPath(name,flags),"rb");if(!f)return FALSE;fclose(f);return TRUE;
 }
 sdword fileSizeGet(char *name,udword flags)
 {
     FILE *f;long length;
     if(!strcmp(name,"fixture")) return sizeof(wav);
-    f=fopen(name,"rb");if(!f)return -1;
+    f=fopen(testPath(name,flags),"rb");if(!f)return -1;
     fseek(f,0,SEEK_END);length=ftell(f);fclose(f);
     return length>0&&length<128*1024*1024?(sdword)length:-1;
 }
@@ -38,7 +44,7 @@ sdword fileLoadAlloc(char *name,void **out,udword flags)
     *out=NULL;if(length<=0)return -1;
     *out=malloc(length);if(!*out)return -1;
     if(!strcmp(name,"fixture")){memcpy(*out,wav,length);return length;}
-    f=fopen(name,"rb");
+    f=fopen(testPath(name,flags),"rb");
     if(!f){free(*out);*out=NULL;return -1;}
     if(fread(*out,1,length,f)!=(size_t)length){fclose(f);free(*out);*out=NULL;return -1;}
     fclose(f);return length;
@@ -89,10 +95,14 @@ int main(int argc,char **argv)
         rmPcmStreamReset();busGain=1;
     }
     if(argc>2 && !strcmp(argv[1],"--effect")){
-        int clip=rmPcmEffectPrecache(argv[2]),voice;
+        int clip=rmPcmEffectPrecache(argv[2]),voice,nonzero=0,frames=0,i;
         CHECK(clip>0);voice=rmPcmEffectPlay(clip,1,0);CHECK(voice>0);
-        memset(output,0,sizeof(output));rmPcmStreamMix(output,sizeof(output));
-        rmPcmEffectStop(voice);CHECK(!rmPcmEffectUpdate(voice,1,0));++count;
+        while(rmPcmEffectActive(voice) && frames<44100*60){
+            memset(output,0,sizeof(output));rmPcmStreamMix(output,sizeof(output));frames+=4;
+            for(i=0;i<8;++i)if(output[i])nonzero=1;
+        }
+        CHECK(nonzero && !rmPcmEffectActive(voice));
+        CHECK(!rmPcmEffectUpdate(voice,1,0));++count;
     }else if(argc>1)for(track=0;track<48;++track){
         const char *relative=rmMusicPath(track);char path[2048];
         if(!relative)continue;

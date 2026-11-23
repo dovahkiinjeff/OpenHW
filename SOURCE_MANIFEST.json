@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.1.17",
+  "version": "1.1.17a",
   "snapshot": "Complete current build inputs",
   "excluded": [
     "generated out/ and .deps/",
@@ -23080,8 +23080,8 @@
     },
     {
       "path": "CMakeLists.txt",
-      "size": 89188,
-      "sha256": "d88fece8cd7973fa3689a9badc46a3e2b7d2496a24049e9cd5425f9bb1ee5704"
+      "size": 89189,
+      "sha256": "93b74575bcde1f5bdf7ee0aaf74fff54abf98d7fe41c0d0d6082fff1050c300c"
     },
     {
       "path": "CMakePresets.json",
@@ -24454,6 +24454,11 @@
       "sha256": "a260d3559d589a7e493ea6cda0436a0f1725858e8aea54a641270ed327952f31"
     },
     {
+      "path": "docs/RELEASE_NOTES_1.1.17a.md",
+      "size": 39,
+      "sha256": "e222a5a2ace7dafe5814f61c15cf9036c1b90b7d9311fe4699adb3ce6d465936"
+    },
+    {
       "path": "docs/RELEASE_NOTES_1.1.2.md",
       "size": 2461,
       "sha256": "c8c42ed25afde86bd2bfa27d343fc6690cb5fbe7f2a64f2cb5ae31abe401db2d"
@@ -24635,8 +24640,8 @@
     },
     {
       "path": "README.md",
-      "size": 41513,
-      "sha256": "73012e16097b09b211473483a5015bada4ceef00d1291d0fd023cc81c3ad7a2c"
+      "size": 41517,
+      "sha256": "28c06472ed88b2f2963336019ca783ca14066fa3df298200e6d23d52be1c8986"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -27865,8 +27870,8 @@
     },
     {
       "path": "src/SDL/RemasteredPcmStream.c",
-      "size": 9622,
-      "sha256": "726ce3fcd2609d6dffc283cf61305f1f4c04280742bac6e2be118a2623924167"
+      "size": 9867,
+      "sha256": "36914174318faaf29429c40d11001a2c4fac11beccd22c5fdc04c54d20dfc95c"
     },
     {
       "path": "src/SDL/RemasteredPcmStream.h",
@@ -28975,8 +28980,8 @@
     },
     {
       "path": "tests/RemasteredPcmStreamTests.c",
-      "size": 4962,
-      "sha256": "e494490e3d1c73fd0db3e5fa673a9412cc4259ef67a2fd2bf7eab63e4cf08705"
+      "size": 5393,
+      "sha256": "5ed485cb11ed0bc8a8acfc5a1440e2ca5ec21193936093c5118903673a75d6fc"
     },
     {
       "path": "tests/RemasteredPresentationRuntimeTests.c",
@@ -29270,8 +29275,8 @@
     },
     {
       "path": "tests/test_launcher_real_controls.py",
-      "size": 4261,
-      "sha256": "00350eb4df1008248007f2f72559665990738d445b0233fc6206aaf154a61841"
+      "size": 4818,
+      "sha256": "a9e7519f4a1253911b2709414905f1ca6f1ed743d3ce51feeba49c0d99922c7d"
     },
     {
       "path": "tests/test_launcher_update_completion.py",
@@ -30406,12 +30411,12 @@
     {
       "path": "tools/openhw_launcher.py",
       "size": 12452,
-      "sha256": "abf890a2edaa19b1e6740b903b9c671c562a51451c4ed05f87108bfd71c474cb"
+      "sha256": "39763bd87ab71a227142400eb8de20be5863e6ff123a8adfac905164bdba0bf0"
     },
     {
       "path": "tools/openhw_launcher_ui.py",
-      "size": 51628,
-      "sha256": "399c0bcd574a9537eb47a02dc3e7d811bd5f0f0ffde752bd17fe4df13a8bc6b2"
+      "size": 52531,
+      "sha256": "17655af2523f112f07dabd5a63d9aac0bb83d3b28bb83bf018a0c2d455b561d6"
     },
     {
       "path": "tools/openhw_obig.py",
@@ -30435,8 +30440,8 @@
     },
     {
       "path": "tools/openhw_updater.py",
-      "size": 40014,
-      "sha256": "98b2029a37597c5c70424c51740e997e1237efd1a364cd3ec82007ab753cc263"
+      "size": 40103,
+      "sha256": "aee99ac3977778ca28ef6efcfbd06f7748b402a33475540544972da546d98d9b"
     },
     {
       "path": "tools/openhw_weapon_presentation.py",
@@ -30465,8 +30470,8 @@
     },
     {
       "path": "tools/package_release_patch.py",
-      "size": 7883,
-      "sha256": "f948d372dde71dbd0f2f3e95fc4a617f815ca55d24be485211a433daa899bb4d"
+      "size": 7942,
+      "sha256": "0254cc0ede8f9ff05b466f8e31bfd5f03fa8242af8c74ba80a738f8611ca9190"
     },
     {
       "path": "tools/package_ship_document_update.py",
@@ -30476,7 +30481,7 @@
     {
       "path": "tools/package_updater.py",
       "size": 8020,
-      "sha256": "6046c217d7d6316e5f7cc6863bc6246d22715ac259ff153eeffa84739231e682"
+      "sha256": "e2b34dc68fb9f79e405a39d8f0c583d6a516a688e15d9797a9585c0031f3c726"
     },
     {
       "path": "tools/plan_kushan_hod_bindings.py",
@@ -30520,8 +30525,8 @@
     },
     {
       "path": "tools/release_bootstrap.cpp",
-      "size": 30106,
-      "sha256": "321aac52511aa218ffd964db567e50646885f40c4ac2552cb570c564e7daef9e"
+      "size": 30468,
+      "sha256": "267ddfc4fe6b6b6580e26765985c4a7e155fb72a9c2be479ae23ef3004daf5df"
     },
     {
       "path": "tools/release_compact.py",
@@ -30602,6 +30607,11 @@
       "path": "tools/release_patch1117.py",
       "size": 3742,
       "sha256": "137308789b7f60b5fe16f1f951de76b8da4ff4b4e813f4987c2b3e2b3160bc78"
+    },
+    {
+      "path": "tools/release_patch11171.py",
+      "size": 3758,
+      "sha256": "e7e00636ac143d052d9d79315e2f64b36690b6c03f8e9602c87a87be3fc609f7"
     },
     {
       "path": "tools/release_patch112.py",
@@ -30881,7 +30891,7 @@
     {
       "path": "tools/UpdaterVersion.h",
       "size": 99,
-      "sha256": "731bbf64516f876328e19b4bbb41048114065bc0f2c0aa05bb118af23ae41d44"
+      "sha256": "69321f408f0eb1dc29990b2cf802de2ea7cb01ca0d32ebbf823ceea9281ab074"
     },
     {
       "path": "tools/validate_presenter_shaders.ps1",
@@ -30895,8 +30905,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 3177,
-      "sha256": "e4dfbd962da780eeebba97f196f478da004a12efc97678c08721c72485b2865b"
+      "size": 3601,
+      "sha256": "8a9026261abbf82317b8e15f2d46b93923c41dbd36441cb1f460635e03c6c70a"
     },
     {
       "path": "vcpkg.json",

@@ -65,5 +65,13 @@ class RealLauncherControls(unittest.TestCase):
        patch.object(launcher.updater,'detect_version',return_value='1.1.17'), \
        patch.object(launcher.updater,'stop_if_game_running',side_effect=AssertionError('Unneeded process check')):
    self.assertIsNone(launcher.prepare_launcher_update(Path('.'),Mock()))
+ def test_letter_hotfix_is_displayed_with_legacy_numeric_update_version(self):
+  status=tk.StringVar(self.window);button=ui.Button(self.window,'WAIT',Mock())
+  app=SimpleNamespace(api=launcher,version='1.1.17.1',channel_fetching=True,
+      channel_status=status,update_now=button,update=Mock())
+  ui.App.receive_channel(app,{'latest':'1.1.17.1','patches':[],
+      'launcher':{'version':launcher.VERSION}})
+  self.assertEqual(status.get(),"YOU'RE UP TO DATE / OpenHW 1.1.17a")
+  self.assertGreater(launcher.updater.compare_versions('1.1.17.1','1.1.17'),0)
 
 if __name__=='__main__':unittest.main()

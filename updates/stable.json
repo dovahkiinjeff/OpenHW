@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channel": "stable",
-  "latest": "1.1.17",
+  "latest": "1.1.17.1",
   "minimum_protocol": 4,
   "full_install": {
     "version": "1.1.15",
@@ -78,31 +78,45 @@
         "1.1.16"
       ],
       "mirrors": []
+    },
+    {
+      "version": "1.1.17.1",
+      "url": "https://openhw.tech/downloads/v1.1.17a/OpenHW-Patch-1.1.17a.exe",
+      "size": 42788625,
+      "sha256": "9114591fcf132b43392f06698be90af5a47ba0e6e9509d388eebd01a7d44ac97",
+      "to": "1.1.17.1",
+      "format": "openhw-exe-zip-v1",
+      "post_actions": [],
+      "from": [
+        "1.1.17"
+      ],
+      "mirrors": []
     }
   ],
   "launcher": {
-    "version": "1.1.12",
-    "url": "https://openhw.tech/downloads/v1.1.17/Launcher.exe",
-    "size": 10079200,
-    "sha256": "ebbcb39b1046751eb7afe89a8bdda18e3c160bdfc18c266b2538f70a3e4f01b6"
+    "version": "1.1.13",
+    "url": "https://openhw.tech/downloads/v1.1.17a/Launcher.exe",
+    "size": 10079548,
+    "sha256": "bb7837fe3598109f1dfe4eb419102ce88a0549b48c01f6f68225d05ee074361f"
   },
   "updater": {
-    "version": "1.1.12",
-    "url": "https://openhw.tech/downloads/v1.1.17/Updater.exe",
-    "size": 10068940,
-    "sha256": "1a5c5a0dc0540c20bf537295d17323f925739d645006058c3bab5fe88ea66644",
+    "version": "1.1.13",
+    "url": "https://openhw.tech/downloads/v1.1.17a/Updater.exe",
+    "size": 10069287,
+    "sha256": "039e0548c22b23c8d3c5525d238fc35c12e030debcb7a834ac9ca7ff181f98d3",
     "protocol": 4
   },
   "fresh_install": {
-    "version": "1.1.17",
-    "url": "https://openhw.tech/downloads/v1.1.17/OpenHW-Setup.exe",
-    "size": 511721571,
-    "sha256": "07ceb2b2bb396807108bc152ad321e4a6d8101e0dfddda60ad7d7ea29182de78",
+    "version": "1.1.17.1",
+    "url": "https://openhw.tech/downloads/v1.1.17a/OpenHW-Setup.exe",
+    "size": 511809836,
+    "sha256": "a4c8fca6ebe56a51c48d42161c6fa3fea7838dabe5eab8d7a74531643a65434e",
     "format": "openhw-full-v1"
   },
   "installation_policy": {
     "base_version": "1.1.15",
     "recovery_page": "https://openhw.tech/#/download",
     "explanation": "1.1.15 is the consolidated full baseline. Earlier versions use the same complete GitHub package in place; player files are preserved. Compatible 1.1 archives are reused; older data is rebuilt from the owned Collection."
-  }
+  },
+  "release": "1.1.17a"
 }

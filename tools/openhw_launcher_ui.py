@@ -263,7 +263,7 @@ class App:
             c.create_text(25,y+20,text=text,fill=INK if active else MUTED,font=('Rajdhani',-21,'bold'),anchor='w')
         c.create_line(25,h-130,178,h-130,fill=LINE)
         c.create_text(25,h-105,text='LOCAL INSTALLATION',fill=MUTED,font=MONO,anchor='w')
-        c.create_text(25,h-79,text='OPENHW '+self.version,fill=GOLD,font=('Rajdhani',-20,'bold'),anchor='w')
+        c.create_text(25,h-79,text='OPENHW '+self.api.updater.display_version(self.version),fill=GOLD,font=('Rajdhani',-20,'bold'),anchor='w')
         c.create_text(25,h-49,text='PORTABLE / WINDOWS 64',fill='#66858e',font=('Share Tech Mono',-10),anchor='w')
     def rail_click(self,event):
         for i,key in enumerate(('play','settings','mods','system')):
@@ -290,7 +290,7 @@ class App:
         c.create_text(38,183,text='T H E   J O U R N E Y   H O M E',fill=GOLD,font=('Rajdhani',-20,'bold'),anchor='w',tags='scene')
         y=max(335,min(h-180,393));self.play_button.place(x=38,y=y,width=352,height=72)
         self.diag_button.place(x=38,y=y+84,width=352,height=46)
-        c.create_text(39,h-28,text='BUILD '+self.version+'   /   FLEET SYSTEMS ONLINE',fill=GREEN,font=MONO,anchor='w',tags='scene')
+        c.create_text(39,h-28,text='BUILD '+self.api.updater.display_version(self.version)+'   /   FLEET SYSTEMS ONLINE',fill=GREEN,font=MONO,anchor='w',tags='scene')
         c.create_text(w-24,h-28,text='ARCHIVE  /  HANGAR STUDY',fill='#b7c9cb',font=('Share Tech Mono',-10),anchor='e',tags='scene')
         c.tag_lower('scene')
     def entry(self,parent,variable,width=24,secret=False):
@@ -461,7 +461,7 @@ class App:
             try:
                 command=self.api.prepare_launcher_update(self.root,lambda text,value=None:self.messages.put(('progress',text,value)))
                 if command:self.messages.put(('handoff',command,0))
-                else:self.messages.put(('done',"You're up to date. OpenHW "+self.version+' / No updates available.',0))
+                else:self.messages.put(('done',"You're up to date. OpenHW "+self.api.updater.display_version(self.version)+' / No updates available.',0))
             except Exception as error:self.messages.put(('error',str(error),0))
         threading.Thread(target=worker,daemon=False).start()
     def check_channel(self):
@@ -491,10 +491,10 @@ class App:
         component=feed.get('launcher')
         launcher_new=component and self.api.updater.compare_versions(component['version'],self.api.VERSION)>0
         if game_new or launcher_new:
-            self.channel_status.set('UPDATE AVAILABLE / OpenHW '+feed['latest']+' - ready to download and install.')
+            self.channel_status.set('UPDATE AVAILABLE / OpenHW '+self.api.updater.display_version(feed['latest'])+' - ready to download and install.')
             self.update_now.place(relx=1,x=-244,y=72,width=220,height=38)
         else:
-            self.channel_status.set("YOU'RE UP TO DATE / OpenHW "+self.version)
+            self.channel_status.set("YOU'RE UP TO DATE / OpenHW "+self.api.updater.display_version(self.version))
             self.update_now.place_forget()
     def cache(self):
         if self.dialog('REBUILD SHADER LIBRARY','Back up the current local cache? OpenHW will rebuild it at the next startup.',confirm=True):self.status.set(self.api.rebuild_shader_cache(self.root))
@@ -538,7 +538,7 @@ class App:
         if kind=='done':
             # A check with no handoff did not change any installed files.
             # Complete it without rebuilding the UI or reading files here.
-            self.channel_status.set("YOU'RE UP TO DATE / OpenHW "+self.version)
+            self.channel_status.set("YOU'RE UP TO DATE / OpenHW "+self.api.updater.display_version(self.version))
             self.update_now.place_forget()
         elif kind=='error':
             self.status.set('UPDATE CHECK FAILED / '+text+'. You can retry or close the Launcher.')
