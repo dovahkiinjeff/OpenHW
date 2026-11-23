@@ -5,9 +5,9 @@ def prepare(source,destination):
  source,destination=source.resolve(),destination.resolve()
  if destination.exists() or destination==source or source.is_relative_to(destination):raise ValueError('Choose a new isolated destination')
  shutil.copytree(source,destination,ignore=shutil.ignore_patterns('.git','out','.deps','__pycache__'))
- def edit(name,old,new):
+ def edit(name,old,new,count=1):
   p=destination/name;s=p.read_text(encoding='utf-8')
-  if s.count(old)!=1:raise ValueError('Patch no longer matches: '+name)
+  if s.count(old)!=count:raise ValueError('Patch no longer matches: '+name)
   p.write_text(s.replace(old,new),encoding='utf-8')
  edit('src/Network/MatchRules.c','int hwMatchInstall(const OHLoad *load)','static int matchInstall(const OHLoad *load,int lab)')
  edit('src/Network/MatchRules.c','!load->humans || load->humans>load->players','(!load->humans && !lab) || load->humans>load->players')
@@ -23,7 +23,7 @@ def prepare(source,destination):
  # Use the existing no-visual-effect path. Its logical hyperspace state and
  # tick-based progression remain identical; no renderer exists in the lab.
  edit('src/Game/HS.c','#include "HS.h"','#include "HS.h"\n#include "../Network/DedicatedServer.h"')
- edit('src/Game/HS.c','if (!displayEffect)','if (!displayEffect || hwDedicatedMode)')
+ edit('src/Game/HS.c','if (!displayEffect)','if (!displayEffect || hwDedicatedMode)',count=2)
  edit('src/Game/AIPlayer.h','#ifdef HW_BUILD_FOR_DEBUGGING\n#define aiplayerLog(x)    aiplayerDebugLog x','#if defined(OPENHW_AI_LAB)\n#define aiplayerLog(x) do { if(aiplayerLogEnable) aiplayerDebugLog x; } while(0)\n#elif defined(HW_BUILD_FOR_DEBUGGING)\n#define aiplayerLog(x)    aiplayerDebugLog x')
  edit('src/Game/AIPlayer.c','if (aiplayerLogEnable)\n    {\n        logfileClear','if (aiplayerLogEnable && !getenv("OPENHW_AI_LAB"))\n    {\n        logfileClear')
  edit('src/Game/AIPlayer.c','void aiplayerDebugLog(uword playerIndex, char *format, ...)\n{','''void aiplayerDebugLog(uword playerIndex, char *format, ...)
