@@ -11,6 +11,7 @@ When the owner says "publish the update", complete this workflow:
 - Preserve supported existing-installation upgrade paths. Do not use a full installer over an existing game folder.
 - Update the website server-download catalog alongside the release entry so downloads remain available even though GitHub hosts no compiled assets.
 - Verify the live website, release entry, server assets and both metadata feeds before reporting success.
+- Read and write release text explicitly as UTF-8. Set the approved title explicitly when creating AND updating a GitHub release; never inherit an older release's subtitle through template replacement. Reject broken-encoding markers in titles and verify the exact live GitHub/API title. Releases 1.1.17 and 1.1.17a are titled only "OpenHW 1.1.17" and "OpenHW 1.1.17a".
 - Source-only publication is the standing default for all future releases unless the owner explicitly changes it.
 
 ## Owner-directed 1.1.15 baseline reset
