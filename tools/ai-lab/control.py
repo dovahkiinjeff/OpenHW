@@ -20,7 +20,7 @@ def main():
   root.mkdir(parents=True,exist_ok=True);(root/'STOP').unlink(missing_ok=True)
   subprocess.run(['systemctl','reset-failed','openhw-ai-lab.service'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
   command=['systemd-run','--unit=openhw-ai-lab','--collect','--property=User=openhw-ai-lab',
-    '--property=CPUQuota=250%','--property=MemoryHigh=8G','--property=MemoryMax=10G','--property=TasksMax=4096',
+    '--property=CPUQuota=250%','--property=MemoryHigh=8G','--property=MemoryMax=10G','--property=MemorySwapMax=8G','--property=TasksMax=4096',
     '--property=KillMode=control-group','--property=TimeoutStopSec=20','--property=UMask=0077',
     '--property=StandardOutput=null','--property=StandardError=null','--property=ProtectSystem=strict',
     '--property=ProtectHome=yes','--property=PrivateTmp=yes',

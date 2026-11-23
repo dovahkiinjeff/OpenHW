@@ -38,6 +38,11 @@ outside the public game directory. Use a dedicated `openhw-ai-lab` OS account,
 a private Wine prefix, and read-only access to imported game assets. The CLI's
 systemd sandbox makes the filesystem read-only except for its results, Wine
 prefix and dedicated home. No per-match copies of the retail archive are needed.
+Native headless worlds still load substantial model data: provision enough
+RAM/swap for roughly 1.5–2 GiB per worker plus the host. The lab permits up to
+8 GiB of swap in addition to its 10 GiB resident limit; it does not create swap
+or change host memory settings automatically. Cold model pages can be paged out
+without changing AI decisions or simulation ticks.
 
 Copy `config.example.json` to a private location such as
 `/etc/openhw-ai-lab/config.json`. Fill in paths and the installed map capacities.
