@@ -5,11 +5,10 @@
 #include <stdio.h>
 
 #define PF_MAX 2048
-#define PF_MAX_POINTS 65536
 typedef struct ParticleFieldStyle { HWModernHarvestableNebulaStyle style;int overridden; } ParticleFieldStyle;
 static ParticleFieldStyle fields[PF_MAX];
 static PDPoint *points;
-static int pointCount,fieldCount,dirty=1,initialized;
+static int pointCapacity,pointCount,fieldCount,dirty=1,initialized;
 static PDField densityField;
 static HWModernVolumetricDustVolume *upload;
 static HWModernHarvestableNebulaStyle defaultStyle;
@@ -41,8 +40,8 @@ void modernParticleFieldsSetOriginalVisible(int visible){originalParticlesVisibl
 void modernParticleFieldsResetStyles(void)
 {
     int i;
-    HWModernHarvestableNebulaStyle initial={1u,1.0f,0.34f,0.72f,0.82f,0.12f,
-        {0.66f,0.48f,0.28f},0.00012f,0.72f,0.58f};
+    HWModernHarvestableNebulaStyle initial={1u,0.63f,0.34f,0.99f,0.05f,0.0f,
+        {0.66f,0.48f,0.28f},0.00046f,0.72f,0.58f};
     originalParticlesVisible=1;
     originalOpacity=168.0f/255.0f;
     modernParticleFieldsResetOriginalColor();
@@ -52,12 +51,13 @@ void modernParticleFieldsReset(void)
 {
     modernOriginalRopeReset();
     free(points);points=NULL;free(upload);upload=NULL;pdFree(&densityField);
-    pointCount=fieldCount=initialized=0;observedMinorHead=NULL;observedMinorCount=0;
+    pointCapacity=pointCount=fieldCount=initialized=0;observedMinorHead=NULL;observedMinorCount=0;
     memset(fields,0,sizeof(fields));modernParticleFieldsResetStyles();
     hwModernGraphicsSetParticleFieldVolumes(NULL,0);
     hwModernGraphicsSetParticleFieldDensity(NULL,0);
 }
 void modernParticleFieldsDirty(void){dirty=1;}
+void modernParticleFieldsPositionsChanged(void){initialized=0;dirty=1;}
 int modernParticleFieldsCount(void){return fieldCount;}
 HWModernHarvestableNebulaStyle *modernParticleFieldsStyle(int field,int edit)
 {
@@ -73,20 +73,28 @@ void modernParticleFieldsResetOverride(int field)
 static int collectParticles(void)
 {
     Node *node;int k;
-    if(!points)points=malloc(PF_MAX_POINTS*sizeof(*points));
-    if(!points)return 0;
-    pointCount=0;
+    if(universe.MinorSpaceObjList.num>pointCapacity){
+        PDPoint *grown=realloc(points,(size_t)universe.MinorSpaceObjList.num*sizeof(*points));
+        if(!grown)return 0;
+        points=grown;pointCapacity=universe.MinorSpaceObjList.num;
+    }
+    pointCount=fieldCount=0;
     for(node=universe.MinorSpaceObjList.head;node;node=node->next){
         SpaceObj *object=(SpaceObj *)listGetStructOfNode(node);
         if(object->objtype!=OBJ_AsteroidType || ((Asteroid *)object)->asteroidtype!=Asteroid0)continue;
-        if(pointCount==PF_MAX_POINTS){HW_DIAG_FPRINTF(stderr,"[ParticleDensity] Particle capacity reached: %d.\n",PF_MAX_POINTS);break;}
         points[pointCount].p[0]=object->posinfo.position.x;
         points[pointCount].p[1]=object->posinfo.position.y;
         points[pointCount].p[2]=object->posinfo.position.z;
         for(k=0;k<3;k++)if(!isfinite(points[pointCount].p[k])||fabsf(points[pointCount].p[k])>100000000.0f)break;
         if(k==3)pointCount++;
     }
-    if(!pointCount)return 0;
+    observedMinorHead=universe.MinorSpaceObjList.head;observedMinorCount=universe.MinorSpaceObjList.num;
+    if(!pointCount){
+        pdFree(&densityField);
+        hwModernGraphicsSetParticleFieldVolumes(NULL,0);
+        hwModernGraphicsSetParticleFieldDensity(NULL,0);
+        return 1;
+    }
     fieldCount=pdCluster(points,pointCount,PF_MAX);
     if(fieldCount<0){fieldCount=0;return 0;}
     if(fieldCount>PF_MAX){HW_DIAG_FPRINTF(stderr,"[ParticleDensity] Clump limit reached: %d.\n",PF_MAX);fieldCount=PF_MAX;}
@@ -104,7 +112,7 @@ void modernParticleFieldsUpdate(void)
     float spread[PF_MAX],softness[PF_MAX];int i,k,count=0;
     if(initialized&&(observedMinorHead!=universe.MinorSpaceObjList.head||observedMinorCount!=universe.MinorSpaceObjList.num))initialized=0;
     if(!initialized){if(!collectParticles())return;initialized=1;dirty=1;}
-    if(!dirty)return;
+    if(!dirty || !fieldCount){dirty=0;return;}
     for(i=0;i<fieldCount;i++){
         const HWModernHarvestableNebulaStyle *s=modernParticleFieldsStyle(i,0);
         spread[i]=defaultStyle.enabled&&s->enabled&&s->density>0?s->radiusScale:0;

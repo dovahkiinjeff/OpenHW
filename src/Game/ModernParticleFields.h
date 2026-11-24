@@ -5,6 +5,7 @@
 void modernParticleFieldsReset(void);
 void modernParticleFieldsUpdate(void);
 void modernParticleFieldsDirty(void);
+void modernParticleFieldsPositionsChanged(void);
 void modernParticleFieldsResetStyles(void);
 int modernParticleFieldsCount(void);
 int modernParticleFieldsOriginalVisible(void);

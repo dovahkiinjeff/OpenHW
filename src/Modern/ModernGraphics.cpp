@@ -20,6 +20,7 @@
 #include "WindowsSplash.h"
 
 #include <algorithm>
+#include <limits>
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -4173,27 +4174,6 @@ void prepareVolumetricDustFrame(PresenterConstants &constants)
     volumetricDustScratch.clear();
     if (volumetricDustScratch.capacity() < maximumVolumetricDustVolumes)
         volumetricDustScratch.reserve(maximumVolumetricDustVolumes);
-    for (const HWModernVolumetricDustVolume &source : volumetricDustVolumes)
-    {
-        if (!source.enabled || source.density <= 0.00001f) continue;
-        volumetricDustScratch.push_back(source);
-        if (volumetricDustScratch.size() >= maximumVolumetricDustVolumes) break;
-    }
-    for (const HWModernVolumetricDustVolume &source : harvestableNebulaVolumes)
-    {
-        if (volumetricDustScratch.size() >= maximumVolumetricDustVolumes) break;
-        if (!source.enabled || source.density <= 0.00001f) continue;
-        volumetricDustScratch.push_back(source);
-        if (volumetricDustScratch.size() >= maximumVolumetricDustVolumes) break;
-    }
-    for (const HWModernVolumetricDustVolume &source : harvestableDustVolumes)
-    {
-        if (volumetricDustScratch.size() >= maximumVolumetricDustVolumes) break;
-        if (!source.enabled || source.density <= 0.00001f) continue;
-        volumetricDustScratch.push_back(source);
-        // Keep this distinction out of authored files and gameplay resources.
-        volumetricDustScratch.back().enabled |= 2u;
-    }
     const auto frontDistance = [cameraX, cameraY, cameraZ](
         const HWModernVolumetricDustVolume &volume)
     {
@@ -4215,37 +4195,65 @@ void prepareVolumetricDustFrame(PresenterConstants &constants)
         return std::max(0.0f, std::sqrt(dx * dx + dy * dy + dz * dz) -
                               radius);
     };
-    /* Keep authored clouds and ropes first in the shared budget. Select nearby
-       automatic fields before truncation so distant map-order entries cannot
-       displace the cloud around the camera. */
-    static std::vector<const HWModernVolumetricDustVolume *> fieldCandidates;
-    fieldCandidates.clear();
+    /* Retain complete map sources and select from the actual view, rather than
+       keeping the first ropes in map order. Give each source family a fair
+       share, then use spare capacity for the nearest remaining candidates. */
     const auto fieldView = hwdust::makeViewFrustum(
         presenter.dustRayUv00, presenter.dustRayUv10, presenter.dustRayUv01,
         2.0f / std::max(1u, presenter.dustScreenWidth),
         2.0f / std::max(1u, presenter.dustScreenHeight));
-    for (const auto &field : particleFieldVolumes)
-        if (field.enabled && field.density > .00001f) {
-            const float radius=.5f*std::sqrt(field.size[0]*field.size[0]+field.size[1]*field.size[1]+field.size[2]*field.size[2]);
-            if (!hwdust::supportSphereIntersectsView(field.position, radius,
-                presenter.dustCameraPosition, fieldView)) continue;
-            fieldCandidates.push_back(&field);
+    static std::vector<const HWModernVolumetricDustVolume *> families[3];
+    for (auto &family : families) family.clear();
+    const auto gather = [&](const auto &sources, unsigned family) {
+        for (const auto &source : sources) {
+            if (!source.enabled || source.density <= .00001f) continue;
+            float half[3]={std::max(1.0f,source.size[0]*.5f),std::max(1.0f,source.size[1]*.5f),std::max(1.0f,source.size[2]*.5f)};
+            if(source.shape==HW_MODERN_DUST_ROPE)
+                hwdust::ropeSupportHalfSize(source.size,source.density,source.shapeVariation,half);
+            else if(source.shape==HW_MODERN_DUST_SPHERE)
+                half[0]=half[1]=half[2]=(half[0]+half[1]+half[2])/3;
+            const float radius=std::sqrt(half[0]*half[0]+half[1]*half[1]+half[2]*half[2]);
+            if (!hwdust::supportSphereIntersectsView(source.position,radius,
+                presenter.dustCameraPosition,fieldView)) continue;
+            if (family==2 && (source.shape!=HW_MODERN_DUST_PARTICLE_DENSITY ||
+                static_cast<size_t>(source.shapeSeed)+particleGridValuesPerBrick>particleFieldDensity.size())) continue;
+            families[family].push_back(&source);
         }
-    std::stable_sort(fieldCandidates.begin(), fieldCandidates.end(),
-        [&frontDistance](const auto *a, const auto *b){return frontDistance(*a)<frontDistance(*b);});
-    unsigned int packedGridValues = 0;
+    };
+    for (auto &source : harvestableDustVolumes) if(source.enabled) source.enabled|=2u;
+    gather(volumetricDustVolumes,0);gather(harvestableDustVolumes,0);
+    gather(harvestableNebulaVolumes,1);gather(particleFieldVolumes,2);
+    unsigned activeFamilies=0;
+    for (auto &family : families) {
+        if (!family.empty()) ++activeFamilies;
+        std::stable_sort(family.begin(),family.end(),[&](const auto *a,const auto *b){return frontDistance(*a)<frontDistance(*b);});
+    }
+    unsigned int packedGridValues=0;
     static std::vector<const HWModernVolumetricDustVolume *> packedFields;
     packedFields.clear();
     std::uint64_t gridFingerprint=particleDensityRevision;
-    for (const auto *field : fieldCandidates) {
-        if (volumetricDustScratch.size() >= maximumVolumetricDustVolumes) break;
-        if (field->shape != HW_MODERN_DUST_PARTICLE_DENSITY ||
-            static_cast<size_t>(field->shapeSeed) + particleGridValuesPerBrick > particleFieldDensity.size()) continue;
-        volumetricDustScratch.push_back(*field);
-        volumetricDustScratch.back().shapeSeed = packedGridValues;
-        packedFields.push_back(field);
-        gridFingerprint=(gridFingerprint ^ field->shapeSeed)*1099511628211ull;
-        packedGridValues += particleGridValuesPerBrick;
+    const auto append = [&](const HWModernVolumetricDustVolume *source,unsigned family) {
+        volumetricDustScratch.push_back(*source);
+        if (family==2) {
+            volumetricDustScratch.back().shapeSeed=packedGridValues;
+            packedFields.push_back(source);
+            gridFingerprint=(gridFingerprint^source->shapeSeed)*1099511628211ull;
+            packedGridValues+=particleGridValuesPerBrick;
+        }
+    };
+    size_t next[3]={};
+    const unsigned share=activeFamilies?maximumVolumetricDustVolumes/activeFamilies:0;
+    for (unsigned family=0;family<3;++family)
+        while (next[family]<families[family].size() && next[family]<share)
+            append(families[family][next[family]++],family);
+    while (volumetricDustScratch.size()<maximumVolumetricDustVolumes) {
+        unsigned selected=3;float nearest=std::numeric_limits<float>::max();
+        for (unsigned family=0;family<3;++family) if (next[family]<families[family].size()) {
+            const float distance=frontDistance(*families[family][next[family]]);
+            if(selected==3 || distance<nearest){selected=family;nearest=distance;}
+        }
+        if(selected==3)break;
+        append(families[selected][next[selected]++],selected);
     }
     if(frame.particleGridFingerprint!=gridFingerprint) {
       unsigned int base=0;
@@ -9955,7 +9963,7 @@ static void rebuildHarvestableNebulaVolumes()
         volume.rotationDegrees[1] = std::atan2(horizontal, dz) * radiansToDegrees;
         volume.rotationDegrees[2] = std::atan2(dy, dx) * radiansToDegrees;
         harvestableNebulaVolumes.push_back(volume);
-        if (harvestableNebulaVolumes.size() >= maximumVolumetricDustVolumes) break;
+        /* All source paths are retained; the per-view budget is applied at upload. */
     }
 }
 

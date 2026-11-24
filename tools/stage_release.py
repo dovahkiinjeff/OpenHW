@@ -33,7 +33,8 @@ def stage(repo, profile, destination, normal_build=None, diagnostic_build=None, 
             shutil.copyfile(profile/row['path'],target)
     shutil.copyfile(profile/'content-inventory.json',dev/'content-inventory.json')
     shutil.copyfile(profile/'event-edits.json',dev/'event-edits.json')
-    shutil.copyfile(profile/'mission-authoring.json',dev/'mission-authoring.json')
+    from authored_mission_defaults import stage_release_content
+    stage_release_content(repo,dev,inventory)
     build=repo/'out/build'
     normal=Path(normal_build) if normal_build else build/'release-no-diagnostics/Release'
     diag=Path(diagnostic_build) if diagnostic_build else build/'deploy-x64-clean/Release'

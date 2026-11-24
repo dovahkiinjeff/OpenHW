@@ -26,6 +26,25 @@ class AuthoredDefaultsTests(unittest.TestCase):
                                  (ROOT/'assets/Missions'/entry['path']).read_bytes())
             self.assertEqual((destination/'mission17.rtxmap').read_bytes(), b'future authoring')
 
+    def test_staged_release_refreshes_old_profile_and_approval_hashes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            development = Path(temporary)/'Development'
+            mission = development/'Content/missions/mission01.rtxmap'
+            mission.parent.mkdir(parents=True)
+            mission.write_bytes(b'old profile')
+            untouched = dict(path='Content/ui/approved.png',category='supplied-concept-art',sha256='preserve')
+            inventory = dict(schema=2,files=[dict(path='Content/missions/mission01.rtxmap',category='authored-text',sha256='old'),untouched])
+            defaults.stage_release_content(ROOT,development,inventory)
+            self.assertEqual(mission.read_bytes(),(ROOT/'assets/Missions/Mission01.rtxmap').read_bytes())
+            staged = json.loads((development/'content-inventory.json').read_text())
+            records = {row['path']:row for row in staged['files']}
+            self.assertEqual(records[untouched['path']],untouched)
+            self.assertEqual(inventory['files'][0]['sha256'],'old')
+            manifest = json.loads((development/'mission-authoring.json').read_text())
+            for entry in manifest['files']:
+                self.assertEqual(records['Content/missions/'+entry['path'].lower()]['sha256'],entry['sha256'])
+            self.assertFalse((development/'Content/missions/authored-defaults.json').exists())
+
     def test_reject_stale_source_before_changing_payload(self):
         with tempfile.TemporaryDirectory() as temporary:
             temporary = Path(temporary)

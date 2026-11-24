@@ -959,6 +959,8 @@ static void mmeMoveObjectTo(SpaceObj *object, const vector *position)
     vector *dest = mmeObjectPosition(object);
     if (dest == NULL || position == NULL) return;
     *dest = *position;
+    if(object->objtype==OBJ_AsteroidType && ((Asteroid *)object)->asteroidtype==Asteroid0)
+        modernParticleFieldsPositionsChanged();
     mmeStopObjectMotion(object);
     univUpdateObjRotInfo((SpaceObjRot *)object);
 }
@@ -4492,6 +4494,9 @@ void modernMapEditorMissionReset(void)
 {
     /* The mission number alone cannot identify the lifetime of a loaded
        universe. Save loading resets particle styles even for the same level. */
+    static const HWModernHarvestableNebulaStyle ropeDefault={
+        1u,1.18f,.34f,.72f,.82f,.16f,{.66f,.42f,.22f},.00042f,.72f,.58f};
+    mmeRopeStyle=ropeDefault;
     editorInstanceScaleReset(&mmeDerelictScales);
     mmeVolumeMission = -1;
     mmeVolumeCount = 0;

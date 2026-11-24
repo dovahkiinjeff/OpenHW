@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "baseline": "Effective WIP Missions 1-16, using runtime override precedence",
+  "baseline": "Approved mission authoring with source-aligned particle cloud appearance",
   "files": [
     {
       "mission": 1,
       "path": "Mission01.rtxmap",
-      "sha256": "fd46f74802f5bd567fefe69d96f230208dd9ff184406fc1e69252ff333d8fa7a",
-      "origin": "Dev/RTXExports/Maps/Mission01.rtxmap"
+      "sha256": "5145adfb44750e5ef8478263ffd70024b0a7da395e2d5bfc027133a1547accf2",
+      "origin": "assets/Missions/Mission01.rtxmap"
     },
     {
       "mission": 1,
@@ -17,8 +17,8 @@
     {
       "mission": 2,
       "path": "Mission02.rtxmap",
-      "sha256": "a55df52834b17c3ced38c26ba2b51d88bac5dc6edd6dcc3dd352d6abe8217277",
-      "origin": "Dev/RTXExports/Maps/Mission02.rtxmap"
+      "sha256": "9440635e2f5968baef58d364ffc2216eb8dee832f0b6b4880d363ffa9f73621d",
+      "origin": "assets/Missions/Mission02.rtxmap"
     },
     {
       "mission": 2,
@@ -29,8 +29,8 @@
     {
       "mission": 3,
       "path": "Mission03.rtxmap",
-      "sha256": "6d85d196cfb8eb575f013fc76000ee9b3687cab38ae5402352adc970e82f8954",
-      "origin": "Dev/RTXExports/Maps/Mission03.rtxmap"
+      "sha256": "88bfed4085a923442cf8d261323a443c20e2a50a23d6c3ab4039e63f6549df5f",
+      "origin": "assets/Missions/Mission03.rtxmap"
     },
     {
       "mission": 3,
@@ -41,8 +41,8 @@
     {
       "mission": 4,
       "path": "Mission04.rtxmap",
-      "sha256": "6cdad3f06a08b24e3b9454bc737a0b13e63669b2936a8f901c1e09d3ea73d9c6",
-      "origin": "Dev/RTXExports/Maps/Mission04.rtxmap"
+      "sha256": "4b1a51774c505f9527547a378e18cc9b246387cc2343d1b3e26ba85be50b5b90",
+      "origin": "assets/Missions/Mission04.rtxmap"
     },
     {
       "mission": 4,
@@ -53,8 +53,8 @@
     {
       "mission": 5,
       "path": "Mission05.rtxmap",
-      "sha256": "994f2760bf5ad43f7408103b790096fc5f6a8e8329b1493a54e0480c6cf05d0c",
-      "origin": "Dev/RTXExports/Maps/Mission05.rtxmap"
+      "sha256": "528027268da8f705ce2dc11f8888996639b14f63f7251e26fd37fb5fe5c7ffd9",
+      "origin": "assets/Missions/Mission05.rtxmap"
     },
     {
       "mission": 5,
@@ -65,8 +65,8 @@
     {
       "mission": 6,
       "path": "Mission06.rtxmap",
-      "sha256": "5acc23e9c64a0295b723212a078714b17a41dd1a5ca8a6e546af86d2f05612d6",
-      "origin": "Dev/RTXExports/Maps/Mission06.rtxmap"
+      "sha256": "ce48225cfa2398c4b80d14231a811ccb871cae956023b65e142218a0ecad42e6",
+      "origin": "assets/Missions/Mission06.rtxmap"
     },
     {
       "mission": 6,
@@ -77,8 +77,8 @@
     {
       "mission": 7,
       "path": "Mission07.rtxmap",
-      "sha256": "5617c691ecb71f60239bcc87b642660262eb199a9daced229d4ffe9b844b8847",
-      "origin": "Dev/RTXExports/Maps/Mission07.rtxmap"
+      "sha256": "9b5ddbe5fc33e06bbb4174fa62a4b1d5cfa5a1f984f289c518515c82699da173",
+      "origin": "assets/Missions/Mission07.rtxmap"
     },
     {
       "mission": 7,
@@ -89,8 +89,8 @@
     {
       "mission": 8,
       "path": "Mission08.rtxmap",
-      "sha256": "33a51fa5ee1840bfccf829bf8e86a860638e9efb6f70585e09e426150b15f749",
-      "origin": "Dev/RTXExports/Maps/Mission08.rtxmap"
+      "sha256": "c775064f5f6e2084d3ce5dc60ecc3ce169ba7055926f39d986cb6e514d471d16",
+      "origin": "assets/Missions/Mission08.rtxmap"
     },
     {
       "mission": 8,
@@ -101,8 +101,8 @@
     {
       "mission": 9,
       "path": "Mission09.rtxmap",
-      "sha256": "c8fb3087936abfdaec8a18078a46e522251c6b25d15097bc631d6a496da0b28d",
-      "origin": "Dev/RTXExports/Maps/Mission09.rtxmap"
+      "sha256": "2a2bc97a4317c74e46e972f9254af0d2845249b44b1cfe44f996502a2ff34b03",
+      "origin": "assets/Missions/Mission09.rtxmap"
     },
     {
       "mission": 9,
@@ -113,8 +113,8 @@
     {
       "mission": 10,
       "path": "Mission10.rtxmap",
-      "sha256": "50189f75e761611f425c747dded09a0867303bcfc672701e416672a8369db6eb",
-      "origin": "Dev/RTXExports/Maps/Mission10.rtxmap"
+      "sha256": "d5195bbfa1bb4b6f7596725d53985074906ec3b413cb7d8b5cf47090187266ec",
+      "origin": "assets/Missions/Mission10.rtxmap"
     },
     {
       "mission": 10,
@@ -125,8 +125,8 @@
     {
       "mission": 11,
       "path": "Mission11.rtxmap",
-      "sha256": "9304ede17bf691632225d7be3245da25859d0f74f09bc3a468448192c7f4b193",
-      "origin": "Dev/RTXExports/Maps/Mission11.rtxmap"
+      "sha256": "d2c68ec6d2fe2de4c23e10d12a13708dd039ee5df3360da557e2fdec57666e00",
+      "origin": "assets/Missions/Mission11.rtxmap"
     },
     {
       "mission": 11,
@@ -137,8 +137,8 @@
     {
       "mission": 12,
       "path": "Mission12.rtxmap",
-      "sha256": "5b433e773815dd5d5e1de8aa88d55394081f1f79da3e791a80e5fef32fa6ffcd",
-      "origin": "Dev/RTXExports/Maps/Mission12.rtxmap"
+      "sha256": "1fae34dae7a0c014bc25e1b1562dd297127dbda2974e1b67c215826826782aa6",
+      "origin": "assets/Missions/Mission12.rtxmap"
     },
     {
       "mission": 12,
@@ -149,8 +149,8 @@
     {
       "mission": 13,
       "path": "Mission13.rtxmap",
-      "sha256": "b469c20fbbbc61f58ef7ee094ef7c9a96011b6bdb4c0e408ed6c3dd23ddf3d12",
-      "origin": "Dev/RTXExports/Maps/Mission13.rtxmap"
+      "sha256": "3b8c278588d82747118ac5285feb0b0d9196a63265e8469031af36caf9025104",
+      "origin": "assets/Missions/Mission13.rtxmap"
     },
     {
       "mission": 13,
@@ -161,8 +161,8 @@
     {
       "mission": 14,
       "path": "Mission14.rtxmap",
-      "sha256": "fc845a4e59cf056a107e436f1cb2e7323bb42eae0a0328797b8a6caf7596b68d",
-      "origin": "Dev/RTXExports/Maps/Mission14.rtxmap"
+      "sha256": "28fcf8f820d3fbeae8c7de407164218900a8a65305f5751dc2cab43dabd3df31",
+      "origin": "assets/Missions/Mission14.rtxmap"
     },
     {
       "mission": 14,
@@ -173,14 +173,14 @@
     {
       "mission": 15,
       "path": "Mission15.rtxmap",
-      "sha256": "9b95d885fb4d22ce1582e747b5c9a60b5918d42eccf04f4c0a580a4794de3ee2",
-      "origin": "Dev/RTXExports/Maps/Mission15.rtxmap"
+      "sha256": "e8f74b57e63f39b4b12abf03201b4a9eb4bf38ebb3425d88355d0afe0c4eb029",
+      "origin": "assets/Missions/Mission15.rtxmap"
     },
     {
       "mission": 16,
       "path": "Mission16.rtxmap",
-      "sha256": "1b27678ee21105bfda79206d2f4960f1e8c776a89da67679c79add9f3e157876",
-      "origin": "Dev/RTXExports/Maps/Mission16.rtxmap"
+      "sha256": "794e7dd7d53ce6fc690d4a1d8449ecc7abfa8d1eda2e32e13876f71929a81828",
+      "origin": "assets/Missions/Mission16.rtxmap"
     },
     {
       "mission": 16,

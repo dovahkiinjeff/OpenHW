@@ -40,6 +40,11 @@ int main(int argc,char **argv)
             pdFree(&cloud);
         }
     }
+    modernParticleFieldsReset();
+    CHECK(fabsf(modernParticleFieldsStyle(-1,0)->radiusScale-.63f)<.00001f);
+    CHECK(fabsf(modernParticleFieldsStyle(-1,0)->edgeFeather-.99f)<.00001f);
+    CHECK(modernParticleFieldsStyle(-1,0)->absorption==0);
+    CHECK(fabsf(modernParticleFieldsStyle(-1,0)->noiseScale-.00046f)<.0000001f);
     /* Fifty dense sampling packets along one belt are ONE editor field.
        Eight-neighbour connectivity alone incorrectly reports 52 fields. */
     {
@@ -110,7 +115,7 @@ int main(int argc,char **argv)
      CHECK(fabsf(pdSample(&f,left,at)-2*pdKernel(4000000,64000000))<.00001f);
      pdFree(&f);
     }
-    modernParticleFieldsReset();modernParticleFieldsUpdate();CHECK(!initialized);
+    modernParticleFieldsReset();modernParticleFieldsUpdate();CHECK(initialized && !fieldCount && !submittedCount);
     {Asteroid particles[4];Node nodes[4];FILE *saved;char line[512];unsigned calls;
      memset(particles,0,sizeof(particles));memset(nodes,0,sizeof(nodes));
      for(i=0;i<4;i++){
@@ -150,7 +155,14 @@ int main(int argc,char **argv)
      modernParticleFieldsRead("PARTICLE_DENSITY_STYLE 1 1 nan 1 1 1 1 1 1 1 1 1 1");
      CHECK(modernParticleFieldsStyle(1,0)->density==.77f);
      modernParticleFieldsStyle(-1,1)->enabled=0;modernParticleFieldsDirty();modernParticleFieldsUpdate();CHECK(!submittedCount);
-     universe.MinorSpaceObjList.head=NULL;universe.MinorSpaceObjList.num=0;modernParticleFieldsReset();
+     /* Same list identity/count: coordinate edits still rebuild the source. */
+     particles[0].posinfo.position.x=200000;
+     modernParticleFieldsPositionsChanged();modernParticleFieldsUpdate();
+     {int found=0;for(i=0;i<pointCount;i++)if(points[i].p[0]==200000)found=1;CHECK(found);}
+     /* Entering an empty MP map must clear the previous map's GPU data. */
+     universe.MinorSpaceObjList.head=NULL;universe.MinorSpaceObjList.num=0;
+     modernParticleFieldsUpdate();CHECK(!submittedCount && !fieldCount && !submittedDensity);
+     modernParticleFieldsReset();
     }
     free(submittedDensity);
     puts("Actual-particle clustering, additive density, proximity falloff, empty gaps, seamless bricks, save/load, minor-list integration and dirty caching passed.");
