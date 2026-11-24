@@ -2,6 +2,7 @@
 #include "ModernParticleFields.h"
 #include "ParticleDensityField.h"
 #include "Universe.h"
+#include "Globals.h"
 #include <stdio.h>
 
 #define PF_MAX 2048
@@ -40,8 +41,12 @@ void modernParticleFieldsSetOriginalVisible(int visible){originalParticlesVisibl
 void modernParticleFieldsResetStyles(void)
 {
     int i;
-    HWModernHarvestableNebulaStyle initial={1u,0.63f,0.34f,0.99f,0.05f,0.0f,
-        {0.66f,0.48f,0.28f},0.00046f,0.72f,0.58f};
+    HWModernHarvestableNebulaStyle initial={1u,1.0f,0.34f,0.72f,0.82f,0.12f,
+        {0.66f,0.48f,0.28f},0.00012f,0.72f,0.58f};
+    if(!singlePlayerGame){
+        initial.radiusScale=.63f;initial.edgeFeather=.99f;
+        initial.scattering=.05f;initial.absorption=0;initial.noiseScale=.00046f;
+    }
     originalParticlesVisible=1;
     originalOpacity=168.0f/255.0f;
     modernParticleFieldsResetOriginalColor();

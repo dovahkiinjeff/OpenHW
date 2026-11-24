@@ -4496,7 +4496,7 @@ void modernMapEditorMissionReset(void)
        universe. Save loading resets particle styles even for the same level. */
     static const HWModernHarvestableNebulaStyle ropeDefault={
         1u,1.18f,.34f,.72f,.82f,.16f,{.66f,.42f,.22f},.00042f,.72f,.58f};
-    mmeRopeStyle=ropeDefault;
+    if(!singlePlayerGame)mmeRopeStyle=ropeDefault;
     editorInstanceScaleReset(&mmeDerelictScales);
     mmeVolumeMission = -1;
     mmeVolumeCount = 0;

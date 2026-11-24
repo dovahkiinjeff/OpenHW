@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channel": "stable",
-  "latest": "1.1.19",
+  "latest": "1.1.20",
   "minimum_protocol": 4,
   "full_install": {
     "version": "1.1.15",
@@ -106,35 +106,56 @@
     },
     {
       "version": "1.1.19",
-      "url": "https://openhw.tech/downloads/v1.1.19/OpenHW-Patch-1.1.19.exe",
-      "size": 42865608,
-      "sha256": "e3b29bcdee621e84fd50a53bcbe3346e9dfb811f2e966c109ac486493f8ba32c",
+      "url": "https://openhw.tech/downloads/v1.1.19/OpenHW-Patch-1.1.19-compat.exe",
+      "size": 42831135,
+      "sha256": "ce7969b8e5505b5c66916a6f03682e41818c2420476e97a279f4c801c139c754",
       "to": "1.1.19",
       "format": "openhw-exe-zip-v1",
       "post_actions": [],
       "from": [
         "1.1.18"
       ]
+    },
+    {
+      "version": "1.1.20",
+      "url": "https://openhw.tech/downloads/v1.1.20/OpenHW-Patch-1.1.20.exe",
+      "size": 42844964,
+      "sha256": "9447bb4c27ba20dc0c643410fac6d13b3f057317b58827ee7b1ad278a052aec8",
+      "to": "1.1.20",
+      "format": "openhw-exe-zip-v1",
+      "post_actions": [
+        {
+          "kind": "verified-helper-v1",
+          "path": "Development/Installer/OpenHW-SetupEngine.exe",
+          "args": [
+            "--restore-campaign-defaults"
+          ],
+          "timeout_seconds": 120
+        }
+      ],
+      "from": [
+        "1.1.19"
+      ]
     }
   ],
   "launcher": {
     "version": "1.1.13",
-    "url": "https://openhw.tech/downloads/v1.1.19/Launcher.exe",
+    "url": "https://openhw.tech/downloads/v1.1.20/Launcher.exe",
     "size": 10079548,
     "sha256": "bb7837fe3598109f1dfe4eb419102ce88a0549b48c01f6f68225d05ee074361f"
   },
   "updater": {
     "version": "1.1.13",
-    "url": "https://openhw.tech/downloads/v1.1.19/Updater.exe",
+    "url": "https://openhw.tech/downloads/v1.1.20/Updater.exe",
     "size": 10069287,
     "sha256": "039e0548c22b23c8d3c5525d238fc35c12e030debcb7a834ac9ca7ff181f98d3",
     "protocol": 4
   },
   "fresh_install": {
-    "version": "1.1.19",
-    "url": "https://openhw.tech/downloads/v1.1.19/OpenHW-Setup.exe",
-    "size": 511851611,
-    "sha256": "481f04e83891a4b5c867f9fe0630e9a6f168bc5ef3801cd574d07e42810b7861",
+    "version": "1.1.20",
+    "url": "https://openhw.tech/downloads/v1.1.20/OpenHW-Setup.exe",
+    "size": 511850722,
+    "sha256": "365efed967fdb048ec719e30eddcb6fe6c310ec528626109869ea254ab18636f",
     "format": "openhw-full-v1"
   },
   "installation_policy": {
@@ -142,5 +163,5 @@
     "recovery_page": "https://openhw.tech/#/download",
     "explanation": "1.1.15 is the consolidated full baseline. Earlier versions use the same complete GitHub package in place; player files are preserved. Compatible 1.1 archives are reused; older data is rebuilt from the owned Collection."
   },
-  "release": "1.1.19"
+  "release": "1.1.20"
 }

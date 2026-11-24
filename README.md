@@ -1,6 +1,6 @@
-# OpenHW 1.1.19
+# OpenHW 1.1.20
 
-**Latest release:** [OpenHW 1.1.19](docs/RELEASE_NOTES_1.1.19.md). Corrects multiplayer dust-cloud generation, rope alignment and cloud appearance. New players can download the complete current package from [openhw.tech](https://openhw.tech/#/download). Existing players update through Launcher. GitHub provides source code; compiled updates are hosted on openhw.tech.
+**Latest release:** [OpenHW 1.1.20](docs/RELEASE_NOTES_1.1.20.md). Corrects multiplayer-only cloud settings and repairs the blocked updater step. New players can download the complete current package from [openhw.tech](https://openhw.tech/#/download). Existing players update through Launcher. GitHub provides source code; compiled updates are hosted on openhw.tech.
 
 **Latest update:** [1.1.16 — AI production, Expert difficulty and update handoff](docs/RELEASE_NOTES_1.1.16.md). Choose **Update now** in Launcher. Compiled updates are served by openhw.tech; GitHub contains source. The complete 1.1.15 installer remains the base for new installations.
 

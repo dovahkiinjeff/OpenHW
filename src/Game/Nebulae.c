@@ -1936,8 +1936,13 @@ static void nebEnsureTendrilGeometry(nebTendril *tendril)
 
             /* Camera-independent geometry; never consume simulation RNG while
                generating the visual envelope for an offscreen rope. */
-            rand = NEB_TENDRIL_RADIUS_RANGE * fsin(a.x*.00173f + a.y*.00211f +
-                a.z*.00137f + b.x*.00091f + b.y*.00119f + b.z*.00151f);
+            if(singlePlayerGame){
+                rand=realRand(NEB_TENDRIL_RADIUS_RANGE);
+                if(ranRandom(RANDOM_NEBULAE)%2==0)rand=-rand;
+            }else{
+                rand = NEB_TENDRIL_RADIUS_RANGE * fsin(a.x*.00173f + a.y*.00211f +
+                    a.z*.00137f + b.x*.00091f + b.y*.00119f + b.z*.00151f);
+            }
             radius = NEB_TENDRIL_RADIUS_BASE + rand;
 
             nebCreateCylinder(tendril, hmat, radius, radius, length, 12, 16, 0);
@@ -2086,8 +2091,105 @@ bool32 nebIsClipped(nebTendril* tendril)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+static void nebRenderCampaign(void)
+{
+    sdword i;
+    HWModernHarvestableNebulaSegment segments[256];
+    HWModernHarvestableNebulaStyle ropeStyle;
+    udword segmentCount = 0;
+
+    /* Preserve historical shared tint until a per-map original-mesh color
+       override is enabled. Original-mesh opacity never changes RTX ropes. */
+    hwModernGraphicsGetHarvestableNebulaStyle(&ropeStyle);
+    nebRopeColorScale[0] = ropeStyle.color[0] / 0.66f;
+    nebRopeColorScale[1] = ropeStyle.color[1] / 0.42f;
+    nebRopeColorScale[2] = ropeStyle.color[2] / 0.22f;
+    nebOriginalRopeColorEnabled=modernOriginalRopeColor(nebOriginalRopeColor);
+    nebOriginalRopeOpacity=modernOriginalRopeOpacity();
+    if(nebOriginalRopeColorEnabled)nebRopeColorScale[0]=nebRopeColorScale[1]=nebRopeColorScale[2]=1;
+
+    if (!smSensorsActive)
+    {
+        for (i = 0; i < numNebulae && segmentCount < 256; ++i)
+        {
+            nebulae_t *neb = &nebNebulae[i];
+            udword j;
+            for (j = 0; j < neb->numTendrils && segmentCount < 256; ++j)
+            {
+                nebTendril *tendril = &neb->tendrilTable[j];
+                vector p0, p1, m0, m1;
+                udword subdivision;
+                const udword subdivisions = 4;
+                if (bitTest(tendril->flags, NEB_TENDRIL_INACTIVE) ||
+                    tendril->a == NULL || tendril->b == NULL) continue;
+                p0 = tendril->a->position;
+                p1 = tendril->b->position;
+                m0 = tendril->direction;
+                if (tendril->prev != NULL)
+                {
+                    vecAddTo(m0, tendril->prev->direction);
+                    if (vecMagnitudeSquared(m0) > 0.000001f) vecNormalize(&m0);
+                    else m0 = tendril->direction;
+                }
+                m1 = tendril->direction;
+                if (tendril->next != NULL)
+                {
+                    vecAddTo(m1, tendril->next->direction);
+                    if (vecMagnitudeSquared(m1) > 0.000001f) vecNormalize(&m1);
+                    else m1 = tendril->direction;
+                }
+                {
+                    vector delta;
+                    real32 length;
+                    vecSub(delta, p1, p0);
+                    length = fsqrt(vecMagnitudeSquared(delta));
+                    vecMultiplyByScalar(m0, length);
+                    vecMultiplyByScalar(m1, length);
+                }
+                for (subdivision = 0;
+                     subdivision < subdivisions && segmentCount < 256;
+                     ++subdivision)
+                {
+                    HWModernHarvestableNebulaSegment *segment = &segments[segmentCount];
+                    real32 times[2] = {
+                        (real32)subdivision / (real32)subdivisions,
+                        (real32)(subdivision + 1) / (real32)subdivisions };
+                    real32 *points[2] = { segment->start, segment->end };
+                    sdword endpoint;
+                    for (endpoint = 0; endpoint < 2; ++endpoint)
+                    {
+                        real32 st = times[endpoint];
+                        real32 st2 = st * st, st3 = st2 * st;
+                        real32 h00 = 2.0f*st3 - 3.0f*st2 + 1.0f;
+                        real32 h10 = st3 - 2.0f*st2 + st;
+                        real32 h01 = -2.0f*st3 + 3.0f*st2;
+                        real32 h11 = st3 - st2;
+                        points[endpoint][0] = h00*p0.x + h10*m0.x + h01*p1.x + h11*m1.x;
+                        points[endpoint][1] = h00*p0.y + h10*m0.y + h01*p1.y + h11*m1.y;
+                        points[endpoint][2] = h00*p0.z + h10*m0.z + h01*p1.z + h11*m1.z;
+                    }
+                    segment->radius = NEB_TENDRIL_RADIUS_BASE +
+                                      NEB_TENDRIL_RADIUS_RANGE * 0.5f;
+                    segment->seed = 0x9e3779b9u ^ (udword)(i * 4099) ^
+                                    (j * 2654435761u) ^
+                                    (subdivision * 2246822519u);
+                    ++segmentCount;
+                }
+            }
+        }
+    }
+    hwModernGraphicsSetHarvestableNebulaSegments(
+        segmentCount > 0 ? segments : NULL, segmentCount);
+
+    for (i = 0; i < numNebulae; i++)
+    {
+        nebRenderNebula(&nebNebulae[i]);
+    }
+}
+
 void nebRender(void)
 {
+    if(singlePlayerGame){nebRenderCampaign();return;}
     sdword i;
     static HWModernHarvestableNebulaSegment *segments;
     static size_t segmentCapacity;

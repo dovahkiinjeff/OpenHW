@@ -1,0 +1,228 @@
+{
+  "files": [
+    {
+      "path": "Data/Missions/mission01.rtxmap",
+      "source": "mission01.rtxmap.bin",
+      "original_sha256": "fd46f74802f5bd567fefe69d96f230208dd9ff184406fc1e69252ff333d8fa7a",
+      "accidental_sha256": "5145adfb44750e5ef8478263ffd70024b0a7da395e2d5bfc027133a1547accf2",
+      "original_source": "assets/Missions/Mission01.rtxmap"
+    },
+    {
+      "path": "missions/mission01.rtxmap",
+      "source": "mission01.rtxmap.bin",
+      "original_sha256": "fd46f74802f5bd567fefe69d96f230208dd9ff184406fc1e69252ff333d8fa7a",
+      "accidental_sha256": "5145adfb44750e5ef8478263ffd70024b0a7da395e2d5bfc027133a1547accf2",
+      "original_source": "assets/Missions/Mission01.rtxmap"
+    },
+    {
+      "path": "Data/Missions/mission02.rtxmap",
+      "source": "mission02.rtxmap.bin",
+      "original_sha256": "a55df52834b17c3ced38c26ba2b51d88bac5dc6edd6dcc3dd352d6abe8217277",
+      "accidental_sha256": "9440635e2f5968baef58d364ffc2216eb8dee832f0b6b4880d363ffa9f73621d",
+      "original_source": "assets/Missions/Mission02.rtxmap"
+    },
+    {
+      "path": "missions/mission02.rtxmap",
+      "source": "mission02.rtxmap.bin",
+      "original_sha256": "a55df52834b17c3ced38c26ba2b51d88bac5dc6edd6dcc3dd352d6abe8217277",
+      "accidental_sha256": "9440635e2f5968baef58d364ffc2216eb8dee832f0b6b4880d363ffa9f73621d",
+      "original_source": "assets/Missions/Mission02.rtxmap"
+    },
+    {
+      "path": "Data/Missions/mission03.rtxmap",
+      "source": "mission03.rtxmap.bin",
+      "original_sha256": "6d85d196cfb8eb575f013fc76000ee9b3687cab38ae5402352adc970e82f8954",
+      "accidental_sha256": "88bfed4085a923442cf8d261323a443c20e2a50a23d6c3ab4039e63f6549df5f",
+      "original_source": "assets/Missions/Mission03.rtxmap"
+    },
+    {
+      "path": "missions/mission03.rtxmap",
+      "source": "mission03.rtxmap.bin",
+      "original_sha256": "6d85d196cfb8eb575f013fc76000ee9b3687cab38ae5402352adc970e82f8954",
+      "accidental_sha256": "88bfed4085a923442cf8d261323a443c20e2a50a23d6c3ab4039e63f6549df5f",
+      "original_source": "assets/Missions/Mission03.rtxmap"
+    },
+    {
+      "path": "Data/Missions/mission04.rtxmap",
+      "source": "mission04.rtxmap.bin",
+      "original_sha256": "6cdad3f06a08b24e3b9454bc737a0b13e63669b2936a8f901c1e09d3ea73d9c6",
+      "accidental_sha256": "4b1a51774c505f9527547a378e18cc9b246387cc2343d1b3e26ba85be50b5b90",
+      "original_source": "assets/Missions/Mission04.rtxmap"
+    },
+    {
+      "path": "missions/mission04.rtxmap",
+      "source": "mission04.rtxmap.bin",
+      "original_sha256": "6cdad3f06a08b24e3b9454bc737a0b13e63669b2936a8f901c1e09d3ea73d9c6",
+      "accidental_sha256": "4b1a51774c505f9527547a378e18cc9b246387cc2343d1b3e26ba85be50b5b90",
+      "original_source": "assets/Missions/Mission04.rtxmap"
+    },
+    {
+      "path": "Data/Missions/mission05.rtxmap",
+      "source": "mission05.rtxmap.bin",
+      "original_sha256": "994f2760bf5ad43f7408103b790096fc5f6a8e8329b1493a54e0480c6cf05d0c",
+      "accidental_sha256": "528027268da8f705ce2dc11f8888996639b14f63f7251e26fd37fb5fe5c7ffd9",
+      "original_source": "assets/Missions/Mission05.rtxmap"
+    },
+    {
+      "path": "missions/mission05.rtxmap",
+      "source": "mission05.rtxmap.bin",
+      "original_sha256": "994f2760bf5ad43f7408103b790096fc5f6a8e8329b1493a54e0480c6cf05d0c",
+      "accidental_sha256": "528027268da8f705ce2dc11f8888996639b14f63f7251e26fd37fb5fe5c7ffd9",
+      "original_source": "assets/Missions/Mission05.rtxmap"
+    },
+    {
+      "path": "Data/Missions/mission06.rtxmap",
+      "source": "mission06.rtxmap.bin",
+      "original_sha256": "5acc23e9c64a0295b723212a078714b17a41dd1a5ca8a6e546af86d2f05612d6",
+      "accidental_sha256": "ce48225cfa2398c4b80d14231a811ccb871cae956023b65e142218a0ecad42e6",
+      "original_source": "assets/Missions/Mission06.rtxmap"
+    },
+    {
+      "path": "missions/mission06.rtxmap",
+      "source": "mission06.rtxmap.bin",
+      "original_sha256": "5acc23e9c64a0295b723212a078714b17a41dd1a5ca8a6e546af86d2f05612d6",
+      "accidental_sha256": "ce48225cfa2398c4b80d14231a811ccb871cae956023b65e142218a0ecad42e6",
+      "original_source": "assets/Missions/Mission06.rtxmap"
+    },
+    {
+      "path": "Data/Missions/mission07.rtxmap",
+      "source": "mission07.rtxmap.bin",
+      "original_sha256": "5617c691ecb71f60239bcc87b642660262eb199a9daced229d4ffe9b844b8847",
+      "accidental_sha256": "9b5ddbe5fc33e06bbb4174fa62a4b1d5cfa5a1f984f289c518515c82699da173",
+      "original_source": "assets/Missions/Mission07.rtxmap"
+    },
+    {
+      "path": "missions/mission07.rtxmap",
+      "source": "mission07.rtxmap.bin",
+      "original_sha256": "5617c691ecb71f60239bcc87b642660262eb199a9daced229d4ffe9b844b8847",
+      "accidental_sha256": "9b5ddbe5fc33e06bbb4174fa62a4b1d5cfa5a1f984f289c518515c82699da173",
+      "original_source": "assets/Missions/Mission07.rtxmap"
+    },
+    {
+      "path": "Data/Missions/mission08.rtxmap",
+      "source": "mission08.rtxmap.bin",
+      "original_sha256": "33a51fa5ee1840bfccf829bf8e86a860638e9efb6f70585e09e426150b15f749",
+      "accidental_sha256": "c775064f5f6e2084d3ce5dc60ecc3ce169ba7055926f39d986cb6e514d471d16",
+      "original_source": "assets/Missions/Mission08.rtxmap"
+    },
+    {
+      "path": "missions/mission08.rtxmap",
+      "source": "mission08.rtxmap.bin",
+      "original_sha256": "33a51fa5ee1840bfccf829bf8e86a860638e9efb6f70585e09e426150b15f749",
+      "accidental_sha256": "c775064f5f6e2084d3ce5dc60ecc3ce169ba7055926f39d986cb6e514d471d16",
+      "original_source": "assets/Missions/Mission08.rtxmap"
+    },
+    {
+      "path": "Data/Missions/mission09.rtxmap",
+      "source": "mission09.rtxmap.bin",
+      "original_sha256": "c8fb3087936abfdaec8a18078a46e522251c6b25d15097bc631d6a496da0b28d",
+      "accidental_sha256": "2a2bc97a4317c74e46e972f9254af0d2845249b44b1cfe44f996502a2ff34b03",
+      "original_source": "assets/Missions/Mission09.rtxmap"
+    },
+    {
+      "path": "missions/mission09.rtxmap",
+      "source": "mission09.rtxmap.bin",
+      "original_sha256": "c8fb3087936abfdaec8a18078a46e522251c6b25d15097bc631d6a496da0b28d",
+      "accidental_sha256": "2a2bc97a4317c74e46e972f9254af0d2845249b44b1cfe44f996502a2ff34b03",
+      "original_source": "assets/Missions/Mission09.rtxmap"
+    },
+    {
+      "path": "Data/Missions/mission10.rtxmap",
+      "source": "mission10.rtxmap.bin",
+      "original_sha256": "50189f75e761611f425c747dded09a0867303bcfc672701e416672a8369db6eb",
+      "accidental_sha256": "d5195bbfa1bb4b6f7596725d53985074906ec3b413cb7d8b5cf47090187266ec",
+      "original_source": "assets/Missions/Mission10.rtxmap"
+    },
+    {
+      "path": "missions/mission10.rtxmap",
+      "source": "mission10.rtxmap.bin",
+      "original_sha256": "50189f75e761611f425c747dded09a0867303bcfc672701e416672a8369db6eb",
+      "accidental_sha256": "d5195bbfa1bb4b6f7596725d53985074906ec3b413cb7d8b5cf47090187266ec",
+      "original_source": "assets/Missions/Mission10.rtxmap"
+    },
+    {
+      "path": "Data/Missions/mission11.rtxmap",
+      "source": "mission11.rtxmap.bin",
+      "original_sha256": "9304ede17bf691632225d7be3245da25859d0f74f09bc3a468448192c7f4b193",
+      "accidental_sha256": "d2c68ec6d2fe2de4c23e10d12a13708dd039ee5df3360da557e2fdec57666e00",
+      "original_source": "assets/Missions/Mission11.rtxmap"
+    },
+    {
+      "path": "missions/mission11.rtxmap",
+      "source": "mission11.rtxmap.bin",
+      "original_sha256": "9304ede17bf691632225d7be3245da25859d0f74f09bc3a468448192c7f4b193",
+      "accidental_sha256": "d2c68ec6d2fe2de4c23e10d12a13708dd039ee5df3360da557e2fdec57666e00",
+      "original_source": "assets/Missions/Mission11.rtxmap"
+    },
+    {
+      "path": "Data/Missions/mission12.rtxmap",
+      "source": "mission12.rtxmap.bin",
+      "original_sha256": "5b433e773815dd5d5e1de8aa88d55394081f1f79da3e791a80e5fef32fa6ffcd",
+      "accidental_sha256": "1fae34dae7a0c014bc25e1b1562dd297127dbda2974e1b67c215826826782aa6",
+      "original_source": "assets/Missions/Mission12.rtxmap"
+    },
+    {
+      "path": "missions/mission12.rtxmap",
+      "source": "mission12.rtxmap.bin",
+      "original_sha256": "5b433e773815dd5d5e1de8aa88d55394081f1f79da3e791a80e5fef32fa6ffcd",
+      "accidental_sha256": "1fae34dae7a0c014bc25e1b1562dd297127dbda2974e1b67c215826826782aa6",
+      "original_source": "assets/Missions/Mission12.rtxmap"
+    },
+    {
+      "path": "Data/Missions/mission13.rtxmap",
+      "source": "mission13.rtxmap.bin",
+      "original_sha256": "b469c20fbbbc61f58ef7ee094ef7c9a96011b6bdb4c0e408ed6c3dd23ddf3d12",
+      "accidental_sha256": "3b8c278588d82747118ac5285feb0b0d9196a63265e8469031af36caf9025104",
+      "original_source": "assets/Missions/Mission13.rtxmap"
+    },
+    {
+      "path": "missions/mission13.rtxmap",
+      "source": "mission13.rtxmap.bin",
+      "original_sha256": "b469c20fbbbc61f58ef7ee094ef7c9a96011b6bdb4c0e408ed6c3dd23ddf3d12",
+      "accidental_sha256": "3b8c278588d82747118ac5285feb0b0d9196a63265e8469031af36caf9025104",
+      "original_source": "assets/Missions/Mission13.rtxmap"
+    },
+    {
+      "path": "Data/Missions/mission14.rtxmap",
+      "source": "mission14.rtxmap.bin",
+      "original_sha256": "fc845a4e59cf056a107e436f1cb2e7323bb42eae0a0328797b8a6caf7596b68d",
+      "accidental_sha256": "28fcf8f820d3fbeae8c7de407164218900a8a65305f5751dc2cab43dabd3df31",
+      "original_source": "assets/Missions/Mission14.rtxmap"
+    },
+    {
+      "path": "missions/mission14.rtxmap",
+      "source": "mission14.rtxmap.bin",
+      "original_sha256": "fc845a4e59cf056a107e436f1cb2e7323bb42eae0a0328797b8a6caf7596b68d",
+      "accidental_sha256": "28fcf8f820d3fbeae8c7de407164218900a8a65305f5751dc2cab43dabd3df31",
+      "original_source": "assets/Missions/Mission14.rtxmap"
+    },
+    {
+      "path": "Data/Missions/mission15.rtxmap",
+      "source": "mission15.rtxmap.bin",
+      "original_sha256": "9b95d885fb4d22ce1582e747b5c9a60b5918d42eccf04f4c0a580a4794de3ee2",
+      "accidental_sha256": "e8f74b57e63f39b4b12abf03201b4a9eb4bf38ebb3425d88355d0afe0c4eb029",
+      "original_source": "assets/Missions/Mission15.rtxmap"
+    },
+    {
+      "path": "missions/mission15.rtxmap",
+      "source": "mission15.rtxmap.bin",
+      "original_sha256": "9b95d885fb4d22ce1582e747b5c9a60b5918d42eccf04f4c0a580a4794de3ee2",
+      "accidental_sha256": "e8f74b57e63f39b4b12abf03201b4a9eb4bf38ebb3425d88355d0afe0c4eb029",
+      "original_source": "assets/Missions/Mission15.rtxmap"
+    },
+    {
+      "path": "Data/Missions/mission16.rtxmap",
+      "source": "mission16.rtxmap.bin",
+      "original_sha256": "1b27678ee21105bfda79206d2f4960f1e8c776a89da67679c79add9f3e157876",
+      "accidental_sha256": "794e7dd7d53ce6fc690d4a1d8449ecc7abfa8d1eda2e32e13876f71929a81828",
+      "original_source": "assets/Missions/Mission16.rtxmap"
+    },
+    {
+      "path": "missions/mission16.rtxmap",
+      "source": "mission16.rtxmap.bin",
+      "original_sha256": "1b27678ee21105bfda79206d2f4960f1e8c776a89da67679c79add9f3e157876",
+      "accidental_sha256": "794e7dd7d53ce6fc690d4a1d8449ecc7abfa8d1eda2e32e13876f71929a81828",
+      "original_source": "assets/Missions/Mission16.rtxmap"
+    }
+  ]
+}

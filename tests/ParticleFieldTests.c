@@ -1,6 +1,7 @@
 #include "../src/Game/ModernParticleFields.c"
 #include <stdio.h>
 Universe universe;
+bool32 singlePlayerGame;
 static HWModernVolumetricDustVolume submitted[PD_MAX_TILES];
 static float *submittedDensity;
 static unsigned submittedCount,submissions;
@@ -40,7 +41,10 @@ int main(int argc,char **argv)
             pdFree(&cloud);
         }
     }
-    modernParticleFieldsReset();
+    singlePlayerGame=TRUE;modernParticleFieldsReset();
+    CHECK(modernParticleFieldsStyle(-1,0)->radiusScale==1.0f);
+    CHECK(fabsf(modernParticleFieldsStyle(-1,0)->scattering-.82f)<.00001f);
+    singlePlayerGame=FALSE;modernParticleFieldsReset();
     CHECK(fabsf(modernParticleFieldsStyle(-1,0)->radiusScale-.63f)<.00001f);
     CHECK(fabsf(modernParticleFieldsStyle(-1,0)->edgeFeather-.99f)<.00001f);
     CHECK(modernParticleFieldsStyle(-1,0)->absorption==0);

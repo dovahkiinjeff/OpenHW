@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.1.19",
+  "version": "1.1.20",
   "snapshot": "Complete current build inputs",
   "excluded": [
     "generated out/ and .deps/",
@@ -385,8 +385,8 @@
     },
     {
       "path": "assets/Missions/authored-defaults.json",
-      "size": 6592,
-      "sha256": "464f6eaa1ca905bfcc502bf1a3d4c7a67f9bfbde94f4bde0b78b965b60b96eac"
+      "size": 6644,
+      "sha256": "1cc006c5636162fe17edb277bac2733b6d0491533886470c31a10429a22f52b5"
     },
     {
       "path": "assets/Missions/LOCAL_IMPORT.txt",
@@ -400,8 +400,8 @@
     },
     {
       "path": "assets/Missions/Mission01.rtxmap",
-      "size": 650,
-      "sha256": "5145adfb44750e5ef8478263ffd70024b0a7da395e2d5bfc027133a1547accf2"
+      "size": 694,
+      "sha256": "fd46f74802f5bd567fefe69d96f230208dd9ff184406fc1e69252ff333d8fa7a"
     },
     {
       "path": "assets/Missions/Mission02.rtxlight",
@@ -410,8 +410,8 @@
     },
     {
       "path": "assets/Missions/Mission02.rtxmap",
-      "size": 824,
-      "sha256": "9440635e2f5968baef58d364ffc2216eb8dee832f0b6b4880d363ffa9f73621d"
+      "size": 957,
+      "sha256": "a55df52834b17c3ced38c26ba2b51d88bac5dc6edd6dcc3dd352d6abe8217277"
     },
     {
       "path": "assets/Missions/Mission03.rtxlight",
@@ -420,8 +420,8 @@
     },
     {
       "path": "assets/Missions/Mission03.rtxmap",
-      "size": 650,
-      "sha256": "88bfed4085a923442cf8d261323a443c20e2a50a23d6c3ab4039e63f6549df5f"
+      "size": 694,
+      "sha256": "6d85d196cfb8eb575f013fc76000ee9b3687cab38ae5402352adc970e82f8954"
     },
     {
       "path": "assets/Missions/Mission04.rtxlight",
@@ -430,8 +430,8 @@
     },
     {
       "path": "assets/Missions/Mission04.rtxmap",
-      "size": 1290,
-      "sha256": "4b1a51774c505f9527547a378e18cc9b246387cc2343d1b3e26ba85be50b5b90"
+      "size": 1655,
+      "sha256": "6cdad3f06a08b24e3b9454bc737a0b13e63669b2936a8f901c1e09d3ea73d9c6"
     },
     {
       "path": "assets/Missions/Mission05.rtxlight",
@@ -440,8 +440,8 @@
     },
     {
       "path": "assets/Missions/Mission05.rtxmap",
-      "size": 823,
-      "sha256": "528027268da8f705ce2dc11f8888996639b14f63f7251e26fd37fb5fe5c7ffd9"
+      "size": 947,
+      "sha256": "994f2760bf5ad43f7408103b790096fc5f6a8e8329b1493a54e0480c6cf05d0c"
     },
     {
       "path": "assets/Missions/Mission06.rtxlight",
@@ -450,8 +450,8 @@
     },
     {
       "path": "assets/Missions/Mission06.rtxmap",
-      "size": 1073,
-      "sha256": "ce48225cfa2398c4b80d14231a811ccb871cae956023b65e142218a0ecad42e6"
+      "size": 1222,
+      "sha256": "5acc23e9c64a0295b723212a078714b17a41dd1a5ca8a6e546af86d2f05612d6"
     },
     {
       "path": "assets/Missions/Mission07.rtxlight",
@@ -460,8 +460,8 @@
     },
     {
       "path": "assets/Missions/Mission07.rtxmap",
-      "size": 825,
-      "sha256": "9b5ddbe5fc33e06bbb4174fa62a4b1d5cfa5a1f984f289c518515c82699da173"
+      "size": 966,
+      "sha256": "5617c691ecb71f60239bcc87b642660262eb199a9daced229d4ffe9b844b8847"
     },
     {
       "path": "assets/Missions/Mission08.rtxlight",
@@ -470,8 +470,8 @@
     },
     {
       "path": "assets/Missions/Mission08.rtxmap",
-      "size": 1008,
-      "sha256": "c775064f5f6e2084d3ce5dc60ecc3ce169ba7055926f39d986cb6e514d471d16"
+      "size": 1073,
+      "sha256": "33a51fa5ee1840bfccf829bf8e86a860638e9efb6f70585e09e426150b15f749"
     },
     {
       "path": "assets/Missions/Mission09.rtxlight",
@@ -480,8 +480,8 @@
     },
     {
       "path": "assets/Missions/Mission09.rtxmap",
-      "size": 783,
-      "sha256": "2a2bc97a4317c74e46e972f9254af0d2845249b44b1cfe44f996502a2ff34b03"
+      "size": 920,
+      "sha256": "c8fb3087936abfdaec8a18078a46e522251c6b25d15097bc631d6a496da0b28d"
     },
     {
       "path": "assets/Missions/Mission10.rtxlight",
@@ -490,8 +490,8 @@
     },
     {
       "path": "assets/Missions/Mission10.rtxmap",
-      "size": 846,
-      "sha256": "d5195bbfa1bb4b6f7596725d53985074906ec3b413cb7d8b5cf47090187266ec"
+      "size": 981,
+      "sha256": "50189f75e761611f425c747dded09a0867303bcfc672701e416672a8369db6eb"
     },
     {
       "path": "assets/Missions/Mission11.rtxlight",
@@ -500,8 +500,8 @@
     },
     {
       "path": "assets/Missions/Mission11.rtxmap",
-      "size": 1259,
-      "sha256": "d2c68ec6d2fe2de4c23e10d12a13708dd039ee5df3360da557e2fdec57666e00"
+      "size": 1323,
+      "sha256": "9304ede17bf691632225d7be3245da25859d0f74f09bc3a468448192c7f4b193"
     },
     {
       "path": "assets/Missions/Mission12.rtxlight",
@@ -510,8 +510,8 @@
     },
     {
       "path": "assets/Missions/Mission12.rtxmap",
-      "size": 751,
-      "sha256": "1fae34dae7a0c014bc25e1b1562dd297127dbda2974e1b67c215826826782aa6"
+      "size": 826,
+      "sha256": "5b433e773815dd5d5e1de8aa88d55394081f1f79da3e791a80e5fef32fa6ffcd"
     },
     {
       "path": "assets/Missions/Mission13.rtxlight",
@@ -520,8 +520,8 @@
     },
     {
       "path": "assets/Missions/Mission13.rtxmap",
-      "size": 1006,
-      "sha256": "3b8c278588d82747118ac5285feb0b0d9196a63265e8469031af36caf9025104"
+      "size": 1071,
+      "sha256": "b469c20fbbbc61f58ef7ee094ef7c9a96011b6bdb4c0e408ed6c3dd23ddf3d12"
     },
     {
       "path": "assets/Missions/Mission14.rtxlight",
@@ -530,13 +530,13 @@
     },
     {
       "path": "assets/Missions/Mission14.rtxmap",
-      "size": 751,
-      "sha256": "28fcf8f820d3fbeae8c7de407164218900a8a65305f5751dc2cab43dabd3df31"
+      "size": 829,
+      "sha256": "fc845a4e59cf056a107e436f1cb2e7323bb42eae0a0328797b8a6caf7596b68d"
     },
     {
       "path": "assets/Missions/Mission15.rtxmap",
-      "size": 751,
-      "sha256": "e8f74b57e63f39b4b12abf03201b4a9eb4bf38ebb3425d88355d0afe0c4eb029"
+      "size": 827,
+      "sha256": "9b95d885fb4d22ce1582e747b5c9a60b5918d42eccf04f4c0a580a4794de3ee2"
     },
     {
       "path": "assets/Missions/Mission16.rtxlight",
@@ -545,8 +545,8 @@
     },
     {
       "path": "assets/Missions/Mission16.rtxmap",
-      "size": 751,
-      "sha256": "794e7dd7d53ce6fc690d4a1d8449ecc7abfa8d1eda2e32e13876f71929a81828"
+      "size": 825,
+      "sha256": "1b27678ee21105bfda79206d2f4960f1e8c776a89da67679c79add9f3e157876"
     },
     {
       "path": "assets/Missions/SKY_PROVENANCE.md",
@@ -567,6 +567,11 @@
       "path": "assets/R1/LOCAL_IMPORT.txt",
       "size": 75,
       "sha256": "88771a7d0919ade436845661713c288451b8b30da00624619b26b4cb22d200a3"
+    },
+    {
+      "path": "assets/Recovery/campaign-1.1.19.json",
+      "size": 11336,
+      "sha256": "c7fd5d57aa5fc85ebf1af6cef810a9f65ce2618c61c4881184885f2515888449"
     },
     {
       "path": "assets/Release/Authored/derelicts/advancesupportfrigate/rmnative/ship.owshipdef",
@@ -23081,7 +23086,7 @@
     {
       "path": "CMakeLists.txt",
       "size": 89188,
-      "sha256": "2b6e5952e3bacbc3f5a122f1c93688065a15338a45c51fb293a17f4eabde5793"
+      "sha256": "1d685bc6bb2895690ee49705981e7c173666dadde8639d9d4e58910b47caf348"
     },
     {
       "path": "CMakePresets.json",
@@ -24474,6 +24479,11 @@
       "sha256": "c8c42ed25afde86bd2bfa27d343fc6690cb5fbe7f2a64f2cb5ae31abe401db2d"
     },
     {
+      "path": "docs/RELEASE_NOTES_1.1.20.md",
+      "size": 599,
+      "sha256": "15217183b3043b12c36857722a774ba053e77984374cc892ef7845c08c5b98ac"
+    },
+    {
       "path": "docs/RELEASE_NOTES_1.1.3.md",
       "size": 2131,
       "sha256": "6cbb6b843efe11e8f11dabacf6755fa0984cd8c49f30e98ee6476e0480f33513"
@@ -24650,8 +24660,8 @@
     },
     {
       "path": "README.md",
-      "size": 41557,
-      "sha256": "cba231cb711969da841bd66ee01bd8cad6ef707e74d92a94ce735fe3b8fd9ba7"
+      "size": 41555,
+      "sha256": "f30cdeb25393c7f3c257396b6e8df7c0397b3f303a4fd8d50ba7daa439a2c6c1"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -25930,8 +25940,8 @@
     },
     {
       "path": "src/Game/ModernMapEditor.c",
-      "size": 200068,
-      "sha256": "5287719bc306025b892974842c0d94c93e8fa0494895d34e7cd6349faed54cde"
+      "size": 200089,
+      "sha256": "f099fb497e740e9dbcc9e9a85720f517237c00a7b48530001e949a55439500d2"
     },
     {
       "path": "src/Game/ModernMapEditor.h",
@@ -25955,8 +25965,8 @@
     },
     {
       "path": "src/Game/ModernParticleFields.c",
-      "size": 12038,
-      "sha256": "c46a18674d148d94696800a853aee336eb2d7ba01a8f707519a49d852d5e6d38"
+      "size": 12237,
+      "sha256": "683f4e884b009caaaf5a152b3ecf8ec4500a3aaa19476fc4346fd55fffcb6ec5"
     },
     {
       "path": "src/Game/ModernParticleFields.h",
@@ -26090,8 +26100,8 @@
     },
     {
       "path": "src/Game/Nebulae.c",
-      "size": 88911,
-      "sha256": "ee83f97c1cba6eb30701b3a5a6a85ed940ec253129fdd69ccfa32bbec7f2ea50"
+      "size": 93640,
+      "sha256": "0c20977b30bbb341733e9d414542bc176152ceba83d1ae510178ed2848dcbca2"
     },
     {
       "path": "src/Game/Nebulae.h",
@@ -28935,8 +28945,8 @@
     },
     {
       "path": "tests/ParticleFieldTests.c",
-      "size": 11126,
-      "sha256": "3c3f8ea62499545625374888b8a835b92b72896d39c6ee24698681d430efdc8a"
+      "size": 11372,
+      "sha256": "02a09a604b93747958ef445798db7dfb2580aecf9a2c9484beca849129b1be90"
     },
     {
       "path": "tests/ParticleGridReference.hlsl",
@@ -29090,8 +29100,8 @@
     },
     {
       "path": "tests/test_authored_mission_defaults.py",
-      "size": 3760,
-      "sha256": "4ad3478fcadd4a2c07496e0aadff260bd228ca0c8afbdbb306b388e64ee4ddde"
+      "size": 2333,
+      "sha256": "cdeb61eca6ab3a938ed8b3fa35024cd7877cadd28e2a2840c028632da57a48ff"
     },
     {
       "path": "tests/test_background_always_on.py",
@@ -29710,8 +29720,8 @@
     },
     {
       "path": "tools/authored_mission_defaults.py",
-      "size": 2450,
-      "sha256": "ce7a352c4aa1ff27bad333e6a4288d74ea727c30a333843af6319cb1cf23df8d"
+      "size": 1353,
+      "sha256": "2b59d5a8925edc2ef5000e144d2d8ec29f823f49bc2921193c7f8850ec70efc6"
     },
     {
       "path": "tools/bc6h_encode.cpp",
@@ -30515,8 +30525,8 @@
     },
     {
       "path": "tools/package_release_patch.py",
-      "size": 8378,
-      "sha256": "0c377893dba2b53a61abc07be81bd2f7a3114087b91392f055fe7c1a5ad0e982"
+      "size": 8778,
+      "sha256": "78e3feb3f6c21b76ff2acbf20366956dfd8c8629e8837a4d8ac3710f8cdf7450"
     },
     {
       "path": "tools/package_ship_document_update.py",
@@ -30570,8 +30580,8 @@
     },
     {
       "path": "tools/release_bootstrap.cpp",
-      "size": 31184,
-      "sha256": "57ccf2ff5a6d564cd49b971e0a9eb9b348d8cd9b97bc51b3b3fde600f79cf531"
+      "size": 31540,
+      "sha256": "0980d4b169289abdbf836dcc9cc21a150b9f2500894c86e34b937f75b424c548"
     },
     {
       "path": "tools/release_compact.py",
@@ -30674,6 +30684,11 @@
       "sha256": "c3389f7523ce934a19cf2a8b7df2bbe64b7bb3fc90be1d06bc057d239897ac1b"
     },
     {
+      "path": "tools/release_patch1120.py",
+      "size": 5263,
+      "sha256": "be2bb22202d98d4d60f33370d7e27fd799c6818b1eb27fe3ec4e31b2dc77ff0d"
+    },
+    {
       "path": "tools/release_patch113.py",
       "size": 3677,
       "sha256": "19467ae9ecdc88492d7eab390ec7102acf20dd63d17d54e5cbe28058095a8b1d"
@@ -30710,8 +30725,8 @@
     },
     {
       "path": "tools/release_setup.py",
-      "size": 13755,
-      "sha256": "1587d59fdd0bd3c1f43b00914c7c924d985aa1328e36f3c12819499611f09a65"
+      "size": 13981,
+      "sha256": "a292a2a7d348cfb8966adf6641d57807496a61cd95bc4bc9e3040727ac945507"
     },
     {
       "path": "tools/release_sky_lighting.py",
@@ -30890,8 +30905,8 @@
     },
     {
       "path": "tools/stage_release.py",
-      "size": 8365,
-      "sha256": "24269fd53e497bea42020ba6152c4e721b7048353f7a2f668d8554bd9d6c41a0"
+      "size": 8337,
+      "sha256": "2c86e56c5c3ab1a3af406e31def1adc0e2547b2e12c763ef7f39c5e1bd6f1381"
     },
     {
       "path": "tools/stage_research_station_native.py",
@@ -30960,8 +30975,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 4323,
-      "sha256": "9fffbb0bd4ad9024492b6249197f2414aa50d3b879c2ca222d265d3c21b62192"
+      "size": 4944,
+      "sha256": "fb04024a13c1e280baad751fd5a4c1aeeafb4c74035f7fd9bb1ec5fe6af922db"
     },
     {
       "path": "vcpkg.json",
