@@ -133,7 +133,13 @@ class Room:
 class Lobby:
     def __init__(self, maps, fingerprint):
         if not maps: raise ValueError('No installed multiplayer maps')
-        self.maps=maps;self.fingerprint=fingerprint;self.rooms={}
+        # Older native enumeration printed unused allocation slots as (null).
+        # Keep only actual map templates and valid installed-player ranges.
+        self.maps={name:limits for name,limits in maps.items()
+                   if isinstance(name,str) and name.count('%d')==1 and name.replace('%d','').find('%')<0
+                   and len(name.encode('utf-8'))<64 and len(limits)==2 and 1<=limits[0]<=limits[1]<=8}
+        if not self.maps:raise ValueError('No valid installed multiplayer maps')
+        self.fingerprint=fingerprint;self.rooms={}
 
     def hello(self, payload):
         if len(payload)!=HELLO.size: raise LobbyError('Invalid hello')
@@ -141,6 +147,15 @@ class Lobby:
         name=text(raw,17) # Legacy engine player names have 18 bytes including NUL.
         if fingerprint!=self.fingerprint: raise LobbyError('This server requires the matching OpenHW multiplayer build')
         return Member(name,fingerprint)
+
+    def map_catalog(self):
+        maps=sorted(self.maps.items())
+        if len(maps)>MAX_MAPS:raise LobbyError('Server map catalog exceeds protocol limit')
+        payload=struct.pack('<I',len(maps))
+        for name,(minimum,maximum) in maps:
+            if not 1<=minimum<=maximum<=8:raise LobbyError('Invalid installed map capacity')
+            payload+=MAP_SUMMARY.pack(encode_text(name,64),minimum,maximum,0)
+        return payload
 
     def directory(self):
         """Bounded, sorted room directory; no tokens, fingerprints or gameplay data."""

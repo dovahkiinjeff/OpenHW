@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.1.20",
+  "version": "1.1.21",
   "snapshot": "Complete current build inputs",
   "excluded": [
     "generated out/ and .deps/",
@@ -45,8 +45,8 @@
     },
     {
       "path": "AGENTS.md",
-      "size": 3434,
-      "sha256": "3fd8381aa3002dba72506273bcdc589ef019447d328b9aea638213c22d4c7d6c"
+      "size": 3658,
+      "sha256": "7bbcdebd7af962557c69fdca871588163a16f4441231beeef4a55743a099a782"
     },
     {
       "path": "assets/Asteroids/asteroid1.obj",
@@ -23085,8 +23085,8 @@
     },
     {
       "path": "CMakeLists.txt",
-      "size": 89188,
-      "sha256": "1d685bc6bb2895690ee49705981e7c173666dadde8639d9d4e58910b47caf348"
+      "size": 89369,
+      "sha256": "6ae151c7ffd4d0bb64601648c8c92809e1fa9ff1a5f8526c595980a839b3aa8f"
     },
     {
       "path": "CMakePresets.json",
@@ -24484,6 +24484,11 @@
       "sha256": "15217183b3043b12c36857722a774ba053e77984374cc892ef7845c08c5b98ac"
     },
     {
+      "path": "docs/RELEASE_NOTES_1.1.21.md",
+      "size": 707,
+      "sha256": "a7f74c2e95b1c2e94827fc64df2049b675bc13bc4fc54f9e44284a10dc12a601"
+    },
+    {
       "path": "docs/RELEASE_NOTES_1.1.3.md",
       "size": 2131,
       "sha256": "6cbb6b843efe11e8f11dabacf6755fa0984cd8c49f30e98ee6476e0480f33513"
@@ -24660,8 +24665,8 @@
     },
     {
       "path": "README.md",
-      "size": 41555,
-      "sha256": "f30cdeb25393c7f3c257396b6e8df7c0397b3f303a4fd8d50ba7daa439a2c6c1"
+      "size": 41532,
+      "sha256": "ffd01f2f8a29150bbb07ca6e4cc974892b6d516a70810e2a4fbab520ee7132cc"
     },
     {
       "path": "RELEASE_NOTES_1.0.1.md",
@@ -24735,13 +24740,13 @@
     },
     {
       "path": "server/configure_host.py",
-      "size": 2611,
-      "sha256": "356412f14d0c82f12fbd9fdf3d68753f1ef71f4e1b56faf0b2e9a23de06ee3bf"
+      "size": 2818,
+      "sha256": "87553b1f90a5bab3181e04f5972fe9c587cf6c291338d4a475903b78819c810d"
     },
     {
       "path": "server/coordinator.py",
-      "size": 13754,
-      "sha256": "23755ec8514367f4beac3410007a3ed070cf841b5691d7a7aa21155b9d678159"
+      "size": 14123,
+      "sha256": "17b4ec79574fde7be8b8b96c6adf1495f3cb10f216a1b4530c4d15af0e41df09"
     },
     {
       "path": "server/diagnostics.py",
@@ -24750,8 +24755,8 @@
     },
     {
       "path": "server/lobby.py",
-      "size": 8414,
-      "sha256": "14230d8d74c738db9b3426af3ae8b5246ddc74054c7d413a371c46f751b75c0a"
+      "size": 9529,
+      "sha256": "71714eeed243ecaf43c428ad98ace94cf985d72313aaca19862e6793051fab2c"
     },
     {
       "path": "server/mirror_updates.py",
@@ -24785,8 +24790,8 @@
     },
     {
       "path": "server/protocol.py",
-      "size": 4725,
-      "sha256": "84fdc52e5d8395e13777ef34864d16a912dc0ba9d4ed33a14fac60b459b49306"
+      "size": 4894,
+      "sha256": "f3782de6d7cba5106189f850396ca53f0c90ccb1f03f3aa837ddb903573e7876"
     },
     {
       "path": "server/README.md",
@@ -24835,8 +24840,13 @@
     },
     {
       "path": "server/test_lobby.py",
-      "size": 4613,
-      "sha256": "43ee1f63750e1a71fc703c008ae03b4d10de33a55e87a0c8f73b61983f5764ad"
+      "size": 5959,
+      "sha256": "74328f76350f46911d2931c0388c99c5644eca1132b6d712f2119f1a22629e4e"
+    },
+    {
+      "path": "server/test_map_catalog.py",
+      "size": 2846,
+      "sha256": "209267dfb4c27f37cd40c2d6d0ed38fa8a428dba519833f353177cdff6b31c95"
     },
     {
       "path": "server/test_mirror_updates.py",
@@ -25960,8 +25970,8 @@
     },
     {
       "path": "src/Game/ModernOnlineLobby.inc",
-      "size": 20156,
-      "sha256": "e2fda0351515878aeda95dbbec8d9dd4c5942dc3685389e5bb76b8e381b3c765"
+      "size": 21442,
+      "sha256": "8ad876a3f7ee2c587303f799cb9ed9078e485b659f532557debb842abc377849"
     },
     {
       "path": "src/Game/ModernParticleFields.c",
@@ -26000,8 +26010,8 @@
     },
     {
       "path": "src/Game/ModernUI.c",
-      "size": 431942,
-      "sha256": "9642d5fbebc6a3b79e83b4a01945af25cda5d474fe56a2865b50ecd30d9cc499"
+      "size": 431986,
+      "sha256": "9a56d38d8251f193d0737627c3af7bae478de5c140eaecb8a4cb857ce13cd87a"
     },
     {
       "path": "src/Game/ModernUI.h",
@@ -26410,8 +26420,8 @@
     },
     {
       "path": "src/Game/ScenPick.h",
-      "size": 3209,
-      "sha256": "254114b493da1484cee8ec9d3de4b698c2eb784b46f0f6898e431dd992e99ec5"
+      "size": 3394,
+      "sha256": "14813251c85e3744fcc3c744f1c5a1879bebc935607186314279e55cee5c0c58"
     },
     {
       "path": "src/Game/Scroller.c",
@@ -27650,8 +27660,8 @@
     },
     {
       "path": "src/Network/DedicatedServer.c",
-      "size": 15551,
-      "sha256": "66e50fd18a51659f59e8772711ac4b3a7b76275f54ff77b1e1e4f53e0d63402a"
+      "size": 15539,
+      "sha256": "bba6e33c3790f6b02574bd7f4804d63b6da134ee437aae25d0e75537a0083e75"
     },
     {
       "path": "src/Network/DedicatedServer.h",
@@ -27670,18 +27680,23 @@
     },
     {
       "path": "src/Network/OnlineClient.h",
-      "size": 934,
-      "sha256": "94b596c9ddf4068c20b3b523b3e1fefb42e83bc1d0ff533ba12369000dc39b3b"
+      "size": 1018,
+      "sha256": "0ce097c8f0ca97a8aa09901581e123d28c4be4c406a7016c293ae7927c0eeb76"
     },
     {
       "path": "src/Network/OnlineGame.c",
-      "size": 6296,
-      "sha256": "82a273846c0fbba6159351c64e42b019b0f8ea384af8f1a190755500e72f65f0"
+      "size": 7984,
+      "sha256": "d9b2c25b187d75099d8da216bf23e986441817d17dcd6417e9819dafe07169d6"
+    },
+    {
+      "path": "src/Network/OnlineMapSelection.h",
+      "size": 919,
+      "sha256": "0dae206ece98de2346df74543adab377c6fe9c68999272193be0a34c535bc008"
     },
     {
       "path": "src/Network/OnlineProtocol.h",
-      "size": 2497,
-      "sha256": "5eb06d89dedfb69f87d3082848127a3fbc0ba428bc568fb7ab99b07722b6d9ec"
+      "size": 2718,
+      "sha256": "a97a5fc6cfa1036a7d526ea55865cec211c5dff5ec2a4a6d0895fa83261bb529"
     },
     {
       "path": "src/Network/OnlineSocket.cpp",
@@ -28917,6 +28932,11 @@
       "path": "tests/ObigPresentationTests.cpp",
       "size": 2909,
       "sha256": "0069001bdb82e2eff8a306b7c32b4b6ab698d0e37ffe27ccc06a6b35094a804d"
+    },
+    {
+      "path": "tests/OnlineMapSelectionTests.c",
+      "size": 898,
+      "sha256": "e0c80c0546026cd5d5c94fb44fadb7e58d68bc0b7d4b45efd06fad1c2e98991e"
     },
     {
       "path": "tests/OpaqueSurfacePolicyTests.cpp",
@@ -30525,8 +30545,8 @@
     },
     {
       "path": "tools/package_release_patch.py",
-      "size": 8778,
-      "sha256": "78e3feb3f6c21b76ff2acbf20366956dfd8c8629e8837a4d8ac3710f8cdf7450"
+      "size": 8823,
+      "sha256": "f51b0a3238469820580bf1b3080c624fece2cd3ef496169b14850e3fdf28d7a8"
     },
     {
       "path": "tools/package_ship_document_update.py",
@@ -30580,8 +30600,8 @@
     },
     {
       "path": "tools/release_bootstrap.cpp",
-      "size": 31540,
-      "sha256": "0980d4b169289abdbf836dcc9cc21a150b9f2500894c86e34b937f75b424c548"
+      "size": 31896,
+      "sha256": "a90bf3302cfce0470da1d1bb4d06a4824343d3427dfc942dfd7cc8f949b5b4dd"
     },
     {
       "path": "tools/release_compact.py",
@@ -30687,6 +30707,11 @@
       "path": "tools/release_patch1120.py",
       "size": 5263,
       "sha256": "be2bb22202d98d4d60f33370d7e27fd799c6818b1eb27fe3ec4e31b2dc77ff0d"
+    },
+    {
+      "path": "tools/release_patch1121.py",
+      "size": 3742,
+      "sha256": "d499bbac4850c0a73cdf3fda7607bfc9eac225dbfcd58e43fa45686a8cc6e998"
     },
     {
       "path": "tools/release_patch113.py",
@@ -30975,8 +31000,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 4944,
-      "sha256": "fb04024a13c1e280baad751fd5a4c1aeeafb4c74035f7fd9bb1ec5fe6af922db"
+      "size": 5308,
+      "sha256": "bea2451bdccd44a18e6b48bfe203309f1f7c7da28dc112054b3313b86e4a0d00"
     },
     {
       "path": "vcpkg.json",

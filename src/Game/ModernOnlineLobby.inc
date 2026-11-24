@@ -5,6 +5,7 @@ static sdword muiOnlinePage;
 static sdword muiOnlineDirectoryPage;
 static Uint32 muiOnlineDirectoryTick;
 static sdword muiOnlineColorSlot;
+static char muiOnlineMapNotice[128];
 static const uint32_t muiOnlinePalette[]={colRGB(48,48,48),colRGB(255,32,32),colRGB(64,192,255),colRGB(255,192,64),colRGB(96,221,96),colRGB(176,96,238),colWhite,colRGB(32,48,160)};
 static rectangle muiOnlineBox(real32 x,real32 y,real32 w,real32 h)
 {return muiRect((sdword)(MAIN_WindowWidth*x),(sdword)(MAIN_WindowHeight*y),
@@ -88,6 +89,7 @@ static void muiOnlineDraw(regionhandle region)
     muiText(panel.x0+uiScaleSize(20),panel.y0+uiScaleSize(18),muiSignal,"FLEET NETWORK / DEDICATED SERVER",muiBodyFont);
     muiText(panel.x0+uiScaleSize(20),panel.y0+uiScaleSize(47),muiPaper,"ONLINE MULTIPLAYER",muiHeadingFont);
     hwOnlineLobbyStatus(text,sizeof(text));
+    if(muiOnlineMapNotice[0])snprintf(text,sizeof(text),"%s",muiOnlineMapNotice);
     {rectangle status=muiOnlineBox(.27f,.915f,.69f,.04f);muiTextLeftAdaptiveFull(&status,muiCool,text,muiBodyFont,muiCompactFont,muiTinyFont,0);}
     if(!hwOnlineLobbySnapshot(&lobby)) {
         muiOnlinePanel(muiOnlineBox(.28f,.27f,.35f,.49f),MUI_ART_NEW_DOCK);
@@ -140,7 +142,7 @@ static void muiOnlineDraw(regionhandle region)
             static const unsigned flags[]={0,0,0,0,32,8,512,1024,2048,16384,64,0,0};
             for(i=0;i<13;i++) {
                 rectangle row=muiOnlineRule(i);char value[96];
-                if(i==0)snprintf(value,sizeof(value),"%.31s",lobby.config.map);
+                if(i==0)snprintf(value,sizeof(value),"< %.43s >",lobby.config.map);
                 else if(i==1)snprintf(value,sizeof(value),"%s",lobby.config.startingFleet==0?"SMALL":lobby.config.startingFleet==1?"MEDIUM":"LARGE");
                 else if(i==2)snprintf(value,sizeof(value),"%s",lobby.config.startingResources==0?"LOW":lobby.config.startingResources==1?"MEDIUM":"HIGH");
                 else if(i==3)snprintf(value,sizeof(value),"%s",lobby.config.bounty==3?"OFF":lobby.config.bounty==0?"LOW":lobby.config.bounty==1?"MEDIUM":"HIGH");
@@ -150,6 +152,8 @@ static void muiOnlineDraw(regionhandle region)
                 muiFill(&row,muiSurface);primRectOutline2(&row,1,muiLineSoft);
                 muiOnlineRuleValue(row,labels[i],value);
             }
+            {rectangle hint=muiOnlineBox(.65f,.83f,.32f,.025f);
+             muiTextLeftAdaptiveFull(&hint,muiMuted,"MAP: CLICK LEFT / RIGHT HALF OR USE WHEEL",muiCompactFont,muiTinyFont,muiTinyFont,0);}
         } else {
             static const char *labels[]={"LAST MOTHERSHIP VICTORY","CAPITAL CAPTURE VICTORY","CARRIER AS MOTHERSHIP","CRATES","RESOURCE LUMP SUM","LUMP SUM TIME","LUMP SUM AMOUNT","COLOR SLOT","HULL BASE","STRIPE COLOR","ENGINE COLOR"};
             static const unsigned flags[]={2,4,8192,4096,128};
@@ -192,6 +196,7 @@ static udword muiOnlineProcess(regionhandle region,smemsize ID,udword event,udwo
         return RPR_Redraw;
     }
     if(event!=RPE_ReleaseLeft && event!=RPE_WheelUp && event!=RPE_WheelDown)return 0;
+    muiOnlineMapNotice[0]=0;
     rect=muiOnlineBox(.04f,.91f,.16f,.04f);
     if(muiPointIn(&rect,x,y)){hwOnlineSend(OH_LEAVE,NULL,0);hwOnlineCloseMenu();return RPR_Redraw;}
     rect=muiOnlineBox(.025f,.16f,.23f,.68f);
@@ -252,9 +257,16 @@ static udword muiOnlineProcess(regionhandle region,smemsize ID,udword event,udwo
         } else if(muiOnlinePage==1) {
             static const unsigned flags[]={0,0,0,0,32,8,512,1024,2048,16384,64,0,0};
             if(i==0) {
-                sdword index=0;for(index=0;index<spScenarioListLength;index++)if(!strcmp(spScenarios[index].fileSpec,lobby.config.map))break;
-                index=(index+direction+spScenarioListLength)%spScenarioListLength;
-                snprintf(lobby.config.map,sizeof(lobby.config.map),"%s",spScenarios[index].fileSpec);
+                OHMapSummary maps[OH_MAX_MAPS];int count=hwOnlineMapList(maps,OH_MAX_MAPS),players=0,index;
+                for(col=0;col<OH_MAX_PLAYERS;col++)if(lobby.config.slots[col].kind)players++;
+                if(event==RPE_ReleaseLeft)direction=x<(rect.x0+rect.x1)/2?-1:1;
+                index=ohNextMap(maps,count,lobby.config.map,direction,players);
+                if(index<0){snprintf(muiOnlineMapNotice,sizeof(muiOnlineMapNotice),"No compatible server maps available for %d players",players);return RPR_Redraw;}
+                if(ohMapNameEqual(maps[index].map,lobby.config.map)){
+                    snprintf(muiOnlineMapNotice,sizeof(muiOnlineMapNotice),"Only this map fits the current lobby; remove AI slots to choose smaller maps");return RPR_Redraw;
+                }
+                muiOnlineMapNotice[0]=0;
+                snprintf(lobby.config.map,sizeof(lobby.config.map),"%s",maps[index].map);
             } else if(i==1)lobby.config.startingFleet=(uint8_t)((lobby.config.startingFleet+direction+3)%3);
             else if(i==2)lobby.config.startingResources=(uint8_t)((lobby.config.startingResources+direction+3)%3);
             else if(i==3)lobby.config.bounty=(uint8_t)((lobby.config.bounty+direction+4)%4);
@@ -283,6 +295,7 @@ static void muiOnlineOpen(void)
     sdword key;
     if(muiOnlineRegion)return;
     if(!hwOnlineConnected())hwOnlineConnect(utyName);
+    muiOnlineMapNotice[0]=0;
     muiOnlineDirectoryTick=0;hwOnlineRequestRooms();
     muiOnlineRegion=regChildAlloc(ghMainRegion,0,0,0,MAIN_WindowWidth,MAIN_WindowHeight,0,
         RPE_PressLeft|RPE_ReleaseLeft|RPE_WheelUp|RPE_WheelDown|RPE_DrawEveryFrame);

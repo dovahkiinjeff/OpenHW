@@ -243,15 +243,15 @@ int hwDedicatedMain(int argc, char **argv)
     error=utyDedicatedSystemsInit();
     if(error) { fprintf(stderr,"SERVER systems failed: %s\n",error);return 4; }
     if(listMaps) {
-        for(i=0;i<(unsigned)spScenarioListLength;i++)fprintf(stdout,"MAP\t%s\t%u\t%u\n",spScenarios[i].fileSpec,
+        for(i=0;i<(unsigned)spNumberScenarios;i++)fprintf(stdout,"MAP\t%s\t%u\t%u\n",spScenarios[i].fileSpec,
             spScenarios[i].minplayers,spScenarios[i].maxplayers);
         return 0;
     }
     if(worker) {
-        for(map=0;map<(unsigned)spScenarioListLength;map++)if(!strcmp(load.config.map,spScenarios[map].fileSpec))break;
-        if(map==(unsigned)spScenarioListLength || load.players<spScenarios[map].minplayers || load.players>spScenarios[map].maxplayers)return 5;
+        for(map=0;map<(unsigned)spNumberScenarios;map++)if(!strcmp(load.config.map,spScenarios[map].fileSpec))break;
+        if(map==(unsigned)spNumberScenarios || load.players<spScenarios[map].minplayers || load.players>spScenarios[map].maxplayers)return 5;
     }
-    if(map >= (unsigned)spScenarioListLength) { fprintf(stderr,"SERVER invalid map index\n");return 5; }
+    if(map >= (unsigned)spNumberScenarios) { fprintf(stderr,"SERVER invalid map index\n");return 5; }
     fprintf(stderr,"SERVER map %u: %s\n",map,spScenarios[map].fileSpec);fflush(stderr);
     memset(&tpGameCreated,0,sizeof(tpGameCreated));
     spCurrentSelected=(sdword)map;

@@ -25,3 +25,7 @@ When the owner says "publish the update", complete this workflow:
 ## Owner-directed 1.1.15 baseline reset
 
 For release 1.1.15, the owner explicitly requests a fully consolidated compiled installer on GitHub. Every earlier release moves directly to that complete package, replacing program files in place while preserving player files. This overrides the source-only GitHub and separate-new-folder rules above for the 1.1.15 baseline package. Keep the full baseline available for later upgrade paths.
+
+## Owner release-check preference
+
+- Do not run antivirus scans during development or release publication unless the owner explicitly requests them. Continue build, checksum, package, update-path and functional checks.

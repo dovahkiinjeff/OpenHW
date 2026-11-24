@@ -17,6 +17,7 @@ void hwOnlineGameLoaded(void);
 void hwOnlineGameEnded(void);
 int hwOnlineLobbySnapshot(OHLobby *snapshot);
 int hwOnlineRoomList(OHRoomSummary *rooms,int capacity);
+int hwOnlineMapList(OHMapSummary *maps,int capacity);
 void hwOnlineRequestRooms(void);
 void hwOnlinePublishBadge(void);
 void hwOnlineLobbyStatus(char *text,size_t capacity);

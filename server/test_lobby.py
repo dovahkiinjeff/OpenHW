@@ -21,6 +21,27 @@ class LobbyTests(unittest.TestCase):
         ai=self.room.config['slots'][2]
         self.assertEqual((ai['kind'],ai['race'],ai['difficulty'],ai['team']),(2,1,2,2))
         self.assertEqual(parse_config(pack_config(self.room.config),self.lobby.maps),self.room.config)
+    def test_server_catalog_ignores_unused_native_slots(self):
+        lobby=Lobby({'GardenSalad%d':(2,6),'Small%d':(2,2),'(null)':(0,0)},b'x'*32)
+        data=lobby.map_catalog();count=struct.unpack_from('<I',data)[0]
+        self.assertEqual(count,2)
+        rows=[MAP_SUMMARY.unpack_from(data,4+i*MAP_SUMMARY.size) for i in range(count)]
+        self.assertEqual([(text(name,63),lo,hi,reserved) for name,lo,hi,reserved in rows],
+                         [('GardenSalad%d',2,6,0),('Small%d',2,2,0)])
+        self.assertNotIn('(null)',lobby.maps)
+
+    def test_host_changes_maps_and_guests_receive_new_revision(self):
+        self.room.add_member(self.guest)
+        before=self.room.revision
+        c=deepcopy(self.room.config);c['map']='Small%d';self.configure(c)
+        self.assertEqual(self.room.config['map'],'Small%d')
+        self.assertEqual(self.room.revision,before+1)
+        state=self.room.snapshot(self.guest)
+        self.assertEqual(parse_config(state[LOBBY_PREFIX.size:],self.lobby.maps)['map'],'Small%d')
+        self.assertFalse(self.room.config['slots'][0]['ready'])
+        c['map']='GardenSalad%d'
+        with self.assertRaises(LobbyError):self.room.configure(self.guest,struct.pack('<I',self.room.revision)+pack_config(c))
+
     def test_map_capacity(self):
         c=deepcopy(self.room.config);c['map']='Small%d';self.configure(c)
         self.room.add_ai(self.host,b'\0\1\0')

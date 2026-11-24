@@ -8,13 +8,14 @@
 #define OH_MAX_MESSAGE 65536
 #define OH_MAX_SYNC 48000
 #define OH_MAX_PLAYERS 8
+#define OH_MAX_MAPS 256
 #define OH_NAME_BYTES 48
 #define OH_RULE_COUNT 14
 enum OHMessage {
     OH_HELLO=1, OH_CREATE=2, OH_JOIN=3, OH_LEAVE=4, OH_CONFIGURE=5,
     OH_ADD_AI=6, OH_REMOVE_SLOT=7, OH_READY=8, OH_START=9, OH_LOADED=10,
     OH_COMMAND=11, OH_PAUSE=12, OH_LIST_ROOMS=13, OH_BADGE_UPLOAD=14, OH_WELCOME=100, OH_LOBBY=101, OH_ERROR=102,
-    OH_LOAD=103, OH_SYNC=104, OH_STOP=105, OH_PAUSED=106, OH_ROOM_LIST=107, OH_BADGE=108,
+    OH_LOAD=103, OH_SYNC=104, OH_STOP=105, OH_PAUSED=106, OH_ROOM_LIST=107, OH_BADGE=108, OH_MAP_CATALOG=109,
     OH_WORKER_INIT=200, OH_WORKER_READY=201, OH_WORKER_STEP=202,
     OH_WORKER_SYNC=203, OH_WORKER_ERROR=204, OH_WORKER_INSPECT=205
 };
@@ -36,6 +37,8 @@ typedef struct OHSlot {
     uint32_t base,stripe,emission;
     char name[48];
 } OHSlot;
+typedef struct OHMapSummary { char map[64]; uint8_t minplayers,maxplayers; uint16_t reserved; } OHMapSummary;
+
 typedef struct OHConfig {
     char map[64];
     uint16_t rules[OH_RULE_COUNT];

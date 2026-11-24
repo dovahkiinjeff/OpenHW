@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channel": "stable",
-  "latest": "1.1.20",
+  "latest": "1.1.21",
   "minimum_protocol": 4,
   "full_install": {
     "version": "1.1.15",
@@ -136,26 +136,38 @@
       "from": [
         "1.1.19"
       ]
+    },
+    {
+      "version": "1.1.21",
+      "url": "https://openhw.tech/downloads/v1.1.21/OpenHW-Patch-1.1.21.exe",
+      "size": 42819541,
+      "sha256": "084d0726766605e10e8a37ae512dfd3f2cfa4f0755795d5617f4426ca8084b5c",
+      "to": "1.1.21",
+      "format": "openhw-exe-zip-v1",
+      "post_actions": [],
+      "from": [
+        "1.1.20"
+      ]
     }
   ],
   "launcher": {
     "version": "1.1.13",
-    "url": "https://openhw.tech/downloads/v1.1.20/Launcher.exe",
+    "url": "https://openhw.tech/downloads/v1.1.21/Launcher.exe",
     "size": 10079548,
     "sha256": "bb7837fe3598109f1dfe4eb419102ce88a0549b48c01f6f68225d05ee074361f"
   },
   "updater": {
     "version": "1.1.13",
-    "url": "https://openhw.tech/downloads/v1.1.20/Updater.exe",
+    "url": "https://openhw.tech/downloads/v1.1.21/Updater.exe",
     "size": 10069287,
     "sha256": "039e0548c22b23c8d3c5525d238fc35c12e030debcb7a834ac9ca7ff181f98d3",
     "protocol": 4
   },
   "fresh_install": {
-    "version": "1.1.20",
-    "url": "https://openhw.tech/downloads/v1.1.20/OpenHW-Setup.exe",
-    "size": 511850722,
-    "sha256": "365efed967fdb048ec719e30eddcb6fe6c310ec528626109869ea254ab18636f",
+    "version": "1.1.21",
+    "url": "https://openhw.tech/downloads/v1.1.21/OpenHW-Setup.exe",
+    "size": 511840912,
+    "sha256": "f7f84eeb344d68ba15697abc566eec697fb88b749df54b66b9f5d59833f938d7",
     "format": "openhw-full-v1"
   },
   "installation_policy": {
@@ -163,5 +175,5 @@
     "recovery_page": "https://openhw.tech/#/download",
     "explanation": "1.1.15 is the consolidated full baseline. Earlier versions use the same complete GitHub package in place; player files are preserved. Compatible 1.1 archives are reused; older data is rebuilt from the owned Collection."
   },
-  "release": "1.1.20"
+  "release": "1.1.21"
 }

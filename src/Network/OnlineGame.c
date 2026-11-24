@@ -1,4 +1,5 @@
 #include "OnlineClient.h"
+#include "OnlineMapSelection.h"
 #include "../Modern/BadgeLibrary.h"
 #include "MatchRules.h"
 #include "ModernMapEditor.h"
@@ -20,6 +21,35 @@ static int hasLobby,loading,wasConnected;
 static char message[513];
 static OHRoomSummary roomList[OH_MAX_ROOMS];
 static unsigned roomCount;
+static OHMapSummary mapList[OH_MAX_MAPS];
+static unsigned mapCount;
+int hwOnlineMapList(OHMapSummary *maps,int capacity)
+{
+    unsigned count=capacity>0 && (unsigned)capacity<mapCount?(unsigned)capacity:mapCount;
+    if(!hwOnlineConnected()||!maps||capacity<=0)return 0;
+    memcpy(maps,mapList,count*sizeof(*maps));return (int)count;
+}
+static void receiveMapCatalog(const unsigned char *bytes,size_t length)
+{
+    uint32_t count;unsigned i,j;
+    OHMapSummary pending[OH_MAX_MAPS];unsigned available=0;
+    if(length<4)return;
+    memcpy(&count,bytes,4);
+    if(count>OH_MAX_MAPS||length!=4+(size_t)count*sizeof(OHMapSummary))return;
+    for(i=0;i<count;i++){
+        OHMapSummary entry;memcpy(&entry,bytes+4+i*sizeof(entry),sizeof(entry));
+        if(!memchr(entry.map,0,sizeof(entry.map))||!entry.map[0]||entry.reserved||
+           entry.minplayers<1||entry.maxplayers>8||entry.minplayers>entry.maxplayers)return;
+        for(j=0;j<i;j++){
+            OHMapSummary earlier;memcpy(&earlier,bytes+4+j*sizeof(earlier),sizeof(earlier));
+            if(ohMapNameEqual(earlier.map,entry.map))return;
+        }
+        for(j=0;j<(unsigned)spNumberScenarios;j++)
+            if(spScenarios[j].fileSpec&&ohMapNameEqual(spScenarios[j].fileSpec,entry.map))break;
+        if(j<(unsigned)spNumberScenarios)pending[available++]=entry;
+    }
+    memcpy(mapList,pending,available*sizeof(*mapList));mapCount=available;
+}
 int hwOnlineRoomList(OHRoomSummary *rooms,int capacity) {
     unsigned count=capacity>0 && (unsigned)capacity<roomCount?(unsigned)capacity:roomCount;
     if(!hwOnlineConnected() || !rooms || capacity<=0)return 0;
@@ -69,10 +99,11 @@ void hwOnlineGamePump(void)
         stopMatch("Simulation mismatch detected; match stopped to protect game state");return;
     }
 #endif
-    if(wasConnected && !connected){hasLobby=0;roomCount=0;if(hwMatchActive())stopMatch("Connection to gameplay server lost");}
+    if(wasConnected && !connected){hasLobby=0;roomCount=0;mapCount=0;if(hwMatchActive())stopMatch("Connection to gameplay server lost");}
     wasConnected=connected;
     while((length=sizeof(bytes)),hwOnlineReceive(&type,bytes,&length)) {
-        if(type==OH_WELCOME){message[0]=0;hasLobby=0;roomCount=0;hwBadgeClearRemote();hwOnlinePublishBadge();hwOnlineRequestRooms();}
+        if(type==OH_WELCOME){message[0]=0;hasLobby=0;roomCount=0;mapCount=0;hwBadgeClearRemote();hwOnlinePublishBadge();hwOnlineRequestRooms();}
+        else if(type==OH_MAP_CATALOG)receiveMapCatalog(bytes,length);
         else if(type==OH_BADGE && length>=1 && bytes[0]<8){
             if(length==1)hwBadgeSetRemote(bytes[0],NULL,0,0);
             else if(length==5+96*96*4){uint16_t w,h;memcpy(&w,bytes+1,2);memcpy(&h,bytes+3,2);if(w==96&&h==96)hwBadgeSetRemote(bytes[0],bytes+5,w,h);}
@@ -101,9 +132,9 @@ void hwOnlineGamePump(void)
         }
         else if(type==OH_LOAD && length==sizeof(OHLoad) && !gameIsRunning && !hwMatchActive()) {
             OHLoad load;unsigned i;memcpy(&load,bytes,sizeof(load));
-            for(i=0;i<(unsigned)spScenarioListLength;i++)if(!strcmp(load.config.map,spScenarios[i].fileSpec))break;
+            for(i=0;i<(unsigned)spNumberScenarios;i++)if(ohMapNameEqual(load.config.map,spScenarios[i].fileSpec))break;
             modernMapEditorClose();modernUICloseLightingEditor();
-            if(i==(unsigned)spScenarioListLength || !hwMatchInstall(&load)) {
+            if(i==(unsigned)spNumberScenarios || !hwMatchInstall(&load)) {
                 hwOnlineSend(OH_LEAVE,NULL,0);snprintf(message,sizeof(message),"Server map or match setup is incompatible");continue;
             }
             hwOnlineCloseMenu();mgScreensDisappear();

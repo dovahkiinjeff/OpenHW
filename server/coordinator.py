@@ -146,6 +146,7 @@ class Gateway:
             if kind!=HELLO_MSG:raise LobbyError('Send hello first')
             member=self.lobby.hello(payload);member.connection=connection
             await self.send(member,WELCOME)
+            await self.send(member,MAP_CATALOG,self.lobby.map_catalog())
             async for message in connection:
                 try:
                     member.consume();kind,payload=unpack(message)
@@ -167,7 +168,7 @@ class Gateway:
                     elif kind==JOIN:room=self.lobby.join(member,payload)
                     elif kind==LEAVE:
                         if payload:raise LobbyError('Unexpected leave payload')
-                        await self.leave(member);await self.send(member,WELCOME);continue
+                        await self.leave(member);await self.send(member,WELCOME);await self.send(member,MAP_CATALOG,self.lobby.map_catalog());continue
                     elif room is None:raise LobbyError('Create or join a room first')
                     elif kind==ADD_AI:room.add_ai(member,payload)
                     elif kind==REMOVE_SLOT:room.remove_slot(member,payload)

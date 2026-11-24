@@ -73,6 +73,7 @@ spscenario;
 extern spscenario *spScenarios;                 //list of available scenarios
 extern sdword spCurrentSelected;                //current scenario index, if OK is pressed
 extern sdword spScenarioListLength;
+extern sdword spNumberScenarios; /* Used entries, distinct from allocation capacity. */
 
 /*=============================================================================
     Functions:

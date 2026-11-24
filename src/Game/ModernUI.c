@@ -6558,6 +6558,7 @@ static udword muiMainProcess(regionhandle region, smemsize ID,
     return 0;
 }
 
+#include "../Network/OnlineMapSelection.h"
 #include "ModernOnlineLobby.inc"
 
 #define MUI_CONNECTION_COUNT 6
