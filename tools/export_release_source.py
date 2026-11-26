@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 from release_content_policy import verify_profile, digest, UI_PLATES
 
-CODE_EXTENSIONS={'.c','.cpp','.h','.hlsl','.hlsli','.inc','.json','.md','.txt','.kas',
+CODE_EXTENSIONS={'.c','.cpp','.h','.hlsl','.hlsli','.inc','.def','.json','.md','.txt','.kas',
                  '.kash','.l','.y','.ps1','.manifest','.in','.cmake','.py','.omwfx',
                  '.yml','.yaml','.cfg','.rc','.cmd'}
 SOURCE_DIRECTORIES=('src','tools','tests','cmake','Windows','docs','documentation',
