@@ -17,6 +17,7 @@
 
 #include "BigFile.h"
 #include "win32_vc.h"
+#include "AssetPath.h"
 
 /*=============================================================================
     Switches
@@ -67,9 +68,6 @@
 
 //.BIG file definitions
 #define FBF_AllBIGFiles         -1
-
-//length of file path fragments
-#define FL_Path                 256             //max length of a full path
 
 #define MAX_FILES_OPEN          32
 

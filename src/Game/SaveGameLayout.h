@@ -16,7 +16,9 @@ typedef struct {
     const SaveLayoutRecord *universe, *aiPlayer;
 } SaveGameLayout;
 const SaveGameLayout *saveLayoutClassic(void);
+const SaveGameLayout *saveLayoutCataclysm01(void);
 const SaveGameLayout *saveLayoutCurrent(void);
+int saveLayoutSupportsShipCount(unsigned shipCount);
 /* Returns the saved ship-table length, or zero for an unsupported layout. */
 unsigned saveMigrateUniverse(void *dest, const void *src, size_t size);
 unsigned saveMigrateAIPlayer(void *dest, const void *src, size_t size);

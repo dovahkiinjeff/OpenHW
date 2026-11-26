@@ -587,6 +587,8 @@ opfunctionentry etgFunctionTable[] =
     //modify a current particle system
     funcEntry2("modifyDrag", EVT_Void, etgModifyDrag, EVT_Int, EVT_Float),
     funcEntry2("modifyScale", EVT_Void, partModifyScale, EVT_Int, EVT_Float),
+    funcEntry2("modifyScaleX", EVT_Void, partModifyScaleX, EVT_Int, EVT_Float),
+    funcEntry2("modifyScaleY", EVT_Void, partModifyScaleY, EVT_Int, EVT_Float),
     funcEntry2("modifyDeltaScale", EVT_Void, partModifyDeltaScale, EVT_Int, EVT_Float),
     funcEntry2("modifyDeltaLength", EVT_Void, partModifyDeltaLength, EVT_Int, EVT_Float),
     funcEntry2("modifyColorA", EVT_Void, partModifyColorC, EVT_Int, EVT_RGBA),
@@ -898,6 +900,7 @@ bool32   etgDamageEffectsEnabled = TRUE;          //damage effects on
 bool32   etgHitEffectsEnabled = TRUE;             //hit effects on
 bool32   etgFireEffectsEnabled = TRUE;            //muzzle flash effects on
 bool32   etgBulletEffectsEnabled = TRUE;          //bullet effects on
+#include "CataclysmEnergyFx.inc"
 
 /*=============================================================================
     Functions:
@@ -1743,6 +1746,7 @@ void etgStartup(void)
 ----------------------------------------------------------------------------*/
 void etgShutdown(void)
 {
+    etgFreeCataclysmEnergyFx();
     rmWeaponFxShutdown();
     sdword index, j, k;
 
@@ -2675,6 +2679,24 @@ static void etgSubmitModernLight(const Effect *effect,
 
     if (emitter.source == HW_MODERN_LIGHT_EXPLOSION)
     {
+        /* Sustained damage fires are attached to a live hull. The explosion
+           falloff and intensity bleach large sections of that same hull. */
+        if (owner != NULL && owner->objtype == OBJ_ShipType)
+        {
+            const Ship *ship = (const Ship *)owner;
+            for (sdword level = 0; level < DMG_All; ++level)
+            for (sdword slot = 0; slot < 3; ++slot)
+            {
+                if (ship->showingDamage[level][slot] != effect) continue;
+                emitter.color[0] = 1.0f;
+                emitter.color[1] = 0.38f;
+                emitter.color[2] = 0.08f;
+                emitter.radius = fminf(85.0f, fmaxf(8.0f, ownerRadius * 0.09f));
+                emitter.intensity = 20.0f + emitter.radius * 0.20f;
+                hwModernGraphicsSubmitDynamicLight(&emitter);
+                return;
+            }
+        }
         emitter.color[0] = 1.0f;
         emitter.color[1] = 0.38f;
         emitter.color[2] = 0.08f;
@@ -2775,6 +2797,7 @@ bool32 etgDrawRemasteredEffect(Effect *effect,Camera *camera)
         etgeffectstatic *stat=(etgeffectstatic*)effect->staticinfo;
         StaticInfo *ownerStatic = effectOwnerModelStatic(effect);
         if(!stat)return FALSE;
+        if(!strncmp(stat->name,"Cata_",5))return FALSE;
         if(ownerStatic)
             radius=ownerStatic->staticheader.staticCollInfo.collspheresize;
         for(cls=0;cls<NUM_CLASSES && kind<0;++cls)
@@ -2816,6 +2839,7 @@ void etgEffectDraw(Effect *effect)
     real32 savedPartEffectVisibilityScale = partEffectVisibilityScale;
     real32 visibleMuzzleFxScale = 1.0f;
     bool32 suppressVisibleMuzzleFx = FALSE;
+    bool32 raiderMuzzle = FALSE;
     bool32 effectColorOverride = FALSE;
     color effectColor = colBlack;
     color resolvedResourceColor = colBlack;
@@ -2855,6 +2879,11 @@ void etgEffectDraw(Effect *effect)
         if (visibleMuzzleFxScale > 2.0f) visibleMuzzleFxScale = 2.0f;
         partEffectVisibilityScale = visibleMuzzleFxScale;
         suppressVisibleMuzzleFx = visibleMuzzleFxScale <= 0.0001f;
+        if (effect->owner && effect->owner->objtype == OBJ_ShipType)
+        {
+            const Ship *ship = (const Ship *)effect->owner;
+            raiderMuzzle = ship->shiprace == P1 && ship->shiptype == P1StandardCorvette;
+        }
     }
 
     /* Resolve the override before either consumer runs.  The exact same color
@@ -2925,7 +2954,9 @@ void etgEffectDraw(Effect *effect)
             /* At a true 0% FX setting, do not leave a black/opaque particle
                silhouette behind.  Keep simulation/update alive but skip only
                the visible muzzle-source draw for this frame. */
-            if (suppressVisibleMuzzleFx)
+            /* The Turanic projectile flash contains an opaque polygon spurt
+               and a textured glow. Retain its glow and exact muzzle light. */
+            if (suppressVisibleMuzzleFx || (raiderMuzzle && part->t == PART_MESH))
             {
                 continue;
             }
@@ -4752,7 +4783,8 @@ sdword etgSetTextureParse(struct etgeffectstatic *stat, ubyte *dest, char *opcod
         return(0);
     }
 #endif
-    strcpy(path, ETG_Directory);
+    if(!strncmp(stat->name,"Cata_",5))while(*param=='\\'||*param=='/')++param;
+    strcpy(path, !strncmp(stat->name,"Cata_",5)?"Cataclysm\\ETG\\":ETG_Directory);
     strcat(path, param);
     function->opcode = EOP_Function;
     function->nParameters = 0;

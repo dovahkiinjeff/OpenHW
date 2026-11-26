@@ -1,6 +1,10 @@
 #include "../Network/MatchRules.h"
 #include "../Modern/DiagnosticPolicy.h"
 #include "SinglePlayer.h"
+#include "CampaignMissionPaths.h"
+#include "CataclysmShips.h"
+#include "CataclysmCampaign.h"
+#include "../Modern/CataclysmScriptBridge.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -22,6 +26,7 @@
 #include "CommandWrap.h"
 #include "Damage.h"
 #include "DDDFrigate.h"
+#include "Dock.h"
 #include "FEFlow.h"
 #include "FastMath.h"
 #include "File.h"
@@ -146,7 +151,7 @@ MissionEnum missionSequence[] = {
 
 // you'd think you could change that 19 to <= 16 but the NIS stuff overloads this
 // in an array declaration that includes end markers and so is larger than 16
-#define NUMBER_SINGLEPLAYER_MISSIONS  19
+#define NUMBER_SINGLEPLAYER_MISSIONS  20
 
 #define NUMBER_SINGLEPLAYER_NIS       12
 
@@ -184,8 +189,8 @@ sdword warpLevel                =   0;
 fibfileheader *spHyperspaceRollCallHandle = NULL;
 regionhandle   spHyperspaceRollCallScreen = NULL;
 
-char spMissionsDir [32] = "";
-char spMissionsFile[32] = "";
+char spMissionsDir [SP_MISSION_PATH_CAPACITY] = "";
+char spMissionsFile[SP_MISSION_PATH_CAPACITY] = "";
 
 SinglePlayerGameInfo singlePlayerGameInfo;
 
@@ -353,6 +358,8 @@ fedrawcallback spHyperspaceDrawCallback[] =
 udword convertMissionToSequenceIndex(MissionEnum mission)
 {
     udword index = 0;
+    /* Cataclysm has its own campaign identity; it is not an extra HW1 level. */
+    if (hwIsCataclysmMission(mission)) return (udword)(hwCataclysmMissionNumber(mission) - 1);
     
     for (index = 0; index < NUMBER_MISSIONS_IN_SEQUENCE; index++)
     {
@@ -464,6 +471,8 @@ MissionEnum spGetNextMission(void)
 
 MissionEnum spGetAdjacentMission(sbyte direction)
 {
+    if (hwIsCataclysmMission(spGetCurrentMission()))
+        return hwCataclysmAdjacentMission(spGetCurrentMission(), direction);
     sdword adjacentMissionIndex
         = convertMissionToSequenceIndex(spGetCurrentMission())
         + (direction < 0 ? -1 : +1);
@@ -481,24 +490,14 @@ MissionEnum spGetAdjacentMission(sbyte direction)
 void GetMissionsDirAndFile(MissionEnum mission)
 {
 #ifdef HW_GAME_RAIDER_RETREAT
-    if (mission == MISSION_5B_TURANIC_RAIDER_PLANETOID)
-    {
-#ifdef _WIN32
-        sprintf(spMissionsDir, "SinglePlayer\\Mission05_OEM\\");
+    const int raiderRetreat = 1;
 #else
-        sprintf(spMissionsDir, "SinglePlayer/Mission05_OEM/");
+    const int raiderRetreat = 0;
 #endif
-        sprintf(spMissionsFile, "Mission05_OEM.mission");
-    }
-    else
-#endif
+    if (!hwCampaignMissionPaths(mission, raiderRetreat,
+        spMissionsDir, sizeof(spMissionsDir), spMissionsFile, sizeof(spMissionsFile)))
     {
-#ifdef _WIN32
-        sprintf(spMissionsDir, "SinglePlayer\\Mission%02d\\", mission);
-#else
-        sprintf(spMissionsDir, "SinglePlayer/Mission%02d/", mission);
-#endif
-        sprintf(spMissionsFile,"Mission%02d.mission", mission);
+        dbgFatalf(DBG_Loc,"Campaign mission path exceeds its buffer");
     }
 }
 
@@ -671,6 +670,12 @@ void GetFleetStrengthWarpScript(Player *player)
 
 void singlePlayerPreLoadCheck(void)
 {
+    if(spGetCurrentMission()==MISSION_CATA_1_HIIGARA){cataMission1PreloadFleet();return;}
+    if(spGetCurrentMission()==MISSION_CATA_2_OUTSKIRTS){
+        SetInfoNeededForShipAndRelatedStaticInfo(CataMessagePod,R1,TRUE);
+        cataMission2PreloadShipColors();
+        return;
+    }
     if (warpLevel && !spMapEditorBoot)
     {
         scriptSet(NULL,WARP_FILENAME,WarpPreLoadTable);
@@ -795,7 +800,7 @@ void spGoNowHyperspaceCB(char *string, featom *atom)
         memFree(selectAll);
 
         selectAll = selectAllCurrentPlayersHyperspacingShips();
-        if(universe.curPlayerPtr->PlayerMothership->shiprace == R1)
+        if(mothership->shiptype == Mothership && mothership->shiprace == R1)
         {
             mothershipCleanDoorForHSInstant(universe.curPlayerPtr->PlayerMothership);
         }
@@ -896,7 +901,7 @@ void CalculateRollCall(void)
         ship = (Ship *)listGetStructOfNode(objnode);
         dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) && (ship->shiptype != CryoTray) && (ship->shiptype != Probe) && !(ship->flags & SOF_Disabled))
+        if ((!cataShipSkipFleetOrders(ship) && allianceIsShipAlly(ship,universe.curPlayerPtr)) && (ship->shiptype != CryoTray) && (ship->shiptype != Probe) && !(ship->flags & SOF_Disabled))
         {
             if (ship->shipsInsideMe)
             {
@@ -954,7 +959,7 @@ void TellShipsToDockForHyperspace(void)
         ship = (Ship *)listGetStructOfNode(objnode);
         dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) && !(ship->flags & SOF_Disabled))
+        if ((!cataShipSkipFleetOrders(ship) && allianceIsShipAlly(ship,universe.curPlayerPtr)) && !(ship->flags & SOF_Disabled))
         {
             if (ship->shiptype == DDDFrigate)
             {
@@ -1135,7 +1140,7 @@ void CalculateHyperspaceTimesForShips(void)
         ship = (Ship *)listGetStructOfNode(objnode);
         dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) && !(ship->flags & SOF_Disabled))
+        if ((!cataShipSkipFleetOrders(ship) && allianceIsShipAlly(ship,universe.curPlayerPtr)) && !(ship->flags & SOF_Disabled))
         {
             if (ShipCanMakeHyperspace(ship))
             {
@@ -1146,6 +1151,9 @@ void CalculateHyperspaceTimesForShips(void)
         objnode = objnode->next;
     }
 }
+
+static void PutShipOutsideAt(Ship *ship,vector *createat,vector *createvelocity,real32 angle);
+#include "CataclysmHyperspaceModules.inc"
 
 void AddShipToHyperspace(Ship *ship)
 {
@@ -1184,6 +1192,7 @@ void AddShipToHyperspace(Ship *ship)
             insidenode = insidenode->next;
         }
     }
+    spStowCataclysmModules(ship);
 }
 
 bool32 NoneDoing(udword state)
@@ -1197,7 +1206,7 @@ bool32 NoneDoing(udword state)
         ship = (Ship*)listGetStructOfNode(objnode);
         dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) &&
+        if ((!cataShipSkipFleetOrders(ship) && allianceIsShipAlly(ship,universe.curPlayerPtr)) &&
             ShipCanMakeHyperspace(ship) && !(ship->flags & SOF_Disabled))
         {
             if (ship->shipSinglePlayerGameInfo->hsState == state)
@@ -1223,7 +1232,7 @@ bool32 AllDoingExceptMe(udword state, Ship* me)
         ship = (Ship*)listGetStructOfNode(objnode);
         dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) &&
+        if ((!cataShipSkipFleetOrders(ship) && allianceIsShipAlly(ship,universe.curPlayerPtr)) &&
             ShipCanMakeHyperspace(ship) && !(ship->flags & SOF_Disabled))
         {
             if (ship != me)
@@ -1254,7 +1263,7 @@ bool32 NoneDoingHS(udword state)
         ship = insideship->ship;
         dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) &&
+        if ((!cataShipSkipFleetOrders(ship) && allianceIsShipAlly(ship,universe.curPlayerPtr)) &&
             ShipCanMakeHyperspace(ship))
         {
             if (ship->shipSinglePlayerGameInfo->hsState == state)
@@ -1426,7 +1435,14 @@ bool32 UpdateHyperspacingShips(void)
         objnode = objnode->next;
         dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) && !(ship->flags & SOF_Disabled))
+        /* The host's departure removes its modules from this list as well. */
+        if (ship->shiptype == CataMothership)
+        {
+            while (objnode && cataShipComponentHost(listGetStructOfNode(objnode)) == ship)
+                objnode = objnode->next;
+        }
+
+        if ((!cataShipSkipFleetOrders(ship) && allianceIsShipAlly(ship,universe.curPlayerPtr)) && !(ship->flags & SOF_Disabled))
         {
             if (ShipCanMakeHyperspace(ship))
             {
@@ -1494,7 +1510,7 @@ bool32 OrientHyperspacingShips(void)
         ship = (Ship *)listGetStructOfNode(objnode);
         dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) && !(ship->flags & SOF_Disabled))
+        if ((!cataShipSkipFleetOrders(ship) && allianceIsShipAlly(ship,universe.curPlayerPtr)) && !(ship->flags & SOF_Disabled))
         {
             if (ShipCanHyperspace(ship))
             {
@@ -1554,22 +1570,35 @@ notreadyhscrud:;
     return shipsoriented;
 }
 
-void PutShipOutsideAt(Ship *ship,vector *createat,vector *createvelocity,real32 angle)
+static void PutShipOutsideAt(Ship *ship,vector *createat,vector *createvelocity,real32 angle)
 {
     sdword i;
+    Ship *host = cataShipComponentHost(ship);
+
+    if (host)
+        cataShipUpdateComponentPose(ship, host);
 
     collAddSpaceObjToCollBlobs((SpaceObj *)ship);
     listAddNode(&universe.SpaceObjList,&(ship->objlink),ship);
     listAddNode(&universe.ShipList,&(ship->shiplink),ship);
     listAddNode(&universe.ImpactableList,&(ship->impactablelink),ship);
     bitClear(ship->flags, SOF_Hide);
-    ship->posinfo.position = *createat;
-    ship->posinfo.velocity = *createvelocity;
-    ship->rotinfo.coordsys = defaultshipmatrix;
+    if (host)
+    {
+        if (cataShipEmbeddedInNativeHull(ship))
+            bitSet(ship->flags, SOF_Hide);
+    }
+    else
+    {
+        ship->posinfo.position = *createat;
+        ship->posinfo.velocity = *createvelocity;
+        ship->rotinfo.coordsys = defaultshipmatrix;
+    }
 
     univAddObjToRenderList((SpaceObj *)ship);
 
-    univRotateObjYaw((SpaceObjRot *)ship,angle);
+    if (!host)
+        univRotateObjYaw((SpaceObjRot *)ship,angle);
 
     for (i = 0; i < MAX_NUM_TRAILS; i++)
     {
@@ -1595,7 +1624,8 @@ void CalculateArrivingTimesForShips(void)
         shipSinglePlayerGameInfo = ship->shipSinglePlayerGameInfo;
         dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
 
-        if ((ship->shiptype == Mothership) && (HYPERSPACE_MOTHERSHIP_ALWAYS_ARRIVES_FIRST))
+        if ((ship->shiptype == Mothership || ship->shiptype == CataMothership) &&
+            HYPERSPACE_MOTHERSHIP_ALWAYS_ARRIVES_FIRST)
         {
             shipSinglePlayerGameInfo->timeToDelayHyperspace = universe.totaltimeelapsed + HYPERSPACE_BASE_MOTHERSHIPARRIVETIME;
         }
@@ -1648,6 +1678,7 @@ bool32 UpdateArrivingShip(Ship *ship,hvector *topoint,bool32 midLevel)
 
                 PutShipOutsideAt(ship,&createposition,&createvelocity,angle);
                 bitClear(ship->flags,SOF_Hyperspace);
+                spRestoreCataclysmModules(ship);
 
                 shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_DECELERATE;
                 {
@@ -1810,7 +1841,7 @@ bool32 UpdateArrivingShips(void)
         ship = insideShip->ship;
         dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr))
+        if ((!cataShipSkipFleetOrders(ship) && allianceIsShipAlly(ship,universe.curPlayerPtr)))
         {
             allShipsArrived &= UpdateArrivingShip(ship,&startpoint,FALSE);
         }
@@ -1861,15 +1892,19 @@ void spHyperspaceSelectionIn(SelectCommand *selection,hvector *destination)
 
     for (i=0;i<numShips;i++)
     {
+        Ship *ship = selection->ShipPtr[i];
+        if (!spCanQueueScriptedHyperspace(ship, TRUE))
+            continue;
+
         growSelectInit(&clampedShips);
-        GetShipsClampedToInHS(selection->ShipPtr[i],&clampedShips);
+        GetShipsClampedToInHS(ship,&clampedShips);
         if (clampedShips.selection->numShips > 0)
         {
             spHyperspaceSelectionIn(clampedShips.selection,destination);
         }
         growSelectClose(&clampedShips);
 
-        ssinfo = selection->ShipPtr[i]->shipSinglePlayerGameInfo;
+        ssinfo = ship->shipSinglePlayerGameInfo;
         ssinfo->midlevelHyperspaceIn = TRUE;
         ssinfo->staticHyperspaceGate = FALSE;
         ssinfo->midlevelHyperspaceTo = *destination;
@@ -1890,7 +1925,11 @@ void spHyperspaceSelectionInStatic(SelectCommand *selection,hvector *destination
 
     for (i=0;i<numShips;i++)
     {
-        ssinfo = selection->ShipPtr[i]->shipSinglePlayerGameInfo;
+        Ship *ship = selection->ShipPtr[i];
+        if (!spCanQueueScriptedHyperspace(ship, TRUE))
+            continue;
+
+        ssinfo = ship->shipSinglePlayerGameInfo;
         ssinfo->midlevelHyperspaceIn = TRUE;
         ssinfo->staticHyperspaceGate = TRUE;
         ssinfo->midlevelHyperspaceTo = *destination;
@@ -1907,7 +1946,7 @@ void GetShipsClampedTo(Ship *clampedto,GrowSelection *clampedships)
         ship = (Ship *)listGetStructOfNode(objnode);
         dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
 
-        if (ship->clampInfo)
+        if (ship->clampInfo && !cataShipIsAttachedComponent(ship))
         {
             if ((ship->clampInfo->host == (SpaceObjRotImpTarg *)clampedto) && (!ShipInSelection(singlePlayerGameInfo.ShipsToHyperspace.selection,ship)))
             {
@@ -1948,6 +1987,9 @@ void spHyperspaceSelectionOut(SelectCommand *selection)
     for (i=0;i<numShips;i++)
     {
         ship = selection->ShipPtr[i];
+        if (!spCanQueueScriptedHyperspace(ship, FALSE))
+            continue;
+
         if (!ShipAlreadyHyperspaceOut(ship))
         {
             if (ship->attributes & ATTRIBUTES_StartInHS)
@@ -2011,6 +2053,9 @@ void spHyperspaceSelectionOutStatic(SelectCommand *selection)
     for (i=0;i<numShips;i++)
     {
         ship = selection->ShipPtr[i];
+        if (!spCanQueueScriptedHyperspace(ship, FALSE))
+            continue;
+
         if (!ShipAlreadyHyperspaceOut(ship))
         {
             growSelectInit(&clampedShips);
@@ -2046,11 +2091,18 @@ void spHyperspaceSelectionOutStatic(SelectCommand *selection)
     }
 }
 
+static MissionEnum spRequestedCampaign=MISSION_ENUM_NOT_INITIALISED;
+void spRequestNewCampaign(MissionEnum mission){spRequestedCampaign=mission;}
+bool32 spCataclysmCampaignRequested(void){return spRequestedCampaign==MISSION_CATA_1_HIIGARA;}
 void singlePlayerInit(void)
 {
     if (singlePlayerGame)
     {
-        if (spMapEditorBoot && spMapEditorMission != MISSION_ENUM_NOT_INITIALISED)
+        if(spRequestedCampaign==MISSION_CATA_1_HIIGARA){
+            warpLevel=0;spSetCurrentMission(spRequestedCampaign);
+            spRequestedCampaign=MISSION_ENUM_NOT_INITIALISED;
+        }
+        else if (spMapEditorBoot && spMapEditorMission != MISSION_ENUM_NOT_INITIALISED)
         {
             /* Reuse the existing developer warp boot path for editor loads.
                Later campaign missions expect a carried-over player mothership/fleet;
@@ -2151,6 +2203,7 @@ void spMainScreenAndLockout(udword flags)
 
 void spUnlockout(void)
 {
+    if(cataCampaignLockoutPreserved())return;
 //comment out the rest of this function to use NIS debugging keys
     smSensorsDisable = FALSE;
     tbDisable = FALSE;
@@ -2316,7 +2369,7 @@ void spCompleteStartingResourceFleetFor(Player *player)
     Ship *host=player->PlayerMothership;
     ShipType types[2]={ResourceCollector,ResourceController};
     sdword minimum[2]={3,2},i,n;
-    if (!hwMatchPlayerOption(OH_STARTING_RESOURCE_FLEET,opStartingResourceFleet,player->playerIndex) || spMapEditorBootActive() || !host) return;
+    if (hwIsCataclysmMission(spGetCurrentMission()) || !hwMatchPlayerOption(OH_STARTING_RESOURCE_FLEET,opStartingResourceFleet,player->playerIndex) || spMapEditorBootActive() || !host) return;
     /* shiptotals includes ships carried inside factories. This is invoked only
        by fresh mission creation/arrival, never by savegame loading. */
     for (i=0;i<2;++i) {
@@ -2409,7 +2462,7 @@ void CleanupHyperspacingShipsThatDidntHyperspace(void)
         objnode = objnode->next;
         dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) && !(ship->flags & SOF_Disabled))
+        if ((!cataShipSkipFleetOrders(ship) && allianceIsShipAlly(ship,universe.curPlayerPtr)) && !(ship->flags & SOF_Disabled))
         {
             if (ShipCanMakeHyperspace(ship))
             {
@@ -2434,7 +2487,7 @@ void CleanupHyperspacingShips(bool32 FreeShips,bool32 cleanupAllPlayersShips)
         deletenode = node;
         node = node->next;
 
-        if (cleanupAllPlayersShips || allianceIsShipAlly(ship,universe.curPlayerPtr))
+        if (cleanupAllPlayersShips || (!cataShipSkipFleetOrders(ship) && allianceIsShipAlly(ship,universe.curPlayerPtr)))
         {
             listDeleteNode(deletenode);     // put before so univFreeShipContents doesn't try to delete this twice
             if ((FreeShips) && (ship->shipSinglePlayerGameInfo->shipHyperspaceState == SHIPHYPERSPACE_GONE))
@@ -2484,6 +2537,7 @@ void singlePlayerShipDied(Ship *ship)
 
 void singlePlayerGameCleanup(void)
 {
+    cataCampaignClearCheckpoint();
     if (!singlePlayerGame)
     {
         CleanupHyperspacingShips(TRUE,TRUE);
@@ -2494,7 +2548,10 @@ void singlePlayerGameCleanup(void)
     objectiveShutdown();
 
     // remove ship lists, paths, volumes, etc.
-    kasLabelledEntitiesDestroy();
+    if (singlePlayerGameLoadNewLevelFlag && hwIsCataclysmMission(spGetCurrentMission()))
+        kasLabelledEntitiesResetForHandoff(cataCampaignKeepHandoffVariable);
+    else
+        kasLabelledEntitiesDestroy();
 
     pingAllPingsDelete();
 
@@ -2533,7 +2590,9 @@ void UpdateMidLevelHyperspacingShips(void)
     // update any mid-level hyperspacing away ships
     for (i=0;i<singlePlayerGameInfo.ShipsToHyperspace.selection->numShips; )
     {
-        if (UpdateHyperspacingShip(singlePlayerGameInfo.ShipsToHyperspace.selection->ShipPtr[i],TRUE))
+        Ship *ship = singlePlayerGameInfo.ShipsToHyperspace.selection->ShipPtr[i];
+        if ((cataShipIsAttachedComponent(ship) && !ship->shiplink.belongto) ||
+            UpdateHyperspacingShip(ship,TRUE))
         {
             addedShipToHyperspace = TRUE;
             growSelectRemoveShipIndex(&singlePlayerGameInfo.ShipsToHyperspace,i);   // deliberate don't increment i
@@ -2569,6 +2628,7 @@ void UpdateMidLevelHyperspacingShips(void)
                 {
                     ship->shipSinglePlayerGameInfo->midlevelHyperspaceIn = FALSE;
                     CleanupHyperspacingShip(ship);
+                    cataCampaignShipArrived(ship);
                     listDeleteNode(node);
                 }
             }
@@ -2639,6 +2699,30 @@ bool32 singlePlayerMissionEventsUpdate(struct AITeam *team)
     // While the failure dialogue plays, don't let objective-click briefings
     // replace it. The normal state watcher still runs and resumes the mission.
     return TRUE;
+}
+
+static void singlePlayerPlayQueuedNislet(AIVar *request)
+{
+    sdword number;
+    char *nis, *script;
+    hvector startpoint;
+
+    if (!request)
+        return;
+
+    number = aivarValueGet(request);
+    if (number != 0 && singlePlayerNISletNamesGet(&nis, &script, number))
+    {
+        GetStartPointPlayer(&startpoint);
+        singlePlayerStartNis(nis, script, FALSE, &startpoint);
+    }
+    aivarDestroy(request);
+}
+
+void singlePlayerPrepareMissionIntro(void)
+{
+    if (spGetCurrentMission() == MISSION_CATA_1_HIIGARA)
+        singlePlayerPlayQueuedNislet(aivarFindAnyFSM("PlayNislet"));
 }
 
 void singlePlayerGameUpdate(void)
@@ -2749,21 +2833,7 @@ void singlePlayerGameUpdate(void)
         aivarDestroy(nisVariable);
     }
 
-    //play an nislet when the time is right
-    if (nisletVariable)
-    {
-        value = aivarValueGet(nisletVariable);
-        if (value != 0)
-        {
-            hvector startpoint;
-            char *nis, *script;
-
-            GetStartPointPlayer(&startpoint);
-            singlePlayerNISletNamesGet(&nis, &script, value);
-            singlePlayerStartNis(nis, script, FALSE, &startpoint);
-        }
-        aivarDestroy(nisletVariable);
-    }
+    singlePlayerPlayQueuedNislet(nisletVariable);
 
     //pause or unpause the NIS task.  This has to be called from within a task,
     //not the loading code, in case the player alt-tabs during loading.
@@ -2884,6 +2954,14 @@ void singlePlayerGameUpdate(void)
         case HYPERSPACE_WHITEOUT:
             if (universe.totaltimeelapsed >= singlePlayerGameInfo.hyperspaceTimeStamp)
             {
+                if (hwIsCataclysmMission(spGetCurrentMission()) &&
+                    !cataCampaignCanLoadMission(spGetNextMission()))
+                {
+                    spBinkPlay = FALSE;
+                    mrWhiteOut = FALSE;
+                    singlePlayerMissionCompleteCB();
+                    break;
+                }
                 // playback level transition animatic
                 if (spBinkPlay)
                 {
@@ -2963,7 +3041,10 @@ void singlePlayerGameUpdate(void)
                     soundEventPlayMusic(SongNumber);
                 }
 
-                singlePlayerKasMissionStart(spGetCurrentMission());
+                if (spGetCurrentMission() == MISSION_CATA_2_OUTSKIRTS)
+                    cataCampaignShipArrived(universe.players[0].PlayerMothership);
+                else
+                    singlePlayerKasMissionStart(spGetCurrentMission());
 
                 aiplayerGameStart(universe.players[1].aiPlayer);
 
@@ -3071,11 +3152,32 @@ void DeleteAnyMidLevelHyperspacingShips(void)
     }
 }
 
+static void spRestoreCarriedShipIDs(LinkedList *fleet)
+{
+    Node *node;
+    for (node = fleet->head; node; node = node->next)
+    {
+        Ship *ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+        IDToPtrTableAdd(&ShipIDToPtr, ship->shipID.shipNumber, (SpaceObj *)ship);
+        if (ship->shipsInsideMe) spRestoreCarriedShipIDs(&ship->shipsInsideMe->insideList);
+    }
+}
+
 void singlePlayerLoadNewLevel(void)
 {
     real32 savephystime = universe.phystimeelapsed;
     real32 savetottime= universe.totaltimeelapsed;
     Ship *mothership = universe.players[0].PlayerMothership;
+    const bool32 cataJump = hwIsCataclysmMission(spGetCurrentMission());
+    const MissionEnum cataDestination = cataJump ? spGetNextMission() : MISSION_ENUM_NOT_INITIALISED;
+    const uword nextShipId = universe.shipNumber;
+
+    if (cataJump && !cataCampaignCanLoadMission(cataDestination))
+    {
+        singlePlayerGameLoadNewLevelFlag = FALSE;
+        singlePlayerMissionCompleteCB();
+        return;
+    }
 
     DeleteAllRemainingShips();
     DeleteAnyMidLevelHyperspacingShips();
@@ -3083,6 +3185,13 @@ void singlePlayerLoadNewLevel(void)
     rmResetStaticInfo();
     universeReset();
     univupdateReset();
+    if (cataJump)
+    {
+        universe.shipNumber = nextShipId;
+        spRestoreCarriedShipIDs(&singlePlayerGameInfo.ShipsInHyperspace);
+        spSetCurrentMission(cataDestination);
+        cataCampaignResearchStatics(&universe.players[0]);
+    }
 
     universe.phystimeelapsed = savephystime;
     universe.totaltimeelapsed = savetottime;
@@ -3096,18 +3205,20 @@ void singlePlayerLoadNewLevel(void)
     // remove sensor weirdness if it's on
     kasfSensorsWeirdness(FALSE);
 
-#ifdef HW_BUILD_FOR_DEBUGGING
-    if (SINGLEPLAYER_DEBUGLEVEL)
+    if (!cataJump)
     {
-        singlePlayerGameInfo.currentMission = SINGLEPLAYER_DEBUGLEVEL;
-        SINGLEPLAYER_DEBUGLEVEL = 0;
-    }
-    else
+#ifdef HW_BUILD_FOR_DEBUGGING
+        if (SINGLEPLAYER_DEBUGLEVEL)
+        {
+            singlePlayerGameInfo.currentMission = SINGLEPLAYER_DEBUGLEVEL;
+            SINGLEPLAYER_DEBUGLEVEL = 0;
+        }
+        else
 #endif
-    // go to next level (NB: we're doing two things here; bumping the mission index
-    // and changing the mission enum in the singlePlayerGameInfo struct)
-    singlePlayerGameInfo.currentMission
-        = missionSequence[++singlePlayerCurrentMissionIndex];
+        {
+            singlePlayerGameInfo.currentMission = missionSequence[++singlePlayerCurrentMissionIndex];
+        }
+    }
 
     singlePlayerGameInfo.giveComputerFleetControl = FALSE;      // reset any computer control
     singlePlayerGameInfo.asteroid0sCanMove = FALSE;
@@ -3140,7 +3251,8 @@ void singlePlayerLoadNewLevel(void)
     trailsRecolorize();
     mistrailsRecolorize();
 
-    SetFleetModifier(spGetCurrentMission(), GetFleetStrengthHyperspace);
+    if (cataJump) spFleetModifier = 0.0f;
+    else SetFleetModifier(spGetCurrentMission(), GetFleetStrengthHyperspace);
     levelStartNext(spMissionsDir,spMissionsFile);
     clPresetShipsToPosition(&universe.mainCommandLayer);
     singlePlayerLevelLoaded();
@@ -3186,6 +3298,7 @@ abortload:
         univUpdateRenderList();
 
         CalculateArrivingTimesForShips();
+        if (cataJump) singlePlayerKasMissionStart(spGetCurrentMission());
     }
 
     bobInitProperties();
@@ -3206,7 +3319,7 @@ Ship *FindPlayersMothership(Player *player)
 
         if (ship->playerowner == player)
         {
-            if (ship->shiptype == Mothership)
+            if (ship->shiptype == Mothership || ship->shiptype == CataMothership)
             {
                 return ship;
             }
@@ -3235,7 +3348,7 @@ SelectCommand *GetAllPlayersShipsExceptMothership(Player *player)
 
         if (ship->playerowner == player)
         {
-            if (ship->shiptype != Mothership)
+            if (ship->shiptype != Mothership && ship->shiptype != CataMothership && !cataShipSkipFleetOrders(ship))
             {
                 selection->ShipPtr[numShips++] = ship;
             }
@@ -3253,6 +3366,7 @@ SelectCommand *GetAllPlayersShipsExceptMothership(Player *player)
 // array index offsetting based on mission number
 udword spOldMissionNumber(MissionEnum missionEnum)
 {
+    if (hwIsCataclysmMission(missionEnum)) return hwCataclysmMissionNumber(missionEnum);
     udword oldMissionValue = (udword) missionEnum;
 
     if (missionEnum == MISSION_5B_TURANIC_RAIDER_PLANETOID)
@@ -3265,6 +3379,17 @@ udword spOldMissionNumber(MissionEnum missionEnum)
 
 void singlePlayerKasMissionStart(MissionEnum mission)
 {
+    if(mission==MISSION_CATA_1_HIIGARA){
+        cataCampaignInitialize();
+        kasMissionStart("cata_mission01",cataMission01Init,cataMission01Watch);
+        return;
+    }
+    if (mission == MISSION_CATA_2_OUTSKIRTS)
+    {
+        cataCampaignInitializeArrival();
+        kasMissionStart("cata_mission02", cataMission02Init, cataMission02Watch);
+        return;
+    }
     switch (mission)
     {
         case MISSION_1_KHARAK_SYSTEM:              kasMissionStart("mission01",     Init_Mission01,     Watch_Mission01);      break;
@@ -3293,6 +3418,8 @@ void singlePlayerKasMissionStart(MissionEnum mission)
 
 void *WatchFunctionAddress(MissionEnum mission)
 {
+    if(mission==MISSION_CATA_1_HIIGARA)return &cataMission01Watch;
+    if (mission == MISSION_CATA_2_OUTSKIRTS) return &cataMission02Watch;
     switch (mission)
     {
         case MISSION_1_KHARAK_SYSTEM:              return &Watch_Mission01;
@@ -3324,6 +3451,8 @@ void *WatchFunctionAddress(MissionEnum mission)
 /* Get the proper FSM function list for the given mission index. */
 const void **FunctionListAddress(MissionEnum mission)
 {
+    if(mission==MISSION_CATA_1_HIIGARA)return cataMission01FunctionTable();
+    if (mission == MISSION_CATA_2_OUTSKIRTS) return cataMission02FunctionTable();
     switch (mission)
     {
         case MISSION_1_KHARAK_SYSTEM:              return Mission01_FunctionPointers;
@@ -3355,6 +3484,10 @@ const void **FunctionListAddress(MissionEnum mission)
 /* Get the size of an FSM function list for the given mission index. */
 udword FunctionListSize(MissionEnum mission)
 {
+    if(hwIsCataclysmMission(mission)){
+        udword count=0;const void **functions=FunctionListAddress(mission);
+        while(functions[count])++count;return count;
+    }
     switch (mission)
     {
         case MISSION_1_KHARAK_SYSTEM:              return Mission01_FunctionPointerCount;
@@ -3562,7 +3695,7 @@ void singlePlayerNisStoppedCB(void)
     }
     else
     {
-        dbgAssertOrIgnore(toupper(singlePlayerNISName[0]) == 'N');
+        dbgAssertOrIgnore(hwIsCataclysmMission(spGetCurrentMission()) || toupper(singlePlayerNISName[0]) == 'N');
         sprintf(bufferstr,"Nis%dComplete",singlePlayerNisNumber);
         var = aivarCreate(bufferstr);
         aivarValueSet(var, TRUE);
@@ -3597,6 +3730,15 @@ void singlePlayerNisStoppedCB(void)
 ----------------------------------------------------------------------------*/
 void singlePlayerNISNamesGet(char **nisname, char **scriptname, bool32 *centreMothership, sdword nisNumber)
 {
+    if(hwIsCataclysmMission(spGetCurrentMission()))
+    {
+        static char cataNis[64],cataScript[64];
+        singlePlayerNisNumber=nisNumber;
+        snprintf(cataNis,sizeof(cataNis),"Cataclysm\\nis\\n%02d.nis",nisNumber);
+        snprintf(cataScript,sizeof(cataScript),"Cataclysm\\nis\\n%02d.script",nisNumber);
+        *nisname=cataNis;*scriptname=cataScript;singlePlayerNISName=cataNis;
+        *centreMothership=FALSE;return;
+    }
     singlePlayerNisNumber = nisNumber;
     nisNumber--;
     dbgAssertOrIgnore(nisNumber >= 0);
@@ -3630,6 +3772,17 @@ bool32 singlePlayerNISletNamesGet(char **nisname, char **scriptname, sdword nisl
     sdword missionNumber, insertNumber;
     static char nisFileName[16];
     static char nisScriptName[16];
+
+    if(hwIsCataclysmMission(spGetCurrentMission()))
+    {
+        static char cataNis[64],cataScript[64];
+        if(nisletNumber<1 || nisletNumber>99)return FALSE;
+        snprintf(cataNis,sizeof(cataNis),"Cataclysm\\nis\\nislet%02d.nis",nisletNumber);
+        snprintf(cataScript,sizeof(cataScript),"Cataclysm\\nis\\nislet%02d.script",nisletNumber);
+        if(!fileExists(cataNis,0) || !fileExists(cataScript,0))return FALSE;
+        singlePlayerNisletNumber=nisletNumber;singlePlayerNISName=cataNis;
+        *nisname=cataNis;*scriptname=cataScript;return TRUE;
+    }
 
     singlePlayerNisletNumber = nisletNumber;
 
@@ -4223,6 +4376,15 @@ void singlePlayerStartGame(void)
     spFleetModifier = 0.0f;
     GetMissionsDirAndFile(spGetCurrentMission());
     levelInit(spMissionsDir,spMissionsFile);
+    if(spGetCurrentMission()==MISSION_CATA_1_HIIGARA)
+    {
+        GetStartPointPlayer(&startPoint);
+        cataMission1CreateFleet(&startPoint);
+        singlePlayerLevelLoaded();
+        ccFocusOnPlayersMothership(&universe.mainCameraCommand,0);
+        singlePlayerKasMissionStart(spGetCurrentMission());
+        return; /* The recovered initializer queues the intro NISlet. */
+    }
     singlePlayerLevelLoaded();
     singlePlayerKasMissionStart(spGetCurrentMission());
     if (spMapEditorBoot)
@@ -4279,7 +4441,7 @@ void singlePlayerMissionCompleteCB(void)
     mrRenderMainScreen = FALSE;
     universe.quittime = universe.totaltimeelapsed;
     // this will prevent the shiplist from being displayed!
-    utyCreditsSequence = TRUE;
+    utyCreditsSequence = !hwIsCataclysmMission(spGetCurrentMission());
 }
 
 void singlePlayerMissionFailedCB(void)

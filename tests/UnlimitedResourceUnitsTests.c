@@ -6,13 +6,18 @@
 Universe universe;
 bool32 singlePlayerGame;
 udword opUnlimitedRUs;
+int hwMatchPlayerOption(unsigned rule,unsigned localValue,unsigned player)
+{
+    (void)rule;
+    return singlePlayerGame && player==(unsigned)universe.curPlayerIndex && localValue!=0;
+}
 static int checks;
 #define CHECK(x) do{++checks;if(!(x)){fprintf(stderr,"FAIL %d: %s\n",__LINE__,#x);exit(1);}}while(0)
 int main(void)
 {
     static Player human,ai;
     char text[32];int i;
-    universe.curPlayerPtr=&human;singlePlayerGame=TRUE;
+    universe.curPlayerPtr=&human;singlePlayerGame=TRUE;ai.playerIndex=1;
     CHECK(!opUnlimitedRUs && !resourceUnitsUnlimited(&human));
     CHECK(!resourceUnitsCanAfford(&human,1));
     human.resourceUnits=73;

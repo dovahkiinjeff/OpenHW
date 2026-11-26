@@ -6,6 +6,7 @@ import datetime
 import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 import struct
@@ -18,7 +19,7 @@ import urllib.parse
 import uuid
 import zipfile
 
-UPDATER_VERSION = '1.1.13'
+UPDATER_VERSION = '1.1.14'
 PROTOCOL = 4
 MANIFEST_URL = 'https://openhw.tech/updates/stable.json'
 FALLBACK_MANIFEST_URL = 'https://raw.githubusercontent.com/dovahkiinjeff/OpenHW/main/updates/stable.json'
@@ -99,6 +100,9 @@ def inside(root, name):
 
 def writable_member(name):
     p = relative_path(name); parts = [x.lower() for x in p.parts]
+    if parts[:2] == ['data','missions'] and len(parts)==3 and parts[2] in (
+            'cataclysmmission02.rtxmap', 'cataclysmmission02.rtxlight'):
+        return True
     if p.suffix.lower() in ('.cfg','.rtxmap','.rtxlight','.rtxdust'):
         return False
     if parts[0] in ('savedgames','mods','modding','source','rtxexports','rtxlighting','screenshots'):
@@ -108,6 +112,11 @@ def writable_member(name):
             'launcher.exe','third_party_notices.md','license.txt','openhw-hw1.obig','openhw-presentation.obig') or p.suffix.lower() == '.dll'
     if parts[0] == 'development':
         return len(parts) > 2 and parts[1] in ('installer','symbols','content','setuptools')
+    if len(parts)==4 and parts[0]=='r1' and parts[2]=='rmnative':
+        from release_content_policy import CATACLYSM_NATIVE_SHIPS
+        return p.parts[1] in CATACLYSM_NATIVE_SHIPS and (
+            parts[3] in ('hull.hod','animation.mad','ship.owshipdef') or
+            re.fullmatch(r'c\d+_m\d+(?:_engineon)?(?:\.(?:lif|dds)|_(?:emissive|material|normal|paintshade|teameffect[01])\.dds)', parts[3]) is not None)
     return parts[0] in ('data','licenses','documentation','ui','cursors','planets','asteroids',
                        'remasteredbackgrounds','subsystems','missions','misc')
 
@@ -237,7 +246,7 @@ def update_plan(manifest, installed):
             if target not in visited:
                 visited.add(target); pending.append((target, route+[patch]))
     fresh = manifest.get('fresh_install')
-    if fresh and compare_versions(installed, fresh['version']) < 0:
+    if not full and fresh and compare_versions(installed, fresh['version']) < 0:
         raise FreshInstallRequired('This is an older OpenHW '+installed+' installation. '
             'The 1.1 series requires a NEW installation in a separate empty folder; '
             'it cannot be patched over the 1.0 game data. Your existing saves and settings are untouched. '

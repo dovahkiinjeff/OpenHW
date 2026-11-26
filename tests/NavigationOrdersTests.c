@@ -272,8 +272,24 @@ static void geometry_tests(void)
     navSetRoute(&universe.mainCommandLayer,&one,hex,6,NAV_ACTION_LOOP,NULL);
     assert(!routes && !moves); /* native/online path cannot bypass placement */
 }
+static void appearance_command_tests(void)
+{
+    unsigned char bytes[sizeof(HWPacketHeader)+sizeof(HWCommandHeader)+sizeof(NetShipAppearanceCommand)]={0};
+    HWPacketHeader *header=(HWPacketHeader*)bytes;
+    HWCommandHeader *command=(HWCommandHeader*)(bytes+sizeof(*header));
+    NetShipAppearanceCommand *body=(NetShipAppearanceCommand*)((unsigned char*)command+sizeof(*command));
+    setup();header->type=PACKETTYPE_COMMAND;header->numberOfCommands=1;
+    command->commandType=COMMANDTYPE_SHIP_APPEARANCE;body->ship=fleet[1].shipID;
+    body->appearance.mask=63;body->appearance.colors[0]=0xff0000ff;
+    assert(hwValidatePlayerCommand(bytes,sizeof(bytes),0));
+    assert(!hwValidatePlayerCommand(bytes,sizeof(bytes)-1,0));
+    assert(!hwValidatePlayerCommand(bytes,sizeof(bytes),1));
+    body->appearance.mask=64;assert(!hwValidatePlayerCommand(bytes,sizeof(bytes),0));
+    body->appearance.mask=0;assert(hwValidatePlayerCommand(bytes,sizeof(bytes),0));
+    body->reserved=1;assert(!hwValidatePlayerCommand(bytes,sizeof(bytes),0));
+}
 int main(void)
 {
-    geometry_tests();route_tests();split_and_formation_tests();fly_through_and_loop_tests();rally_tests();save_and_dispatch_tests();packet_tests();navReset();
+    appearance_command_tests();geometry_tests();route_tests();split_and_formation_tests();fly_through_and_loop_tests();rally_tests();save_and_dispatch_tests();packet_tests();navReset();
     puts("Navigation: routes, blocked legs, splits, formations, virtual rally anchors, launch lifecycle, saves and authenticated packets passed.");return 0;
 }

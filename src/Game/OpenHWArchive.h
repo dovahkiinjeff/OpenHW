@@ -19,6 +19,9 @@ const void *openhwArchiveView(const char *relative, int *size);
 unsigned int openhwArchiveCount(void);
 const char *openhwArchiveName(unsigned int index);
 int openhwModOverride(const char *relative, char *path, size_t capacity);
+/* Reports enabled mods (or overrides already used this session). Multiplayer
+   warns before joining; nothing edits the load order or disables files. */
+int openhwMultiplayerModsActive(char *names,size_t capacity);
 #ifdef __cplusplus
 }
 #endif

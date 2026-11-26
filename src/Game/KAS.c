@@ -5,6 +5,7 @@
 //
 
 #include "KAS.h"
+#include "CataclysmKAS.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -100,6 +101,39 @@ sdword LabelledVectorsAllocated = 0;
 LabelledVolume **LabelledVolumes = NULL;
 static sdword LabelledVolumesUsed = 0;
 static sdword LabelledVolumesAllocated = 0;
+
+/* Resolve original Cataclysm script IDs against the unchanged mission labels.
+   Keep ownership and save/load in the existing KAS label tables. */
+Path *cataKasPath(uint32_t id)
+{
+    sdword i;for(i=0;i<LabelledPathsUsed;i++)
+        if(cataScriptHash(LabelledPaths[i]->label)==id)return LabelledPaths[i]->path;
+    return NULL;
+}
+Volume *cataKasVolume(uint32_t id)
+{
+    sdword i;for(i=0;i<LabelledVolumesUsed;i++)
+        if(cataScriptHash(LabelledVolumes[i]->label)==id)return LabelledVolumes[i]->volume;
+    return NULL;
+}
+hvector *cataKasVector(uint32_t id)
+{
+    char generated[KAS_MAX_LABEL_LENGTH];sdword i;
+    snprintf(generated,sizeof(generated),"CV%08X",(unsigned)id);
+    for(i=0;i<LabelledVectorsUsed;i++)
+        if(cataScriptHash(LabelledVectors[i]->label)==id ||
+           !strcmp(LabelledVectors[i]->label,generated))return LabelledVectors[i]->hvector;
+    return NULL;
+}
+/* 00498dd0 updates an existing labelled vector or creates a saved one.
+   Its original hash is retained in the label, not a retail pointer. */
+void cataKasVectorSet(uint32_t id,real32 x,real32 y,real32 z)
+{
+    hvector *value=cataKasVector(id);char generated[KAS_MAX_LABEL_LENGTH];
+    if(value){value->x=x;value->y=y;value->z=z;value->w=1.0f;return;}
+    snprintf(generated,sizeof(generated),"CV%08X",(unsigned)id);
+    kasLabelledVectorAdd(generated,x,y,z,1.0f);
+}
 
 real32 subMessageReturnedFalseTime = 0;
 
@@ -663,11 +697,14 @@ hvector *kasLabelledVectorAdd(char *label, real32 x, real32 y, real32 z, real32 
 //
 //  remove all labelled entities
 //
-void kasLabelledEntitiesDestroy(void)
+void kasLabelledEntitiesResetForHandoff(bool32 (*keep)(const char *label))
 {
     sdword i;
 
     CurrentTeamP = NULL;
+    kasUnpausedTeam = NULL;
+    CurrentMissionName[0] = '\0';
+    CurrentMissionWatchFunction = NULL;
 
     // selections
     for (i = 0; i < SelectionsUsed; ++i)
@@ -718,10 +755,16 @@ void kasLabelledEntitiesDestroy(void)
     LabelledPaths = NULL;
 
     // vars
-    aivarDestroyAll();
+    if (keep) aivarDestroyAllExcept(keep);
+    else aivarDestroyAll();
 
     // timers
     timTimerDestroyAll();
+}
+
+void kasLabelledEntitiesDestroy(void)
+{
+    kasLabelledEntitiesResetForHandoff(NULL);
 }
 
 //

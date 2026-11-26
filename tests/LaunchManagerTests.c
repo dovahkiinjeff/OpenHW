@@ -9,7 +9,7 @@
 #include <string.h>
 
 Universe universe;
-static int checks, launches, deleted, previewClosed, overlayRestored, sounds;
+static int checks, launches, deleted, previewClosed, overlayRestored, sounds,spaceStops;
 #define CHECK(x) do {++checks;if(!(x)){fprintf(stderr,"FAIL %d: %s\n",__LINE__,#x);exit(1);}} while(0)
 #include "../src/Game/LaunchHoldRoster.inc"
 void clLaunchShip(CommandLayer *layer,SelectCommand *selection,ShipPtr host)
@@ -27,7 +27,7 @@ static bool32 lmActive,lmIoSaveState,mrRenderMainScreen,tbDisable,smSensorsActiv
 static int lmRenderEverythingCounter;
 static int docked=1;
 static void testDelete(regionhandle closing);
-static void testSound(int event){(void)event;sounds++;}
+static void testSound(int event){if(event==UI_SoundOfSpace)++spaceStops;sounds++;}
 static void svClose(void){previewClosed++;}
 static void ioEnable(void){overlayRestored++;}
 static bool32 mdManagerDockEnabled(void){return docked;}
@@ -133,7 +133,7 @@ static void lifecycle(void)
         CHECK(docked ? tbDisable : !tbDisable);
         CHECK(memcmp(&untouched,&universe.mainCameraCommand,sizeof(CameraCommand))==0);
     }
-    CHECK(sounds==4);
+    CHECK(sounds==6&&spaceStops==3);
 }
 
 int main(void)

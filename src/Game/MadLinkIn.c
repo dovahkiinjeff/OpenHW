@@ -8,6 +8,7 @@
 =============================================================================*/
 
 #include "MadLinkIn.h"
+#include "CataclysmLinking.h"
 
 #include <stdlib.h>
 
@@ -280,6 +281,8 @@ void madLinkInSetUpInitialPlacedMadState(Ship *ship)
 void madOpenGunsShip(Ship *ship)
 {
     sdword animIndex;
+    /* An idle/passive target must not reopen arms while linking owns them. */
+    if(ship->shiptype==CataAcolyte && mrAcolyteIsTransitioning(ship))return;
     if (ship->madBindings != NULL && ship->staticinfo->madStatic != NULL)
     {
         //if ship has mesh animations associated with it

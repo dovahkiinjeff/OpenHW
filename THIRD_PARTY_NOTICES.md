@@ -18,6 +18,13 @@ Retail data is not distributed. Users must supply their own legal installation.
 Do not redistribute `Homeworld.big`, `Update.big`, `HW_Comp.vce`, `HW_Music.wxd`,
 or retail movies through this project.
 
+## Cataclysm Remastered assets
+
+Herocrafter1987 created the Cataclysm Remastered ship and module assets
+included from HWCR 2.2.2. OpenHW ships the selected models, animations and
+converted material files. Cataclysm campaign data comes from the player's
+own installation.
+
 ## SDL2 and SDL2_net
 
 SDL2 and SDL2_net are used for platform, input, audio, and optional networking

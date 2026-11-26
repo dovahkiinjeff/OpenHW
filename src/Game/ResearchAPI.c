@@ -24,6 +24,8 @@
 #include "StringSupport.h"
 #include "TradeMgr.h"
 #include "Universe.h"
+#include "SinglePlayer.h"
+#include "CataclysmCampaign.h"
 
 #include "ResearchPlanning.inc"
 
@@ -322,16 +324,25 @@ char *RaceSpecificTechTypeToNiceString(TechnologyType tech, ShipRace race)
 
 char *TechTypeToNiceString(TechnologyType tech)
 {
+    if(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission())){
+        const char *title=cataCampaignTechTitle(tech);if(title)return (char *)title;
+    }
     return (strGetString((uword)tech+strTechOffset));
 }
 
 char *TechTypeToString(TechnologyType tech)
 {
+    if(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission())){
+        const char *name=cataCampaignTechName(tech);if(name)return (char *)name;
+    }
     return NumToStr(techtypeinfo,(uword)tech);
 }
 
 TechnologyType StrToTechType(char *tech)
 {
+    if(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission())){
+        sdword slot=cataCampaignTechSlot(tech);if(slot>=0)return (TechnologyType)slot;
+    }
     return (StrToNum(techtypeinfo, tech));
 }
 
@@ -580,6 +591,11 @@ void rmUpdateResearch(void)
                     {
                         tmTechForSale[topic->techresearch] = TM_TECH_IS_ALREADY_OWNED;
                     }
+                    /* Appended Cataclysm hulls are outside STD_LAST_SHIP.
+                       Refresh their build rows too, without sending their
+                       identities through HW1's completed-ship speech table. */
+                    if(cmActive && &universe.players[index]==universe.curPlayerPtr)
+                        cmUpdateShipsAvailable();
 
                     if (rmGUIActive)
                         rmUpdateTechList();
@@ -740,6 +756,7 @@ void rmGiveTechToPlayerByType(struct Player *player, TechnologyType techtype)
 ----------------------------------------------------------------------------*/
 void rmInitializeResearchStatics(struct Player *player)
 {
+    if(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission())){cataCampaignResearchStatics(player);return;}
     if (!singlePlayerGame)
     {
         if (bitTest(tpGameCreated.flag,MG_CarrierIsMothership))
@@ -942,8 +959,13 @@ void rmRemoveAllUnneededTech(void)
 void rmEnableShip(ShipRace race, ShipType ship, bool32 bEnabled)
 {
     udword flag = bEnabled ? 0 : RM_Disabled;
+    if(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()) &&
+       IS_CATA_SHIP(ship) && race==R1 && universe.players[0].researchinfo.techstat){
+        udword *requirement=&universe.players[0].researchinfo.techstat->TechNeededToBuildShip[ship];
+        *requirement=(*requirement&~RM_Disabled)|flag;
+    }
 
-    if (ship <= STD_LAST_SHIP)
+    if (ship <= STD_LAST_SHIP || (IS_CATA_SHIP(ship) && race==R1))
     {
         if (race == R1)
         {

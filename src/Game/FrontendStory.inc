@@ -1,5 +1,57 @@
 static fescreen *muiStoryScreen;
 static char muiColorReturnScreen[80]="Main_game_screen";
+static char muiCataDataStatus[256]="Configure Cataclysm data from the Launcher's main screen before starting.";
+static void muiStoryAction(const char *name);
+static bool32 muiCataValidate(void)
+{
+    CataStartingFleet fleet;CataSpeechPhrase speech;char path[1024];
+    if(!hwCataDataOpenConfigured(muiCataDataStatus,sizeof(muiCataDataStatus))){
+        snprintf(muiCataDataStatus,sizeof(muiCataDataStatus),"Set your Cataclysm data path on the Launcher's main screen.");return FALSE;
+    }
+    if(!hwCataMission1StartingFleet(&fleet,muiCataDataStatus,sizeof(muiCataDataStatus)))return FALSE;
+    if(!hwCataOriginalText(0x008c83a8) || strcmp(hwCataOriginalText(0x008c83a8),"DestroyBombers") || hwCataWeaponDamage(0,0)<=0){
+        snprintf(muiCataDataStatus,sizeof(muiCataDataStatus),"The original Cataclysm executable is missing or incompatible.");return FALSE;
+    }
+    if(!hwCataSpeechPhrase(0x100010d6,0,&speech,muiCataDataStatus,sizeof(muiCataDataStatus)))return FALSE;
+    if(!hwCataAudioPath("SectSpeech.vce",path,sizeof(path))){
+        snprintf(muiCataDataStatus,sizeof(muiCataDataStatus),"SectSpeech.vce is missing from the selected installation.");return FALSE;
+    }
+    if(!hwCataAudioPath("Music4Cat.wxd",path,sizeof(path))){
+        snprintf(muiCataDataStatus,sizeof(muiCataDataStatus),"Music4Cat.wxd is missing from the selected installation.");return FALSE;
+    }
+    snprintf(muiCataDataStatus,sizeof(muiCataDataStatus),"Owned game data is ready. Mission 1: Hiigara.");return TRUE;
+}
+static void muiCataBegin(void)
+{
+    if(!muiCataValidate())return;
+    cpModernRaceSelect(R1);spRequestNewCampaign(MISSION_CATA_1_HIIGARA);
+    muiStoryAction("StartSinglePlayerGame");
+}
+static void muiDrawCataclysmStory(MuiStoryLayout *l)
+{
+    rectangle whole=muiRect(0,0,MAIN_WindowWidth,MAIN_WindowHeight);
+    int x=mouseCursorX(),y=mouseCursorY(),left=l->preview.x0+uiScaleSize(20),top=l->preview.y0+uiScaleSize(24);
+    bool32 artReady = muiEnsureArtwork(MUI_ART_CATA_BEAST_SHIP);
+    muiDrawBackdrop(artReady ? MUI_ART_CATA_BEAST_SHIP : MUI_ART_FLEET);
+    muiFill(&whole,colRGBA(3,6,9,artReady ? 60 : 100));
+    muiFill(&l->panel,colRGBA(10,18,24,244));primRectOutline2(&l->panel,1,muiLineSoft);
+    muiText(l->panel.x0+uiScaleSize(24),l->panel.y0+uiScaleSize(22),muiSignal,"CATACLYSM",muiBodyFont);
+    muiText(l->panel.x0+uiScaleSize(24),l->panel.y0+uiScaleSize(48),muiPaper,"SOMTAAW / KUUN-LAN",muiHeadingFont);
+    muiDrawButtonRect(&l->races[0],"PLAYER SETUP",FALSE,muiPointIn(&l->races[0],x,y));
+    muiDrawButtonRect(&l->races[1],"LOAD STORY SAVE",FALSE,muiPointIn(&l->races[1],x,y));
+    if (muiEnsureArtwork(MUI_ART_CATA_KUUN_LAN))
+        muiConceptPanel(MUI_ART_CATA_KUUN_LAN,&l->preview,168);
+    else
+        muiFill(&l->preview,colRGBA(6,14,22,205));
+    primRectOutline2(&l->preview,1,muiLineSoft);
+    muiText(left,top,muiSignal,"MISSION 01 / HIIGARA",muiHeadingFont);
+    muiText(left,top+uiScaleSize(54),muiPaper,"KIITH SOMTAAW",muiBodyFont);
+    muiText(left,top+uiScaleSize(88),muiMuted,"Use your owned Cataclysm or Emergence game data.",muiBodyFont);
+    muiText(left,top+uiScaleSize(120),muiMuted,"Your original installation remains unchanged.",muiBodyFont);
+    muiText(left,top+uiScaleSize(176),muiCool,muiCataDataStatus,muiCompactFont);
+    muiDrawButtonRect(&l->back,"BACK",FALSE,muiPointIn(&l->back,x,y));
+    muiDrawButtonRect(&l->start,"BEGIN MISSION 1",TRUE,muiPointIn(&l->start,x,y));
+}
 
 void modernUIRememberColorReturn(void)
 {
@@ -17,6 +69,7 @@ static void muiDrawStory(regionhandle region)
     MuiStoryLayout l;rectangle whole=muiRect(0,0,MAIN_WindowWidth,MAIN_WindowHeight),view,swatch;
     int x=mouseCursorX(),y=mouseCursorY(),i;char title[96];
     (void)region;muiEnsureFonts();muiBuildStoryLayout(&l);
+    if(muiStoryCataclysm){muiDrawCataclysmStory(&l);return;}
     muiDrawBackdrop(MUI_ART_FLEET);muiFill(&whole,colRGBA(3,6,9,100));
     muiFill(&l.panel,colRGBA(10,18,24,244));primRectOutline2(&l.panel,1,muiLineSoft);
     primLineThick2(l.panel.x0,l.panel.y0,l.panel.x1,l.panel.y0,uiScaleSize(3),muiSignal);
@@ -52,6 +105,19 @@ static udword muiStoryProcess(regionhandle region,smemsize ID,udword event,udwor
 {
     MuiStoryLayout l;int x=mouseCursorX(),y=mouseCursorY(),i;
     (void)region;(void)data;muiBuildStoryLayout(&l);
+    if(muiStoryCataclysm){
+        if(event==RPE_KeyDown){
+            if(ID==ESCKEY)muiStoryAction("Create_new_game-TO-Main_game_screen");
+            else if(ID==RETURNKEY)muiCataBegin();
+            return RPR_Redraw;
+        }
+        if(event!=RPE_ReleaseLeft)return 0;
+        if(muiPointIn(&l.start,x,y))muiCataBegin();
+        else if(muiPointIn(&l.back,x,y))muiStoryAction("Create_new_game-TO-Main_game_screen");
+        else if(muiPointIn(&l.races[1],x,y))muiStoryAction("Create_new_game-TO-Load_game");
+        else if(muiPointIn(&l.races[0],x,y)){cpModernRaceSelect(R1);cpColorsPick(&utyBaseColor,&utyStripeColor,&whichRaceSelected);}
+        return RPR_Redraw;
+    }
     if(muiShipPreviewInput(&l.preview,event))return RPR_Redraw;
     if(event==RPE_KeyDown) {
         if(ID==ESCKEY)muiStoryAction("Create_new_game-TO-Main_game_screen");

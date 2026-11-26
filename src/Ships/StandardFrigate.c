@@ -23,11 +23,13 @@ typedef struct
 
 StandardFrigateStatics StandardFrigateStaticRace1;
 StandardFrigateStatics StandardFrigateStaticRace2;
+static StandardFrigateStatics CataclysmRammingFrigateStatic;
 
 void StandardFrigateStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
     udword i;
     StandardFrigateStatics *frigstat = (statinfo->shiprace == R1) ? &StandardFrigateStaticRace1 : &StandardFrigateStaticRace2;
+    if(statinfo->shiptype==CataRammingFrigate)frigstat=&CataclysmRammingFrigateStatic;
 
     statinfo->custstatinfo = frigstat;
 

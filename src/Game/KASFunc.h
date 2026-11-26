@@ -406,6 +406,7 @@ void kasfResetDerelictRenderFlags(char *derelicttype);
 udword kasfFindSelectedShips(GrowSelection *ships);
 
 void kasfSaveLevel(sdword num, char *name);
+void kasSaveLevelCheckpoint(const char *levelName, bool32 setRestartPoint);
 
 void kasfClearScreen(void);
 

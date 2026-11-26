@@ -14,6 +14,8 @@
 #include "MissionEnum.h"
 #include "Types.h"
 void spCompleteStartingResourceFleetFor(struct Player *player);
+void spRequestNewCampaign(MissionEnum mission);
+bool32 spCataclysmCampaignRequested(void);
 
 /*=============================================================================
     Switches:
@@ -66,7 +68,7 @@ typedef enum
 
 #define SP_CAMERA_POINT_NAME        "StartCameraPosition"
 
-#define NUMBER_SINGLEPLAYER_MISSIONS 19
+#define NUMBER_SINGLEPLAYER_MISSIONS 20
 
 /*=============================================================================
     Type definitions:
@@ -224,6 +226,7 @@ void spNISletTestAttempt(sdword index);
 #endif
 
 bool32 singlePlayerNISletNamesGet(char **nisname, char **scriptname, sdword nisletNumber);
+void singlePlayerPrepareMissionIntro(void);
 bool32 spFindCameraAttitude(vector *position);
 
 void UpdateMidLevelHyperspacingShips(void);
@@ -231,7 +234,7 @@ void UpdateMidLevelHyperspacingShips(void);
 void singlePlayerPreLoadCheck(void);
 
 //stores the current mission filename
-extern char CurrentLevelName[];
+extern char CurrentLevelName[256];
 
 /*=============================================================================
     Data:

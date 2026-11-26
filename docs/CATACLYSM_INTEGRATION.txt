@@ -1,0 +1,141 @@
+Cataclysm / Emergence integration
+================================
+
+Compatibility belongs to OpenHW. The selected owned installation is read-only.
+Never patch its BIG archives, loose files, executable, scripts, or models.
+Do not distribute converted Cataclysm assets as part of OpenHW.
+
+Launcher stores the selected directory in its own portable configuration:
+Development/Launcher/cataclysm-directory.txt. Its directory-selection button
+opens the standard native Windows Explorer folder picker.
+Select Cata Data Path is at the upper right of the Launcher Deploy screen.
+There is no custom directory listing. After selection, validation runs off the
+UI thread; only a valid choice replaces the saved path. Cancel preserves it.
+The launcher bootstrap forwards --select-cataclysm-data to this browser.
+
+CataclysmData mounts cataclysm.big, update.big, then update102.big. Later archives
+override earlier entries. Its Cataclysm/ virtual namespace is separate from the
+HW1 data namespace. Filename lengths are 16-bit: padding can be nonzero in the
+Emergence patch. Compressed entries are expanded in memory, with bounds checks.
+GEO 0x500 objects are adapted to the engine's 0x402 object layout in memory.
+Payload offsets and the original source files remain unchanged. LOD requests
+select the original GEO rather than the separate optimized PEO format.
+
+Somtaaw IDs are appended to the original ship table. Their source names and
+existing behavior bindings are declared in src/Ships/CataclysmShips.def.
+Do not clone vanilla static structures or share mutable combat tuning with
+vanilla ships. Statics load the original SHP/LOD/MEX definitions through the
+owned-data namespace. Original HW1 IDs and class indices remain unchanged.
+The existing save-layout migration supports the original ship-table length.
+
+The recovered Acolyte linking implementation lives in CataclysmLinking.c. Its
+original choreography and corrected Unlink root motion are retained. Progress
+runs after ship physics on simulation ticks, never from a render callback.
+Transformations suppress false mission-death reports and carry custom paint,
+health fraction, tactics, group and veterancy state. Online linking is disabled
+until authoritative command replication is implemented.
+
+The existing build manager has a separate Somtaaw factory roster. Buildable
+mothership research components appear in a SUBSYSTEMS section at its bottom.
+Availability remains subject to the mission's research/construction flags.
+
+Mission 1's starting fleet and RU balance come from Level 1 of owned warp.script.
+The Kuun-Lan creates its six original core hull components; its starting docking
+bay is attached separately. Modules constructed later attach to the shared hull
+origin instead of being put in a hangar. Core hits resolve against their host.
+The Somtaaw parade template reads owned parade_smothership.script into a separate
+template, preserving HW1 layouts and their saved slot indices.
+
+Construction uses owned supportUnits/providesSU fields and explicit type/total
+limits. The initial hull plus docking bay provides 100 support units. Docked ships
+still consume support; docked providers do not add capacity. Queued production
+reserves support across factories. The optional HW1 starting resource fleet is
+not added to Cataclysm.
+
+Somtaaw docking callbacks select the original named bay/engineering ports and
+Worker resource-transfer ports. They use the existing reservation, hangar,
+refuel and launch helpers, without HW1 mothership door/port index assumptions.
+These paths still need gameplay verification.
+
+Kushan presentation policy: keep OpenHW's existing models, textures and model
+hardpoints. Read Cataclysm's weapon/gameplay definitions separately. The visual
+resolver explicitly refuses SHP and other gameplay requests; selecting an
+OpenHW model must never silently substitute HW1 weapon statistics. Somtaaw
+models continue to come directly from the selected Cataclysm installation.
+
+The engine-facing SHP view adapts Cataclysm weapon classes into the HW1 gun
+parser in memory. Original SHP bytes remain available unchanged. Base damage
+comes from the original executable's weapon/armour table, read as data only.
+No original executable code is loaded or run. The table reader currently
+recognizes the verified retail/Emergence PE32 table signature and fails clearly
+if it cannot identify a unique table. Ordinary-fire paths exclude Mission 1's
+locked siege/infection slots while retaining their original gun/MEX indices.
+Weapon switching, later upgrades and target armour upgrades remain pending.
+Changing campaigns rebuilds shared ship statics with the correct combat source.
+
+Mission 1 now enters through Story -> Cataclysm. The existing authored HW1
+interface is retained. Configure owned data in Launcher before playing; the
+game has no directory picker or data-check buttons and never opens Launcher
+to request data. Mission start still rejects missing/incompatible data.
+
+All 89 reachable recovered Mission 1 callbacks are ported through a finite
+119-operation typed bridge. No retail function pointers or 32-bit retail
+structure offsets execute. CataclysmScriptRuntime preserves later arguments
+that Ghidra hoisted into resolver calls; consumed arguments are not reused.
+Script queues keep numeric message identifiers in the existing saved variable
+store. Variables/timers retain team scope and explicit global scope. Native
+cinematic and load handshakes include PlayNislet, Nislet1Complete,
+ShipsHaveArrived and RecentlyLoaded.
+
+Script-controlled Kushan allies retain their authored race and KAS team when
+transferred to the human side. They remain outside player orders, support use
+and hyperspace roll call. Attached hull components likewise do not receive
+independent fleet/docking orders. The mission's final Hyperspace objective
+still enables normal rally/roll call; the completed jump ends this Mission 1
+implementation instead of entering HW1 cinematics or an unimplemented Mission 2.
+
+Mission 1 Link research uses the owned 175-second definition in a separate
+research table and the existing research UI. Link is unavailable until this
+research finishes. The four research modules disabled by the original mission
+remain disabled. Transformations retain their in-progress, pointer-free state
+in Cataclysm saves. Extra Somtaaw static-load/color flags are also saved; old
+HW1 save layouts continue through the existing 59-to-78-ship migration.
+
+The native audio codec/stream buffers read SectSpeech.vce and Music4Cat.wxd
+directly, with their own bounded lookup tables and checksum validation. Cata
+speech never indexes HW1 speech tables. Its cinematic speech IDs, actor/type
+flags, queued-audio completion, skip handling, and music track IDs have separate
+adaptations. Mission discovery uses each ship's owned fowRadius, not camera
+visibility. Lighting, BTG skies/bitmaps, and planet/derelict definitions use the
+owned namespace; switching campaigns rebuilds shared derelict statics too.
+
+CataclysmScriptIds preserves the recovered retail identifier hash, including
+its treatment of digits, and the high-bit marker for global variable scope.
+
+Validation
+----------
+cataclysm_data_tests checks archive precedence, encrypted filenames, nonzero
+TOC padding, LZSS window matches, GEO hierarchy remapping, and invalid paths.
+It also checks original starting-fleet selection, support economics, weapon-class
+damage conversion, the separate compatible/raw SHP views and Kushan visual paths.
+Passing an owned installation as its argument reads every archive member.
+It validates conversion of every ship included by that installation's Mission 1.
+No installation assets are supplied with these tests.
+
+cataclysm_script_runtime_tests checks typed resolver argument forwarding,
+argument consumption, missing arguments, global engine handshakes, and runs
+the recovered intro callbacks through the original NISlet-completion handoff.
+Owned-data validation resolves all 22 campaign speech events, all included
+ships' support/sensor metadata, and the mission's lighting/sky/planet/music assets.
+
+Implementation status
+---------------------
+The native Mission 1 entry, recovered objective/FSM flow, allied ownership,
+base weapon adaptation, Link research, audio, components, docking and save
+integration are implemented and build in the development executable. The
+owned Emergence data and headless intro checks pass. This is not a published
+release and has not passed an end-to-end graphical gameplay check.
+Later missions, later weapon/armour upgrades, and complete Cataclysm-specific
+special abilities (including the Ramming Frigate's push/cutting behavior) are
+not implemented by this Mission 1 script integration. Existing behavior bindings
+in CataclysmShips.def are compatibility bindings, not claims of full Cata ship AI.

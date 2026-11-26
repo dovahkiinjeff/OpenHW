@@ -99,7 +99,6 @@ static void muiPilotDraw(regionhandle region)
     if(!gameIsRunning || nisIsRunning || smSensorsActive) return;
     ship=shipPilotShip();
     if(!ship && !shipPilotCanEnter()) {
-        if(muiShipPaintSelection()){muiEnsureFonts();muiShipPaintDrawButton(region);}
         return;
     }
     muiEnsureFonts();
@@ -127,7 +126,7 @@ static void muiPilotDraw(regionhandle region)
         r=muiRect(x+17,y-2,x+24,y+5);muiFill(&r,colRGB(235,176,65));
         primRectOutline2(&button,2,colRGB(235,176,65));
     }
-    if(!ship) {muiShipPaintDrawButton(region);return;}
+    if(!ship)return;
     if(shipPilotCockpit())
     {
         /* Sparse canopy rails and instrument sill keep the sightline clear. */
@@ -240,13 +239,6 @@ static void muiPilotDraw(regionhandle region)
 static udword muiPilotProcess(regionhandle region,smemsize id,udword event,udword data)
 {
     (void)region; (void)id;
-    if(!shipPilotShip() && muiShipPaintSelection()) {
-        rectangle button=muiShipPaintButton();
-        if(muiPointIn(&button,mouseCursorX(),mouseCursorY())) {
-            if(event==RPE_ReleaseLeft)muiShipPaintOpen(muiShipPaintSelection());
-            return RPR_Redraw;
-        }
-    }
     shipPilotMouse(event,data);
     return RPR_Redraw;
 }

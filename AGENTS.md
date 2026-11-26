@@ -1,5 +1,33 @@
 # Publication policy
 
+## Player identity colors stay local
+
+- Preserve the owner's fleet identity in their local profile: hull, stripe,
+  engine, navigation-light, harvesting and hyperspace colors and color history.
+- Never publish these personal values as release defaults, presets or source
+  configuration. Capture/staging must remove them; profile, source-export and
+  nested-installer audits must reject any reintroduction. Existing-player
+  updates must preserve the player's own configuration.
+
+## Cataclysm NPC behavior parity
+
+- The owner requires Cataclysm behavior for every allied and enemy NPC in Cataclysm: mission decisions, carrier movement/construction/reinforcements, fleet coordination, targeting, retreats, combat, steering and flight. Restoring mission scripts alone is not a complete NPC AI port.
+- Use the original recovered Cataclysm behavior and owned data. Shared HW1 implementation is acceptable only where its relevant behavior has been checked for Cataclysm equivalence; do not invent a replacement policy or assume that loading Cataclysm ship stats establishes parity.
+- Keep an explicit list of unported NPC control paths and describe partial work honestly. Do not report the full Cataclysm NPC port complete while generic or unverified behavior remains.
+- Cataclysm audio must use the owned Cataclysm banks and original event identities, including engine/ambient, weapons, effects and UI. Do not substitute Remastered sound cues; an original absent cue remains silent.
+- Import the recovered Cataclysm ship, AI and weapon implementations needed for a feature into our executable. Do not approximate missing behavior by assigning a different HW1 ship's behavior/header. Host ABI adapters may connect verified original entry points; retain an explicit record of remaining unported behavior.
+
+## No computer control
+
+- Do not use computer-use tools or take control of the owner's desktop during this project. Verify through source, builds, automated tests, filesystem checks and logs instead. Do not open applications for visual inspection or send keyboard/mouse input.
+
+## Matching launch modes in every deployment
+
+- Every game patch and local deployment must update both `OpenHW.exe` and `OpenHW-Daignostics.exe` from the same current source. Never leave either Launcher action pointing to an older feature set.
+- Build the normal binary with diagnostics disabled and the diagnostic binary with diagnostics enabled. Do not substitute one binary for both modes.
+- Verify the installed SHA-256 of both executables against their respective build outputs before reporting completion. Record both results in the deployment receipt, and check the Launcher targets and any required Launcher/data-picker support.
+- Do not prefill a user's new owned-game data selection without their request. Cataclysm data selection belongs on the Launcher's main screen and must use the standard Windows Explorer folder picker, not an in-game selector or a custom directory listing.
+
 ## AI laboratory separation
 
 - `tools/ai-lab/` is source-only administrator research tooling. Its instrumented engine is built from an isolated source copy and must never be packaged in installers, Launcher/Updater payloads, game patches, or installed over the public multiplayer worker.

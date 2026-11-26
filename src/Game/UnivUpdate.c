@@ -1,3 +1,7 @@
+#include "CataclysmLinking.h"
+#include "CataclysmCampaign.h"
+#include "CataclysmShips.h"
+#include "CataclysmSalvage.h"
 #include "NavigationOrders.h"
 #include "../Network/MatchRules.h"
 #include "../Network/DedicatedServer.h"
@@ -71,6 +75,7 @@
 #include "Tutor.h"
 #include "Tweak.h"
 #include "Universe.h"
+#include "CataclysmDisguise.h"
 #include "ModernMapEditor.h"
 #include "utility.h"
 
@@ -346,7 +351,8 @@ void IDToPtrTableAdd(IDToPtrTable *table,uword ID,SpaceObj *obj)
 
     if (ID >= table->numEntries)
     {
-        sdword newnumber = table->numEntries+IDTOPTR_GROWBATCH;
+        /* Campaign carryover can restore IDs sparsely and out of order. */
+        sdword newnumber = ((sdword)ID / IDTOPTR_GROWBATCH + 1) * IDTOPTR_GROWBATCH;
 
         if (table->objptrs)
         {
@@ -356,8 +362,9 @@ void IDToPtrTableAdd(IDToPtrTable *table,uword ID,SpaceObj *obj)
         {
             table->objptrs = memAlloc(sizeof(SpaceObjPtr) * newnumber,"idtoptrs",0);
         }
-        memset(&table->objptrs[table->numEntries],0,sizeof(SpaceObjPtr)*IDTOPTR_GROWBATCH);
-        table->numEntries += IDTOPTR_GROWBATCH;
+        memset(&table->objptrs[table->numEntries], 0,
+            sizeof(SpaceObjPtr) * (newnumber - table->numEntries));
+        table->numEntries = newnumber;
     }
 
     dbgAssertOrIgnore(ID < table->numEntries);
@@ -448,8 +455,11 @@ void LoadIDToPtrTable(IDToPtrTable *table)
     Save Game Stuff End
 =============================================================================*/
 
+static bool32 univShipTransformationInProgress=FALSE;
+
 void univInitFastNetworkIDLookups(void)
 {
+    mrCancelAcolyteTransitions();
     IDToPtrTableInit(&ShipIDToPtr);
     IDToPtrTableInit(&ResourceIDToPtr);
     IDToPtrTableInit(&DerelictIDToPtr);
@@ -458,6 +468,7 @@ void univInitFastNetworkIDLookups(void)
 
 void univCloseFastNetworkIDLookups(void)
 {
+    mrCancelAcolyteTransitions();
     IDToPtrTableClose(&ShipIDToPtr);
     IDToPtrTableClose(&ResourceIDToPtr);
     IDToPtrTableClose(&DerelictIDToPtr);
@@ -466,6 +477,7 @@ void univCloseFastNetworkIDLookups(void)
 
 void univResetFastNetworkIDLookups(void)
 {
+    mrCancelAcolyteTransitions();
     IDToPtrTableReset(&ShipIDToPtr);
     IDToPtrTableReset(&ResourceIDToPtr);
     IDToPtrTableReset(&DerelictIDToPtr);
@@ -1284,6 +1296,7 @@ void InitializeEngineTrails(Ship *newship)
     sdword idx;
     sdword i;
     sdword numTrails;
+    sdword nativeTrails=0;
 
     numTrails = 0;
     strcpy(engine, "EngX");
@@ -1295,6 +1308,30 @@ void InitializeEngineTrails(Ship *newship)
             numTrails = idx + 1;
         }
     }
+
+    /* Replacement hulls can have more nozzles than the owned classic MEX.
+       Allocate a trail for each declared native marker, retaining the
+       original trail appearance for additional physical engines. */
+    for(idx=0;idx<MAX_NUM_TRAILS;idx++)
+    {
+        char semantic[24];vector nozzle;
+        snprintf(semantic,sizeof(semantic),"engine_%d",idx);
+        if(!meshRemasteredMarkerPosition(newship,semantic,&nozzle))continue;
+        nativeTrails=idx+1;
+        if(idx>=numTrails){
+            shipstaticinfo->trailStyle[idx]=shipstaticinfo->trailStyle[0];
+            shipstaticinfo->trailWidth[idx]=shipstaticinfo->trailWidth[0];
+            shipstaticinfo->trailHeight[idx]=shipstaticinfo->trailHeight[0];
+            shipstaticinfo->trailAngle[idx]=shipstaticinfo->trailAngle[0];
+            shipstaticinfo->trailRibbonAdjust[idx]=shipstaticinfo->trailRibbonAdjust[0];
+            shipstaticinfo->trailLength[idx]=shipstaticinfo->trailLength[0];
+            shipstaticinfo->trailScaleCap[idx]=shipstaticinfo->trailScaleCap[0];
+            shipstaticinfo->trailSpriteRadius[idx]=shipstaticinfo->trailSpriteRadius[0];
+            shipstaticinfo->trailSpriteOffset[idx]=shipstaticinfo->trailSpriteOffset[0];
+            numTrails=idx+1;
+        }
+    }
+    if(nativeTrails)numTrails=nativeTrails;
 
     for (i = 0; i < MAX_NUM_TRAILS; i++)
     {
@@ -1425,14 +1462,8 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     {                                                       //account for the local precise selection
         totalsize += sizeof(PreciseSelection);
     }
-    if (shipstaticinfo->madStatic != NULL)
-    {                                                       //account for the local animation bindings
-        madAssedSize = madAnimSize(shipstaticinfo->staticheader.LOD->nLevels) + //size of the binding info
-                     shipstaticinfo->hierarchySize * sizeof(mhlocalbinding) + //size of the actual binding structures
-                     shipstaticinfo->madStatic->header->nObjects * sizeof(splinecurve) * 6; //size of spline curves, enough for all objects
-
-        totalsize += madAssedSize;
-    }
+    madAssedSize = madShipBindingsSize(shipstaticinfo);
+    totalsize += madAssedSize;
     newship = memAlloc(totalsize,"Ship",NonVolatile);
     memset(newship,0,sizeship);                             // set everything to 0 by default
     extraPointer = (ubyte *)newship + sizeship;             //point to end of ship where extra RAM was allocated
@@ -1623,18 +1654,10 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
 
     InitializeNavLights(newship);
 
-    if (shipstaticinfo->canBuildShips | shipstaticinfo->canReceiveShipsPermanently)
-    {
-        newship->shipsInsideMe = memAlloc(sizeof(ShipsInsideMe),"ShipsInsideMe",NonVolatile);
-        listInit(&newship->shipsInsideMe->insideList);
-        newship->shipsInsideMe->FightersInsideme = 0;
-        newship->shipsInsideMe->CorvettesInsideme = 0;
-//        listInit(&newship->shipsInsideMe->launchList);
-    }
-    else
-    {
-        newship->shipsInsideMe = NULL;
-    }
+    newship->shipsInsideMe = NULL;
+    if (shipstaticinfo->canBuildShips || shipstaticinfo->canReceiveShipsPermanently ||
+        shiptype == CataSlipgateLarge)
+        dockEnsureShipsInside(newship);
 
     if (shipstaticinfo->canBuildShips)
     {
@@ -1648,6 +1671,7 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     {
         ((ShipStaticInfo *)newship->staticinfo)->custshipheader.CustShipInit(newship);
     }
+    if(singlePlayerGame && IS_CATA_SHIP(shiptype))cataCampaignInitializeShipUpgrades(newship);
 
     //lightning effect stuff
     newship->lightning[0] = NULL;
@@ -1738,6 +1762,8 @@ Ship *univAddShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Pla
     {
         bitClear(newship->flags, SOF_Selectable);
     }
+
+    cataShipCreateCoreComponents(newship);
 
     return newship;
 }
@@ -2025,6 +2051,7 @@ void univUpdateAllPosVelShips()
     {
         ship = (Ship *)listGetStructOfNode(objnode);
 
+        if(bitTest(ship->specialFlags2,SPECIAL_2_CataUpgrading))cataCampaignUpdateShipUpgrade(ship);
         if ((ship->flags & SOF_DontApplyPhysics) == 0)
         {
             if ((ship->flags & SOF_NISShip) == 0)
@@ -2123,6 +2150,8 @@ nowdosetupforshipsShipCustomFunc:
         }
     }
 
+    cataShipSyncComponents();
+    cataSalvageUpdate();
     growSelectReset(&universe.HousekeepShipList);       // don't need to keep track of them anymore
     growSelectReset(&ClampedShipList);       // don't need to keep track of them anymore
 }
@@ -3035,9 +3064,13 @@ nextnode:
 ----------------------------------------------------------------------------*/
 bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoundType soundType,sdword damageHow,sdword playerIndex)
 {
-    bool32 targetWasAlive = ((target->flags & SOF_Dead) == 0);
-    real32 previousHealth = target->health;
+    bool32 targetWasAlive;
+    real32 previousHealth;
     real32 maxHealth;
+
+    target=cataShipDamageTarget(target);
+    targetWasAlive=((target->flags & SOF_Dead)==0);
+    previousHealth=target->health;
 
     if (nisIsRunning)
     {                                                       //do no damage during an NIS
@@ -3064,6 +3097,9 @@ bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoun
            the craft survive exactly three times as much incoming damage. */
         damagetaken *= (1.0f / 3.0f);
     }
+    if (target->objtype == OBJ_ShipType &&
+        (((Ship *)target)->specialFlags2 & SPECIAL_2_CataInvulnerable))
+        return FALSE;
     target->health -= damagetaken;
     switch (target->objtype)
     {
@@ -4005,6 +4041,7 @@ void univRemoveShipFromOutside(Ship *ship)
     // Remove ships that are destroyed from any current selection
     clRemoveShipFromSelection((SelectAnyCommand *)&selSelected,ship);
     clRemoveShipFromSelection((SelectAnyCommand *)&selSelecting,ship);
+    clRemoveShipFromSelection((SelectCommand *)&selInspected,ship);
     ioUpdateShipTotals();
 
     // Remove ship from hotkey group if it belongs to one.
@@ -4188,6 +4225,7 @@ bool32 univDeleteDeadShip(Ship *ship, sdword deathBy)
     real32 velMagnitude, maxVelocity;
     bool32 detachedDeath = FALSE;
 
+    cataShipHostRemoved(ship);
     vecZeroVector(ship->posinfo.force);
     vecZeroVector(ship->rotinfo.torque);
 
@@ -4219,6 +4257,7 @@ bool32 univDeleteDeadShip(Ship *ship, sdword deathBy)
         ((ShipStaticInfo *)ship->staticinfo)->custshipheader.CustShipDied(ship);
     }
 
+    cataDisguiseForget(ship);
     tacticsShipDied(ship);
 
     if (ship->shipsInsideMe)
@@ -4334,13 +4373,13 @@ bool32 univDeleteDeadShip(Ship *ship, sdword deathBy)
 //    msShipLeavingMissphere(ship,ship->myMissphere,ship->playerowner->homeMissphere);
 
     // Tell single player game module ship died
-    singlePlayerShipDied(ship);
+    if(!univShipTransformationInProgress)singlePlayerShipDied(ship);
 
-    if(tutorial)
+    if(tutorial && !univShipTransformationInProgress)
         tutPlayerShipDied(ship);
 
     // Tell the sound layer that the ship died
-    soundEventShipDied(ship);
+    if(!univShipTransformationInProgress)soundEventShipDied(ship);
 
     IDToPtrTableObjDied(&ShipIDToPtr,ship->shipID.shipNumber);
 
@@ -4349,6 +4388,7 @@ bool32 univDeleteDeadShip(Ship *ship, sdword deathBy)
     // Remove ships that are destroyed from any current selection
     clRemoveShipFromSelection((SelectCommand *)&selSelected,ship);
     clRemoveShipFromSelection((SelectCommand *)&selSelecting,ship);
+    clRemoveShipFromSelection((SelectCommand *)&selInspected,ship);
     ioUpdateShipTotals();
 
     pieShipDied(ship);
@@ -4392,6 +4432,7 @@ void DisableAllPlayersShips(sdword playerIndex)
 
             // Remove ships that are destroyed from any current selection
             clRemoveShipFromSelection((SelectCommand *)&selSelected,ship);
+            clRemoveShipFromSelection((SelectCommand *)&selInspected,ship);
 
             // Remove ships that are destroyed from any hot key groups
             univRemoveShipFromHotkeyGroup(ship,FALSE);
@@ -4744,6 +4785,13 @@ void univReallyDeleteThisShipRightNow(Ship *ship)
         listRemoveNode(&ship->impactablelink);
     }
     univWipeShipOutOfExistence(ship);
+}
+
+void univReallyRemoveShipForTransformation(Ship *ship)
+{
+    univShipTransformationInProgress=TRUE;
+    univReallyDeleteThisShipRightNow(ship);
+    univShipTransformationInProgress=FALSE;
 }
 
 /*-----------------------------------------------------------------------------
@@ -6055,7 +6103,7 @@ SelectCommand *getEnemiesWithinProximity(Ship *thisship,real32 retaliateZone)
     {
         ship = blobships->ShipPtr[objindex];
 
-        if (allianceIsShipAlly(ship,playerowner))
+        if (allianceIsShipAlly(ship,playerowner) || cataDisguiseConcealsRaider(ship,playerowner))
         {
             goto nextnode;      // must be enemy ship
         }
@@ -6338,7 +6386,9 @@ DONT_MOVE_ME_YET:
             }
             else
             {
-                if ((ship->gettingrocked != NULL) && (!allianceIsShipAlly(ship,ship->gettingrocked->playerowner)))
+                if ((ship->gettingrocked != NULL) &&
+                    !allianceIsShipAlly(ship,ship->gettingrocked->playerowner) &&
+                    !cataDisguiseConcealsRaider(ship->gettingrocked,ship->playerowner))
                 {
                     // attack ship->gettingrocked and its formation
                     attack = (AttackCommand *)getShipAndItsFormation(&universe.mainCommandLayer,ship->gettingrocked);
@@ -6763,6 +6813,7 @@ void univFreeMissileContents(Missile *missile)
 ----------------------------------------------------------------------------*/
 void univRemoveShipReferences(Ship *ship)
 {
+    cataShipHostRemoved(ship);
     ship->flags |= SOF_Dead;
     bitClear(ship->flags,SOF_Selectable);
 
@@ -6787,6 +6838,7 @@ void univRemoveShipReferences(Ship *ship)
         }
     }
 
+    cataDisguiseForget(ship);
     tacticsShipDied(ship);
 
     if (ship->shipsInsideMe)
@@ -7389,6 +7441,14 @@ void univUpdateRenderList()
     {
         obj = (SpaceObj *)listGetStructOfNode(objnode);
 
+        /* Fleet/cinematic reveal operations may clear SOF_Hide. These four
+           gameplay components are geometry already present in the native hull. */
+        if(obj->objtype==OBJ_ShipType && cataShipEmbeddedInNativeHull((Ship *)obj))
+        {
+            objnode=objnode->next;
+            continue;
+        }
+
         vecSub(distvec,lookatposition,obj->posinfo.position);
         distsqr = vecMagnitudeSquared(distvec);
 
@@ -7919,6 +7979,7 @@ static bool32 univUpdateImpl(real32 phystimeelapsed)
         univUpdateAllPosVelDerelicts();
         univUpdateAllPosVelResources();
         univUpdateAllPosVelShips();     // also does a univCheckShipStates
+        mrUpdateAcolyteTransitions();
 
     }
     else
@@ -7961,6 +8022,7 @@ static bool32 univUpdateImpl(real32 phystimeelapsed)
         universe.bounties = TRUE;
         calculatePlayerBounties();
     }
+    cataCampaignWriteCheckpoint();
     return FALSE;
 }
 

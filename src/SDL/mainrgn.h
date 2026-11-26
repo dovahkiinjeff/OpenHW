@@ -117,11 +117,15 @@ void mrRegionDraw(regionhandle reg);
 void mrObjectClick(Ship *ship);
 void mrRightClickMenu(void);
 bool32 mrCanZBandBox(bool32 *bFriendlies, bool32 *bEnemies);
+bool32 mrWorkerRepairKeyIsHit(void);
+udword mrWorkerTargetAbility(void);
+void mrWorkerTargetBandBox(Node *objects, Camera *camera, rectangle *bounds, udword ability, bool32 issueOrder);
 void mrRemoveDerelictsAndAllPlayerShipsFromSelecting(void);
 Ship *mrNextMothershipPtr(Ship *mothership);
 
 //right-click callback functions
 void mrDockingOrders(char *string, featom *atom);
+void mrUpgradeSelection(void);
 void mrDeltaFormation(char *string, featom *atom);
 void mrBroadFormation(char *string, featom *atom);
 void mrXFormation(char *string, featom *atom);

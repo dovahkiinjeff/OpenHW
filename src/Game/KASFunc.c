@@ -3873,20 +3873,37 @@ sdword kasfShipsDisabled(GrowSelection *ships)
 //saves a single player level
 void kasfSaveLevel(sdword LevelNum, char *LevelName)
 {
+    kasSaveLevelCheckpoint(LevelName, TRUE);
+}
+
+void kasSaveLevelCheckpoint(const char *levelName, bool32 setRestartPoint)
+{
+    char savePath[sizeof(CurrentLevelName)];
+    char previousRestart[sizeof(CurrentLevelName)];
     // Disable autosaving when taking debug screenshots
     if (debugScreenshots) return;
-//    char levelName[256];
-
-//LM:Why is this here?  It trips an assertion...    btgSetColourMultiplier(-1.0f);
+    if (strlen(SinglePlayerSavedGamesPath) + strlen(levelName) >= sizeof(savePath))
+    {
+        clCommandMessage(strGetString(strPatchUnableWriteFile));
+        return;
+    }
+    snprintf(savePath, sizeof(savePath), "%s%s", SinglePlayerSavedGamesPath, levelName);
 
     collUpdateCollBlobs();
     collUpdateObjsInCollBlobs();
 
-    sprintf(CurrentLevelName, "%s%s", SinglePlayerSavedGamesPath, LevelName);
-    if (SaveGame(CurrentLevelName))
+    if (setRestartPoint)
+    {
+        strcpy(previousRestart, CurrentLevelName);
+        strcpy(CurrentLevelName, savePath);
+    }
+    if (SaveGame(savePath))
         clCommandMessage(strGetString(strSavedGame));
     else
+    {
+        if (setRestartPoint) strcpy(CurrentLevelName, previousRestart);
         clCommandMessage(strGetString(strPatchUnableWriteFile));
+    }
 }
 
 /*-----------------------------------------------------------------------------

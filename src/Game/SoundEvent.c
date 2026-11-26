@@ -15,6 +15,7 @@ static void hwModernGraphicsWaitAudioWork(void) {}
 static void hwModernGraphicsBeginAudioWork(void (*function)(void)) { if(function) function(); }
 #endif
 #include "RemasteredPresentation.h"
+#include "../Modern/CataclysmData.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -38,6 +39,9 @@ static void hwModernGraphicsBeginAudioWork(void (*function)(void)) { if(function
 #include "VolTweakDefs.h"
 
 #include "AudioFrameSnapshot.inc"
+#include "ConsMgr.h"
+#include "LaunchMgr.h"
+#include "ResearchGUI.h"
 
 #define DIRECTSOUND     1
 #define SE_MAX_STRIKECRAFT  10
@@ -266,6 +270,8 @@ real32			*RangeFloatLUT;
 FREQUENCYLUT    *FrequencyLUT;
 real32		    *FreqLUT;
 
+#include "CataclysmSoundBanks.inc"
+
 real32  DefaultEQ[SOUND_EQ_SIZE];
 real32  MasterEQ[SOUND_EQ_SIZE] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
 
@@ -347,7 +353,7 @@ sdword GetPatch(SFXLUT *lut, sdword object, sdword event)
         return (SOUND_ERR);
     }
 
-    if (object > lut->numobjects)
+    if (object < 0 || object >= lut->numobjects || (event & SFX_Event_Mask) >= lut->numevents)
     {
         return (SOUND_ERR);
     }
@@ -831,6 +837,9 @@ void soundEventClose(void)
 
     if (enableSFX)
     {
+        if(seCataBanksLoaded)seFreeBanks(&seCataBanks);
+        if(seBanksCaptured)seUseBanks(&seOriginalBanks);
+        seCataBanksLoaded=seCataBanksActive=seBanksCaptured=FALSE;
         memFree(GunEventsLUT);
         memFree(ShipCmnEventsLUT);
         memFree(ShipEventsLUT);
@@ -1025,7 +1034,7 @@ static void soundEventAudioUpdate(void)
     musicEventUpdateVolume();
 
 
-	if (smSensorsActive || !mrRenderMainScreen)
+    if (smSensorsActive || !mrRenderMainScreen || (soundEventUsesCataclysm() && (cmActive||lmActive||rmGUIActive)))
 	{
 		return;
 	}
@@ -1065,7 +1074,7 @@ static void soundEventAudioUpdate(void)
                 if ((pDerelict->ambientSoundHandle == SOUND_NOTINITED) ||
 					soundover(pDerelict->ambientSoundHandle))
                 {
-                    pDerelict->ambientSoundHandle = splayEPRV(ShipBank, DerelictEventsLUT->lookup[GetPatch(DerelictEventsLUT, pDerelict->derelicttype, Derelict_Ambience)],
+                    pDerelict->ambientSoundHandle = splayEPRV(ShipBank, SEpatch(DerelictEventsLUT, pDerelict->derelicttype, Derelict_Ambience),
                                                                tempEQ, pan, SOUND_PRIORITY_LOW, vol);
                 }
                 else
@@ -1081,7 +1090,7 @@ static void soundEventAudioUpdate(void)
                 {
                     if (universe.totaltimeelapsed > pDerelict->nextRandomTime)
                     {
-                        pDerelict->randomSoundHandle = splayEPRV(ShipBank, DerelictEventsLUT->lookup[GetPatch(DerelictEventsLUT, pDerelict->derelicttype, Derelict_RandomAmbience)],
+                        pDerelict->randomSoundHandle = splayEPRV(ShipBank, SEpatch(DerelictEventsLUT, pDerelict->derelicttype, Derelict_RandomAmbience),
                                                             tempEQ, pan, SOUND_PRIORITY_LOW, vol);
                         if (pDerelict->randomSoundHandle == SOUND_NOTINITED)
                         {
@@ -1302,18 +1311,18 @@ static void soundEventAudioUpdate(void)
 				{
 					if (shipclass == CLASS_Corvette)
 					{
-						ship->soundevent.engineHandle = splayFPRVL(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_Engine)],
+						ship->soundevent.engineHandle = splayFPRVL(ShipBank, SEpatch(ShipCmnEventsLUT, SEshipSoundObject(ship), ShipCmn_Engine),
 											   tempEQ, velratio, pan, SOUND_PRIORITY_MAX - 1, vol, TRUE, TRUE, FALSE);
 					}
 					else if (shipclass == CLASS_Fighter)
 					{
-						ship->soundevent.engineHandle = splayFPRVL(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_Engine)],
+						ship->soundevent.engineHandle = splayFPRVL(ShipBank, SEpatch(ShipCmnEventsLUT, SEshipSoundObject(ship), ShipCmn_Engine),
 											   tempEQ, velratio, pan, SOUND_PRIORITY_MAX - 2, vol, TRUE, TRUE, FALSE);
 					}
 				}
 				else
 				{
-					ship->soundevent.engineHandle = splayEPRVL(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_Engine)],
+					ship->soundevent.engineHandle = splayEPRVL(ShipBank, SEpatch(ShipCmnEventsLUT, SEshipSoundObject(ship), ShipCmn_Engine),
 										   tempEQ, pan, SOUND_PRIORITY_MAX, vol, TRUE);
 				}
 			}
@@ -1389,7 +1398,7 @@ othersounds:
 					if ((ship->soundevent.specialHandle == SOUND_NOTINITED) ||
 						soundover(ship->soundevent.specialHandle))
 					{
-						ship->soundevent.specialHandle = splayEPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_CloakingLoop)],
+						ship->soundevent.specialHandle = splayEPRVL(ShipBank, SEpatch(ShipEventsLUT, 0, Ship_CloakingLoop),
 																	  tempEQ, pan, SOUND_PRIORITY_MAX, vol, TRUE);
 					}
 				}
@@ -1409,7 +1418,7 @@ othersounds:
 						if ((ship->soundevent.specialHandle == SOUND_NOTINITED) ||
 							soundover(ship->soundevent.specialHandle))
 						{
-							ship->soundevent.specialHandle = splayEPRV(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_GravWellGenerator)],
+							ship->soundevent.specialHandle = splayEPRV(ShipBank, SEpatch(ShipEventsLUT, 0, Ship_GravWellGenerator),
 																		  tempEQ, pan, SOUND_PRIORITY_MAX, vol);
 						}
 					}
@@ -1433,12 +1442,12 @@ othersounds:
 						{
 							if (command->collect.resource->objtype == OBJ_AsteroidType)
 							{
-								ship->soundevent.specialHandle = splayEPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_ResourceAsteroid)],
+								ship->soundevent.specialHandle = splayEPRVL(ShipBank, SEpatch(ShipEventsLUT, 0, Ship_ResourceAsteroid),
 																			  tempEQ, pan, SOUND_PRIORITY_MAX, vol, TRUE);
 							}
 							else
 							{
-								ship->soundevent.specialHandle = splayEPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_ResourceDustCloud)],
+								ship->soundevent.specialHandle = splayEPRVL(ShipBank, SEpatch(ShipEventsLUT, 0, Ship_ResourceDustCloud),
 																			  tempEQ, pan, SOUND_PRIORITY_MAX, vol, TRUE);
 							}
 							specialon = TRUE;
@@ -1462,7 +1471,7 @@ othersounds:
 					if ((ship->soundevent.specialHandle == SOUND_NOTINITED) ||
 						soundover(ship->soundevent.specialHandle))
 					{
-						ship->soundevent.specialHandle = splayEPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_Salvage)],
+						ship->soundevent.specialHandle = splayEPRVL(ShipBank, SEpatch(ShipEventsLUT, 0, Ship_Salvage),
 																	  tempEQ, pan, SOUND_PRIORITY_MAX, (sword)(vol * (1.0f - ship->soundevent.coverage)), TRUE);
 					}
 					specialon = TRUE;
@@ -1477,7 +1486,7 @@ othersounds:
 					if ((ship->soundevent.specialHandle == SOUND_NOTINITED) ||
 						soundover(ship->soundevent.specialHandle))
 					{
-						ship->soundevent.specialHandle = splayEPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_RepairLoop)],
+						ship->soundevent.specialHandle = splayEPRVL(ShipBank, SEpatch(ShipEventsLUT, 0, Ship_RepairLoop),
 																	  tempEQ, pan, SOUND_PRIORITY_MAX, vol, TRUE);
 					}
 					specialon = TRUE;
@@ -1537,7 +1546,7 @@ othersounds:
 						}
 						
 						// only play if a damage should be on
-						ship->soundevent.damageHandle = splayEPRV(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ambient)],
+						ship->soundevent.damageHandle = splayEPRV(ShipBank, SEpatch(ShipCmnEventsLUT, SEshipSoundObject(ship), ambient),
 																   tempEQ, pan, SOUND_PRIORITY_LOW, vol);
 					}
 				}
@@ -1576,7 +1585,7 @@ othersounds:
 								soundstop(ship->soundevent.damageHandle, 0.2f);
 							}
 
-							ship->soundevent.damageHandle = splayEPRV(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ambient)],
+							ship->soundevent.damageHandle = splayEPRV(ShipBank, SEpatch(ShipCmnEventsLUT, SEshipSoundObject(ship), ambient),
 																	   tempEQ, pan, SOUND_PRIORITY_LOW, vol);
 							ship->soundevent.lastAmbient = ambient;
 						}
@@ -1594,7 +1603,7 @@ othersounds:
 				soundover(ship->soundevent.ambientHandle))
 			{
 				// play the ambient loop regardless
-				ship->soundevent.ambientHandle = splayEPRV(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_Ambient)],
+				ship->soundevent.ambientHandle = splayEPRV(ShipBank, SEpatch(ShipCmnEventsLUT, SEshipSoundObject(ship), ShipCmn_Ambient),
 														   tempEQ, pan, SOUND_PRIORITY_LOW, vol);
 			}
 			else
@@ -1610,7 +1619,7 @@ othersounds:
 			{
 				if (universe.totaltimeelapsed > ship->soundevent.nextRandom)
 				{
-					ship->soundevent.randomHandle = splayEPRV(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_RandomAmbient)],
+					ship->soundevent.randomHandle = splayEPRV(ShipBank, SEpatch(ShipCmnEventsLUT, SEshipSoundObject(ship), ShipCmn_RandomAmbient),
 															   tempEQ, pan, SOUND_PRIORITY_LOW, vol);
 					if (ship->soundevent.randomHandle == SOUND_NOTINITED)
 					{
@@ -1652,7 +1661,7 @@ othersounds:
 				if ((ship->soundevent.hyperspaceHandle == SOUND_NOTINITED) ||
 					soundover(ship->soundevent.hyperspaceHandle))
 				{
-					ship->soundevent.hyperspaceHandle = splayFPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_Hyperdrive)],
+					ship->soundevent.hyperspaceHandle = splayFPRVL(ShipBank, SEpatch(ShipEventsLUT, 0, Ship_Hyperdrive),
 										   tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_MAX, vol, TRUE, TRUE, FALSE);
 				}
 				else
@@ -1667,7 +1676,7 @@ othersounds:
 				if ((ship->soundevent.hyperspaceHandle == SOUND_NOTINITED) ||
 					soundover(ship->soundevent.hyperspaceHandle))
 				{
-					ship->soundevent.hyperspaceHandle = splayFPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_HyperdriveOff)],
+					ship->soundevent.hyperspaceHandle = splayFPRVL(ShipBank, SEpatch(ShipEventsLUT, 0, Ship_HyperdriveOff),
 										   tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_MAX, vol, TRUE, TRUE, FALSE);
 				}
 				else
@@ -1740,7 +1749,7 @@ playloopingguns:
 						soundover(ship->soundevent.burstHandle)) &&				// is the sound actually not playing
 						(vol > SOUND_VOL_MIN))									// is the volume > 0
 					{
-						ship->soundevent.burstHandle = splayEPRVL(GunBank, GunEventsLUT->lookup[GetPatch(GunEventsLUT, ship->gunInfo->guns[0].gunstatic->gunsoundtype, Gun_WeaponFireLooped)],
+						ship->soundevent.burstHandle = splayEPRVL(GunBank, SEpatch(GunEventsLUT, ship->gunInfo->guns[0].gunstatic->gunsoundtype, Gun_WeaponFireLooped),
 														tempEQ, pan, SOUND_PRIORITY_MAX, vol, TRUE);
 					}
 					else
@@ -1797,7 +1806,7 @@ static void soundEventAudioUpdate(void)
 		if (ship->soundevent.engineHandle == SOUND_NOTINITED)
 		{
 			/* start the engine sound */
-			ship->soundevent.engineHandle = splayEPRVL(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_Engine)],
+			ship->soundevent.engineHandle = splayEPRVL(ShipBank, SEpatch(ShipCmnEventsLUT, SEshipSoundObject(ship), ShipCmn_Engine),
 								   tempEQ, ship->soundevent.pan, SOUND_PRIORITY_MAX, ship->soundevent.engineVol, TRUE);
 		}
 		else
@@ -1832,7 +1841,7 @@ static void soundEventAudioUpdate(void)
 			if (ship->soundevent.engineHandle == SOUND_NOTINITED)
 			{
 				/* start the engine sound */
-				ship->soundevent.engineHandle = splayEPRVL(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_Engine)],
+				ship->soundevent.engineHandle = splayEPRVL(ShipBank, SEpatch(ShipCmnEventsLUT, SEshipSoundObject(ship), ShipCmn_Engine),
 									   tempEQ, ship->soundevent.pan, SOUND_PRIORITY_MAX, ship->soundevent.engineVol, TRUE);
 			}
 			else
@@ -1869,7 +1878,7 @@ static void soundEventAudioUpdate(void)
 			if (ship->soundevent.engineHandle == SOUND_NOTINITED)
 			{
 				/* start the engine sound */
-				ship->soundevent.engineHandle = splayEPRVL(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_Engine)],
+				ship->soundevent.engineHandle = splayEPRVL(ShipBank, SEpatch(ShipCmnEventsLUT, SEshipSoundObject(ship), ShipCmn_Engine),
 									   tempEQ, ship->soundevent.pan, SOUND_PRIORITY_MAX, ship->soundevent.engineVol, TRUE);
 			}
 			else
@@ -1951,12 +1960,12 @@ static void soundEventAudioUpdate(void)
 		/* start the engine sound */
 			if (velratio > 1.0f)
 			{
-				ship->soundevent.engineHandle = splayFPRVL(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_Engine)],
+				ship->soundevent.engineHandle = splayFPRVL(ShipBank, SEpatch(ShipCmnEventsLUT, SEshipSoundObject(ship), ShipCmn_Engine),
 									   tempEQ, velratio, pan, SOUND_PRIORITY_MAX, vol, TRUE, TRUE, FALSE);
 			}
 			else
 			{
-				ship->soundevent.engineHandle = splayEPRVL(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_Engine)],
+				ship->soundevent.engineHandle = splayEPRVL(ShipBank, SEpatch(ShipCmnEventsLUT, SEshipSoundObject(ship), ShipCmn_Engine),
 									   tempEQ, pan, SOUND_PRIORITY_MAX, vol, TRUE);
 			}
 	}
@@ -2529,7 +2538,7 @@ void SEloadbank(void)
 #endif
 
     /* new stuff */
-    strcpy(loadfile, SOUNDFXDIR);
+    strcpy(loadfile, seBankDirectory);
     strcat(loadfile, "GunEvents.lut");
     fileLoadAlloc(loadfile, (void**)&GunEventsLUT, NonVolatile);
 
@@ -2544,7 +2553,7 @@ void SEloadbank(void)
 		GunEventsLUT->lookup[i] = FIX_ENDIAN_INT_16( GunEventsLUT->lookup[i] );
 #endif
 
-    strcpy(loadfile, SOUNDFXDIR);
+    strcpy(loadfile, seBankDirectory);
     strcat(loadfile, "ShipCmnEvents.lut");
     fileLoadAlloc(loadfile, (void**)&ShipCmnEventsLUT, NonVolatile);
 
@@ -2559,7 +2568,7 @@ void SEloadbank(void)
 		ShipCmnEventsLUT->lookup[i] = FIX_ENDIAN_INT_16( ShipCmnEventsLUT->lookup[i] );
 #endif
 		
-    strcpy(loadfile, SOUNDFXDIR);
+    strcpy(loadfile, seBankDirectory);
     strcat(loadfile, "ShipEvents.lut");
     fileLoadAlloc(loadfile, (void**)&ShipEventsLUT, NonVolatile);
 
@@ -2580,7 +2589,7 @@ void SEloadbank(void)
 		dbgAssertOrIgnore(FALSE);
 	}
 
-    strcpy(loadfile, SOUNDFXDIR);
+    strcpy(loadfile, seBankDirectory);
     strcat(loadfile, "DerelictEvents.lut");
     fileLoadAlloc(loadfile, (void**)&DerelictEventsLUT, NonVolatile);
 
@@ -2601,11 +2610,11 @@ void SEloadbank(void)
 		dbgAssertOrIgnore(FALSE);
 	}
 
-//    strcpy(loadfile, SOUNDFXDIR);
+//    strcpy(loadfile, seBankDirectory);
 //    strcat(loadfile, "SpecEffectEvents.lut");
 //    fileLoadAlloc(loadfile, &SpecEffectEventsLUT, NonVolatile);
 
-    strcpy(loadfile, SOUNDFXDIR);
+    strcpy(loadfile, seBankDirectory);
     strcat(loadfile, "SpecExpEvents.lut");
     fileLoadAlloc(loadfile, (void**)&SpecExpEventsLUT, NonVolatile);
 
@@ -2626,7 +2635,7 @@ void SEloadbank(void)
 //		dbgAssertOrIgnore(FALSE);
 //	}
 
-    strcpy(loadfile, SOUNDFXDIR);
+    strcpy(loadfile, seBankDirectory);
     strcat(loadfile, "SpecHitEvents.lut");
     fileLoadAlloc(loadfile, (void**)&SpecHitEventsLUT, NonVolatile);
 
@@ -2648,7 +2657,7 @@ void SEloadbank(void)
 		dbgAssertOrIgnore(FALSE);
 	}
 
-    strcpy(loadfile, SOUNDFXDIR);
+    strcpy(loadfile, seBankDirectory);
     strcat(loadfile, "UIEvents.lut");
     fileLoadAlloc(loadfile, (void**)&UIEventsLUT, NonVolatile);
 
@@ -2663,7 +2672,7 @@ void SEloadbank(void)
 		UIEventsLUT->lookup[i] = FIX_ENDIAN_INT_16( UIEventsLUT->lookup[i] );
 #endif
 
-    strcpy(loadfile, SOUNDFXDIR);
+    strcpy(loadfile, seBankDirectory);
 	strcat(loadfile, "Guns.bnk");
 #ifdef _X86_64
     loadbankAndConvertTo64Bit(loadfile, (void**)&GunBank);
@@ -2676,7 +2685,7 @@ void SEloadbank(void)
 		dbgAssertOrIgnore(FALSE);
 	}
 
-    strcpy(loadfile, SOUNDFXDIR);
+    strcpy(loadfile, seBankDirectory);
 	strcat(loadfile, "Ships.bnk");
 #ifdef _X86_64
     loadbankAndConvertTo64Bit(loadfile, (void**)&ShipBank);
@@ -2689,7 +2698,7 @@ void SEloadbank(void)
 		dbgAssertOrIgnore(FALSE);
 	}
 
-    strcpy(loadfile, SOUNDFXDIR);
+    strcpy(loadfile, seBankDirectory);
 	strcat(loadfile, "SpecialEffects.bnk");
 #ifdef _X86_64
     loadbankAndConvertTo64Bit(loadfile, (void**)&SpecialEffectBank);
@@ -2703,7 +2712,7 @@ void SEloadbank(void)
 		dbgAssertOrIgnore(FALSE);
 	}
 
-    strcpy(loadfile, SOUNDFXDIR);
+    strcpy(loadfile, seBankDirectory);
 	strcat(loadfile, "UI.bnk");
 #ifdef _X86_64
     loadbankAndConvertTo64Bit(loadfile, (void**)&UIBank);
@@ -2934,9 +2943,12 @@ sword SEgetAngleToCamera(Ship *ship)
 /* Presentation effects touch native visuals and renderer light lists. Keep
    them on the game thread; only the audio event pass borrows the frozen world.
    render.c joins that pass before returning to simulation or UI event input. */
+#include "SoundWorldLoopLifecycle.inc"
 void soundEventUpdate(void)
 {
     hwModernGraphicsWaitAudioWork();
+    soundEventSelectGameBanks();
+    soundEventPruneWorldLoops();
     soundFrameHarvestSnapshot=FALSE;
     rmPresentationUpdate();
     soundEventAudioUpdate();
@@ -2944,6 +2956,8 @@ void soundEventUpdate(void)
 void soundEventUpdateBegin(void)
 {
     hwModernGraphicsWaitAudioWork();
+    soundEventSelectGameBanks();
+    soundEventPruneWorldLoops();
     soundFrameHarvestSnapshot=FALSE;
     rmPresentationUpdate();
     if(!soundeventinited || soundpaused) {soundEventAudioUpdate();return;}

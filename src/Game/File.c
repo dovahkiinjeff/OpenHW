@@ -21,6 +21,7 @@
 #include "TexturePack.h"
 #include "OpenHWArchive.h"
 #include "OpenHWShipDocument.h"
+#include "../Modern/CataclysmData.h"
 
 #ifdef _WIN32
     #define WIN32_LEAN_AND_MEAN
@@ -856,6 +857,12 @@ static const void *fileObigView(char *name, udword flags, int *size)
 {
     const void *view;
     struct stat local;
+    if(!bitTest(flags,FF_UserSettingsPath|FF_CDROM|FF_WriteMode|FF_AppendMode) &&
+       (!_strnicmp(name,"ETG\\Cata_",9)||!_strnicmp(name,"ETG/Cata_",9)))
+        return hwCataCompatibleEffectView(name,size);
+    if (!bitTest(flags, FF_UserSettingsPath|FF_CDROM|FF_WriteMode|FF_AppendMode) &&
+        (!_strnicmp(name,"Cataclysm\\",10) || !_strnicmp(name,"Cataclysm/",10)))
+        return hwCataCompatibleShipView(name,size);
     if (!openhwArchiveMounted() || bitTest(flags, FF_UserSettingsPath|FF_CDROM|FF_WriteMode|FF_AppendMode)) return NULL;
     /* User/editor loose files override the base archive. Absolute requests
        outside the portable root are rejected by the archive normalizer. */

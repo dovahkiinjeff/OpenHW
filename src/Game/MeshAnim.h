@@ -199,6 +199,7 @@ void madHeaderDelete(madheader *header);
 
 //make ship local bindings for mesh animation
 void madAnimBindingsDupe(struct Ship *ship, struct ShipStaticInfo *staticInfo,bool32 LoadingGame);
+udword madShipBindingsSize(const struct ShipStaticInfo *info);
 
 //play an animation
 void madAnimationStart(struct Ship *ship, sdword animNumber);
@@ -217,5 +218,7 @@ void PreFix_madBindings(struct Ship *ship,struct Ship *fixcontents);
 void Save_madBindings(struct Ship *ship);
 void Load_madBindings(struct Ship *ship);
 void Fix_madBindings(struct Ship *ship);
+
+#define MAD_ACOLYTE_LINK_ROOT_OFFSET 9.65f
 
 #endif

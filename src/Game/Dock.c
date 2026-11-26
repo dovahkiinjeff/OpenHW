@@ -8,6 +8,7 @@
     Copyright Relic Entertainment, Inc.  All rights reserved.
 =============================================================================*/
 
+#include "CataclysmCampaign.h"
 #include "Dock.h"
 
 #include <math.h>
@@ -56,6 +57,7 @@
 
 #ifdef _MSC_VER
 #define strcasecmp _stricmp
+#define strncasecmp _strnicmp
 #else
 #include <strings.h>
 #endif
@@ -516,7 +518,7 @@ sdword ThisShipIs(ShipStaticInfo *shipstatic)
     {
         return THISSHIPIS_CORVETTE;
     }
-    else if (shipstatic->shiptype == ResourceCollector)
+    else if (shipstatic->shiptype == ResourceCollector || shipstatic->shiptype==CataWorker)
     {
         return THISSHIPIS_RESOURCER;
     }
@@ -553,6 +555,7 @@ bool32 shipRetireNeedsMothership(Ship *ship)
     return FALSE;
 }
 #include "DockEligibility.inc"
+#include "DockHostPurpose.inc"
 
 /*-----------------------------------------------------------------------------
     Name        : MakeShipsAbleToDockWithThisShip
@@ -626,12 +629,7 @@ Ship *FindNearestShipToDockAt(Ship *ship,DockType dockType)
                         goto dockatbusydontdock;
                     }
                 }
-                if (((dockType & DOCK_TO_DEPOSIT_RESOURCES) && (dockatstatic->canReceiveResources)) ||
-                   ((dockType & DOCK_FOR_REFUEL) && (dockatstatic->canReceiveShips) && (dockatstatic->pumpFuelRate > 0.0f)) ||
-                   ((dockType & DOCK_FOR_REPAIR) && (dockatstatic->canReceiveShips) && (dockatstatic->repairOtherShipRate > 0)) ||
-                   ((dockType & DOCK_FOR_BOTHREFUELANDREPAIR) && (dockatstatic->canReceiveShips) && (dockatstatic->pumpFuelRate > 0.0f) && (dockatstatic->repairOtherShipRate > 0)) ||
-                   ((dockType & DOCK_PERMANENTLY) && (dockatstatic->canReceiveShipsPermanently)) ||
-                   ((dockType & DOCK_FOR_RETIRE) && (dockatstatic->canReceiveShipsForRetire)))
+                if (dockHostSupportsPurpose(dockatstatic,dockType))
                 {
                     vecSub(diff,dockat->posinfo.position,ship->posinfo.position);
                     dist = fsqrt(vecMagnitudeSquared(diff));
@@ -1284,7 +1282,7 @@ bool32 dockShipRefuelsAtShip(Ship *ship,Ship *dockwith)
     {
         if (ship->health < shipstaticinfo->maxhealth)
         {
-            if(ship->shiptype == ResourceCollector &&
+            if((ship->shiptype == ResourceCollector || ship->shiptype==CataWorker) &&
                dockwithstaticinfo->repairResourceCollectorRate != 0.0f)
             {
                 ship->health += dockwithstaticinfo->repairResourceCollectorRate * shipstaticinfo->maxhealth * 0.01f;
@@ -2278,6 +2276,17 @@ static void dockFreeDockPoint(Ship *ship,Ship *dockwith)
 
 }
 
+void dockEnsureShipsInside(Ship *host)
+{
+    if (host->shipsInsideMe != NULL)
+        return;
+
+    host->shipsInsideMe = memAlloc(sizeof(ShipsInsideMe),"ShipsInsideMe",NonVolatile);
+    listInit(&host->shipsInsideMe->insideList);
+    host->shipsInsideMe->FightersInsideme = 0;
+    host->shipsInsideMe->CorvettesInsideme = 0;
+}
+
 void dockPutShipInside(Ship *ship,Ship *dockwith)
 {
     ShipsInsideMe *shipsInsideMe = dockwith->shipsInsideMe;
@@ -2288,6 +2297,7 @@ void dockPutShipInside(Ship *ship,Ship *dockwith)
     insideShip = memAlloc(sizeof(InsideShip),"InsideShip",0);
     insideShip->ship = ship;
     listAddNode(&shipsInsideMe->insideList,&insideShip->node,insideShip);
+    cataCampaignDockedUpgrade(ship,dockwith);
     lmUpdateShipsInside();
     if (ship->staticinfo->shipclass==CLASS_Fighter)
         dockwith->shipsInsideMe->FightersInsideme++;
@@ -2328,6 +2338,7 @@ void dockRemoveShipFromInside(Ship *ship,Ship *dockwith)
 
         if (insideShip->ship == ship)
         {
+            cataCampaignDockedUpgrade(ship,dockwith);
             listDeleteNode(node);
             lmUpdateShipsInside();
             if (ship->staticinfo->shipclass==CLASS_Fighter)
@@ -2344,6 +2355,7 @@ void dockRemoveShipFromInside(Ship *ship,Ship *dockwith)
     dbgMessagef("Warning: ship %d not inside ship %d but expected",ship->shipID.shipNumber,dockwith->shipID.shipNumber);
 }
 
+#include "CataclysmDockService.inc"
 void dockPutShipOutside(Ship *ship,Ship *creator,vector *createat,udword headingdirection,udword updirection)
 {
     vector heading;
@@ -2372,6 +2384,7 @@ void dockPutShipOutside(Ship *ship,Ship *creator,vector *createat,udword heading
     univAddObjToRenderListIf((SpaceObj *)ship,(SpaceObj *)creator);     // add to render list if parent ship is in render list
     ship->posinfo.position = *createat;
     ship->posinfo.velocity = creator->posinfo.velocity;
+    cataDockServiceOnLaunch(ship);
 
     dbgAssertOrIgnore(headingdirection != updirection);
     GetDirectionVectorOfShip(&heading,headingdirection,creator);
@@ -6013,6 +6026,9 @@ bool32 ShipDocksAtDefaultShip(struct CommandToDo *docktodo,struct Ship *ship,str
     }
 }
 
+/* The Somtaaw callbacks share the engine's reservation/refuel helpers above. */
+#include "CataclysmDock.inc"
+
 /*=============================================================================
     Ship docking, at a high level (ignoring individual ship details)
 =============================================================================*/
@@ -6325,6 +6341,29 @@ void dockInitializeCustomFunctions(ShipStaticInfo *statinfo,ShipType type,ShipRa
 {
     statinfo->ShipXDocksAtShipY = ShipDocksAtDefaultShip;
     statinfo->LaunchShipXFromShipY = LaunchShipFromDefaultShip;
+
+    if(type==CataMothership || type==CataProcessor)
+    {
+        statinfo->ShipXDocksAtShipY=ShipDocksAtSomtaaw;
+        statinfo->LaunchShipXFromShipY=type==CataMothership?LaunchShipFromSomtaaw:NULL;
+        if(type==CataProcessor){
+            statinfo->canReceiveResources=TRUE;statinfo->canReceiveSomething=TRUE;
+            statinfo->canReceiveTheseShips[THISSHIPIS_RESOURCER]=TRUE;
+        }
+        return;
+    }
+
+    /* Cataclysm removed HW1's collector refueling latches. Its owned Taiidan
+       hulls advertise their actual receiving capabilities in the SHP; salvage,
+       linking and leech attachment points do not make a ship a docking host.
+       Kushan presentation still uses OpenHW's original docking geometry. */
+    if(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()) &&
+       race==R2 && !IS_CATA_SHIP(type) && !statinfo->canReceiveSomething)
+    {
+        statinfo->ShipXDocksAtShipY=NULL;
+        statinfo->LaunchShipXFromShipY=NULL;
+        return;
+    }
 
     if (race == R1)
     {

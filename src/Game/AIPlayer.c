@@ -8,6 +8,7 @@
 // =============================================================================
 
 #include "AIPlayer.h"
+#include "CataclysmAI.h"
 #include "../Network/MatchRules.h"
 #include "../Network/DedicatedServer.h"
 
@@ -833,6 +834,8 @@ void aiplayerUpdateAll(void)
 {
     uword i;
     AIPlayer *aiplayer;
+
+    cataAISelectProfile(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()));
 
     if(hwMatchActive() && hwDedicatedMode!=1)return;
     if (gameIsRunning)

@@ -208,6 +208,8 @@ typedef struct
     sdword nPolygonObjects;                 //number of polygon objects in mesh file
     struct tagmaterialentry *localMaterial; //list of local materials
     struct tagmaterialentry *publicMaterial;//list of public materials
+    bool32 restBoundsReady;                 //runtime cache in hull-local coordinates
+    vector restBoundsMin, restBoundsMax;
 #if MESH_RETAIN_FILENAMES
     char *fileName;                         //for debugging
 #endif
@@ -403,12 +405,14 @@ void *meshRemasteredDeathHullCreate(const void *ship);
 void meshRemasteredDeathHullDraw(void *hull,void *instance,const matrix *rotation,const vector *position);
 void meshRemasteredDeathHullFree(void *hull);
 bool32 meshRemasteredDockEndpoint(const void *ship,const char *name,vector *position);
+sdword meshRemasteredDockPoint(const void *ship,const char *name,unsigned index,vector *position);
 void meshRecolorize(meshdata *mesh);
 void meshFixupUV(meshdata* mesh);
 bool32 meshPagedVersionExists(char* fileName);
 
 //render a specific mesh
 sdword meshRender(meshdata *mesh, sdword iColorScheme);
+bool32 meshRestBounds(meshdata *mesh, vector *minimum, vector *maximum);
 meshdata *meshLoadMenuPreview(char *path,color base,color stripe);
 void meshMenuPreviewColors(meshdata *mesh,color base,color stripe);
 void meshRenderMenuPreview(meshdata *mesh,real32 engineBlend);
@@ -439,6 +443,8 @@ bool32 meshFindHierarchyMatrixByUserData(hmatrix *dest, hmatrix *destNC, mhbindi
 void meshHierarchyWalk(meshdata *mesh, meshcallback preMesh, meshcallback postCallback);
 
 void meshSetFade(real32 fade);
+void meshRenderDisguiseMorph(meshdata *mesh, sdword colorScheme, const vector *center,
+                             real32 radius, real32 morph);
 void meshSetSpecular(sdword mode, ubyte red, ubyte green, ubyte blue, ubyte alpha); //mode -1 == off
 
 #endif

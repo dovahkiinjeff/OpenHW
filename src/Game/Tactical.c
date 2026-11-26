@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "Tactical.h"
+#include "CataclysmShips.h"
 
 #include <stdio.h>
 
@@ -294,6 +295,7 @@ void toAllShipsDraw(void)
         }
         else if (ship->objtype == OBJ_ShipType)
         {
+            if(cataShipIsAttachedComponent(ship))goto nextnode;
             if (bitTest(ship->flags,SOF_Cloaked) && ship->playerowner != universe.curPlayerPtr)
             {                                                   //if cloaked, and doesn't belong to current player
                 if(!proximityCanPlayerSeeShip(universe.curPlayerPtr,ship))

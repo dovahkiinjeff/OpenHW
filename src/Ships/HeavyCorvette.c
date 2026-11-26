@@ -27,6 +27,7 @@ typedef struct
 
 HeavyCorvetteStatics HeavyCorvetteStaticRace1;
 HeavyCorvetteStatics HeavyCorvetteStaticRace2;
+static HeavyCorvetteStatics CataclysmACVStatic;
 
 void heavyCleanSpec(Ship *ship);
 bool32 doBurstCharging(Ship *ship);
@@ -36,6 +37,7 @@ bool32 doBurstFire(Ship *ship);
 void HeavyCorvetteStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
     HeavyCorvetteStatics *corvstat = (statinfo->shiprace == R1) ? &HeavyCorvetteStaticRace1 : &HeavyCorvetteStaticRace2;
+    if(statinfo->shiptype==CataACV)corvstat=&CataclysmACVStatic;
 
     memset(corvstat, 0, sizeof(HeavyCorvetteStatics));
     scriptSetStruct(directory,filename,AttackSideStepParametersScriptTable,(ubyte *)&corvstat->sidestepParameters);

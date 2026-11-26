@@ -88,6 +88,7 @@ extern real32 selBandBoxInsideOut;
 
 //selection lists
 extern MaxSelection selSelected;
+extern MaxSelection selInspected;
 extern MaxAnySelection selSelecting;
 extern MaxSelection selHotKeyGroup[SEL_NumberHotKeyGroups];
 
@@ -120,6 +121,7 @@ extern sdword selClosestDistance;
 =============================================================================*/
 #define selRectNone()                       selSelecting.numTargets = 0
 #define selSelectNone()                     selSelected.numShips = 0;   \
+                                            selInspected.numShips = 0;  \
                                             ioUpdateShipTotals()
 #define selRectDrag(c, r)                   selRectDragFunction(universe.RenderList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets,        TRUE, FALSE, FALSE)
 #define selRectDragAnywhere(c, r)           selRectDragFunction(universe.SpaceObjList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets, TRUE, FALSE, FALSE)
@@ -176,6 +178,11 @@ bool32 selShipsInSelection(MaxSelection *dest, MaxSelection *list);
 
 //selections by mouse dragging
 void selRectDragFunction(Node *startNode, Camera *camera, rectangle *rect, SpaceObjRotImpTarg **destList, sdword *destCount, sdword playerSpecific, bool32 selectAnything, bool32 bAttack);
+void selRectDragFriendlies(Node *startNode, Camera *camera, rectangle *rect);
+void selRectSelectFriendlies(Node *startNode, Camera *camera, rectangle *rect);
+bool32 selInspectShip(Ship *ship);
+void selInspectDragSelection(MaxSelection *selection);
+void selInspectHealthDraw(bool32 dragging, bool32 sensors);
 void selRectDragAddFunction(Node *startNode, Camera *camera, rectangle *rect);
 
 //selection by mouse click (on release)

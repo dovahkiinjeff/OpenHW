@@ -80,7 +80,7 @@ int main(int argc,char **argv){
         auto* package=hwRmVisualPackageRead(argv[5],complete,length,read,release,configure,&root,error,sizeof(error));if(!package){fprintf(stderr,"%s\n",error);openhwShipDocumentFree(complete);return 1;}hwRmVisualPackageFree(package);
         int ok=openhwModPublish(argv[2],argv[6],0,argv[3],(char*)complete,length,0,error,sizeof(error));openhwShipDocumentFree(complete);printf("%s\n",error);return ok==1?0:1;
     }
-    if((argc==5||argc==6) && !std::strcmp(argv[1],"--loose-ship")) {
+    if((argc==5||argc==6) && (!std::strcmp(argv[1],"--loose-ship") || !std::strcmp(argv[1],"--visual-ship"))) {
         if(argc==6)library=argv[5];
         overlay=argv[2];std::string root=std::filesystem::path(argv[3]).parent_path().generic_string()+"/";
         const void* bytes=nullptr;size_t size=0;char error[1024]{};
@@ -89,17 +89,57 @@ int main(int argc,char **argv){
         auto* package=hwRmVisualPackageRead(argv[4],bytes,size,read,release,configure,&root,error,sizeof(error));
         if(!package){fprintf(stderr,"%s\n",error);release(nullptr,bytes);return 1;}
         void* gameplay=nullptr;size_t length=0;
-        if(!openhwShipDocumentCompile(bytes,size,read,release,&root,1,&gameplay,&length,error,sizeof(error))){fprintf(stderr,"%s\n",error);return 1;}
+        if(std::strcmp(argv[1],"--visual-ship") &&
+           !openhwShipDocumentCompile(bytes,size,read,release,&root,1,&gameplay,&length,error,sizeof(error))){fprintf(stderr,"%s\n",error);return 1;}
         auto* asset=hwRmVisualPackageTakeAsset(package);auto* instance=hwRmVisualInstanceCreate(asset);
         if(!instance)return 1;
         const unsigned count=hwRmVisualInstanceGunCount(instance);
+        if(!std::strcmp(argv[1],"--visual-ship") && !std::strcmp(argv[4],"sAcolyte")) {
+            for(const char* event:{"Link","Unlink","CombatIn","CombatOut"})
+                for(double phase:{0.0,0.5,1.0})
+                    if(!hwRmVisualInstanceSampleEvent(instance,event,phase,error,sizeof(error))){
+                        fprintf(stderr,"%s\n",error);return 1;
+                    }
+            auto* layer=hwRmVisualInstanceSubsystem(instance);
+            float pose[2][2][16];
+            for(unsigned side=0;side<2;++side){
+                const auto name="Hardpoint_Wrist"+std::to_string(side+1)+"_Position";
+                for(unsigned phase=0;phase<2;++phase){
+                    if(!hwRmVisualInstanceSampleEvent(instance,"CombatIn",phase,error,sizeof(error)) ||
+                       !hwRmSubsystemJointTransform(layer,0,name.c_str(),1,nullptr,nullptr,pose[side][phase],error,sizeof(error)))return 1;
+                }
+                float distance=0;for(unsigned axis=12;axis<15;++axis){float d=pose[side][1][axis]-pose[side][0][axis];distance+=d*d;}
+                if(distance<1){fprintf(stderr,"Acolyte arm %u did not extend\n",side+1);return 1;}
+            }
+            printf("Both arms extend during combat; Link, Unlink, CombatIn and CombatOut poses validated.\n");
+        }
+        if(!std::strcmp(argv[1],"--visual-ship") && !std::strcmp(argv[4],"sWorker")) {
+            float matrix[16];
+            if(!hwRmVisualInstanceMarker(instance,"resource_nozzle",hwRmVisualPackageScale(package),matrix,error,sizeof(error))){
+                fprintf(stderr,"%s\n",error);return 1;
+            }
+            printf("Worker harvesting joint validated.\n");
+        }
+        if(!std::strcmp(argv[1],"--visual-ship") && !std::strcmp(argv[4],"sMothership")) {
+            for(unsigned p=1;p<=12;p++){
+                const auto path="path"+std::to_string(p);float point[3];
+                const int points=hwRmVisualInstanceDockPoint(instance,path.c_str(),0,hwRmVisualPackageScale(package),point);
+                if(points<2){fprintf(stderr,"Missing Kuun-Lan path %s\n",path.c_str());return 1;}
+                for(int i=0;i<points;i++)if(hwRmVisualInstanceDockPoint(instance,path.c_str(),i,hwRmVisualPackageScale(package),point)!=points){
+                    fprintf(stderr,"Invalid Kuun-Lan path point\n");return 1;
+                }
+            }
+            for(double phase:{0.0,0.5,1.0})if(!hwRmVisualInstanceSampleEvent(instance,"Idle",phase,error,sizeof(error))){fprintf(stderr,"%s\n",error);return 1;}
+            printf("Kuun-Lan: 12 docking paths and machinery animation validated.\n");
+        }
         for(unsigned ordinal=0;ordinal<count;++ordinal){unsigned gun;float matrix[16];
             if(!hwRmVisualInstanceGunIndex(instance,ordinal,&gun)||
                !hwRmVisualInstanceSetGun(instance,gun,.15f,.1f,0,error,sizeof(error))||
                !hwRmVisualInstanceGunMuzzle(instance,gun,hwRmVisualPackageScale(package),matrix,error,sizeof(error))){fprintf(stderr,"%s\n",error);return 1;}
             printf("Gun %u: aiming and muzzle valid\n",gun);
         }
-        printf("Validated %u native gun bindings. Compiled gameplay:\n%s\n",count,(char*)gameplay);
+        printf("Validated %u native gun bindings.\n",count);
+        if(gameplay)printf("Compiled gameplay:\n%s\n",(char*)gameplay);
         openhwShipDocumentFree(gameplay);hwRmVisualInstanceFree(instance);hwRmVisualAssetFree(asset);hwRmVisualPackageFree(package);release(nullptr,bytes);return 0;
     }
     if(argc<2||argc>4)return 2;char error[1024]{};if(argc>=3)library=std::filesystem::path(argv[2]);if(argc==4)overlay=std::filesystem::path(argv[3]);

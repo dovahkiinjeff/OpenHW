@@ -1,5 +1,8 @@
 #include "../Modern/DiagnosticPolicy.h"
 #include "../Modern/WindowsInstall.h"
+#include "../Modern/CataclysmData.h"
+#include "CataclysmCampaign.h"
+#include "CataclysmKAS.h"
 #include "LiveMapAuthoringPolicy.h"
 #include "ModernUI.h"
 #include "../Modern/BadgeLibrary.h"
@@ -10,6 +13,7 @@
 #include "ShipPilot.h"
 #include "StringSupport.h"
 #include "ShipAppearance.h"
+#include "CommandNetwork.h"
 #include "RemasteredPresentation.h"
 #include "Veterancy.h"
 #include "Tactics.h"
@@ -86,7 +90,6 @@ static void muiEditorColorBringToFront(void);
 #define MUI_AUDIO_ROW_COUNT 6
 #define MUI_VIDEO_ROW_COUNT 7
 #define MUI_GAMEPLAY_ROW_COUNT 13
-#define MUI_ART_COUNT 34
 #ifndef MIN2
 #define MIN2(a,b) ((a)<(b)?(a):(b))
 #define MAX2(a,b) ((a)>(b)?(a):(b))
@@ -254,6 +257,7 @@ typedef struct ModernUICommandLayout
     rectangle controlGroups;
     rectangle stats;
     rectangle selectionName;
+    rectangle upgrade;
     rectangle action[MUI_COMMAND_ACTION_COUNT];
     rectangle dossier;
     rectangle roster;
@@ -327,7 +331,14 @@ typedef enum ModernUIArtKind
     MUI_ART_BLUE_CORVETTE, MUI_ART_BRIDGE, MUI_ART_HANGAR, MUI_ART_INDUSTRY,
     MUI_ART_NEBULA, MUI_ART_MOTHERSHIP, MUI_ART_ENGINEERING, MUI_ART_COCKPIT,
     MUI_ART_DRONE,
-    MUI_ART_BENTUSI_STUDY, MUI_ART_GALACTIC_PLAN, MUI_ART_NEW_DOCK, MUI_ART_GALACTIC_ROUTE, MUI_ART_HANGAR_SKETCH, MUI_ART_REPAIR_STUDY, MUI_ART_FRIGATE_GREY, MUI_ART_CARRIER_STUDY, MUI_ART_BATTLE_STUDY, MUI_ART_TAIIDAN_BLUE, MUI_ART_BENTUSI_LIGHTS, MUI_ART_CHAMBER, MUI_ART_TAIIDAN_DARK, MUI_ART_MOTHERSHIP_FLIGHT, MUI_ART_STRIKE_STUDY
+    MUI_ART_BENTUSI_STUDY, MUI_ART_GALACTIC_PLAN, MUI_ART_NEW_DOCK, MUI_ART_GALACTIC_ROUTE, MUI_ART_HANGAR_SKETCH, MUI_ART_REPAIR_STUDY, MUI_ART_FRIGATE_GREY, MUI_ART_CARRIER_STUDY, MUI_ART_BATTLE_STUDY, MUI_ART_TAIIDAN_BLUE, MUI_ART_BENTUSI_LIGHTS, MUI_ART_CHAMBER, MUI_ART_TAIIDAN_DARK, MUI_ART_MOTHERSHIP_FLIGHT, MUI_ART_STRIKE_STUDY,
+    MUI_ART_CATA_TITLE,
+    MUI_ART_CATA_BEAST_SHIP,
+    MUI_ART_CATA_BEAST_SPHERE,
+    MUI_ART_CATA_STRIKECRAFT,
+    MUI_ART_CATA_PATROLCRAFT,
+    MUI_ART_CATA_KUUN_LAN,
+    MUI_ART_COUNT
 } ModernUIArtKind;
 
 static ModernUIVideoState muiVideo;
@@ -343,6 +354,10 @@ static sdword muiMainSettingsSelection;
 static real32 muiMainSettingsExpansion;
 static udword muiMainSettingsLastTick;
 static bool32 muiMainSettingsKeyboardOpen;
+static bool32 muiMainStoryOpen,muiMainStoryKeyboard,muiStoryCataclysm;
+static real32 muiMainStoryExpansion;
+static udword muiMainStoryLastTick;
+static sdword muiMainStoryChoice;
 static fescreen *muiMainScreen;
 static sdword muiConnectionSelection;
 static fescreen *muiConnectionScreen;
@@ -374,7 +389,9 @@ static const char *muiArtworkFiles[MUI_ART_COUNT] = {
     "concept_hangar.png", "concept_industry.png", "concept_nebula.png",
     "concept_mothership.png", "concept_engineering.png", "concept_cockpit.png",
     "concept_drone.png",
-    "concept_bentusi_study.png", "concept_galactic_plan.png", "concept_new_dock.png", "concept_galactic_route.png", "concept_hangar_sketch.png", "concept_repair_study.png", "concept_frigate_grey.png", "concept_carrier_study.png", "concept_battle_study.png", "concept_taiidan_blue.png", "concept_bentusi_lights.png", "concept_chamber.png", "concept_taiidan_dark.png", "concept_mothership_flight.png", "concept_strike_study.png"
+    "concept_bentusi_study.png", "concept_galactic_plan.png", "concept_new_dock.png", "concept_galactic_route.png", "concept_hangar_sketch.png", "concept_repair_study.png", "concept_frigate_grey.png", "concept_carrier_study.png", "concept_battle_study.png", "concept_taiidan_blue.png", "concept_bentusi_lights.png", "concept_chamber.png", "concept_taiidan_dark.png", "concept_mothership_flight.png", "concept_strike_study.png",
+    "cata_title.png", "cata_beast_ship.png", "cata_beast_sphere.png",
+    "cata_strikecraft.png", "cata_patrolcraft.png", "cata_kuun_lan.png"
 };
 
 static const color muiInk = colRGB(7, 12, 17);
@@ -793,11 +810,30 @@ static void muiHumanizeTitle(const char *name, char *result, size_t count)
     result[index] = '\0';
 }
 
+static bool32 muiCataclysmInGame(void)
+{
+    return gameIsRunning && singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission());
+}
+
+static bool32 muiEnsureArtwork(ModernUIArtKind kind);
+
 static ModernUIArtKind muiArtworkForScreen(const char *name)
 {
     udword hash = 2166136261u;
     const char *cursor = name;
     if (name == NULL) return MUI_ART_GALAXY;
+    if (!gameIsRunning && muiStoryCataclysm && !strcmp(name,"Load_game") &&
+        muiEnsureArtwork(MUI_ART_CATA_KUUN_LAN)) return MUI_ART_CATA_KUUN_LAN;
+    if (muiCataclysmInGame())
+    {
+        ModernUIArtKind art = MUI_ART_COUNT;
+        if (strstr(name,"Load_game") || strstr(name,"Save_game")) art = MUI_ART_CATA_KUUN_LAN;
+        else if (strstr(name,"Quit_game") || strstr(name,"In_game_") ||
+                 strstr(name,"Pause") || strstr(name,"Escape")) art = MUI_ART_CATA_BEAST_SPHERE;
+        else if (strstr(name,"Construction") || strstr(name,"Build")) art = MUI_ART_CATA_STRIKECRAFT;
+        else if (strstr(name,"Research") || strstr(name,"Launch")) art = MUI_ART_CATA_PATROLCRAFT;
+        if (art != MUI_ART_COUNT && muiEnsureArtwork(art)) return art;
+    }
     if(strstr(name,"Quit_game"))return MUI_ART_CHAMBER;
     if(strstr(name,"In_game_")||strstr(name,"Pause")||strstr(name,"Escape"))return MUI_ART_BENTUSI_STUDY;
     if(strstr(name,"Construction")||strstr(name,"Build"))return MUI_ART_DOCK;
@@ -897,8 +933,7 @@ static bool32 muiEnsureArtwork(ModernUIArtKind kind)
     return art->texture != 0;
 }
 
-static void muiDrawArtworkInRect(ModernUIArtKind kind,
-                                 const rectangle *target)
+static void muiDrawArtwork(ModernUIArtKind kind, const rectangle *target, bool32 fit)
 {
     ModernUIArt *art;
     rectangle rect;
@@ -923,7 +958,22 @@ static void muiDrawArtworkInRect(ModernUIArtKind kind,
     imageAspect = (real32)art->width / (real32)art->height;
     screenAspect = (real32)(rect.x1 - rect.x0) /
                    (real32)(rect.y1 - rect.y0);
-    if (screenAspect > imageAspect)
+    if (fit)
+    {
+        if (screenAspect > imageAspect)
+        {
+            sdword margin = (sdword)(((rect.x1 - rect.x0) - (rect.y1 - rect.y0) * imageAspect) * 0.5f);
+            rect.x0 += margin;
+            rect.x1 -= margin;
+        }
+        else
+        {
+            sdword margin = (sdword)(((rect.y1 - rect.y0) - (rect.x1 - rect.x0) / imageAspect) * 0.5f);
+            rect.y0 += margin;
+            rect.y1 -= margin;
+        }
+    }
+    else if (screenAspect > imageAspect)
     {
         real32 visible = imageAspect / screenAspect;
         v0 = (1.0f - visible) * 0.5f;
@@ -947,6 +997,11 @@ static void muiDrawArtworkInRect(ModernUIArtKind kind,
     glEnd();
     rndTextureEnvironment(oldMode);
     rndTextureEnable(oldTexture);
+}
+
+static void muiDrawArtworkInRect(ModernUIArtKind kind, const rectangle *target)
+{
+    muiDrawArtwork(kind, target, FALSE);
 }
 
 static void muiConceptPanel(ModernUIArtKind kind,const rectangle *panel,unsigned alpha)
@@ -1783,6 +1838,13 @@ static void muiCommandLayoutCompute(ModernUICommandLayout *layout)
                                     layout->left.y0 + margin,
                                     middleRight,
                                     layout->left.y0 + margin + nameHeight);
+    if (muiCataclysmInGame())
+    {
+        sdword width = MIN2(uiScaleSize(96), (middleRight - middleLeft) / 3);
+        layout->upgrade = muiRect(middleRight - width, layout->selectionName.y0,
+                                  middleRight, layout->selectionName.y1);
+        layout->selectionName.x1 = layout->upgrade.x0 - gap;
+    }
     actionTop = layout->selectionName.y1 + gap;
     /* Dense tactical deck: use the available width before spending another
        row of vertical space.  The captions use a deliberately small common
@@ -1864,43 +1926,33 @@ static udword muiCommandSelectionSignature(void)
     return signature;
 }
 
-static void muiCommandSummaryUpdate(void)
+static void muiCommandSummarize(const MaxSelection *selection, ModernUICommandSummary *summary)
 {
-    udword signature = muiCommandSelectionSignature();
     sdword index;
     real32 firepowerSum = 0.0f;
     real32 speedSum = 0.0f;
     real32 coverageSum = 0.0f;
 
-    if (muiCommand.summary.signature == signature &&
-        muiCommand.summary.count == selSelected.numShips)
+    memset(summary, 0, sizeof(*summary));
+    summary->count = selection->numShips;
+    if (summary->count <= 0)
     {
         return;
     }
 
-    memset(&muiCommand.summary, 0, sizeof(muiCommand.summary));
-    muiCommand.summary.signature = signature;
-    muiCommand.summary.count = selSelected.numShips;
-    muiCommand.rosterScroll = 0;
-    muiCommand.iconScroll = 0;
-    if (selSelected.numShips <= 0)
+    summary->primaryType = selection->ShipPtr[0]->shiptype;
+    for (index = 0; index < summary->count; ++index)
     {
-        return;
-    }
-
-    muiCommand.summary.primaryType = selSelected.ShipPtr[0]->shiptype;
-    for (index = 0; index < selSelected.numShips; ++index)
-    {
-        Ship *ship = selSelected.ShipPtr[index];
+        Ship *ship = selection->ShipPtr[index];
         ShipStaticInfo *info = ship != NULL ? ship->staticinfo : NULL;
         real32 firepower = 0.0f;
         if (ship == NULL || info == NULL)
         {
             continue;
         }
-        if (ship->shiptype != muiCommand.summary.primaryType)
+        if (ship->shiptype != summary->primaryType)
         {
-            muiCommand.summary.mixed = TRUE;
+            summary->mixed = TRUE;
         }
         firepower = info->svFirePower != 0 ? (real32)info->svFirePower :
                     gunShipFirePower(info, Neutral);
@@ -1910,16 +1962,26 @@ static void muiCommandSummaryUpdate(void)
         coverageSum += (real32)svShipCoverage(info);
     }
 
-    muiCommand.summary.totalFirepower = (sdword)(firepowerSum + 0.5f);
-    muiCommand.summary.averageFirepower = firepowerSum /
-                                          (real32)selSelected.numShips;
-    muiCommand.summary.averageSpeed = speedSum /
-                                      (real32)selSelected.numShips;
-    muiCommand.summary.averageCoverage = coverageSum /
-                                         (real32)selSelected.numShips;
+    summary->totalFirepower = (sdword)(firepowerSum + 0.5f);
+    summary->averageFirepower = firepowerSum / (real32)summary->count;
+    summary->averageSpeed = speedSum / (real32)summary->count;
+    summary->averageCoverage = coverageSum / (real32)summary->count;
 }
 
-static real32 muiCommandAverageHealthFraction(void)
+static void muiCommandSummaryUpdate(void)
+{
+    udword signature = muiCommandSelectionSignature();
+    if (muiCommand.summary.signature == signature &&
+        muiCommand.summary.count == selSelected.numShips)
+        return;
+
+    muiCommandSummarize(&selSelected, &muiCommand.summary);
+    muiCommand.summary.signature = signature;
+    muiCommand.rosterScroll = 0;
+    muiCommand.iconScroll = 0;
+}
+
+static real32 muiCommandAverageHealthFraction(const MaxSelection *selection)
 {
     real32 total = 0.0f;
     sdword valid = 0;
@@ -1930,9 +1992,9 @@ static real32 muiCommandAverageHealthFraction(void)
        the HUD each frame instead.  In Homeworld's ship stats, maxhealth is
        also the value presented as armor, making this a compact live
        HEALTH/ARMOR condition meter rather than another static dossier field. */
-    for (index = 0; index < selSelected.numShips; ++index)
+    for (index = 0; index < selection->numShips; ++index)
     {
-        Ship *ship = selSelected.ShipPtr[index];
+        Ship *ship = selection->ShipPtr[index];
         real32 fraction;
         if (ship == NULL || ship->staticinfo == NULL ||
             ship->staticinfo->maxhealth <= 0.0f)
@@ -2184,6 +2246,12 @@ static void muiCommandDrawIconTray(const ModernUICommandLayout *layout)
         healthTrack.x1 -= 1;
         healthTrack.y0 = card.y1 - (iconSize >= uiScaleSize(18) ? uiScaleSize(4) : 2);
         healthTrack.y1 = card.y1 - 1;
+        if (cataCampaignPendingUpgrade(ship))
+        {
+            sdword x = card.x1 - uiScaleSize(5), y = healthTrack.y0 - 2;
+            primLine2(x - 2, y, x, y - 2, muiSignal);
+            primLine2(x, y - 2, x + 2, y, muiSignal);
+        }
         muiFill(&healthTrack, colRGBA(4, 8, 10, 230));
         healthFraction = ship->staticinfo->maxhealth > 0.0f
             ? ship->health / ship->staticinfo->maxhealth : 0.0f;
@@ -2460,15 +2528,33 @@ static void muiCommandDrawDossierButton(const rectangle *rect, bool32 enabled)
                     "DOSSIER", muiTinyFont);
 }
 
+static const char *muiCommandShipName(Ship *ship)
+{
+    if (ship->shiptype == StandardDestroyer && ship->shiprace == R1 &&
+        muiCataclysmInGame() && spGetCurrentMission() == MISSION_CATA_2_OUTSKIRTS)
+    {
+        GrowSelection *destroyer = cataKasTeamShips(cataScriptHash("kDestroyer"));
+        if (destroyer && destroyer->selection &&
+            ShipInSelection(destroyer->selection, ship))
+            return "Bushan-Re";
+    }
+    return ShipTypeToNiceStr(ship->shiptype);
+}
+
 static void muiCommandLeftDraw(regionhandle region)
 {
     ModernUICommandLayout layout;
+    ModernUICommandSummary inspectedSummary;
+    const ModernUICommandSummary *summary = &muiCommand.summary;
+    const MaxSelection *statsShips = &selSelected;
+    MaxSelection preview;
     char value[64];
     char selectionName[128];
     sdword y;
     sdword meterStep;
     sdword meterHeight;
     bool32 hasSelection;
+    bool32 hasCommandSelection;
     bool32 singleSelection;
     real32 healthFraction;
     rectangle divider;
@@ -2478,7 +2564,21 @@ static void muiCommandLeftDraw(regionhandle region)
     muiCommandLayoutCompute(&layout);
     region->rect = layout.left;
     muiCommandSummaryUpdate();
-    hasSelection = muiCommand.summary.count > 0;
+    hasCommandSelection = selSelected.numShips > 0;
+    if (!hasCommandSelection && selInspected.numShips > 0)
+        statsShips = &selInspected;
+    if (mouseLeftButton() && (!hasCommandSelection || mrWorkerRepairKeyIsHit()))
+    {
+        selInspectDragSelection(&preview);
+        if (preview.numShips > 0)
+            statsShips = &preview;
+    }
+    if (statsShips != &selSelected)
+    {
+        muiCommandSummarize(statsShips, &inspectedSummary);
+        summary = &inspectedSummary;
+    }
+    hasSelection = summary->count > 0;
     singleSelection = muiCommand.summary.count == 1 &&
                       selSelected.ShipPtr[0] != NULL &&
                       selSelected.ShipPtr[0]->playerowner == universe.curPlayerPtr;
@@ -2494,27 +2594,27 @@ static void muiCommandLeftDraw(regionhandle region)
     y = layout.stats.y0;
     meterHeight = meterStep;
     if (hasSelection)
-        snprintf(value, sizeof(value), "%d", muiCommand.summary.totalFirepower);
+        snprintf(value, sizeof(value), "%d", summary->totalFirepower);
     else
         snprintf(value, sizeof(value), "--");
     muiCommandMeter(&layout.stats, y, meterHeight, "FIREPOWER", value,
-                    hasSelection ? muiCommand.summary.averageFirepower / 19000.0f : 0.0f);
+                    hasSelection ? summary->averageFirepower / 19000.0f : 0.0f);
     y += meterStep;
     if (hasSelection)
-        snprintf(value, sizeof(value), "%.0f m/s", muiCommand.summary.averageSpeed);
+        snprintf(value, sizeof(value), "%.0f m/s", summary->averageSpeed);
     else
         snprintf(value, sizeof(value), "--");
     muiCommandMeter(&layout.stats, y, meterStep, "AVG SPEED", value,
-                    hasSelection ? muiCommand.summary.averageSpeed / 1000.0f : 0.0f);
+                    hasSelection ? summary->averageSpeed / 1000.0f : 0.0f);
     y += meterStep;
     if (hasSelection)
-        snprintf(value, sizeof(value), "%.0f%%", muiCommand.summary.averageCoverage);
+        snprintf(value, sizeof(value), "%.0f%%", summary->averageCoverage);
     else
         snprintf(value, sizeof(value), "--");
     muiCommandMeter(&layout.stats, y, meterStep, "COVERAGE", value,
-                    hasSelection ? muiCommand.summary.averageCoverage / 100.0f : 0.0f);
+                    hasSelection ? summary->averageCoverage / 100.0f : 0.0f);
     y += meterStep;
-    healthFraction = hasSelection ? muiCommandAverageHealthFraction() : 0.0f;
+    healthFraction = hasSelection ? muiCommandAverageHealthFraction(statsShips) : 0.0f;
     if (hasSelection)
         snprintf(value, sizeof(value), "%.0f%%", healthFraction * 100.0f);
     else
@@ -2528,33 +2628,40 @@ static void muiCommandLeftDraw(regionhandle region)
     {
         snprintf(selectionName, sizeof(selectionName), "NO SELECTION");
     }
-    else if (muiCommand.summary.mixed)
+    else if (summary->mixed)
     {
         snprintf(selectionName, sizeof(selectionName), "MIXED");
     }
-    else if (muiCommand.summary.count > 1)
+    else if (summary->count > 1)
     {
         snprintf(selectionName, sizeof(selectionName), "%s x %d",
-                 ShipTypeToNiceStr(muiCommand.summary.primaryType),
-                 muiCommand.summary.count);
+                 ShipTypeToNiceStr(summary->primaryType), summary->count);
     }
     else
     {
         snprintf(selectionName, sizeof(selectionName), "%s",
-                 ShipTypeToNiceStr(muiCommand.summary.primaryType));
+                 muiCommandShipName(statsShips->ShipPtr[0]));
     }
     muiTextLeftAdaptiveFull(&layout.selectionName,
                             hasSelection ? muiPaper : muiMuted,
                             selectionName, muiCompactFont,
                             muiTinyFont, muiTinyFont, uiScaleSize(5));
 
-    muiCommandButton(&layout.action[0], "FORMATIONS", hasSelection &&
+    if (muiCataclysmInGame())
+    {
+        bool32 ready = FALSE;
+        for (sdword i = 0; i < selSelected.numShips && !ready; ++i)
+            ready = cataCampaignPendingUpgrade(selSelected.ShipPtr[i]) != 0;
+        muiCommandButton(&layout.upgrade, "UPGRADE", ready, FALSE);
+    }
+
+    muiCommandButton(&layout.action[0], "FORMATIONS", hasCommandSelection &&
                      muiCommand.summary.count >= MIN_SHIPS_IN_FORMATION, FALSE);
-    muiCommandButton(&layout.action[1], "TACTICS", hasSelection, FALSE);
-    muiCommandButton(&layout.action[2], "CANCEL", hasSelection, FALSE);
-    muiCommandButton(&layout.action[3], "DOCK", hasSelection, FALSE);
-    muiCommandButton(&layout.action[4], "RETIRE", hasSelection, FALSE);
-    muiCommandButton(&layout.action[5], "SCUTTLE", hasSelection, TRUE);
+    muiCommandButton(&layout.action[1], "TACTICS", hasCommandSelection, FALSE);
+    muiCommandButton(&layout.action[2], "CANCEL", hasCommandSelection, FALSE);
+    muiCommandButton(&layout.action[3], "DOCK", hasCommandSelection, FALSE);
+    muiCommandButton(&layout.action[4], "RETIRE", hasCommandSelection, FALSE);
+    muiCommandButton(&layout.action[5], "SCUTTLE", hasCommandSelection, TRUE);
     muiCommandDrawDossierButton(&layout.dossier, singleSelection);
 
     divider = muiRect(layout.stats.x1 + uiScaleSize(2), layout.left.y0 + uiScaleSize(8),
@@ -2596,6 +2703,12 @@ static udword muiCommandLeftProcess(regionhandle region, smemsize ID,
         return RPR_Redraw;
     }
     if (selSelected.numShips <= 0) return 0;
+
+    if (muiCataclysmInGame() && muiPointIn(&layout.upgrade, mouseCursorX(), mouseCursorY()))
+    {
+        mrUpgradeSelection();
+        return RPR_Redraw;
+    }
 
     popupY = layout.action[0].y0 - uiScaleSize(4);
     if (muiPointIn(&layout.action[0], mouseCursorX(), mouseCursorY()))
@@ -3179,6 +3292,12 @@ void modernUICommandBarStartup(void)
     regDrawFunctionSet(muiPilotRegion,muiPilotDraw);
     regFunctionSet(muiPilotRegion,muiPilotProcess);
     regSiblingMoveToFront(muiPilotRegion);
+    /* The appearance button owns its hit target. Pilot availability and its
+       changing input bounds must never disable this independent control. */
+    muiShipPaintButtonRegion=regChildAlloc(ghMainRegion,0,0,0,0,0,0,RPE_LeftClick|RPE_DrawEveryFrame);
+    regDrawFunctionSet(muiShipPaintButtonRegion,muiShipPaintDrawButton);
+    regFunctionSet(muiShipPaintButtonRegion,muiShipPaintButtonProcess);
+    regSiblingMoveToFront(muiShipPaintButtonRegion);
     muiFormationSpreadRegion=regChildAlloc(ghMainRegion,0,0,0,0,0,0,
         RPE_PressLeft|RPE_ReleaseLeft|RPE_HoldLeft|RPE_DoubleLeft|RPE_DrawEveryFrame);
     regDrawFunctionSet(muiFormationSpreadRegion,muiFormationSpreadDraw);
@@ -3200,6 +3319,7 @@ void modernUICommandBarBringToFront(void)
     if (muiCommand.controlGroupRegion != NULL)
         regSiblingMoveToFront(muiCommand.controlGroupRegion);
     if (muiPilotRegion != NULL) regSiblingMoveToFront(muiPilotRegion);
+    if (muiShipPaintButtonRegion != NULL) regSiblingMoveToFront(muiShipPaintButtonRegion);
     if (muiFormationSpreadRegion != NULL) regSiblingMoveToFront(muiFormationSpreadRegion);
 
     /* Sensor Manager creates its viewport after these overlays.  Reassert
@@ -3218,6 +3338,7 @@ void modernUICommandBarBringToFront(void)
 void modernUICommandBarShutdown(void)
 {
     muiShipPaintClose();
+    if(muiShipPaintButtonRegion){regRegionDelete(muiShipPaintButtonRegion);muiShipPaintButtonRegion=NULL;}
     shipPilotExit();
     muiFormationSpreadDragging=FALSE;
     muiFormationSpreadDragCommand=NULL;
@@ -3907,7 +4028,7 @@ static bool32 muiMissionLightingPlaceKeyAtCursor(void)
     if (!modernMissionBackdropLightingAuthoringGet(&state) ||
         !muiLightingCursorWorldRay(NULL, direction))
     {
-        muiLightingSetStatus("Cannot place key until the mission sky/camera is ready");
+        muiLightingSetStatus("Cannot place key until the mission lighting and camera are ready");
         return FALSE;
     }
     state.direction[0] = direction[0];
@@ -4876,10 +4997,11 @@ static void muiDrawLightingEditor(regionhandle region)
             snprintf(subtitle, sizeof(subtitle),
                      singlePlayerGame ? "MISSION %02d / P place key / S save+export / L reload / I solo / E export visuals" :
                      "MULTIPLAYER MAP / P place key / S save+export / L reload / I solo / E export visuals",
-                     missionState.mission);
+                     hwCataclysmMissionNumber((MissionEnum)missionState.mission) ?
+                         hwCataclysmMissionNumber((MissionEnum)missionState.mission) : missionState.mission);
         else
             snprintf(subtitle, sizeof(subtitle),
-                     "Mission sky not ready / P place / S save+export / L reload / I solo / E export visuals");
+                     "Mission lighting not ready / P place / S save+export / L reload / I solo / E export visuals");
     }
     else if (muiLighting.page == MUI_LIGHTING_PAGE_LIGHTS)
     {
@@ -5710,7 +5832,7 @@ void modernUIToggleLightingEditor(void)
     else
     {
         HW_DIAG_FPRINTF(stderr,
-                "[ModernUI] RTX lighting authoring opened; waiting for mission HDR sky.\n");
+                "[ModernUI] RTX lighting authoring opened; waiting for mission lighting.\n");
     }
 }
 
@@ -6127,7 +6249,7 @@ static rectangle muiMainItemRect(sdword index)
                             uiScaleSize(220), uiScaleSize(390));
     sdword top = MIN2(MAIN_WindowHeight / 4, uiScaleSize(145));
     sdword step = MIN2(uiScaleSize(48),
-        (MAIN_WindowHeight - top - uiScaleSize(70 + 156)) / 8);
+        (MAIN_WindowHeight - top - uiScaleSize(70 + 156 + 80)) / 8);
     sdword height;
     step = MAX2(18, step);
     height = MAX2(16, step - uiScaleSize(6));
@@ -6138,13 +6260,11 @@ static rectangle muiMainItemRect(sdword index)
 static rectangle muiMainAnimatedItemRect(sdword index, real32 expansion)
 {
     rectangle rect = muiMainItemRect(index);
-    sdword shift = 0;
+    sdword shift = index>0?(sdword)(uiScaleSize(80)*muiMainStoryExpansion+0.5f):0;
     if (index >= 4)
     {
-        /* Story, Training, Multiplayer and Settings stay completely fixed.
-           The settings drawer only makes room below Settings: Archive and
-           Exit slide down while the four destinations fade into the gap. */
-        shift = (sdword)((real32)uiScaleSize(156) * expansion + 0.5f);
+        /* Each drawer inserts space below its own parent row. */
+        shift += (sdword)((real32)uiScaleSize(156) * expansion + 0.5f);
     }
     rect.y0 += shift;
     rect.y1 += shift;
@@ -6153,7 +6273,7 @@ static rectangle muiMainAnimatedItemRect(sdword index, real32 expansion)
 
 static rectangle muiMainSettingsItemRect(sdword index)
 {
-    rectangle settings = muiMainItemRect(3);
+    rectangle settings = muiMainAnimatedItemRect(3,0.0f);
     sdword rowHeight = uiScaleSize(32);
     sdword rowStep = uiScaleSize(38);
     sdword top = settings.y1 + uiScaleSize(6) + index * rowStep;
@@ -6164,7 +6284,7 @@ static rectangle muiMainSettingsItemRect(sdword index)
 static rectangle muiMainSettingsAnimatedItemRect(sdword index,
                                                  real32 expansion)
 {
-    rectangle settings = muiMainItemRect(3);
+    rectangle settings = muiMainAnimatedItemRect(3,0.0f);
     sdword rowHeight = uiScaleSize(32);
     sdword rowStep = uiScaleSize(38);
     sdword gap = uiScaleSize(6);
@@ -6178,7 +6298,7 @@ static rectangle muiMainSettingsAnimatedItemRect(sdword index,
 
 static rectangle muiMainSettingsHoverRect(void)
 {
-    rectangle settings = muiMainItemRect(3);
+    rectangle settings = muiMainAnimatedItemRect(3,0.0f);
     rectangle last = muiMainSettingsItemRect(MUI_MAIN_SETTINGS_COUNT - 1);
     settings.x0 -= uiScaleSize(6);
     settings.x1 += uiScaleSize(6);
@@ -6189,7 +6309,7 @@ static rectangle muiMainSettingsHoverRect(void)
 
 static void muiMainSettingsUpdate(void)
 {
-    rectangle settings = muiMainItemRect(3);
+    rectangle settings = muiMainAnimatedItemRect(3,0.0f);
     rectangle hoverArea = muiMainSettingsHoverRect();
     sdword mouseX = mouseCursorX();
     sdword mouseY = mouseCursorY();
@@ -6205,10 +6325,10 @@ static void muiMainSettingsUpdate(void)
     if (delta > 80) delta = 80;
     step = (real32)delta / 150.0f;
 
-    wantsOpen = muiMainSettingsKeyboardOpen ||
+    wantsOpen = !muiMainStoryOpen && (muiMainSettingsKeyboardOpen ||
                 muiPointIn(&settings, mouseX, mouseY) ||
                 (muiMainSettingsExpansion > 0.01f &&
-                 muiPointIn(&hoverArea, mouseX, mouseY));
+                 muiPointIn(&hoverArea, mouseX, mouseY)));
     if (wantsOpen)
     {
         muiMainSettingsExpansion += step;
@@ -6263,6 +6383,38 @@ static void muiActivateMain(fescreen *screen, sdword index)
     }
 }
 
+static rectangle muiMainStoryItem(sdword index)
+{
+    rectangle story=muiMainItemRect(0);
+    sdword y=story.y1+(sdword)(uiScaleSize(6+index*38)*muiMainStoryExpansion+0.5f);
+    return muiRect(story.x0+uiScaleSize(24),y,story.x1,
+        y+MAX2(1,(sdword)(uiScaleSize(32)*muiMainStoryExpansion+0.5f)));
+}
+#include "FrontendDrawerState.h"
+static void muiMainStoryUpdate(void)
+{
+    rectangle story=muiMainItemRect(0),area=story;
+    static sdword lastMouseX,lastMouseY;
+    sdword mouseX=mouseCursorX(),mouseY=mouseCursorY();
+    bool32 mouseMoved=mouseX!=lastMouseX || mouseY!=lastMouseY;
+    udword now=SDL_GetTicks(),delta=muiMainStoryLastTick?now-muiMainStoryLastTick:0;
+    real32 step=(real32)MIN2(delta,80)/150.0f;
+    muiMainStoryLastTick=now;
+    area.y1=story.y1+uiScaleSize(80);
+    muiMainStoryOpen=muiDrawerWantsOpen(&muiMainStoryKeyboard,
+        muiPointIn(&story,mouseX,mouseY),muiPointIn(&area,mouseX,mouseY),
+        muiMainStoryOpen,mouseMoved);
+    lastMouseX=mouseX;lastMouseY=mouseY;
+    muiMainStoryExpansion=muiMainStoryOpen?MIN2(1.0f,muiMainStoryExpansion+step):
+        MAX2(0.0f,muiMainStoryExpansion-step);
+    if(muiMainStoryOpen)muiMainSettingsKeyboardOpen=FALSE;
+}
+static void muiSelectStory(fescreen *screen,sdword index)
+{
+    muiStoryCataclysm=index==1;muiMainStoryOpen=muiMainStoryKeyboard=FALSE;
+    muiMainStoryExpansion=0.0f;
+    muiActivateMain(screen,0);
+}
 static void muiActivateMainSettings(sdword index)
 {
     static const char *screens[MUI_MAIN_SETTINGS_COUNT] = {
@@ -6300,10 +6452,12 @@ static void muiDrawMain(regionhandle region)
     color submenuMuted;
     color submenuLine;
     color submenuSignal;
+    bool32 cataPreview = FALSE;
     (void)region;
 
     muiEnsureFonts();
     if(mpe.stage){mpeDraw();return;}
+    muiMainStoryUpdate();
     muiMainSettingsUpdate();
     expansion = muiMainSettingsExpansion;
     textFade = (expansion - 0.22f) / 0.78f;
@@ -6386,10 +6540,35 @@ static void muiDrawMain(regionhandle region)
         }
     }
 
+    if(muiMainStoryExpansion>0.55f){
+        for(index=0;index<2;index++){
+            rectangle sub=muiMainStoryItem(index);
+            bool32 hover=muiPointIn(&sub,mouseX,mouseY);
+            bool32 selected=hover || (muiMainStoryKeyboard && muiMainStoryChoice==index);
+            if(hover)muiMainStoryChoice=index;
+            if(selected && index==1)cataPreview=TRUE;
+            if(selected){
+                muiFill(&sub,muiSignalSoft);mark=sub;mark.x1=mark.x0+uiScaleSize(2);
+                muiFill(&mark,muiSignal);
+            }
+            muiText(sub.x0+uiScaleSize(13),sub.y0+uiScaleSize(8),
+                selected?muiPaper:muiMuted,index?"CATACLYSM":"HOMEWORLD",muiBodyFont);
+            primLine2(sub.x0,sub.y1,sub.x1,sub.y1,muiLineSoft);
+        }
+    }
     muiText(uiScaleSize(38), MAIN_WindowHeight - uiScaleSize(60), muiMuted,
             "A RECONSTRUCTION OF THE ORIGINAL JOURNEY", muiBodyFont);
     muiText(uiScaleSize(38), MAIN_WindowHeight - uiScaleSize(34), muiDisabled,
             "DIRECT3D 12 / DXR / NATIVE UI", muiBodyFont);
+
+    if (cataPreview && muiEnsureArtwork(MUI_ART_CATA_TITLE))
+    {
+        rectangle cover = muiRect(rail.x1 + uiScaleSize(24), uiScaleSize(26),
+                                  MAIN_WindowWidth - uiScaleSize(24),
+                                  MAIN_WindowHeight - uiScaleSize(26));
+        muiDrawArtwork(MUI_ART_CATA_TITLE, &cover, TRUE);
+        return;
+    }
 
     muiTextRight(MAIN_WindowWidth - uiScaleSize(38), uiScaleSize(38),
                  muiSignal, "KARAK / DEPARTURE ARRAY", muiBodyFont);
@@ -6421,6 +6600,20 @@ static udword muiMainProcess(regionhandle region, smemsize ID,
     (void)data;
 
     if(mpe.stage)return mpeProcess(ID,event);
+    muiMainStoryUpdate();
+    if(event==RPE_ReleaseLeft && muiMainStoryOpen && muiMainStoryExpansion>0.55f){
+        for(index=0;index<2;index++){
+            rectangle sub=muiMainStoryItem(index);
+            if(muiPointIn(&sub,mouseCursorX(),mouseCursorY())){
+                muiSelectStory(screen,index);return RPR_Redraw;
+            }
+        }
+    }
+    if(event==RPE_KeyDown && muiMainStoryKeyboard){
+        if(ID==ESCKEY){muiMainStoryKeyboard=muiMainStoryOpen=FALSE;return RPR_Redraw;}
+        if(ID==ARRUP || ID==ARRDOWN){muiMainStoryChoice=1-muiMainStoryChoice;return RPR_Redraw;}
+        if(ID==RETURNKEY){muiSelectStory(screen,muiMainStoryChoice);return RPR_Redraw;}
+    }
     if (event == RPE_PressLeft)
     {
         muiArchivePressed = muiArchiveHit();
@@ -6505,6 +6698,7 @@ static udword muiMainProcess(regionhandle region, smemsize ID,
         else if (ID == ARRDOWN) muiMainSelection = (muiMainSelection + 1) % 8;
         else if (ID == RETURNKEY)
         {
+            if(muiMainSelection==0){muiMainStoryKeyboard=muiMainStoryOpen=TRUE;muiMainStoryChoice=0;return RPR_Redraw;}
             if (muiMainSelection == 3)
             {
                 muiMainSettingsKeyboardOpen = TRUE;
@@ -6542,6 +6736,7 @@ static udword muiMainProcess(regionhandle region, smemsize ID,
             if (muiPointIn(&item, mouseCursorX(), mouseCursorY()))
             {
                 muiMainSelection = index;
+                if(index==0){muiMainStoryKeyboard=FALSE;muiMainStoryOpen=TRUE;return RPR_Redraw;}
                 if (index == 3)
                 {
                     /* Settings is now a hover drawer, not a gateway to the
@@ -9210,7 +9405,11 @@ static void muiDrawColorPicker(regionhandle region)
     (void)region;muiEnsureFonts();muiBuildFleetColorLayout(&layout);
     muiColorRects(&layout,&palette,&value,&toggle);muiFleetPreviewRects(&layout,&view,&thrust);
     muiColorHSV(active,&hue,&sat,&val);
-    muiDrawBackdrop(MUI_ART_HANGAR);muiFill(&layout.canvas,colRGBA(3,6,9,112));
+    bool32 cata = muiCataclysmInGame() ||
+        (muiStoryCataclysm && !strcmp(muiColorReturnScreen,"Create_new_game"));
+    muiDrawBackdrop(cata && muiEnsureArtwork(MUI_ART_CATA_STRIKECRAFT) ?
+                    MUI_ART_CATA_STRIKECRAFT : MUI_ART_HANGAR);
+    muiFill(&layout.canvas,colRGBA(3,6,9,112));
     muiFill(&layout.rail,colRGBA(10,18,24,244));muiFill(&layout.content,colRGBA(10,18,24,244));
     muiFill(&layout.preview,colRGBA(6,14,22,236));
     {rectangle caption=muiRect(layout.rail.x0+uiScaleSize(14),layout.rail.y0+uiScaleSize(16),layout.rail.x1-uiScaleSize(8),layout.rail.y0+uiScaleSize(46));
@@ -9425,6 +9624,9 @@ regionhandle modernUICreateOwnedScreen(regionhandle parent, fescreen *screen)
         muiMainSettingsLastTick = SDL_GetTicks();
         muiMainSettingsKeyboardOpen = FALSE;
         muiMainScreen = screen;
+        muiMainStoryOpen=muiMainStoryKeyboard=FALSE;
+        muiMainStoryExpansion=0.0f;
+        muiMainStoryLastTick=SDL_GetTicks();
         /* Match FEFlow's modal contract: interactive children are processed
            before the modal base consumes events intended for lower screens. */
         base = regChildAlloc(parent, (smemsize)screen, 0, 0,
@@ -10125,6 +10327,8 @@ void modernUIDrawMenuItem(regionhandle region, bool32 checked, bool32 linked)
         const char *caption=NULL;
         if(!strcmp(atom->name,"CSM_Info"))caption="SHIP DOSSIER";
         else if(!strcmp(atom->name,"CSM_Waypoints"))caption="WAYPOINTS";
+        else if(!strcmp(atom->name,"CSM_Link"))caption="LINK ACOLYTES";
+        else if(!strcmp(atom->name,"CSM_Unlink"))caption="UNLINK ACVS";
         else if(!strcmp(atom->name,"CSM_RallyPoint"))caption="RALLY POINT";
         else if(!strcmp(atom->name,"CSM_RallyObject"))caption="RALLY OBJECT";
         else if(!strcmp(atom->name,"CSM_ClearRally"))caption="CLEAR RALLY";

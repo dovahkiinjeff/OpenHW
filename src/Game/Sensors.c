@@ -58,6 +58,7 @@
 #include "Shader.h"
 #include "ShipSelect.h"
 #include "SinglePlayer.h"
+void smSensorsSkip(char *name, featom *atom);
 #include "SoundEvent.h"
 #include "SoundEventDefs.h"
 #include "StatScript.h"
@@ -3197,6 +3198,7 @@ void smViewportRender(featom *atom, regionhandle region)
     {
         primRectOutline2(&smSelectionRect, 1, TW_SELECT_BOX_COLOR);
     }
+    selInspectHealthDraw(smHoldLeft == smSelectHold, TRUE);
     if (nisStatic[NIS_SMStaticIndex] != NULL)
     {
         nisStaticDraw(nisStatic[NIS_SMStaticIndex]);
@@ -3229,7 +3231,14 @@ void smSelectHold(void)
         ABS(mouseCursorY() - mrOldMouseY) >= selClickBoxHeight)
     {                                                       //if mouse has moved from anchor point
         mrSelectRectBuild(&smSelectionRect, mrOldMouseX, mrOldMouseY);//create a selection rect
-        selRectNone();
+        const udword workerAbility = mrWorkerTargetAbility();
+        if (workerAbility)
+            mrWorkerTargetBandBox(universe.SpaceObjList.head, &smCamera, &smSelectionRect, workerAbility, FALSE);
+        else if (!keyIsHit(SHIFTKEY) && !guardKeyIsHit() && !keyIsHit(CONTROLKEY) &&
+                 !keyIsHit(ALTKEY) && !keyIsHit(RALTKEY) && !kbCommandKeyIsHit(kbSHIP_SPECIAL))
+            selRectDragFriendlies(universe.SpaceObjList.head, &smCamera, &smSelectionRect);
+        else
+            selRectNone();
     }
     else
     {                                                       //else mouse hasn't moved far enough
@@ -3321,6 +3330,7 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
             mouseClipToRect(&smViewRectangle);
             if (smHoldRight == smNULL && (!smFleetIntel))
             {
+                selInspected.numShips = 0;
                 smClicking = TRUE;
                 mrOldMouseX = mouseCursorX();
                 mrOldMouseY = mouseCursorY();
@@ -3406,7 +3416,12 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
                 {
                     mrSelectRectBuild(&smSelectionRect, mrOldMouseX, mrOldMouseY);
 
-                    if (guardMode)
+                    const udword workerAbility = mrWorkerTargetAbility();
+                    if (workerAbility)
+                    {
+                        mrWorkerTargetBandBox(universe.SpaceObjList.head, &smCamera, &smSelectionRect, workerAbility, TRUE);
+                    }
+                    else if (guardMode)
                     {
                         if (!mrDisabled)
                         {
@@ -3552,12 +3567,11 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
                         if (keyIsHit(SHIFTKEY))
                         {
                             selRectDragAddFunction(universe.SpaceObjList.head, &smCamera, &smSelectionRect);
+                            ioUpdateShipTotals();
                         }
                         else
                         {
-                            selRectDragFunction(universe.SpaceObjList.head, &smCamera, &smSelectionRect,
-                                                (SpaceObjRotImpTarg **)selSelected.ShipPtr, &selSelected.numShips,
-                                                TRUE, FALSE, FALSE);
+                            selRectSelectFriendlies(universe.SpaceObjList.head, &smCamera, &smSelectionRect);
                             if ((selSelected.numShips > 0) && (!playPackets) && (!universePause && hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)))
                             {
                                 if (universe.curPlayerPtr->PlayerMothership != NULL &&
@@ -3573,7 +3587,6 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
                                 }
                             }
                         }
-                        ioUpdateShipTotals();
                         selRectNone();
                     }
                 }
@@ -3668,6 +3681,7 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
             break;
         case RPE_KeyDown:
             if(navPlacementActive() && (ID==ESCKEY || ID==ENTERKEY || ID==BACKSPACEKEY || ID==DELETEKEY) && navPlacementKey(ID))break;
+            if (ID == YKEY && mrWorkerRepairKeyIsHit()) break;
             /* Match normal gameplay's remapping before handling Sensor-specific
                camera/selection commands.  Forwarded commands still receive the
                original physical key so mrKeyPress performs its normal mapping. */
@@ -3684,6 +3698,12 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
             {
                 case SPACEKEY:
                 case ESCKEY:
+                    if (smFleetIntel && singlePlayerGame &&
+                        hwIsCataclysmMission(spGetCurrentMission()))
+                    {
+                        smSensorsSkip(NULL,NULL);
+                        break;
+                    }
                     if (!smFleetIntel)
                     {
                         if (piePointSpecMode != PSM_Idle)

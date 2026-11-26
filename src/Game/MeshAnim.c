@@ -441,6 +441,23 @@ foundTime:
     hpb.y =  bsCurveUpdate(&curve[4], timeElapsed);
     hpb.z =  bsCurveUpdate(&curve[5], timeElapsed);
 
+    /* Cataclysm's Unlink root contains an authored flight manoeuvre, including
+       a discontinuous -40.0678 start versus Link's +9.65 endpoint.  Our unit
+       transition owns flight/roll; retain only the child articulation here.
+       Ease the root back to the default mesh so stopping MAD cannot snap it. */
+    if (ship->shiptype == CataAcolyte &&
+        strcmp(animation->name, "Unlink") == 0 &&
+        strcmp(path->name, "LightInterceptor") == 0)
+    {
+        real32 amount = min(1.0f, max(0.0f,
+            (anim->time - animation->startTime) /
+            (animation->endTime - animation->startTime)));
+        amount = amount * amount * (3.0f - 2.0f * amount);
+        xyz.x = MAD_ACOLYTE_LINK_ROOT_OFFSET * (1.0f - amount);
+        xyz.y = xyz.z = 0.0f;
+        hpb.x = hpb.y = hpb.z = 0.0f;
+    }
+
     dbgAssertOrIgnore(xyz.x != REALlyBig && xyz.y != REALlyBig && xyz.z != REALlyBig);
     dbgAssertOrIgnore(hpb.x != REALlyBig && hpb.y != REALlyBig && hpb.z != REALlyBig);
 
@@ -533,6 +550,13 @@ foundOne:
                     bindings for all LOD's of the mesh.
     Return      : void
 ----------------------------------------------------------------------------*/
+udword madShipBindingsSize(const ShipStaticInfo *info)
+{
+    return info->madStatic ? (udword)(madAnimSize(info->staticheader.LOD->nLevels) +
+        info->hierarchySize * sizeof(mhlocalbinding) +
+        info->madStatic->header->nObjects * sizeof(splinecurve) * 6) : 0;
+}
+
 void madAnimBindingsDupe(Ship *ship, ShipStaticInfo *staticInfo,bool32 LoadingGame)
 {
     shipbindings *bindings = &ship->madBindings->bindings;
@@ -608,8 +632,12 @@ void madAnimationStart(Ship *ship, sdword animNumber)
     madanimation *animation;
     udword animBit = (1 << animNumber);
 
-    //if the ship has gun bindings, swap the animation bindings with the gun bindings
-    anim->saveBindings = ship->bindings;
+    /* A new clip may interrupt an active clip (CombatIn -> Link, for example).
+       In that case bindings already points inside madanim, not to a separately
+       allocated gun binding block. Preserve the original allocation so Stop
+       and ship destruction never restore/free the embedded animation block. */
+    if (ship->bindings != bindings)
+        anim->saveBindings = ship->bindings;
     ship->bindings = bindings;
 
     dbgAssertOrIgnore(animNumber < header->nAnimations);
@@ -689,6 +717,15 @@ bool32 madAnimationUpdate(Ship *ship, real32 timeElapsed)
         }
         else
         {                                                   //else it's a non-looping animation; clamp at the end
+            if (ship->shiptype == CataWorker &&
+                (!strcmp(animation->name, "JackOut") || !strcmp(animation->name, "DockOpen")))
+            {
+                anim->time = animation->endTime;
+                anim->timeElapsed = animation->endTime - animation->startTime;
+                madNativeVisualSample(ship);
+                madAnimationPause(ship, TRUE);
+                return FALSE;
+            }
             meshNativeVisualSampleShipEvent(ship,animation->name,1);
             meshRemasteredNotifyAnimation(ship,animation->name,1);
             madAnimationStop(ship);
@@ -991,6 +1028,12 @@ void Fix_madBindings(Ship *ship)
     sdword numCurves;
 
     madBindings->header = ship->staticinfo->madStatic->header;
+
+    if (madBindings->curves == NULL)
+    {
+        madAnimBindingsDupe(ship, ship->staticinfo, FALSE);
+        return;
+    }
 
     madAnimBindingsDupe(ship,ship->staticinfo,TRUE);
 

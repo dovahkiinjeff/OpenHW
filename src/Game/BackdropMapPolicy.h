@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include "MissionEnum.h"
 
 /* Retail skirmish maps name the same EZ environments used by the campaign.
    The Classic default is the EZ05 geometry/star composition with a different
@@ -30,6 +31,9 @@ static int hwBackdropAssetForName(const char *path)
    environments return zero so the original BTG remains the safe fallback. */
 static int hwBackdropRenderAsset(int story, int mission, const char *background, int cinematicEnvironment)
 {
+    /* Hiigara: reuse the complete final-mission scene, including its planet
+       and moon, while retaining a separate Cataclysm authoring context. */
+    if(story && mission==MISSION_CATA_1_HIIGARA)return 16;
     if (cinematicEnvironment || !story) return hwBackdropAssetForName(background);
     return mission >= 1 && mission <= 16 ? mission : 0;
 }
@@ -38,7 +42,7 @@ static int hwBackdropContext(int story, int mission, const char *map, const char
 {
     unsigned int hash=2166136261u;
     const char *p;
-    if (story) return mission>=1 && mission<=16 ? mission : 0;
+    if (story) return (mission>=1 && mission<=16) || hwIsCataclysmMission((MissionEnum)mission) ? mission : 0;
     if ((!map || !*map) && (!background || !*background)) return 0;
     p=map && *map ? map : background;
     for (;*p;++p)
@@ -52,13 +56,17 @@ static int hwBackdropContext(int story, int mission, const char *map, const char
 
 static void hwBackdropLightingName(char *out, size_t capacity, int context)
 {
-    if(context>=0x40000000)
+    if(hwIsCataclysmMission((MissionEnum)context))
+        snprintf(out,capacity,"CataclysmMission%02d.rtxlight",hwCataclysmMissionNumber((MissionEnum)context));
+    else if(context>=0x40000000)
         snprintf(out,capacity,"Multiplayer-%08x.rtxlight",(unsigned int)context);
     else snprintf(out,capacity,"Mission%02d.rtxlight",context);
 }
 static void hwBackdropMapName(char *out, size_t capacity, int context)
 {
-    if(context>=0x40000000)
+    if(hwIsCataclysmMission((MissionEnum)context))
+        snprintf(out,capacity,"CataclysmMission%02d.rtxmap",hwCataclysmMissionNumber((MissionEnum)context));
+    else if(context>=0x40000000)
         snprintf(out,capacity,"Multiplayer-%08x.rtxmap",(unsigned int)context);
     else snprintf(out,capacity,"Mission%02d.rtxmap",context);
 }

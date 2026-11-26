@@ -9,6 +9,7 @@ import re
 import shutil
 import json
 
+MISSION_DEFAULT = re.compile(r'(?:mission(?:0[1-9]|1[0-6])|cataclysmmission0[12])\.rtx(?:map|light)', re.I)
 
 def select_mission_files(root):
     root=Path(root).resolve()
@@ -39,7 +40,7 @@ def publish_mission_defaults(source,root):
     source,root=Path(source),Path(root)
     count=0
     for path in sorted(source.iterdir()):
-        if not path.is_file() or not re.fullmatch(r'mission(?:0[1-9]|1[0-6])\.rtx(?:map|light)',path.name,re.I):continue
+        if not path.is_file() or not MISSION_DEFAULT.fullmatch(path.name):continue
         for folder in (root/'Data/Missions',root/'missions'):
             target=folder/path.name
             target.parent.mkdir(parents=True,exist_ok=True)
@@ -54,7 +55,7 @@ def verify_published_missions(source,root):
     source,root=Path(source),Path(root)
     maps=lights=0;files=[]
     for path in sorted(source.iterdir()):
-        if not path.is_file() or not re.fullmatch(r'mission(?:0[1-9]|1[0-6])\.rtx(?:map|light)',path.name,re.I):continue
+        if not path.is_file() or not MISSION_DEFAULT.fullmatch(path.name):continue
         target=root/'Data/Missions'/path.name
         if not target.is_file() or target.read_bytes()!=path.read_bytes():
             raise ValueError('Authored mission missing/different at runtime loader path: '+str(target))

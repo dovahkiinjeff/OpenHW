@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "MultiplayerGame.h"
+#include "OpenHWArchive.h"
 #include "ModernUI.h"
 
 #include <stdio.h>
@@ -1839,6 +1840,15 @@ void mgInternetWON(char *name, featom *atom)
 #endif
 }
 
+bool32 mgWarnMultiplayerMods(void)
+{
+    static char detail[200];
+    if(!openhwMultiplayerModsActive(detail,sizeof(detail)))return FALSE;
+    mgPrepareMessageBox("Disable enabled mods in Launcher and restart OpenHW before multiplayer.",detail);
+    mgShowScreen(MGS_Message_Box,FALSE);
+    return TRUE;
+}
+
 void mgLANIPX(char *name, featom *atom)
 {
     //mgShowScreen(MGS_LAN_Login,TRUE);
@@ -1852,6 +1862,7 @@ void mgLANIPX(char *name, featom *atom)
     {
         return;
     }
+    if(mgWarnMultiplayerMods())return;
     LanProtocalsValid = 2;
     LANGame = TRUE;
 

@@ -8,6 +8,7 @@
 // =============================================================================
 
 #include "CameraCommand.h"
+#include "CataclysmCampaign.h"
 
 #include "Alliance.h"
 #include "FastMath.h"
@@ -646,6 +647,7 @@ void CameraChase(CameraCommand *cameracommand,real32 zoomfactor)
     bool32 dontUseVelocityPredInChase = FALSE;
     long  Frames, IndZoom, IndAng;
     vector deLookVector;
+    bool32 cataSnap=FALSE;
     
     static float angSpeed = 0.0f, decSpeed = 0.0f;
     static float xSpeed = 0.0f, ySpeed = 0.0f, zSpeed = 0.0f;
@@ -691,6 +693,15 @@ void CameraChase(CameraCommand *cameracommand,real32 zoomfactor)
          vecAddTo(cameracommand->actualcamera.eyeposition, targetvelocity);
       }
 
+      cataSnap=cataCampaignCameraConsumeSnap(cameracommand);
+      if(cataSnap)
+      {
+         /* 0042d510 consumes one chase tick and resets cubic momentum only
+            after velocity prediction, preserving the original shot order. */
+         Frames=1;angSpeed=decSpeed=xSpeed=ySpeed=zSpeed=0.0f;
+         eyeXSpeed=eyeYSpeed=eyeZSpeed=0.0f;
+      }
+
       while(Frames)
       {
          EvalCubicAngle(&cameracommand->actualcamera.angle, &angSpeed, desired->angle, camTrackAngSpeed[IndAng]);
@@ -704,6 +715,8 @@ void CameraChase(CameraCommand *cameracommand,real32 zoomfactor)
          vecNormalize(&deLookVector);                       //compute desired eye position
          vecMultiplyByScalar(deLookVector, desired->distance);
          vecAddTo(deLookVector, desired->lookatpoint);
+
+         if(cataSnap)cameracommand->actualcamera.eyeposition=deLookVector;
 
          CubicLogUnsigned(&cameracommand->actualcamera.eyeposition.x, &eyeXSpeed, deLookVector.x, camTrackPosThreshold, camTrackPosSpeed, camTrackPosBase);
          CubicLogUnsigned(&cameracommand->actualcamera.eyeposition.y, &eyeYSpeed, deLookVector.y, camTrackPosThreshold, camTrackPosSpeed, camTrackPosBase);

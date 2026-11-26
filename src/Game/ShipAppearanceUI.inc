@@ -5,10 +5,11 @@ static struct {
     ShipAppearance pending;
     sdword channel;
 } muiShipPaint;
+static regionhandle muiShipPaintButtonRegion;
 static Ship *muiShipPaintSelection(void)
 {
     Ship *ship=selSelected.numShips==1?selSelected.ShipPtr[0]:NULL;
-    return ship && ship->objtype==OBJ_ShipType && ship->playerowner==universe.curPlayerPtr && !(ship->flags&SOF_Dead) ? ship : NULL;
+    return !playPackets && ship && ship->objtype==OBJ_ShipType && ship->playerowner==universe.curPlayerPtr && !(ship->flags&SOF_Dead) ? ship : NULL;
 }
 static rectangle muiShipPaintButton(void) {return muiRect(MAIN_WindowWidth-160,180,MAIN_WindowWidth-88,244);}
 static void muiShipPaintClose(void)
@@ -87,7 +88,7 @@ static udword muiShipPaintProcess(regionhandle region,smemsize ID,udword event,u
     if(y>=panel.y1-uiScaleSize(62) && y<panel.y1-uiScaleSize(20)){
         if(x<panel.x0+uiScaleSize(130)){muiShipPaint.pending.mask=0;return RPR_Redraw;}
         if(x>=panel.x1-uiScaleSize(130)) {
-            if(hwMatchActive())clSendShipAppearance(muiShipPaint.target,&muiShipPaint.pending);
+            if(multiPlayerGame)clSendShipAppearance(muiShipPaint.target,&muiShipPaint.pending);
             else shipAppearanceApply(muiShipPaint.target,&muiShipPaint.pending);
         }
         muiShipPaintClose();
@@ -112,13 +113,16 @@ static void muiShipPaintOpen(Ship *ship)
 static void muiShipPaintDrawButton(regionhandle region)
 {
     rectangle r=muiShipPaintButton();
-    if(!muiShipPaintSelection())return;
-    if(region->rect.x1<=region->rect.x0 || region->rect.y1<=region->rect.y0)region->rect=r;
-    else {
-        if(region->rect.x0>r.x0)region->rect.x0=r.x0;
-        if(region->rect.x1<r.x1)region->rect.x1=r.x1;
-        if(region->rect.y0>r.y0)region->rect.y0=r.y0;
-        if(region->rect.y1<r.y1)region->rect.y1=r.y1;
-    }
+    region->rect=muiRect(0,0,0,0);
+    if(!gameIsRunning || nisIsRunning || smSensorsActive || shipPilotShip() || !muiShipPaintSelection())return;
+    region->rect=r;muiEnsureFonts();
     muiFill(&r,colRGB(44,39,20));primRectOutline2(&r,2,muiSignal);muiTextCentered(&r,muiPaper,"COLORS",muiCompactFont);
+}
+static udword muiShipPaintButtonProcess(regionhandle region,smemsize id,udword event,udword data)
+{
+    Ship *ship=muiShipPaintSelection();
+    (void)id;(void)data;
+    if(event==RPE_ReleaseLeft && ship && muiPointIn(&region->rect,mouseCursorX(),mouseCursorY()))
+        muiShipPaintOpen(ship);
+    return RPR_Redraw;
 }

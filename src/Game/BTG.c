@@ -26,6 +26,7 @@
 #include "rglu.h"
 #include "texreg.h"
 #include "Universe.h"
+#include "SinglePlayer.h"
 #include "Vector.h"
 
 #ifdef HW_BUILD_FOR_DEBUGGING
@@ -287,7 +288,7 @@ real32 btgGetPhi(void)
 ----------------------------------------------------------------------------*/
 void btgGetTexture(char* filename, udword* thandle, sdword* width, sdword* height)
 {
-    char   fullname[64];
+    char   fullname[128];
     ubyte* data;
     ubyte* pdata;
     ubyte* bp;
@@ -299,7 +300,7 @@ void btgGetTexture(char* filename, udword* thandle, sdword* width, sdword* heigh
     #ifdef _WIN32_FIXME
       strcpy(fullname, "btg\\bitmaps\\b01.tga");
     #else
-      strcpy(fullname, "btg\\bitmaps\\");
+      strcpy(fullname, singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission())?"Cataclysm\\btg\\bitmaps\\":"btg\\bitmaps\\");
     #endif
 #else
     strcpy(fullname, "btg/bitmaps/");

@@ -5,7 +5,7 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <bcrypt.h>
-#if defined(OPENHW_PATCH_INSTALLER) || defined(OPENHW_FULL_INSTALLER)
+#if defined(OPENHW_PATCH_INSTALLER) || defined(OPENHW_FULL_INSTALLER) || defined(OPENHW_UPDATE_REDIRECT)
 #include <shlobj.h>
 #include <shellapi.h>
 #include <tlhelp32.h>
@@ -122,6 +122,20 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
     try{
         wchar_t executable[32768]={};check(GetModuleFileNameW(nullptr,executable,32768)!=0,"Cannot locate this installer.");
         auto root=std::filesystem::path(executable).parent_path();
+#ifdef OPENHW_UPDATE_REDIRECT
+        if(!std::filesystem::is_regular_file(root/L"OpenHW.exe")){
+            CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
+            BROWSEINFOW selection={};selection.lpszTitle=L"Select your installed OpenHW folder";
+            selection.ulFlags=BIF_RETURNONLYFSDIRS|BIF_NEWDIALOGSTYLE;
+            auto item=SHBrowseForFolderW(&selection);if(!item)return 0;
+            wchar_t selected[MAX_PATH]={};const BOOL ok=SHGetPathFromIDListW(item,selected);CoTaskMemFree(item);
+            check(ok!=0,"Cannot read the installation folder.");root=selected;
+        }
+        const auto updater=root/L"Updater.exe";
+        check(std::filesystem::is_regular_file(root/L"setup-complete.json") &&
+              std::filesystem::is_regular_file(updater),"Select an OpenHW installation with Updater.exe.");
+        return static_cast<int>(launch(updater.wstring(),L"--launcher-update",INVALID_HANDLE_VALUE,true,root.c_str()));
+#endif
 #ifdef OPENHW_FULL_INSTALLER
         std::filesystem::path installation=root;
         std::wstring fullArguments;
@@ -165,12 +179,21 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
         for(auto c:root.wstring()){rootHash^=static_cast<unsigned long long>(towlower(c));rootHash*=1099511628211ull;}
         #ifdef OPENHW_LAUNCHER
         const bool diagnostics=args && wcsstr(args,L"--diagnostics-report");
-        const auto mode=diagnostics?L"-Diagnostics":L"";
+        const bool dataPicker=args && wcsstr(args,L"--select-cataclysm-data");
+        // The game opens the picker while its parent Launcher is still alive.
+        // It is a separate utility mode, just like the diagnostics window.
+        const auto mode=dataPicker?L"-CataclysmData":diagnostics?L"-Diagnostics":L"";
 #else
         const auto mode=L"";
 #endif
         const auto mutexName=std::wstring(L"Local\\OpenHW")+utilityFolder+mode+L"-"+std::to_wstring(rootHash);
         HANDLE updaterMutex=CreateMutexW(nullptr,TRUE,mutexName.c_str());
+#ifdef OPENHW_LAUNCHER
+        if(updaterMutex && GetLastError()==ERROR_ALREADY_EXISTS && dataPicker){
+            CloseHandle(updaterMutex);
+            return 0; // An existing picker already owns this request.
+        }
+#endif
         check(updaterMutex!=nullptr && GetLastError()!=ERROR_ALREADY_EXISTS,"This utility window is already open in this folder.");
         SetEnvironmentVariableW(L"OPENHW_UPDATER_EXE",executable);
         SetEnvironmentVariableW(L"OPENHW_UPDATER_BOOTSTRAP_PID",std::to_wstring(GetCurrentProcessId()).c_str());
@@ -343,7 +366,8 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
            std::filesystem::is_regular_file(prepared/L"Development/_ssl.pyd")){
             ReleaseMutex(preparationMutex);CloseHandle(preparationMutex);preparationMutex=nullptr;
             const DWORD result=launch((prepared/utilityEngine).wstring(),L"--root "+quote(root.wstring())+
-                (verify?L" --verify-payload":checkFeed?L" --check-update-feed":L"")+(diagnostics?L" --diagnostics-report":L""),log,!quiet);
+                (verify?L" --verify-payload":checkFeed?L" --check-update-feed":L"")+(diagnostics?L" --diagnostics-report":L"")+
+                (wcsstr(GetCommandLineW(),L"--select-cataclysm-data")?L" --select-cataclysm-data":L""),log,!quiet);
             if(log!=INVALID_HANDLE_VALUE)CloseHandle(log);
             return int(result);
         }
@@ -435,6 +459,7 @@ int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR args,int){
             L"--root "+quote(root.wstring())+handoffArgs+(verify?L" --verify-payload":checkFeed?L" --check-update-feed":L"")
 #ifdef OPENHW_LAUNCHER
             +(wcsstr(GetCommandLineW(),L"--diagnostics-report")?L" --diagnostics-report":L"")
+            +(wcsstr(GetCommandLineW(),L"--select-cataclysm-data")?L" --select-cataclysm-data":L"")
 #endif
             ,
 #elif defined(OPENHW_FULL_INSTALLER)

@@ -1,0 +1,19 @@
+static shipavailable cmShipsAvailableSomtaaw[]={
+    {0,ITEM_CLASS,0,CLASS_Fighter,NULL},
+    {0,ITEM_SHIP,0,CataScout,NULL},
+    {0,ITEM_SHIP,0,CataAcolyte,NULL},
+    {0,ITEM_CLASS,0,CLASS_Corvette,NULL},
+    {0,ITEM_SHIP,0,CataACV,NULL},
+    {0,ITEM_CLASS,0,CLASS_Resource,NULL},
+    {0,ITEM_SHIP,0,CataWorker,NULL},
+    {0,ITEM_SHIP,0,CataProcessor,NULL},
+    {0,ITEM_CLASS,0,CLASS_Frigate,NULL},
+    {0,ITEM_SHIP,0,CataRammingFrigate,NULL},
+    {0,ITEM_CLASS,0,CLASS_NonCombat,NULL},
+    {0,ITEM_SHIP,0,CataMothershipDockingBay,NULL},
+    {0,ITEM_SHIP,0,CataMothershipWeapons,NULL},
+    {0,ITEM_SHIP,0,CataMothershipArmour,NULL},
+    {0,ITEM_SHIP,0,CataMothershipMicro,NULL},
+    {0,ITEM_SHIP,0,CataMothershipSpecial,NULL},
+    {-1,0,0,0,NULL}
+};

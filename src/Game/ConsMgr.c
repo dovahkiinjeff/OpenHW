@@ -29,6 +29,7 @@
 #include "Ping.h"
 #include "Randy.h"
 #include "SaveGame.h"
+#include "SaveGameLayout.h"
 #include "Scroller.h"
 #include "Sensors.h"
 #include "ShipView.h"
@@ -555,6 +556,14 @@ shipavailable cmShipsAvailableP2[NSHIPS_AVAILABLE_P2 + 1] =
 
     {-1,0,0,0,NULL}
 };
+
+/* Somtaaw uses our existing build manager, with subsystems last. */
+#include "CataclysmBuildList.inc"
+
+static bool32 cmSomtaawFactory(const Ship *factory)
+{
+    return factory && !multiPlayerGame && (factory->shiptype==CataMothership || factory->shiptype==CataProcessor);
+}
 
 shipsinprogress *curshipsInProgress;
 sdword NUMBER_SHIPS_AVAILABLE = 0;
@@ -2115,10 +2124,10 @@ void cmClose(char *string, featom *atom)
 
     /* play the exit sound */
     soundEvent(NULL, UI_ManagerExit);
+    /* Docked panels own ambience too; closing must always retire that loop. */
+    soundEvent(NULL, UI_SoundOfSpace);
     if (!mdManagerDockEnabled())
     {
-        //restart the sound of space ambient
-        soundEvent(NULL, UI_SoundOfSpace);
         spUnlockout();
     }
 
@@ -2624,6 +2633,10 @@ bool32 cmClassCapCanCreateShip(ShipType shipType, shipsinprogress *factory, ship
     ShipRace shipRace;
     sdword index, nInThisClass;
     bool32 shipsQueuedUp[TOTAL_NUM_SHIPS];
+
+    /* Cataclysm uses support capacity and explicit type limits, checked by
+       unitCapCanCreateShip; HW1's per-class production caps do not apply. */
+    if(IS_CATA_SHIP(shipType))return TRUE;
 
     shipRace = cmFactoryBuildRace(factory->ship);
     shipStaticInfo = GetShipStaticInfo(shipType, shipRace);
@@ -3567,6 +3580,9 @@ void cmShipInfoDraw(featom *atom, regionhandle region)
             {
                 classString = ShipClassToNiceStr(cmShipsAvailable[index].type);
             }
+            if(cmShipsAvailable==cmShipsAvailableSomtaaw && cmShipsAvailable[index].type==CLASS_NonCombat)
+                fontPrint(region->rect.x0+CM_ASHeadingMarginLeft,y,c,"SUBSYSTEMS");
+            else
             fontPrintf(region->rect.x0 + CM_ASHeadingMarginLeft, y,
                        c, "%s %s", classString, strGetString(strCLASS_Class));
             //next line
@@ -3756,7 +3772,8 @@ bool32 cmCanBuildShipType(Ship *factoryship,ShipType shiptype,bool32 checkResear
     factorystatic = factoryship->staticinfo;
     race = cmFactoryBuildRace(factoryship);
 
-    if (race == R1)
+    if(cmSomtaawFactory(factoryship))shipsavail=cmShipsAvailableSomtaaw;
+    else if (race == R1)
     {
         if (factorystatic->canBuildBigShips)
         {
@@ -3860,7 +3877,8 @@ sdword cmUpdateFactoryNoReset(Ship* shipfactory)
 
     curshipsInProgress = cmFindFactory(shipfactory);
     dbgAssertOrIgnore(curshipsInProgress != NULL);
-    if (race == R1)
+    if(cmSomtaawFactory(shipfactory))cmShipsAvailable=cmShipsAvailableSomtaaw;
+    else if (race == R1)
     {
         if (curshipsInProgress->canBuildBigShips)
         {
@@ -3972,7 +3990,8 @@ sdword cmUpdateFactory(Ship* shipfactory)
 
     curshipsInProgress = cmFindFactory(shipfactory);
     dbgAssertOrIgnore(curshipsInProgress != NULL);
-    if (race == R1)
+    if(cmSomtaawFactory(shipfactory))cmShipsAvailable=cmShipsAvailableSomtaaw;
+    else if (race == R1)
     {
         if (curshipsInProgress->canBuildBigShips)
         {
@@ -4702,7 +4721,7 @@ bool32 cmDeterministicSanityCheck(cmDetermProgress_t* dprog)
          dprog->shipType > STD_LAST_SHIP))
     {
         if (dprog->creator == NULL ||
-            !cmCapturedForeignFactory(dprog->creator) ||
+            (!cmCapturedForeignFactory(dprog->creator) && !cmSomtaawFactory(dprog->creator)) ||
             !cmCanBuildShipType(dprog->creator, dprog->shipType, FALSE))
         {
             rval = FALSE;
@@ -5097,16 +5116,15 @@ shipsinprogress *Load_shipsinprogress(void)
 
     chunk = LoadNextChunk();
     VerifyChunkNoSize(chunk,BASIC_STRUCTURE|SAVE_SHIPSINPROGRESS);
-    /* The queue has no fields after progress. Its record length tells us
-       whether it contains the original or expanded HW1 factory roster. */
+    /* The queue has no fields after progress. Its record length identifies
+       the factory roster that was saved. */
     progressCount = (chunk->contentsSize - offsetof(shipsinprogress, progress)) /
                     sizeof(shipinprogress);
     if (chunk->contentsSize < offsetof(shipsinprogress, progress) ||
         chunk->contentsSize != offsetof(shipsinprogress, progress) +
                                progressCount * sizeof(shipinprogress) ||
         (progressCount != TOTAL_STD_SHIPS &&
-         progressCount != ResearchStationTower + 1 &&
-         progressCount != TOTAL_NUM_SHIPS))
+         !saveLayoutSupportsShipCount((unsigned)progressCount)))
     {
         dbgFatalf(DBG_Loc,"Unsupported saved construction queue (%d bytes)",chunk->contentsSize);
         memFree(chunk);

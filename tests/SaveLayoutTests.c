@@ -91,7 +91,7 @@ static void testSave(const char *path)
             CHECK((size_t)size >= prefix);
             CHECK(((size_t)size - prefix) % sizeof(shipinprogress) == 0);
             count = ((size_t)size - prefix) / sizeof(shipinprogress);
-            CHECK(count == TOTAL_STD_SHIPS || count == ResearchStationTower + 1 ||  count == TOTAL_NUM_SHIPS);
+            CHECK(count == TOTAL_STD_SHIPS || saveLayoutSupportsShipCount((unsigned)count));
             ++queues;
         }
         else if (type == (0x40000010u | OBJ_ShipType))
@@ -121,7 +121,10 @@ int main(int argc, char **argv)
 {
     int i;
     testLayout(saveLayoutClassic());
+    testLayout(saveLayoutCataclysm01());
     testLayout(saveLayoutCurrent());
+    CHECK(saveLayoutSupportsShipCount(CataMothershipSpecial + 1));
+    CHECK(!saveLayoutSupportsShipCount(TOTAL_NUM_SHIPS + 1));
     for (i = 1; i < argc; ++i) testSave(argv[i]);
     return 0;
 }

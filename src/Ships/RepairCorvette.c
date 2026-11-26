@@ -43,6 +43,7 @@ typedef struct
 
 RepairCorvetteStatics RepairCorvetteStaticRace1;
 RepairCorvetteStatics RepairCorvetteStaticRace2;
+static RepairCorvetteStatics CataclysmRepairDroidStatic;
 
 RepairCorvetteStatics RepairCorvetteStatic;
 
@@ -69,6 +70,7 @@ scriptStructEntry RepairCorvetteStaticScriptTable[] =
 void RepairCorvetteStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
     RepairCorvetteStatics *corvstat = (statinfo->shiprace == R1) ? &RepairCorvetteStaticRace1 : &RepairCorvetteStaticRace2;
+    if(statinfo->shiptype==CataRepairDroid)corvstat=&CataclysmRepairDroidStatic;
 
     memset(corvstat, 0, sizeof(RepairCorvetteStatics));
     scriptSetStruct(directory,filename,AttackSideStepParametersScriptTable,(ubyte *)&corvstat->sidestepParameters);

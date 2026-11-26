@@ -36,6 +36,7 @@
 #include "Globals.h"
 #include "HorseRace.h"
 #include "Key.h"
+#include "GameConsole.h"
 #include "LaunchMgr.h"
 #include "ManagerDock.h"
 #include "main.h"
@@ -2039,6 +2040,7 @@ void HandleEvent(SDL_Event const* pEvent) {
     static SDL_Scancode managerConsumedKey = SDL_SCANCODE_UNKNOWN;
 
     dbgAssertOrIgnore(pEvent);
+    if(gameConsoleHandleEvent(pEvent))return;
 
 #ifdef _WIN32
     /* Do not let the benchmark chord also issue a fleet formation command. */

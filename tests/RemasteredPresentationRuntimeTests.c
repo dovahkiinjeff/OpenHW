@@ -19,6 +19,7 @@ Universe universe;
 Camera *mrCamera;
 bool32 soundinited=TRUE;
 bool32 enableSFX=TRUE;
+bool32 soundEventUsesCataclysm(void){return FALSE;}
 static unsigned fxDraws,fxStarts,contactDraws,freshContactDraws;static float expectedContactX;static HwRmFxDraw lastFx;
 int rmFxRendererStartup(HwRmFxResources *resources){++fxStarts;return resources!=NULL;}
 void rmFxRendererShutdown(void){}

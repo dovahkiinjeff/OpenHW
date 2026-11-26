@@ -21,8 +21,14 @@ def export(repo, output, profile=None, version='1.1'):
     if output==repo or output.is_relative_to(repo):raise ValueError('Use a separate source destination')
     profile=Path(profile).resolve() if profile else repo/'assets/Release'
     verify_profile(profile)
+    from release_identity_policy import verify_public_identity
+    for configuration in profile.rglob('*.cfg'):
+        verify_public_identity(configuration.read_text(encoding='utf-8-sig'),configuration.relative_to(profile))
     output.mkdir(parents=True,exist_ok=True)
     def copy(path):
+        if path.suffix.lower()=='.cfg':
+            from release_identity_policy import verify_public_identity
+            verify_public_identity(path.read_text(encoding='utf-8-sig'),path.relative_to(repo))
         if path.relative_to(repo).as_posix() in {'RELEASE_NOTES_0.92.0_BETA1.md','Windows/package-0.92.0-beta.1.ps1'}:return
         if path.is_symlink():raise ValueError('Source export refuses symlinks: '+str(path))
         target=output/path.relative_to(repo);target.parent.mkdir(parents=True,exist_ok=True)

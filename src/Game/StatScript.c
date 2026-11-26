@@ -1,4 +1,5 @@
 #include "AIPolicy.h"
+#include "../Modern/CataclysmData.h"
 /*=============================================================================
     Name    : statscript.c
     Purpose : Static Scripting Utilities
@@ -69,7 +70,7 @@ extern scriptEntry AutoLODTweaks[];
 extern scriptEntry GatherStatsScriptTable[];
 extern scriptEntry FrontEndColourTweaks[];
 
-char globalScriptFileName[50];  //file name of file loaded in a script callback function
+char globalScriptFileName[PATH_MAX];  //file name of file loaded in a script callback function
 
 /*=============================================================================
     Private Defines:
@@ -94,6 +95,9 @@ static GunStatic gunStaticTemplate;
 
 static scriptStructEntry StaticGunInfoScriptTable[] =
 {
+    { "CataWeapon", scriptSetBool, &gunStaticTemplate.cataDefinition, &gunStaticTemplate },
+    { "CataWeaponClass", scriptSetSdwordCB, &gunStaticTemplate.cataWeaponClass, &gunStaticTemplate },
+    { "CataWeaponDisabled", scriptSetBool, &gunStaticTemplate.cataWeaponDisabled, &gunStaticTemplate },
     { "Type",                scriptSetGunTypeCB,      &(gunStaticTemplate.guntype),              &gunStaticTemplate },
     { "SoundType",           scriptSetGunSoundTypeCB, &(gunStaticTemplate.gunsoundtype),         &gunStaticTemplate },
     { "BulletType",          scriptSetBulletTypeCB,   &(gunStaticTemplate.bulletType),           &gunStaticTemplate },
@@ -793,18 +797,14 @@ void scriptSetStruct(char *directory, char *filename, scriptStructEntry info[], 
     filehandle fh;
     char line[MAX_LINE_CHARS];
     char *name, *value;
-    char fullfilename[80];
+    char fullfilename[FL_Path];
     sdword status;
     scriptStructEntry *foundentry;
 
-    if (directory != NULL)
+    if (!fileBuildPath(fullfilename, sizeof(fullfilename), directory, filename))
     {
-        strcpy(fullfilename,directory);
-        strcat(fullfilename,filename);
-    }
-    else
-    {
-        strcpy(fullfilename,filename);
+        dbgFatalf(DBG_Loc, "Script path too long for '%s'", filename);
+        return;
     }
 
     fh = fileOpen(fullfilename,FF_TextMode|FF_IgnorePrepend);
@@ -855,18 +855,14 @@ void scriptSet(char *directory,char *filename,scriptEntry info[])
     filehandle fh;
     char line[MAX_LINE_CHARS];
     char *name, *value;
-    char fullfilename[80];
+    char fullfilename[FL_Path];
     sdword status;
     scriptEntry *foundentry;
 
-    if (directory != NULL)
+    if (!fileBuildPath(fullfilename, sizeof(fullfilename), directory, filename))
     {
-        strcpy(fullfilename,directory);
-        strcat(fullfilename,filename);
-    }
-    else
-    {
-        strcpy(fullfilename,filename);
+        dbgFatalf(DBG_Loc, "Script path too long for '%s'", filename);
+        return;
     }
 
     fh = fileOpen(fullfilename,FF_TextMode|FF_IgnorePrepend);
@@ -910,15 +906,8 @@ void scriptSetFileSystem(char *directory,char *filename,scriptEntry info[])
     char fullfilename[PATH_MAX];
     scriptEntry *foundentry;
 
-    if (directory != NULL)
-    {
-        strcpy(fullfilename,directory);
-        strcat(fullfilename,filename);
-    }
-    else
-    {
-        strcpy(fullfilename,filename);
-    }
+    if (!fileBuildPath(fullfilename, sizeof(fullfilename), directory, filename))
+        return;
 
     fh = fopen(fullfilename,"rt");
     if (fh == NULL)
@@ -962,7 +951,7 @@ void scriptSetGunStatics(char *directory,char *filename,struct ShipStaticInfo *s
     filehandle fh;
     char line[MAX_LINE_CHARS];
     char *name, *value;
-    char fullfilename[80];
+    char fullfilename[FL_Path];
     sdword status;
     scriptStructEntry *foundentry;
     sdword numGuns=0;
@@ -974,15 +963,12 @@ void scriptSetGunStatics(char *directory,char *filename,struct ShipStaticInfo *s
     ubyte *structureToFillIn;
     sdword i,k;
     real32 curbulletrange,bonus,spdbonus;
+    bool32 cataDefinition=directory && !strncasecmp(directory,"Cataclysm",9);
 
-    if (directory != NULL)
+    if (!fileBuildPath(fullfilename, sizeof(fullfilename), directory, filename))
     {
-        strcpy(fullfilename,directory);
-        strcat(fullfilename,filename);
-    }
-    else
-    {
-        strcpy(fullfilename,filename);
+        dbgFatalf(DBG_Loc, "Script path too long for '%s'", filename);
+        return;
     }
 
     fh = fileOpen(fullfilename,FF_TextMode);
@@ -1043,7 +1029,7 @@ void scriptSetGunStatics(char *directory,char *filename,struct ShipStaticInfo *s
                     if (name[0] == '}')
                     {
                         state = SETGUNSTATE_LOOKINGFORGUN;
-                        if(shipstatinfo->shipclass == CLASS_Fighter)
+                        if(!cataDefinition && shipstatinfo->shipclass == CLASS_Fighter)
                         {
                             gunstaticinfo->gunstatics[processingGun].gunDamageLo[Evasive]=   gunstaticinfo->gunstatics[processingGun].baseGunDamageLo * tacticsInfo.DamageBonus[Tactics_Fighter][Evasive];
                             gunstaticinfo->gunstatics[processingGun].gunDamageLo[Neutral]=   gunstaticinfo->gunstatics[processingGun].baseGunDamageLo * tacticsInfo.DamageBonus[Tactics_Fighter][Neutral];
@@ -1053,7 +1039,7 @@ void scriptSetGunStatics(char *directory,char *filename,struct ShipStaticInfo *s
                             gunstaticinfo->gunstatics[processingGun].gunDamageHi[Neutral]=   gunstaticinfo->gunstatics[processingGun].baseGunDamageHi * tacticsInfo.DamageBonus[Tactics_Fighter][Neutral];
                             gunstaticinfo->gunstatics[processingGun].gunDamageHi[Aggressive]=gunstaticinfo->gunstatics[processingGun].baseGunDamageHi * tacticsInfo.DamageBonus[Tactics_Fighter][Aggressive];
                         }
-                        else if(shipstatinfo->shipclass == CLASS_Corvette)
+                        else if(!cataDefinition && shipstatinfo->shipclass == CLASS_Corvette)
                         {
                             gunstaticinfo->gunstatics[processingGun].gunDamageLo[Evasive]=   gunstaticinfo->gunstatics[processingGun].baseGunDamageLo * tacticsInfo.DamageBonus[Tactics_Corvette][Evasive];
                             gunstaticinfo->gunstatics[processingGun].gunDamageLo[Neutral]=   gunstaticinfo->gunstatics[processingGun].baseGunDamageLo * tacticsInfo.DamageBonus[Tactics_Corvette][Neutral];
@@ -1121,9 +1107,11 @@ void scriptSetGunStatics(char *directory,char *filename,struct ShipStaticInfo *s
                 }
             }
             shipstatinfo->minBulletRange[k] = shipstatinfo->bulletRange[k] = gunstaticinfo->gunstatics[0].bulletrange*bonus;
+            if(cataDefinition){shipstatinfo->bulletRange[k]=0;shipstatinfo->minBulletRange[k]=1.0e30f;}
             dbgAssertOrIgnore(numGuns > 0);
             for (i=0;i<numGuns;i++)
             {
+                if(gunstaticinfo->gunstatics[i].cataWeaponDisabled)continue;
                 if (k == 0)
                 {
                     if (gunstaticinfo->gunstatics[i].angletracking == 0.0f)
@@ -1151,6 +1139,7 @@ void scriptSetGunStatics(char *directory,char *filename,struct ShipStaticInfo *s
                     shipstatinfo->minBulletRange[k] = curbulletrange;
                 }
             }
+            if(shipstatinfo->minBulletRange[k]==1.0e30f)shipstatinfo->minBulletRange[k]=0;
         }
         for(k=0;k<NUM_TACTICS_TYPES;k++)
             shipstatinfo->bulletRangeSquared[k] = shipstatinfo->bulletRange[k] * shipstatinfo->bulletRange[k];
@@ -1175,24 +1164,34 @@ done:
 void scriptSetNAVLightCB(char *directory,char *field,void *dataToFillIn)
 {
     char navlighttypestr[30];
-    char navlighttexturename[50];
+    char navlighttexturename[50] = "NULL";
     NAVLightStatic *navlightstatic = (NAVLightStatic *)dataToFillIn;
 
     RemoveCommasFromString(field);
 
-    sscanf(field,"%s %s %f %f %f %f %d %s",navlightstatic->name, navlighttypestr, &navlightstatic->flashrateon,
-     &navlightstatic->flashrateoff, &navlightstatic->startdelay, &navlightstatic->size, &navlightstatic->minLOD, navlighttexturename);
+    int fields = sscanf(field,"%19s %29s %f %f %f %f %u %49s",navlightstatic->name, navlighttypestr,
+        &navlightstatic->flashrateon, &navlightstatic->flashrateoff, &navlightstatic->startdelay,
+        &navlightstatic->size, &navlightstatic->minLOD, navlighttexturename);
 
-    if(!strcmp(navlighttexturename, "NULL"))
+    navlightstatic->texturehandle = TR_InvalidHandle;
+    if (fields == 8 && strcasecmp(navlighttexturename, "NULL"))
     {
-       navlightstatic->texturehandle = TR_InvalidHandle;
-    }
-    else
-    {
-       navlightstatic->texturehandle = trTextureRegister(navlighttexturename, NULL, NULL);
+        if (directory && (!strncasecmp(directory, "Cataclysm\\", 10) ||
+                          !strncasecmp(directory, "Cataclysm/", 10)))
+        {
+            char ownedTexture[FL_Path];
+            if (hwCataNavLightTexturePath(navlighttexturename, ownedTexture, sizeof(ownedTexture)))
+                navlightstatic->texturehandle = trTextureRegister(ownedTexture, NULL, NULL);
+            else
+                dbgMessagef("WARNING: Cataclysm navigation light texture unavailable: %s", navlighttexturename);
+        }
+        else
+        {
+            navlightstatic->texturehandle = trTextureRegister(navlighttexturename, NULL, NULL);
+        }
     }
 
-    navlightstatic->lightType = StrToNAVLightType(navlighttypestr);
+    if (fields >= 2) navlightstatic->lightType = StrToNAVLightType(navlighttypestr);
 }
 
 #define SETNAVLIGHTSTATE_START      0
@@ -1210,7 +1209,7 @@ void scriptSetNAVLightStatics(char *directory,char *filename,struct ShipStaticIn
     filehandle fh;
     char line[MAX_LINE_CHARS];
     char *name, *value;
-    char fullfilename[80];
+    char fullfilename[FL_Path];
     sdword numNavLights;
     sdword sizeofnavlightstaticinfo;
     NAVLightStaticInfo *navlightstaticinfo = NULL;
@@ -1223,14 +1222,10 @@ void scriptSetNAVLightStatics(char *directory,char *filename,struct ShipStaticIn
     // Set this just in case we don't find any nav lights.
     shipstatinfo->navlightStaticInfo = 0;
 
-    if (directory != NULL)
+    if (!fileBuildPath(fullfilename, sizeof(fullfilename), directory, filename))
     {
-        strcpy(fullfilename,directory);
-        strcat(fullfilename,filename);
-    }
-    else
-    {
-        strcpy(fullfilename,filename);
+        dbgFatalf(DBG_Loc, "Script path too long for '%s'", filename);
+        return;
     }
 
     fh = fileOpen(fullfilename,FF_TextMode);
@@ -1330,7 +1325,7 @@ void scriptSetDockStatics(char *directory,char *filename,struct ShipStaticInfo *
     filehandle fh;
     char line[MAX_LINE_CHARS];
     char *name, *value;
-    char fullfilename[80];
+    char fullfilename[FL_Path];
     sdword numDockPoints;
     sdword sizeofdockstaticinfo;
     DockStaticInfo *dockstaticinfo = NULL;
@@ -1340,14 +1335,10 @@ void scriptSetDockStatics(char *directory,char *filename,struct ShipStaticInfo *
     sdword status;
     sdword processingDockPoint = 0;
 
-    if (directory != NULL)
+    if (!fileBuildPath(fullfilename, sizeof(fullfilename), directory, filename))
     {
-        strcpy(fullfilename,directory);
-        strcat(fullfilename,filename);
-    }
-    else
-    {
-        strcpy(fullfilename,filename);
+        dbgFatalf(DBG_Loc, "Script path too long for '%s'", filename);
+        return;
     }
 
     fh = fileOpen(fullfilename,FF_TextMode);
@@ -1471,7 +1462,7 @@ void scriptSetDockOverideStatics(char *directory,char *filename,struct ShipStati
     filehandle fh;
     char line[MAX_LINE_CHARS];
     char *name, *value;
-    char fullfilename[80];
+    char fullfilename[FL_Path];
     sdword numDockOveridePoints;
     sdword sizeofdockoveridestaticinfo;
     DockOverideInfo *dockoverideinfo = NULL;
@@ -1481,14 +1472,10 @@ void scriptSetDockOverideStatics(char *directory,char *filename,struct ShipStati
     sdword status;
     sdword processingDockOveridePoint = 0;
 
-    if (directory != NULL)
+    if (!fileBuildPath(fullfilename, sizeof(fullfilename), directory, filename))
     {
-        strcpy(fullfilename,directory);
-        strcat(fullfilename,filename);
-    }
-    else
-    {
-        strcpy(fullfilename,filename);
+        dbgFatalf(DBG_Loc, "Script path too long for '%s'", filename);
+        return;
     }
 
     fh = fileOpen(fullfilename,FF_TextMode);
@@ -1605,7 +1592,7 @@ void scriptSetSalvageStatics(char *directory,char *filename,struct StaticInfoHea
     filehandle fh;
     char line[MAX_LINE_CHARS];
     char *name, *value;
-    char fullfilename[80];
+    char fullfilename[FL_Path];
     sdword numSalvagePoints;
     sdword sizeofsalvagestaticinfo;
     SalvageStaticInfo *salvagestaticinfo = NULL;
@@ -1615,14 +1602,10 @@ void scriptSetSalvageStatics(char *directory,char *filename,struct StaticInfoHea
     sdword status;
     sdword processingSalvagePoint = 0;
 
-    if (directory != NULL)
+    if (!fileBuildPath(fullfilename, sizeof(fullfilename), directory, filename))
     {
-        strcpy(fullfilename,directory);
-        strcat(fullfilename,filename);
-    }
-    else
-    {
-        strcpy(fullfilename,filename);
+        dbgFatalf(DBG_Loc, "Script path too long for '%s'", filename);
+        return;
     }
 
     fh = fileOpen(fullfilename,FF_TextMode);
@@ -1738,7 +1721,7 @@ struct SphereStaticInfo *scriptSetSphereStaticInfo(char *directory,char *filenam
     filehandle fh;
     char line[MAX_LINE_CHARS];
     char *name, *value;
-    char fullfilename[80];
+    char fullfilename[FL_Path];
     sdword status;
     sdword state = 0;
     sdword numTables = 0;
@@ -1751,14 +1734,10 @@ struct SphereStaticInfo *scriptSetSphereStaticInfo(char *directory,char *filenam
     struct SphereStaticInfo *sphereStaticInfo = NULL;
     SphereTableEntry *spheretableentry = NULL;
 
-    if (directory != NULL)
+    if (!fileBuildPath(fullfilename, sizeof(fullfilename), directory, filename))
     {
-        strcpy(fullfilename,directory);
-        strcat(fullfilename,filename);
-    }
-    else
-    {
-        strcpy(fullfilename,filename);
+        dbgFatalf(DBG_Loc, "Script path too long for '%s'", filename);
+        return;
     }
 
     fh = fileOpen(fullfilename,FF_TextMode);

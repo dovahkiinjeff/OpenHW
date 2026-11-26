@@ -1,4 +1,5 @@
 #include "NavigationOrders.h"
+#include "CataclysmLinking.h"
 #include "../Modern/DiagnosticPolicy.h"
 #include "../Network/DedicatedServer.h"
 #include "../Network/MatchRules.h"
@@ -461,6 +462,8 @@ fecallback utyCallbacks[] =
     {utyLoadMultiSinglePlayerGame,   "LoadMultiSinglePlayerGameFromMain"},    //load a saved game & start
     {utySelectMultiPlayerGame,  "SelectMultiPlayerGame"},  //select from saved games
     {utySinglePlayerGameStart,  "StartSinglePlayerGame"},
+    {mrLinkAcolytes,            "CSM_Link"},
+    {mrUnlinkACVs,              "CSM_Unlink"},
     {utyBackFromSinglePlayer,   "BackFromSinglePlayer"},
     {utyBackFromSinglePlayerOptions, "BackFromSinglePlayerOptions"},
     {utyNewGameStart,           "StartNewGame"},
@@ -1854,6 +1857,13 @@ void gameStart(char *loadfilename)
         }
         else
         {
+            /* An explicitly chosen local identity also applies when resuming
+               a campaign save made before profile colors were restored.
+               Keep every NPC/script palette slot from that save intact. */
+            if(singlePlayerGame && cpColorsPicked){
+                teColorSchemes[0].textureColor.base=utyBaseColor;
+                teColorSchemes[0].textureColor.detail=utyStripeColor;
+            }
             for (i=0;i<universe.numPlayers;i++)
             {
                 teTeamColorsSet(i, teColorSchemes[i].textureColor.base, teColorSchemes[i].textureColor.detail);
@@ -2146,6 +2156,7 @@ void gameStart(char *loadfilename)
     }
     if (!hrAbortLoadingGame)
         HorseRaceLoadingPhaseComplete(HR_LOAD_EFFECTS);
+    etgSelectCataclysmEnergyFx(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()));
     pingReset();                                            //clear out all pings
 
     //clear out any persistent subtitles
@@ -2207,6 +2218,11 @@ abortloading:
     
     // reset any spurious joystick motion that's been recorded
     cameraJoystickReset();
+
+    /* Apply the opening cutscene's camera and frame-zero events before the
+       loading screen reveals the world. The mission owns the NISlet request. */
+    if (!hrAbortLoadingGame && singlePlayerGame && loadfilename == NULL)
+        singlePlayerPrepareMissionIntro();
 
     gameIsRunning = TRUE;
     if (!hrAbortLoadingGame)
@@ -2962,7 +2978,7 @@ void utySinglePlayerGameStart(char *name, featom *atom)
         forceSP = TRUE;
     }
 
-    if ((!forceSP) &&
+    if ((!forceSP) && !spCataclysmCampaignRequested() &&
         (gpCountTrainingSavegames() == 0) &&
         (needtutorial))
     {
@@ -3035,6 +3051,7 @@ void utyNewGameStart(char *name, featom *atom)
     {
         return;
     }
+    if(multiPlayerGame && mgWarnMultiplayerMods())return;
     if ((!forceSP) &&
         (!multiPlayerGame) &&
         (gpCountTrainingSavegames() == 0) &&

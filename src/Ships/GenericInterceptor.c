@@ -114,6 +114,7 @@ typedef struct          //inherited Structure for Cloaked Fighter
 } CloakedFighterStatics;
 
 GenericInterceptorStatics GenericInterceptorStatic;
+static GenericInterceptorStatics CataclysmReconStatic,CataclysmAcolyteStatic;
 CloakedFighterStatics CloakedFighterStatic;
 
 GenericInterceptorStatics LightInterceptorStaticRace1;
@@ -175,6 +176,8 @@ void GenericInterceptorStaticInit(char *directory,char *filename,struct ShipStat
 
     switch (statinfo->shiptype)
     {
+        case CataScout:interceptorstat=&CataclysmReconStatic;break;
+        case CataAcolyte:interceptorstat=&CataclysmAcolyteStatic;break;
         case LightInterceptor:
             interceptorstat = (statinfo->shiprace == R1) ? &LightInterceptorStaticRace1 : &LightInterceptorStaticRace2;
             break;

@@ -70394,6 +70394,46 @@
       "sha256": "5533ceecb498155b2fb229d8faafb6384898da27e1c035ccd071cad920aa6378",
       "approval": "Project owner supplied and approved this concept art for translucent UI panels",
       "public_domain_claim": false
+    },
+    {
+      "path": "Content/missions/CataclysmMission02.rtxlight",
+      "category": "authored-text",
+      "sha256": "316fe71d96fcf0b839eae1f7d430fe8b22a17f08c56c99d01ddc17df79504d87"
+    },
+    {
+      "path": "Content/missions/CataclysmMission02.rtxmap",
+      "category": "authored-text",
+      "sha256": "7ffb75a6f6be711764d28fdee1a5794287c9e9840c7b8e55fbe8c1ad4c7cf047"
+    },
+    {
+      "path": "Content/ui/cata_beast_ship.png",
+      "category": "supplied-concept-art",
+      "sha256": "4c31ad281abd722526dd5dcec62439ee667ccc130ef6887b8cfe3dd19594ba30"
+    },
+    {
+      "path": "Content/ui/cata_beast_sphere.png",
+      "category": "supplied-concept-art",
+      "sha256": "f86b6f8f756e628fb153cd205c98702a711cb8abcba47ed71fb53a89da5640b9"
+    },
+    {
+      "path": "Content/ui/cata_kuun_lan.png",
+      "category": "supplied-concept-art",
+      "sha256": "f8e8fcd506ba38d1e9128f55fecd03ba87abcc3d374f35d2785d7f213eaae0a9"
+    },
+    {
+      "path": "Content/ui/cata_patrolcraft.png",
+      "category": "supplied-concept-art",
+      "sha256": "642a03caa288233e895ffe804c10cf2eab781a126ed969aa5d4527120db2e883"
+    },
+    {
+      "path": "Content/ui/cata_strikecraft.png",
+      "category": "supplied-concept-art",
+      "sha256": "aea86a35edbd0a01812fa2e049efa32850ba839104baea826170c916bc8807fe"
+    },
+    {
+      "path": "Content/ui/cata_title.png",
+      "category": "supplied-concept-art",
+      "sha256": "24eac9076fef58ca68d1ac92081a1b0b6d72fb5eaff0eb35405cc17527f3121b"
     }
   ]
 }

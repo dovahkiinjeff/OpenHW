@@ -1,4 +1,5 @@
 #include "OnlineClient.h"
+#include "OpenHWArchive.h"
 #include "OnlineMapSelection.h"
 #include "../Modern/BadgeLibrary.h"
 #include "MatchRules.h"
@@ -133,6 +134,10 @@ void hwOnlineGamePump(void)
         else if(type==OH_LOAD && length==sizeof(OHLoad) && !gameIsRunning && !hwMatchActive()) {
             OHLoad load;unsigned i;memcpy(&load,bytes,sizeof(load));
             for(i=0;i<(unsigned)spNumberScenarios;i++)if(ohMapNameEqual(load.config.map,spScenarios[i].fileSpec))break;
+            if(openhwMultiplayerModsActive(NULL,0)) {
+                hwOnlineSend(OH_LEAVE,NULL,0);hwOnlineCloseMenu();
+                mgWarnMultiplayerMods();continue;
+            }
             modernMapEditorClose();modernUICloseLightingEditor();
             if(i==(unsigned)spNumberScenarios || !hwMatchInstall(&load)) {
                 hwOnlineSend(OH_LEAVE,NULL,0);snprintf(message,sizeof(message),"Server map or match setup is incompatible");continue;

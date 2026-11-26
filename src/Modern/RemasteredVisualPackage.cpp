@@ -104,13 +104,14 @@ extern "C" HwRmVisualPackage *hwRmVisualPackageRead(const char *type,const void 
     try {
         const bool subsystem=type && !std::strncmp(type,"Subsystem_",10) && token(type+10);
         const bool scaffold=type && std::strcmp(type,"Scaffold")==0;
+        const bool somtaaw=hwRmNativeSomtaawType(type)!=0;
         const bool raider=hwRmNativeP1Type(type)!=0;
         const bool kadeshi=hwRmNativeP2Type(type)!=0;
         const bool council=hwRmNativeP3Type(type)!=0;
         const bool trader=hwRmNativeTraderType(type)!=0;
         const bool taiidan=type && !std::strncmp(type,"Taiidan_",8) && hwRmNativeR2Type(type+8);
         const bool derelict=type && !std::strncmp(type,"Derelict_",9) && hwRmNativeDerelictType(type+9);
-        if((!kushan(type) && !scaffold && !raider && !kadeshi && !council && !trader && !derelict && !taiidan && !subsystem) || !manifest || !size || size>128*1024 || !read || !release || !configure)
+        if((!kushan(type) && !somtaaw && !scaffold && !raider && !kadeshi && !council && !trader && !derelict && !taiidan && !subsystem) || !manifest || !size || size>128*1024 || !read || !release || !configure)
             throw std::runtime_error("invalid/out-of-scope native R1 package");
         const auto *chars=static_cast<const char*>(manifest);
         for(size_t i=0;i<size;++i) if((static_cast<unsigned char>(chars[i])<32 && chars[i]!='\r' && chars[i]!='\n' && chars[i]!='\t') || static_cast<unsigned char>(chars[i])>126)
@@ -287,6 +288,39 @@ extern "C" HwRmVisualPackage *hwRmVisualPackageRead(const char *type,const void 
             hwRmVisualAssetBindMarker(package->asset.get(),"salvage_grip","Hull","SalvageOrientation",optionalError,sizeof(optionalError));
         }
         if(definition) {
+            if (std::strcmp(type, "sWorker") == 0) {
+                char optionalError[256];
+                if (std::none_of(markers.begin(), markers.end(), [](const Marker& marker) {
+                        return marker.semantic == "repair_nozzle";
+                    }))
+                    hwRmVisualAssetBindMarker(package->asset.get(), "repair_nozzle", "Hull",
+                                             "Hardpoint_Hammer_Position", optionalError, sizeof(optionalError));
+                hwRmVisualAssetBindMarker(package->asset.get(), "worker_grapple_mount", "Hull",
+                                         "Hardpoint_Leg1_Position", optionalError, sizeof(optionalError));
+                // The pads face out near the start of Open. Stop there before
+                // the arms sweep underneath, and use the matching Close pose.
+                const struct { const char *event, *clip; double start, end; } grapples[] = {
+                    {"DockOpen", "Open", 0.0, 0.10},
+                    {"DockClose", "Close", 0.90, 1.0},
+                };
+                for (const auto& grapple : grapples)
+                    if (std::none_of(events.begin(), events.end(), [&](const Event& event) {
+                            return event.name == grapple.event;
+                        }))
+                        hwRmVisualAssetBindAnimationRange(package->asset.get(), grapple.event, grapple.clip,
+                            grapple.start, grapple.end, optionalError, sizeof(optionalError));
+                const char *clips[] = {"extend", "retract"};
+                const char *names[] = {"JackOut", "JackClose"};
+                for (unsigned i = 0; i < 2; ++i)
+                    if (std::none_of(events.begin(), events.end(), [&](const Event& event) {
+                            return event.name == names[i];
+                        }))
+                        /* Both stock jack clips move in their first source
+                           second. The extend clip holds that pose for 599
+                           more seconds, which would collapse the movement. */
+                        hwRmVisualAssetBindAnimationOpening(package->asset.get(), names[i], clips[i], 1.0,
+                                                            optionalError, sizeof(optionalError));
+            }
             for(const auto& gun:guns)if(!hwRmVisualAssetBindGun(package->asset.get(),gun.index,gun.slot.c_str(),
                 gun.azimuth=="-"?nullptr:gun.azimuth.c_str(),gun.declination=="-"?nullptr:gun.declination.c_str(),
                 gun.recoil=="-"?nullptr:gun.recoil.c_str(),gun.muzzle.c_str(),error,errorSize))return nullptr;

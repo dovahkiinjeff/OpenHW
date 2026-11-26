@@ -868,7 +868,8 @@ udword partRenderBillSystem(udword n, particle* p, udword flags,
             cosTheta = (real32)cos((real64)p->rot);
             sinTheta = (real32)sin((real64)p->rot);
 
-            sx = sy = p->scale * 0.5f;
+            sx = p->scale * 0.5f;
+            sy = (bitTest(p->flags,PART_XYZSCALE)?p->scaleY:p->scale) * 0.5f;
 
             if (p->rot == 0.0f)
             {
@@ -2373,6 +2374,8 @@ bool8 partUpdateSystem(psysPtr psys, real32 dt, vector* velvec)
         if (p->deltaScale != 0.0f)
         {                                                   //scale the particle
             p->scale += dt * p->deltaScale;
+            p->scaleY += dt * p->deltaScale;
+            if(p->scaleY<0)p->scaleY=0;
             if (p->scale < 0.0f)
             {                                               //clamp at zero
                 p->scale = 0.0f;
@@ -2632,6 +2635,7 @@ void partFillGenericParticles(udword n, psysPtr psys,
         p->velR = partRealDist(pat.velR, pat.velRDist);
         //appearance
         p->scale = partRealDist(pat.scale, pat.scaleDist);
+        p->scaleY = p->scale;
         p->deltaScale = partRealDist(pat.deltaScale, pat.deltaScaleDist);
         if (alpha)
         {
@@ -2693,6 +2697,7 @@ void partFillGenericParticles(udword n, psysPtr psys,
             p->tumble[0] = pat.xScale;
             p->tumble[1] = pat.yScale;
             p->tumble[2] = pat.zScale;
+            if(partTypeof(psys)==PART_BILLBOARD){p->scale=pat.xScale;p->scaleY=pat.yScale;}
         }
         else
         {
@@ -3069,7 +3074,25 @@ void partModifyScale(psysPtr psys, real32 s)
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
     for (i = 0; i < partNumberof(psys); i++, p++)
-        p->scale = s;
+        p->scale = p->scaleY = s;
+}
+
+/* Cataclysm energy scripts animate independent billboard axes. */
+void partModifyScaleX(psysPtr psys,real32 s)
+{
+    udword i;particle *p=(particle*)(psys+partHeaderSize(psys));
+    for(i=0;i<partNumberof(psys);i++,p++){
+        bitSet(p->flags,PART_XYZSCALE);
+        if(partTypeof(psys)==PART_BILLBOARD)p->scale=s;else p->tumble[0]=s;
+    }
+}
+void partModifyScaleY(psysPtr psys,real32 s)
+{
+    udword i;particle *p=(particle*)(psys+partHeaderSize(psys));
+    for(i=0;i<partNumberof(psys);i++,p++){
+        bitSet(p->flags,PART_XYZSCALE);
+        if(partTypeof(psys)==PART_BILLBOARD)p->scaleY=s;else p->tumble[1]=s;
+    }
 }
 
 void partModifyDeltaScale(psysPtr psys, real32 d)

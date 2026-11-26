@@ -1,4 +1,6 @@
 #include "LevelLoad.h"
+#include "CampaignColorPolicy.h"
+#include "ColPick.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -38,6 +40,9 @@
 #include "Teams.h"
 #include "Tweak.h"
 #include "Universe.h"
+#include "CataclysmShips.h"
+#include "CataclysmSlipgateRecord.h"
+#include "AIVar.h"
 #include "UnivUpdate.h"
 #include "Vector.h"
 
@@ -68,6 +73,8 @@ ResourceDistribution resourceDistTemplate;
 static void scriptSetDerelictCB     (char *directory, char *field, void *dataToFillIn);
 static void scriptSetResourcesCB    (char *directory, char *field, void *dataToFillIn);
 static void scriptSetShipsCB        (char *directory, char *field, void *dataToFillIn);
+static void scriptSetCataSlipgateCB (char *directory, char *field, void *dataToFillIn);
+static void scriptPreCataSlipgateCB (char *directory, char *field, void *dataToFillIn);
 static void scriptSetAIPointCB      (char *directory, char *field, void *dataToFillIn);
 static void scriptSetAIPathCB       (char *directory, char *field, void *dataToFillIn);
 static void scriptSetAIBoxCB        (char *directory, char *field, void *dataToFillIn);
@@ -113,6 +120,7 @@ scriptStructEntry GasCloudDistScriptTable[] =
 scriptStructEntry MissionSphereScriptTable[] =
 {
     { "Ships",     scriptSetShipsCB,     0, 0 },
+    { "Slipgate",  scriptSetCataSlipgateCB,0,0 },
     { "AIPoint",   scriptSetAIPointCB,   0, 0 },
     { "AIPath",    scriptSetAIPathCB,    0, 0 },
     { "AIBox",     scriptSetAIBoxCB,     0, 0 },
@@ -200,6 +208,7 @@ bool32 needR2CapitalShip = FALSE;
 scriptStructEntry MissionPreloadMissphereTable[] =
 {
     { "Ships",    scriptSetShipsToBeNeeded,    0, 0 },
+    { "Slipgate", scriptPreCataSlipgateCB,     0, 0 },
     { "Derelict", scriptSetDerelictToBeNeeded, 0, 0 },
 
     END_SCRIPT_STRUCT_ENTRY
@@ -886,6 +895,39 @@ bool32 isCapturableCapitalShip(ShipType shiptype)
     }
     return FALSE;
 }
+static void scriptPreCataSlipgateCB(char *directory,char *field,void *data)
+{
+    CataSlipgateRecord record;(void)directory;(void)data;
+    if(!singlePlayerGame || !hwIsCataclysmMission(spGetCurrentMission()) || !cataParseSlipgateRecord(field,&record))
+        dbgFatalf(DBG_Loc,"Unsupported slipgate record: %s",field);
+    SetInfoNeededForShipAndRelatedStaticInfo(CataSlipgateLarge,R1,TRUE);
+}
+/* Recovered scene callback: gates belong to the sphere's player and pair in
+   creation order. R1 is only storage; the owned data lives in RACE_DERELICT. */
+static void scriptSetCataSlipgateCB(char *directory,char *field,void *data)
+{
+    CataSlipgateRecord record;MissionSphereInfo *sphere=data;Player *owner;
+    Ship *ship,*partner=NULL;vector local,position;matrix rotation;real32 yaw;AIVar *pending;Node *node;
+    (void)directory;
+    if(!singlePlayerGame || !hwIsCataclysmMission(spGetCurrentMission()) || !cataParseSlipgateRecord(field,&record))
+        dbgFatalf(DBG_Loc,"Unsupported slipgate record: %s",field);
+    owner=&universe.players[sphere->playerNumber];vecSet(local,record.x,record.y,record.z);yaw=DEG_TO_RAD(record.yaw);
+    if(!missionman){
+        matMakeRotAboutZ(&rotation,(real32)cos(sphere->sphererotz),(real32)sin(sphere->sphererotz));
+        matMultiplyMatByVec(&position,&rotation,&local);vecAddTo(position,sphere->position);yaw+=sphere->sphererotz;
+    }else position=local;
+    ship=univAddShip(CataSlipgateLarge,R1,&position,owner,0);gameStatsAddShip(ship,owner->playerIndex);
+    unitCapCreateShip(ship,owner);univRotateObjYaw((SpaceObjRot*)ship,yaw);
+    bitClear(ship->flags,SOF_Targetable);bitSet(ship->flags,SOF_BigObject);
+    pending=aivarFind("CataPendingSlipgate");if(!pending)pending=aivarCreate("CataPendingSlipgate");
+    if(record.total==2 && record.index==1)aivarValueSet(pending,(sdword)ship->shipID.shipNumber+1);
+    else if(record.total==2 && record.index==2){
+        for(node=universe.ShipList.head;node;node=node->next){Ship *candidate=listGetStructOfNode(node);
+            if(candidate->shiptype==CataSlipgateLarge && (sdword)candidate->shipID.shipNumber+1==aivarValueGet(pending)){partner=candidate;break;}}
+        if(partner){cataShipSetGatePartner(ship,partner);cataShipSetGatePartner(partner,ship);}
+        aivarValueSet(pending,0);
+    }
+}
 
 bool32 PlayerDoesntHaveCapturableCapitalShip(Player *player)
 {
@@ -1076,7 +1118,8 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
         }
     }
 
-    if ((missionman) && ((shiprace == R1) || (shiprace == R2)))
+    if ((missionman) && ((shiprace == R1) || (shiprace == R2)) &&
+        !(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission())))
     {
         if ((player->race != shiprace) && ((player->race == R1) || (player->race == R2)))
         {
@@ -1480,7 +1523,7 @@ static void scriptSetLightingCB(char *directory,char *field,void *dataToFillIn)
         else
         {
 #ifdef _WIN32
-            strcpy(fullFileName, "HSF\\");
+            strcpy(fullFileName, singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission())?"Cataclysm\\HSF\\":"HSF\\");
 #else
             strcpy(fullFileName, "HSF/");
 #endif
@@ -1535,7 +1578,7 @@ static void scriptSetBackgroundCB(char* directory, char* field, void* dataToFill
         else
         {
 #ifdef _WIN32
-            strcpy(fullFileName, "BTG\\");
+            strcpy(fullFileName, singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission())?"Cataclysm\\BTG\\":"BTG\\");
 #else
             strcpy(fullFileName, "BTG/");
 #endif
@@ -1740,17 +1783,13 @@ bool32 isLevelMissionManGenerated(char *directory,char *filename)
 {
     filehandle fh;
     char line[MAXLINENEED];
-    char fullfilename[80];
+    char fullfilename[FL_Path];
     sdword status;
 
-    if (directory != NULL)
+    if (!fileBuildPath(fullfilename, sizeof(fullfilename), directory, filename))
     {
-        strcpy(fullfilename,directory);
-        strcat(fullfilename,filename);
-    }
-    else
-    {
-        strcpy(fullfilename,filename);
+        dbgFatalf(DBG_Loc, "Mission path too long for '%s'", filename);
+        return FALSE;
     }
 
     fh = fileOpen(fullfilename,FF_TextMode|FF_IgnorePrepend);
@@ -1799,6 +1838,13 @@ void SetInfoNeededForShipAndRelatedStaticInfo(ShipType type,ShipRace race,bool8 
 {
     ShipStaticInfo *info = GetShipStaticInfo(type, race);
     bitSetTo(info->staticheader.infoFlags, IF_InfoNeeded, dataToFillIn);
+    if(type==CataMothership)
+    {
+        ShipType child;
+        for(child=CATA_FIRST_SHIP;child<=CATA_LAST_SHIP;child++)
+            if(cataShipIsCoreComponent(child))
+                bitSetTo(GetShipStaticInfo(child,R1)->staticheader.infoFlags,IF_InfoNeeded,dataToFillIn);
+    }
 
     if (type == MissileDestroyer || type == P1MissileCorvette)
     {
@@ -1900,6 +1946,19 @@ static void llExcludeShip(char *directory,char *field,void *dataToFillIn)
     //parse the race
     string = strtok(field, llDelimiters);
     dbgAssertOrIgnore(string != NULL);
+    /* Cataclysm includes a ship-exclusion marker for its separate derelict
+       category. Actual derelicts use IncludeDerelict/ExcludeDerelict below. */
+    if(!strcasecmp(string,"RACE_DERELICT")){
+        string=strtok(NULL,llDelimiters);if(!string)return;
+        if(!strcasecmp(string,"ALL")){
+            SetInfoNeededForShipAndRelatedStaticInfo(CataMessagePod,R1,(bool8)(size_t)dataToFillIn);
+            SetInfoNeededForShipAndRelatedStaticInfo(CataSlipgateLarge,R1,(bool8)(size_t)dataToFillIn);
+        }else if(!strcasecmp(string,"dSlipgateLarge"))
+            SetInfoNeededForShipAndRelatedStaticInfo(CataSlipgateLarge,R1,(bool8)(size_t)dataToFillIn);
+        else if(!strcasecmp(string,"dMessagePod"))
+            SetInfoNeededForShipAndRelatedStaticInfo(CataMessagePod,R1,(bool8)(size_t)dataToFillIn);
+        return;
+    }
     race = StrToShipRace(string);
     dbgAssertOrIgnore(race != 0xffffffff);
     if (singlePlayerGame || tutorial)
@@ -2239,7 +2298,8 @@ void levelPreInit(char *directory,char *pickedMission)
 
     for (index = 0; index < MAX_MULTIPLAYER_PLAYERS; index++)
     {                                                       //for all players
-        if (index < numPlayers && (hwMatchActive() || universe.players[index].aiPlayer == NULL))
+        if (hwKeepMissionPlayerColors(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()),
+            cpColorsPicked,index,numPlayers,hwMatchActive(),universe.players[index].aiPlayer == NULL))
         {                                                   //if this is a human player
             teColorSchemes[index] = playerSchemes[index];   //restore this player's color scheme
         }
@@ -2308,7 +2368,7 @@ void levelPreInit(char *directory,char *pickedMission)
     if (singlePlayerGame)
     {
         singlePlayerPreLoadCheck();
-        if (opStartingResourceFleet) {
+        if (opStartingResourceFleet && !hwIsCataclysmMission(spGetCurrentMission())) {
             SetInfoNeededForShipAndRelatedStaticInfo(ResourceCollector,universe.players[0].race,TRUE);
             SetInfoNeededForShipAndRelatedStaticInfo(ResourceController,universe.players[0].race,TRUE);
         }

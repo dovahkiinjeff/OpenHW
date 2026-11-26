@@ -103,6 +103,8 @@ def install(root,selected):
     ensure_sky_lighting(root,selected=selected)
     from release_mission_authoring import verify_published_missions
     authored=verify_published_missions(dev/'Content/missions',root)
+    from release_content_policy import install_cataclysm_native
+    install_cataclysm_native(root)
     (dev/'installed-mission-authoring.json').write_text(json.dumps(authored,indent=2))
     result['authoredMaps']=authored['maps'];result['authoredLighting']=authored['lighting']
     result.update(schema=1,status='ready',version=payload_version(root),archive='OpenHW-HW1.obig',sha256=sha256(root/'OpenHW-HW1.obig'))

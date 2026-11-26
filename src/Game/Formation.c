@@ -2689,7 +2689,8 @@ typedef struct
 #define PARADE_R2CARRIER        3
 #define PARADE_P1MOTHERSHIP     4
 #define PARADE_P2MOTHERSHIP     5
-#define NUMBER_PARADE_TYPES     6
+#define PARADE_SOMTAAW         6
+#define NUMBER_PARADE_TYPES     7
 
 #define SUBSLOT_BATCH      10      // subslots are allocated in batches of this many
 
@@ -2808,6 +2809,29 @@ void paradeCampaignUpdate(void)
 }
 
 void scriptSetSlotInfoCB(char *directory,char *field,void *dataToFillIn);
+
+/* Read the owned parade coordinates without changing the HW1 templates or
+   their saved slot indices. Only ship identities implemented here are mapped. */
+static scriptStructEntry SomtaawParadeScriptTable[] =
+{
+    { "SlotPositionInfo[SLOT_SRECON]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_Fighter2], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SACOLYTE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_Fighter3], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SACV]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_Corvette1], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SWORKER]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_ResCollector], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SPROCESSOR]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_ResourceController], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SRAMMINGFRIGATE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_Frigate], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_Misc]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_Misc], &paradeTypeInfos[0] },
+    { NULL,NULL,0,0 }
+};
+
+static void paradeLoadSomtaaw(void)
+{
+    ParadeTypeInfo *info=&paradeTypeInfos[PARADE_SOMTAAW];
+    memset(info,0,sizeof(*info));
+    scriptSetStruct("Cataclysm\\", "parade_smothership.script", SomtaawParadeScriptTable,info);
+    /* Unmapped zero rows fall through PutShipInMilitaryParade to the shared
+       original misc row, so captured identities share its subslot spacing. */
+}
 
 scriptStructEntry ParadeInfoScriptTable[] =
 {
@@ -3267,6 +3291,13 @@ sdword GetShipSlot(Ship *ship)
 {
     switch(ship->staticinfo->shiptype)
     {
+        case CataScout:return SLOT_Fighter2;
+        case CataAcolyte:return SLOT_Fighter3;
+        case CataACV:return SLOT_Corvette1;
+        case CataWorker:return SLOT_ResCollector;
+        case CataProcessor:return SLOT_ResourceController;
+        case CataRammingFrigate:return SLOT_Frigate;
+        case CataRepairDroid:return SLOT_SupportCorvette;
       case LightDefender:
             return SLOT_Fighter0;
         case HeavyDefender:
@@ -3648,7 +3679,12 @@ struct CommandToDo *CreateMilitaryGroupAroundShipWithType(struct CommandLayer *c
     militaryParade->paradeType = -1;
     if (aroundShip->shiprace == R1)
     {
-        if (aroundShip->shiptype == Mothership)
+        if (aroundShip->shiptype == CataMothership)
+        {
+            paradeLoadSomtaaw();
+            militaryParade->paradeType = PARADE_SOMTAAW;
+        }
+        else if (aroundShip->shiptype == Mothership)
         {
             militaryParade->paradeType = PARADE_R1MOTHERSHIP;
         }

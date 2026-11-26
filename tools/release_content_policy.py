@@ -10,6 +10,7 @@ import io
 import json
 import struct
 import re
+import shutil
 from pathlib import Path, PurePosixPath
 import zipfile
 
@@ -24,7 +25,17 @@ UI_PLATES = {
     'concept_bridge.png', 'concept_hangar.png', 'concept_industry.png',
     'concept_nebula.png', 'concept_mothership.png', 'concept_engineering.png',
     'concept_cockpit.png', 'concept_drone.png',
+    'cata_title.png', 'cata_strikecraft.png', 'cata_patrolcraft.png',
+    'cata_kuun_lan.png', 'cata_beast_sphere.png', 'cata_beast_ship.png',
 }
+CATACLYSM_NATIVE_SHIPS = frozenset({
+    'sAcolyte', 'sACV', 'sMothership', 'sMothershipArmour', 'sMothershipDockingBay',
+    'sMothershipLowerSpine', 'sMothershipMicro', 'sMothershipOreCanArmour',
+    'sMothershipSpecial', 'sMothershipWeapons', 'sProcessor', 'sRammingFrigate',
+    'sRecon', 'sWorker',
+})
+CATACLYSM_NATIVE_ROOT = 'Content/cataclysm-native'
+CATACLYSM_ASSET_AUTHOR = 'Herocrafter1987'
 GAME_FORMATS = {'.big', '.obig', '.hwt', '.hod', '.mad', '.geo', '.peo',
                 '.mex', '.lod', '.shp', '.script', '.mif', '.ebg',
                 '.vce', '.wxd', '.bik', '.wav', '.ogg', '.mp3', '.wem',
@@ -49,12 +60,51 @@ def safe_name(name):
     return p.as_posix()
 
 
+def verify_cataclysm_native(name, row, inventory):
+    parts = name.split('/')
+    if (len(parts) != 6 or '/'.join(parts[:3]) != CATACLYSM_NATIVE_ROOT + '/r1'
+            or parts[3] not in CATACLYSM_NATIVE_SHIPS or parts[4] != 'RMNative'
+            or row.get('author') != CATACLYSM_ASSET_AUTHOR):
+        raise ValueError('Unapproved Cataclysm native asset: ' + name)
+    file = parts[-1]
+    if file in ('hull.hod', 'animation.mad'):
+        source = safe_name(row.get('source_member', ''))
+        if (not source.startswith(('HWCR/ship/', 'HWCR/subsystem/'))
+                or PurePosixPath(source).suffix.lower() != PurePosixPath(file).suffix
+                or row.get('source_sha256') != row['sha256']):
+            raise ValueError('Cataclysm native archive provenance missing: ' + name)
+    else:
+        if file != 'ship.owshipdef' and not re.fullmatch(
+                r'c\d+_m\d+(?:_engineOn)?(?:\.(?:lif|dds)|_(?:emissive|material|normal|paintShade|teamEffect[01])\.dds)', file):
+            raise ValueError('Unexpected Cataclysm native sidecar: ' + name)
+        hull = inventory.get('/'.join(parts[:-1]) + '/hull.hod')
+        if (hull is None or hull.get('category') != 'supplied-cataclysm-native'
+                or row.get('source_sha256') != hull['sha256']):
+            raise ValueError('Cataclysm native sidecar has no approved hull: ' + name)
+
+
+def install_cataclysm_native(root):
+    # Setup has already checked the file inventory and hashes.
+    root = Path(root)
+    native = root/'Development'/CATACLYSM_NATIVE_ROOT/'r1'
+    if native.is_dir():
+        shutil.copytree(native, root/'r1', dirs_exist_ok=True)
+
+
 def verify_profile(root):
     root = Path(root).resolve()
+    from release_identity_policy import verify_public_identity
+    # Installed Development directories may also contain private backups.
+    # Only these paths are public profile inputs; archive audit separately
+    # inspects every configuration actually included in a published bundle.
+    for configuration in [root/'defaults.cfg',*(root/'Presets').rglob('*.cfg')]:
+        if configuration.is_file():
+            verify_public_identity(configuration.read_text(encoding='utf-8-sig'),configuration.relative_to(root))
     inventory = json.loads((root/'content-inventory.json').read_text())
     if inventory.get('schema') != 2:
         raise ValueError('A reviewed release content inventory is required')
     approved = {}
+    inventory_by_path = {r['path']: r for r in inventory['files']}
     for row in inventory['files']:
         name = safe_name(row['path'])
         if name.lower().startswith('authored/subsystems/'):
@@ -75,6 +125,8 @@ def verify_profile(root):
         elif category == 'supplied-concept-art':
             if name != 'Content/ui/'+path.name or path.name not in UI_PLATES:
                 raise ValueError('Unapproved concept-art path: ' + name)
+        elif category == 'supplied-cataclysm-native':
+            verify_cataclysm_native(name, row, inventory_by_path)
         elif category == 'upscaled-classic-texture':
             cursor=suffix=='.png' and name.startswith('Content/cursors/')
             if (suffix != '.dds' and not cursor) or not row.get('classic_entry', '').endswith('.lif'):
@@ -115,7 +167,8 @@ def audit_archive(archive):
     """Check the actual outer AND nested runtime ZIP, against approved hashes."""
     with zipfile.ZipFile(archive) as outer:
         inventory = json.loads(outer.read('Development/content-inventory.json'))
-        approved = {'Development/'+safe_name(row['path']): row for row in inventory['files']}
+        inventory_by_path = {safe_name(row['path']): row for row in inventory['files']}
+        approved = {'Development/'+name: row for name,row in inventory_by_path.items()}
         seen = set()
         checked = 0
         def check_zip(z, prefix=''):
@@ -132,6 +185,9 @@ def audit_archive(archive):
                     check_zip(zipfile.ZipFile(io.BytesIO(z.read(info))), key+'!/')
                     continue
                 suffix = PurePosixPath(name).suffix.lower()
+                if suffix=='.cfg':
+                    from release_identity_policy import verify_public_identity
+                    verify_public_identity(z.read(info).decode('utf-8-sig'),key)
                 if prefix:
                     # Only executable/library/preset/license files in runtime.zip.
                     if prefix == 'Development/runtime.zip!/' and suffix in GAME_FORMATS:
@@ -153,6 +209,8 @@ def audit_archive(archive):
                     elif category=='supplied-concept-art':
                         if relative!='Content/ui/'+PurePosixPath(relative).name or PurePosixPath(relative).name not in UI_PLATES:
                             raise ValueError('Unapproved supplied art: '+name)
+                    elif category=='supplied-cataclysm-native':
+                        verify_cataclysm_native(relative, row, inventory_by_path)
                     elif category=='upscaled-classic-texture':
                         cursor=suffix=='.png' and name.startswith('Development/Content/cursors/')
                         if (suffix!='.dds' and not cursor) or not row.get('classic_sha256') or not row.get('upscaled_base'):
@@ -170,5 +228,6 @@ def audit_archive(archive):
         return {'status': 'passed', 'inventoriedContentFiles': checked,
                 'nestedRuntimeChecked': True,
                 'exceptions': ['user-approved supplied concept art',
+                               'supplied Cataclysm Remastered native packages',
                                'user-approved upscaled Classic textures',
                                'owner-created asteroid models and textures']}

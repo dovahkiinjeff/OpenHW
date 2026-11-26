@@ -76,6 +76,12 @@ int hwRmVisualAssetAuthorJoint(HwRmVisualAsset *asset,const char *slot,const cha
    Validate/copy names before the asset freezes; never infer case/name aliases. */
 int hwRmVisualAssetBindAnimation(HwRmVisualAsset *asset, const char *event,
     const char *const *sourceClips, unsigned int count, char *error, size_t errorSize);
+/* Map the gameplay clock to a normalized interval of a single source clip. */
+int hwRmVisualAssetBindAnimationRange(HwRmVisualAsset *asset, const char *event,
+    const char *sourceClip, double startPhase, double endPhase, char *error, size_t errorSize);
+/* Map the gameplay clock to the moving opening portion of a source clip. */
+int hwRmVisualAssetBindAnimationOpening(HwRmVisualAsset *asset, const char *event,
+    const char *sourceClip, double duration, char *error, size_t errorSize);
 /* Explicit HW1 gun-index -> native component/pivots. NULL axes are fixed.
    Muzzle must exist; shared models are addressed by attachment slot, not by
    guessing their internally reused Gun0/Gun1 names. Definitions freeze. */
@@ -123,6 +129,9 @@ int hwRmVisualInstanceGunMuzzle(HwRmVisualInstance *instance, unsigned int gun,
    reservations and docking state remain owned by the original simulation. */
 int hwRmVisualInstanceDockEndpoint(const HwRmVisualInstance *instance,
     const char *pathName, float scale, float position[3]);
+/* Return path length; index selects an authored point in ship coordinates. */
+int hwRmVisualInstanceDockPoint(const HwRmVisualInstance *instance,
+    const char *pathName,unsigned int index,float scale,float position[3]);
 /* Explicit old engine/dock/repair/salvage semantic -> native joint. Aliases
    are immutable definitions, queried through the same animated gun hierarchy. */
 int hwRmVisualAssetBindMarker(HwRmVisualAsset *asset, const char *semantic,

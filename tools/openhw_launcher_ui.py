@@ -281,6 +281,8 @@ class App:
         self.hero.bind('<Configure>',self.draw_hero)
         self.play_button=Button(self.hero,'PLAY OPENHW',lambda:self.guarded(self.launch),primary=True,width=352,height=72,icon='play')
         self.diag_button=Button(self.hero,'LAUNCH WITH DIAGNOSTICS',lambda:self.guarded(lambda:self.launch(True)),width=352,height=46)
+        self.cata_path_button=Button(self.hero,'SELECT CATA DATA PATH',lambda:self.guarded(self.select_cataclysm_data),width=220,height=36)
+        self.cata_path_button.place(relx=1,x=-24,y=24,anchor='ne',width=220,height=36)
     def draw_hero(self,event=None):
         c=self.hero;c.delete('scene');w=c.winfo_width();h=c.winfo_height();art=self.art[0 if w<=960 else 1 if w<=1500 else 2]
         c.create_image(w,h//2,image=art,anchor='e',tags='scene')
@@ -422,6 +424,41 @@ class App:
             card.bind('<Configure>',lambda e,t=text:t.configure(wraplength=max(160,e.width-335)))
             Button(card,action,lambda f=callback:self.guarded(f),width=215,height=44,bg=RAISED).grid(row=0,column=2,rowspan=2,padx=(18,0))
         label(contents,'INSTALLATION / '+str(self.root),size=MONO,color=MUTED,wraplength=800,justify='left').pack(anchor='w',padx=34,pady=8)
+    def select_cataclysm_data(self):
+        """Use the Windows Explorer folder picker, then validate off the UI thread."""
+        if getattr(self,'cata_selecting',False):return
+        config=self.api.safe(self.root,'Development/Launcher/cataclysm-directory.txt')
+        try:initial=config.read_text(encoding='utf-8').strip()
+        except (OSError,UnicodeError):initial=str(Path.home())
+        self.cata_selecting=True
+        try:
+            selected=filedialog.askdirectory(parent=self.window,
+                title='Select your Homeworld Cataclysm or Emergence installation',
+                initialdir=initial,mustexist=True)
+        except Exception:
+            self.cata_selecting=False;raise
+        if not selected:
+            self.cata_selecting=False;return
+        self.status.set('CATACLYSM DATA / Checking selected installation...')
+        results=queue.Queue()
+        def worker():
+            try:results.put((True,self.api.cataclysm_directory(selected)))
+            except Exception as error:results.put((False,str(error)))
+        def poll():
+            if not self.window.winfo_exists():return
+            try:valid,value=results.get_nowait()
+            except queue.Empty:
+                self.window.after(50,poll);return
+            self.cata_selecting=False
+            if not valid:
+                self.status.set('CATACLYSM DATA / '+str(value));return
+            try:self.api.atomic_write(config,(str(value)+'\n').encode('utf-8'))
+            except OSError as error:
+                self.status.set('CATACLYSM DATA / Could not save folder: '+str(error));return
+            self.status.set('CATACLYSM DATA / '+str(value))
+        threading.Thread(target=worker,daemon=True).start()
+        self.window.after(50,poll)
+
     def diagnostics(self):
         import subprocess
         subprocess.Popen([str(self.root/'Launcher.exe'),'--diagnostics-report'],cwd=self.root,
@@ -605,9 +642,11 @@ class App:
         if dirty and not self.dialog('UNSAVED CONFIGURATION','Close without saving your settings and mod loadout?',confirm=True):return
         self.window.destroy()
 
-def run(root):
+def run(root,*,select_cataclysm=False):
     import openhw_launcher as backend
-    app=App(root,backend);app.window.mainloop()
+    app=App(root,backend)
+    if select_cataclysm:app.window.after(150,lambda:app.guarded(app.select_cataclysm_data))
+    app.window.mainloop()
 
 def wait_for_launcher_exit(process_ids, timeout=60):
     """Wait on handles, never terminate a game or another user process."""

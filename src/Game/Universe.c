@@ -9,6 +9,13 @@
 =============================================================================*/
 
 #include "Universe.h"
+#include "CataclysmShips.h"
+#include "CataclysmDisguise.h"
+#include "CataclysmWorker.h"
+#include "CataclysmSalvage.h"
+#include "CataclysmNeededFlags.h"
+#include "CataclysmAI.h"
+#include "../Modern/CataclysmData.h"
 #include "../Network/OnlineClient.h"
 #include "../Modern/RemasteredVisualPackage.h"
 
@@ -176,6 +183,9 @@ uword RacesAllowedForGivenShip[TOTAL_NUM_SHIPS] =
     0,                                   //Junk_SGun
     0,                                   //ResearchStationBridge
     0,                                   //ResearchStationTower
+#define CATA_SHIP(id, source, name, header) R1_VALID,
+#include "CataclysmShips.def"
+#undef CATA_SHIP
 };
 
 bool32 universeForceDefaultShip = FALSE;   //flag for forcing ships to be loaded as rave borgs
@@ -210,6 +220,9 @@ void *defaultmex = NULL;            // remove later when all stubs are taken out
 
 udword universeUpdateCounter = 0;
 
+static ShipStaticInfo ShipStaticInfoCata[TOTAL_CATA_SHIPS];
+static bool32 shipStaticCataclysm[NUM_RACES][TOTAL_NUM_SHIPS];
+static bool32 derelictStaticCataclysm[NUM_DERELICTTYPES];
 ShipStaticInfo ShipStaticInfoR1[TOTAL_STD_SHIPS];
 ShipStaticInfo ShipStaticInfoR2[TOTAL_STD_SHIPS];
 ShipStaticInfo ShipStaticInfoP1[TOTAL_P1_SHIPS];
@@ -288,6 +301,9 @@ CustShipHeader *shipHeaders[TOTAL_NUM_SHIPS] =
     &StationaryGunHeader,           //Junk_SGun
     &DoNothingShipHeader,           //ResearchStationBridge
     &DoNothingShipHeader,          //ResearchStationTower
+#define CATA_SHIP(id, source, name, header) &header,
+#include "CataclysmShips.def"
+#undef CATA_SHIP
 };
 
 real32 rowAvoidBy[TOTAL_NUM_SHIPS] =
@@ -1000,9 +1016,12 @@ static void setGunBindInfo(char *directory,char *field,void *dataToFillIn)
     hString = strtok(field, " ,");
     //second string is the gun mex name
     gString = strtok(NULL, " ,");
+    if(!hString || !gString)return;
     nScanned = sscanf(gString, "Gun%d", &gunIndex);         //get gun #
-    dbgAssertOrIgnore(nScanned == 1);                               //verify it
-    dbgAssertOrIgnore(gunIndex >= 0 && gunIndex < info->gunStaticInfo->numGuns);
+    /* A presentation model can expose more articulated mounts than the
+       campaign's weapon definition. Never bind an absent gameplay gun. */
+    if(nScanned!=1 || !info->gunStaticInfo || gunIndex<0 ||
+       gunIndex>=info->gunStaticInfo->numGuns)return;
 
     //parse the modifiers
     while ((string = strtok(NULL, " ,")) != NULL)
@@ -1104,7 +1123,15 @@ static void setAnimationBindInfo(char *directory,char *field,void *dataToFillIn)
     char fileName[256];
 
     shipName = ShipTypeToStr(info->shiptype);
-    sprintf(fileName, "%s%s%s", directory, shipName, MAD_Extension);//make path to file
+    if(!_strnicmp(directory,"Cataclysm",9))
+    {
+        if(!hwCataAnimationPath(directory,globalScriptFileName,fileName,sizeof(fileName)))
+            dbgFatalf(DBG_Loc,"Invalid Cataclysm animation definition: %s",globalScriptFileName);
+    }
+    else
+    {
+        snprintf(fileName,sizeof(fileName),"%s%s%s",directory,shipName,MAD_Extension);
+    }
     info->madStatic = memAlloc(sizeof(madstatic), "madBindings", NonVolatile);
     memset(info->madStatic,0,sizeof(madstatic));
     info->madStatic->header = madFileLoad(fileName);
@@ -1410,6 +1437,12 @@ void setSpecialCaseAnimInfo(char *directory,char *field,void *dataToFillIn)
 }
 static void LODScriptLoad(char *directory,char *field,void *dataToFillIn)
 {
+    char openHWVisual[FL_Path];
+    if(hwCataOpenHWVisualPath(directory,field,openHWVisual,sizeof(openHWVisual)))
+    {
+        *((lodinfo **)dataToFillIn)=lodTableReadScript("R1\\",openHWVisual+3);
+        return;
+    }
     if (strcmp(field,"DefaultShip") == 0)
     {
         *((lodinfo **)dataToFillIn) = defaultlod;
@@ -1421,7 +1454,13 @@ static void LODScriptLoad(char *directory,char *field,void *dataToFillIn)
 }
 static void loadMexDataCB(char *directory,char *field,void *dataToFillIn)
 {
-    char fullfilename[80];
+    char fullfilename[FL_Path];
+    char openHWVisual[FL_Path];
+    if(hwCataOpenHWVisualPath(directory,field,openHWVisual,sizeof(openHWVisual)))
+    {
+        *((void **)dataToFillIn)=mexLoad(openHWVisual);
+        return;
+    }
 
     if (strcmp(field,"DefaultShip") == 0)
     {
@@ -1429,14 +1468,10 @@ static void loadMexDataCB(char *directory,char *field,void *dataToFillIn)
     }
     else
     {
-        if (directory != NULL)
+        if (!fileBuildPath(fullfilename, sizeof(fullfilename), directory, field))
         {
-            strcpy(fullfilename,directory);
-            strcat(fullfilename,field);
-        }
-        else
-        {
-            strcpy(fullfilename,field);
+            dbgFatalf(DBG_Loc, "Mesh extension path too long for '%s'", field);
+            return;
         }
 
         if (fileExists(fullfilename,0))
@@ -1868,7 +1903,7 @@ void InitStatDerelictInfo(DerelictStaticInfo *derelictStatInfo, DerelictType der
     derelicttypestr = DerelictTypeToStr(derelicttype);
 
 #ifdef _WIN32
-    strcpy(directory,"Derelicts\\");
+    strcpy(directory,singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission())?"Cataclysm\\Derelicts\\":"Derelicts\\");
 #else
     strcpy(directory,"Derelicts/");
 #endif
@@ -2030,6 +2065,10 @@ bool32 isStrikeCraft(ShipType shiptype)
 {
     switch (shiptype)
     {
+        case CataScout:
+        case CataAcolyte:
+        case CataACV:
+        case CataRepairDroid:
         case AttackBomber:
         case CloakedFighter:
         case DefenseFighter:
@@ -2067,18 +2106,36 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
     char directory[80];
     char fullshipname[160];
     char *shiptypestr;
+    char cataStem[80];
+    char ownVisualShipname[80];
+    char *visualDirectory,*visualShipname;
+    bool32 cataGameplay=IS_CATA_SHIP(type) ||
+        (singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()) &&
+         (((race==R1 || race==R2) && type<=STD_LAST_SHIP) ||
+          (race==P1 && type>=P1_FIRST_SHIP && type<=P1_LAST_SHIP)));
     sdword i;
     bool32 stubbedOut;
 
+    cataAISelectProfile(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()));
     statinfo->shiptype = type;
     statinfo->shiprace = race;
 
     statinfo->custshipheader = *(shipHeaders[type]);
+    if(IS_CATA_SHIP(type))statinfo->custshipheader.shiptype=type;
+    cataShipConfigureCombat(statinfo);
+    cataWorkerConfigure(statinfo);
+    if(cataGameplay)cataSalvageConfigure(statinfo);
     dbgAssertOrIgnore((statinfo->custshipheader.shiptype == (ShipType)-1) || (type == statinfo->custshipheader.shiptype));
 
     shiptypestr = ShipTypeToStr(type);
 
-    strcpy(directory,ShipRaceToStr(race));
+    if(cataGameplay && !IS_CATA_SHIP(type) && (race==R1 || race==R2))
+    {
+        snprintf(cataStem,sizeof(cataStem),"%c%s",race==R1?'k':'t',shiptypestr);
+        shiptypestr=cataStem;
+    }
+    strcpy(directory,(type==CataMessagePod || type==CataSlipgateLarge)?"Cataclysm\\RACE_DERELICT":IS_CATA_SHIP(type)?"Cataclysm\\RACE_SECT":
+        cataGameplay?(race==R1?"Cataclysm\\RACE_KUSHAN":race==R2?"Cataclysm\\RACE_TAIDAN":"Cataclysm\\RACE_P1"):ShipRaceToStr(race));
 //    strcat(directory,"\\");
 //    strcat(directory,shiptypestr);
 #ifdef _WIN32
@@ -2106,7 +2163,7 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
         char definition[256],identity[80],member[128];void *bytes=NULL;sdword size;
         snprintf(definition,sizeof(definition),"%s%s\\RMNative\\ship.owshipdef",directory,shiptypestr);
         snprintf(identity,sizeof(identity),"%s%s",race==R2?"Taiidan_":"",shiptypestr);
-        if(fileExists(definition,FF_IgnoreBIG))
+        if(!cataGameplay && fileExists(definition,FF_IgnoreBIG))
         {
             size=fileSizeGet(definition,FF_IgnoreBIG);
             if(size>0&&size<=1024*1024){size=fileLoadAlloc(definition,&bytes,FF_IgnoreBIG);
@@ -2145,6 +2202,16 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
     else
     {
         stubbedOut = FALSE;
+    }
+
+    visualDirectory=directory;visualShipname=shipname;
+    if(cataGameplay && race==R1 && !IS_CATA_SHIP(type))
+    {
+        /* Presentation-only script passes. The SHP and gun-stat passes still
+           read Cataclysm, while our model keeps its own articulation/trails. */
+        visualDirectory="R1\\";
+        snprintf(ownVisualShipname,sizeof(ownVisualShipname),"%s.shp",ShipTypeToStr(type));
+        visualShipname=ownVisualShipname;
     }
 
 #if SO_CLOOGE_SCALE
@@ -2201,6 +2268,8 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
     statinfo->staticheader.rightOfWay = rightOfWays[type];      // defaults for right of way
 
     scriptSetStruct(directory,shipname,ShipStaticScriptTable,(ubyte *)statinfo);
+    shipStaticCataclysm[race][type]=cataGameplay;
+    if(cataGameplay)cataShipLoadEconomy(statinfo,directory,shiptypestr);
 
     if ((statinfo->repairTime) && (statinfo->repairCombatTime == 0.0f))
     {
@@ -2264,7 +2333,7 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
 
     for (i = 0; i < MAX_NUM_TRAILS; i++)
     {
-        statinfo->trailStatic[i] = trailStaticInfoParse(directory, shipname);
+        statinfo->trailStatic[i] = trailStaticInfoParse(visualDirectory, visualShipname);
     }
     if (mexGetChunk(statinfo->staticheader.pMexData, "Eng", "Eng1") != NULL)
     {
@@ -2304,8 +2373,8 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
 
     if (stubbedOut == FALSE)
     {
-        scriptSetDockStatics(directory,shipname,statinfo);
-        scriptSetDockOverideStatics(directory,shipname,statinfo);
+        scriptSetDockStatics(visualDirectory,visualShipname,statinfo);
+        scriptSetDockOverideStatics(visualDirectory,visualShipname,statinfo);
     }
 
     if (statinfo->dockStaticInfo != NULL)
@@ -2336,7 +2405,7 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
         statinfo->tractorEmitterStatic = mexGetTractorBeamStatic(statinfo->staticheader.pMexData);
     }
 
-    scriptSetNAVLightStatics(directory, shipname, statinfo);
+    scriptSetNAVLightStatics(visualDirectory, visualShipname, statinfo);
     if (statinfo->navlightStaticInfo != NULL)
     {
         mexGetNAVLightStaticInfo(statinfo->navlightStaticInfo,statinfo->staticheader.pMexData);
@@ -2363,7 +2432,29 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
 
 
     //load in the hierarchy binding information
-    scriptSetStruct(directory,shipname,HierarchyBindingTable,(ubyte *)statinfo);
+    scriptSetStruct(visualDirectory,visualShipname,HierarchyBindingTable,(ubyte *)statinfo);
+
+    if ((type == CataAcolyte || type == CataWorker) && statinfo->madStatic == NULL)
+    {
+        char animationPath[256];
+        snprintf(animationPath,sizeof(animationPath),"%s%s.mad",directory,shiptypestr);
+        if(fileExists(animationPath,0))
+        {
+            statinfo->madStatic=memAlloc(sizeof(madstatic),"Somtaaw ship animations",NonVolatile);
+            memset(statinfo->madStatic,0,sizeof(madstatic));
+            statinfo->madStatic->header=madFileLoad(animationPath);
+            statinfo->hierarchySize=lodHierarchySizeCompute(statinfo->staticheader.LOD);
+        }
+    }
+    if (type == CataMothership && !statinfo->hierarchySize)
+    {
+        lodinfo *levels = statinfo->staticheader.LOD;
+        float scale;
+        unsigned int nativeLOD;
+        if (levels && levels->nLevels > 0 && (levels->level[0].flags & LM_LODType) == LT_Mesh &&
+            meshNativeVisualParameters(levels->level[0].pData, &scale, &nativeLOD))
+            statinfo->hierarchySize = lodHierarchySizeCompute(levels);
+    }
 
     //load in More Mesh Animation info
     //must be AFTER we've loaded in all other MAD stuff, otherwise
@@ -2390,7 +2481,11 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
 
     }
 
-    scriptSetStruct(directory,shipname,MadMaxMadInfoLoad,(ubyte *)statinfo);
+    scriptSetStruct(visualDirectory,visualShipname,MadMaxMadInfoLoad,(ubyte *)statinfo);
+    if(type==CataAcolyte && statinfo->madStatic){
+        char combatAnims[]="1 CombatIn 1 CombatOut 0 0";
+        setGunAnimInfo(directory,combatAnims,statinfo);
+    }
 
     if (statinfo->gunStaticInfo != NULL && stubbedOut == FALSE)
     {
@@ -2716,8 +2811,13 @@ void universeInfoNeededSetCB(StaticInfo *info, ObjType objType)
 ----------------------------------------------------------------------------*/
 void universeFlagRaceNeeded(ShipRace shiprace, bool8 bNeeded)
 {
+    ShipType extra;
     bNeededParam = bNeeded;
     universeRaceStaticsScan(shiprace, universeInfoNeededSetCB, universeInfoNeededSetCB);
+    if(shiprace==R1)
+        for(extra=CATA_FIRST_SHIP;extra<=CATA_LAST_SHIP;extra++)
+            bitSetTo(ShipStaticInfoCata[extra-CATA_FIRST_SHIP].staticheader.infoFlags,IF_InfoNeeded,
+                bNeeded && singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()));
 }
 
 /*-----------------------------------------------------------------------------
@@ -2770,6 +2870,8 @@ void universeDefaultTeamColors(void)
         }
     }
     //plug default team colors into derelicts (last team color scheme, like traders)
+    for(shiptype=CATA_FIRST_SHIP;shiptype<=CATA_LAST_SHIP;shiptype++)
+        memcpy(ShipStaticInfoCata[shiptype-CATA_FIRST_SHIP].teamColor,racePlayerTable[R1],sizeof(racePlayerTable[R1]));
     for (derelicttype = 0; derelicttype < NUM_DERELICTTYPES; derelicttype++)
     {
         memcpy(derelictStaticInfos[derelicttype].teamColor, racePlayerTable[Traders], sizeof(racePlayerTable[Traders]));
@@ -2907,8 +3009,11 @@ void universeAllStaticsScan(univstatcallback forShips, univstatcallback forDerel
 ----------------------------------------------------------------------------*/
 void universeFlagNothingNeeded(void)
 {
+    ShipType extra;
     bNeededParam = FALSE;
     universeAllStaticsScan(universeInfoNeededSetCB, universeInfoNeededSetCB, universeInfoNeededSetCB, universeInfoNeededSetCB);
+    for(extra=CATA_FIRST_SHIP;extra<=CATA_LAST_SHIP;extra++)
+        bitClear(ShipStaticInfoCata[extra-CATA_FIRST_SHIP].staticheader.infoFlags,IF_InfoNeeded);
 }
 
 ubyte bitpackTeamColor(bool8 teamColor[])
@@ -3025,9 +3130,25 @@ void universeSaveEverythingNeeded(void)
         SaveInfoNumber(TreatAsUdword(data[0]));
     }
 
+    if(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission())){
+        for(shiptype=CATA_FIRST_SHIP;shiptype<=CATA_LAST_SHIP;shiptype++){
+            shipstatic=GetShipStaticInfo(shiptype,R1);
+            data[0]=bitTest(shipstatic->staticheader.infoFlags,IF_InfoLoaded);
+            data[1]=bitpackTeamColor(shipstatic->teamColor);data[2]=data[3]=0;
+            SaveInfoNumber(TreatAsUdword(data[0]));
+        }
+    }
     SaveInfoNumber(INFO_NEEDED_FLAGS_DELIMITER);
 }
 
+static uint32_t cataReadNeededFlag(void *context){(void)context;return (uint32_t)LoadInfoNumber();}
+static void cataApplyNeededFlag(void *context,unsigned index,uint32_t packed)
+{
+    ubyte *bytes=(ubyte*)&packed;ShipType type=(ShipType)(CATA_FIRST_SHIP+index);
+    ShipStaticInfo *info=GetShipStaticInfo(type,R1);(void)context;
+    bitSetTo(info->staticheader.infoFlags,IF_InfoNeeded,bytes[0]);
+    rmEnableShip(R1,type,bytes[0]);unbitpackTeamColor(info->teamColor,bytes[1]);
+}
 void universeLoadEverythingNeeded(void)
 {
     ShipRace shiprace;
@@ -3102,6 +3223,16 @@ void universeLoadEverythingNeeded(void)
         unbitpackTeamColor(misstaticinfo->teamColor,datab[1]);
     }
 
+    if(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission())){
+        sdword loaded=hwCataReadNeededFlags(CATA_LAST_SHIP-CATA_FIRST_SHIP+1,
+            INFO_NEEDED_FLAGS_DELIMITER,cataReadNeededFlag,cataApplyNeededFlag,NULL);
+        if(loaded<0)dbgFatalf(DBG_Loc,"Invalid saved Cataclysm ship-load flags");
+        for(shiptype=CATA_FIRST_SHIP+loaded;shiptype<=CATA_LAST_SHIP;shiptype++){
+            shipstatic=GetShipStaticInfo(shiptype,R1);
+            bitClear(shipstatic->staticheader.infoFlags,IF_InfoNeeded);rmEnableShip(R1,shiptype,FALSE);
+        }
+        return; /* The migration reader has consumed the delimiter. */
+    }
     data = LoadInfoNumber();                        // sanity check
     dbgAssertOrIgnore(data == INFO_NEEDED_FLAGS_DELIMITER);
 }
@@ -3209,7 +3340,8 @@ void universeStaticInit(void)
     count = 0;
     /* The independent prototype uses the native Scout's initialized physics
        and weapon behavior, even when a mission disables Scout construction. */
-    bitSet(GetShipStaticInfo(LightInterceptor, R1)->staticheader.infoFlags, IF_InfoNeeded);
+    if(!singlePlayerGame || !hwIsCataclysmMission(spGetCurrentMission()))
+        bitSet(GetShipStaticInfo(LightInterceptor, R1)->staticheader.infoFlags, IF_InfoNeeded);
     for (shiprace=0;shiprace<NUM_RACES;shiprace++)
     {
         firstshiptype = FirstShipTypeOfRace[shiprace];
@@ -3226,6 +3358,22 @@ void universeStaticInit(void)
             }
             count++;
             shipstaticinfo = GetShipStaticInfo(shiptype,shiprace);
+            if(((shiprace<=R2 && shiptype<=STD_LAST_SHIP) ||
+                (shiprace==P1 && shiptype>=P1_FIRST_SHIP && shiptype<=P1_LAST_SHIP)) &&
+               bitTest(shipstaticinfo->staticheader.infoFlags,IF_InfoLoaded) &&
+               shipStaticCataclysm[shiprace][shiptype] !=
+                   (singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission())))
+            {
+                /* A fresh campaign switch must not retain the previous
+                   campaign's combat statics just because the visual ID is the
+                   same. Rebuild while retaining this mission's load flags. */
+                bool8 colors[sizeof(shipstaticinfo->teamColor)];
+                udword needed=shipstaticinfo->staticheader.infoFlags & ~(IF_InfoLoaded|IF_NotPostLoaded);
+                memcpy(colors,shipstaticinfo->teamColor,sizeof(colors));
+                CloseStatShipInfo(shipstaticinfo);
+                shipstaticinfo->staticheader.infoFlags=needed;
+                memcpy(shipstaticinfo->teamColor,colors,sizeof(colors));
+            }
             if (bitTest(shipstaticinfo->staticheader.infoFlags, IF_InfoNeeded))
             {                                               //if this info needed
                 if (!bitTest(shipstaticinfo->staticheader.infoFlags, IF_InfoLoaded))
@@ -3397,11 +3545,21 @@ void universeStaticInit(void)
             goto abortloadinggame;
         }
         staticinfo = (StaticInfo *)&derelictStaticInfos[derelicttype];
+        if(bitTest(staticinfo->staticheader.infoFlags,IF_InfoLoaded) &&
+           derelictStaticCataclysm[derelicttype]!=(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()))){
+            bool8 colors[sizeof(derelictStaticInfos[0].teamColor)];
+            udword needed=staticinfo->staticheader.infoFlags & ~IF_InfoLoaded;
+            memcpy(colors,derelictStaticInfos[derelicttype].teamColor,sizeof(colors));
+            CloseStatDerelictInfo((DerelictStaticInfo *)staticinfo);
+            staticinfo->staticheader.infoFlags=needed;
+            memcpy(derelictStaticInfos[derelicttype].teamColor,colors,sizeof(colors));
+        }
         if (bitTest(staticinfo->staticheader.infoFlags, IF_InfoNeeded))
         {                                                   //if info needed
             if (!bitTest(staticinfo->staticheader.infoFlags, IF_InfoLoaded))
             {                                               //info needed and not loaded
                 InitStatDerelictInfo((DerelictStaticInfo *)staticinfo,derelicttype);
+                derelictStaticCataclysm[derelicttype]=singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission());
                 bitSet(staticinfo->staticheader.infoFlags, IF_InfoLoaded);
 #if UNIV_SHIP_LOADFREE_LOG
                 if (logFile)
@@ -3525,6 +3683,24 @@ void universeStaticInit(void)
     maxMineCollSphereSize *= 2.0f;
 
 //    InitStatEffectInfo(&effectStaticInfo);
+
+    for(shiptype=CATA_FIRST_SHIP;shiptype<=CATA_LAST_SHIP && !hrAbortLoadingGame;shiptype++)
+    {
+        shipstaticinfo=GetShipStaticInfo(shiptype,R1);
+        if(bitTest(shipstaticinfo->staticheader.infoFlags,IF_InfoNeeded))
+        {
+            if(!bitTest(shipstaticinfo->staticheader.infoFlags,IF_InfoLoaded))
+            {
+                InitStatShipInfo(shipstaticinfo,shiptype,R1);
+                if(bitTest(shipstaticinfo->staticheader.infoFlags,IF_InfoNeeded))
+                {
+                    InitStatShipInfoPost(shipstaticinfo);
+                    bitSet(shipstaticinfo->staticheader.infoFlags,IF_InfoLoaded);
+                }
+            }
+        }
+        else if(bitTest(shipstaticinfo->staticheader.infoFlags,IF_InfoLoaded))CloseStatShipInfo(shipstaticinfo);
+    }
 
 abortloadinggame:
 
@@ -3674,6 +3850,8 @@ void universeNoStaticLoadedOrNeeded(void)
             memset(shipStaticInfo,0,sizeof(ShipStaticInfo));
         }
     }
+
+    memset(ShipStaticInfoCata,0,sizeof(ShipStaticInfoCata));
 
     for (asteroidtype=0;asteroidtype<NUM_ASTEROIDTYPES;asteroidtype++)
     {
@@ -3871,6 +4049,12 @@ void universeStaticCloseAllStatics(void)
                 CloseStatShipInfo((ShipStaticInfo *)staticInfo);
             }
         }
+    }
+
+    for(shiptype=CATA_FIRST_SHIP;shiptype<=CATA_LAST_SHIP;shiptype++)
+    {
+        ShipStaticInfo *extra=&ShipStaticInfoCata[shiptype-CATA_FIRST_SHIP];
+        if(bitTest(extra->staticheader.infoFlags,IF_InfoLoaded))CloseStatShipInfo(extra);
     }
 
     if (defaultlod != NULL)
@@ -4249,6 +4433,12 @@ void universeSwitchToPlayer(uword playerIndex)
 ----------------------------------------------------------------------------*/
 ShipStaticInfo *GetShipStaticInfo(ShipType shiptype,ShipRace shiprace)
 {
+    if(IS_CATA_SHIP(shiptype))
+    {
+        ShipStaticInfo *extra=&ShipStaticInfoCata[shiptype-CATA_FIRST_SHIP];
+        dbgAssertOrIgnore(shiprace==R1);return extra;
+    }
+
     ShipStaticInfo *raceInfo = RaceShipStaticInfos[shiprace];
     sdword offset;
 
@@ -4272,6 +4462,12 @@ ShipStaticInfo *GetShipStaticInfo(ShipType shiptype,ShipRace shiprace)
 ----------------------------------------------------------------------------*/
 ShipStaticInfo *GetShipStaticInfoSafe(ShipType shiptype,ShipRace shiprace)
 {
+    if(IS_CATA_SHIP(shiptype))
+    {
+        ShipStaticInfo *extra=&ShipStaticInfoCata[shiptype-CATA_FIRST_SHIP];
+        return shiprace==R1 && bitTest(extra->staticheader.infoFlags,IF_InfoLoaded)?extra:NULL;
+    }
+
     ShipStaticInfo *raceInfo = RaceShipStaticInfos[shiprace];
     ShipStaticInfo *shipstatic;
     sdword offset;
@@ -4464,6 +4660,9 @@ bool32 unitCapCanCreateShip(ShipType ship, shipsinprogress *factory, shipavailab
     {
         return(TRUE);
     }
+
+    if(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()))
+        return cataShipCanCreate(ship,factory,cmShipsAvail);
 
     if ((!bitTest(tpGameCreated.flag,MG_UnitCapsEnabled)) &&
         (ship!=ResearchShip)&&(!singlePlayerGame))

@@ -650,6 +650,7 @@ extern bool32   etgBulletEffectsEnabled;
 
 //startup/shutdown effects module
 void etgStartup(void);
+void etgSelectCataclysmEnergyFx(bool32 enabled);
 void etgShutdown(void);
 void etgReset(void);
 void etgReloadReset(void);

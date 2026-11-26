@@ -15,6 +15,7 @@
 #include "MultiplayerGame.h"
 #include "ProfileTimers.h"
 #include "mainrgn.h"
+#include "GameConsole.h"
 
 /*=============================================================================
     Global variables
@@ -113,6 +114,7 @@ bool32 startRecordingGameWhenSafe = FALSE;
 void globalsResetFunc(bool32 firstTime)
 {
     udword i = 0;
+    gameConsoleReset();
 
     if (firstTime)
     {

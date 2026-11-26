@@ -2,6 +2,20 @@
 #include "SaveGameLayout.inc"
 #include <string.h>
 
+static const SaveGameLayout *(*const supportedLayouts[])(void) = {
+    saveLayoutCurrent, saveLayoutCataclysm01, saveLayoutClassic
+};
+
+int saveLayoutSupportsShipCount(unsigned shipCount)
+{
+    size_t i;
+    for (i = 0; i < sizeof(supportedLayouts) / sizeof(supportedLayouts[0]); ++i)
+    {
+        if (supportedLayouts[i]()->shipCount == shipCount) return 1;
+    }
+    return 0;
+}
+
 void saveMigrateRecord(void *dest, const SaveLayoutRecord *to,
                        const void *src, const SaveLayoutRecord *from)
 {
@@ -25,16 +39,17 @@ void saveMigrateRecord(void *dest, const SaveLayoutRecord *to,
 
 static unsigned migrate(void *dest, const void *src, size_t size, int ai)
 {
-    const SaveGameLayout *layouts[] = {saveLayoutCurrent(), saveLayoutClassic()};
-    const SaveLayoutRecord *to = ai ? layouts[0]->aiPlayer : layouts[0]->universe;
-    unsigned i;
-    for (i = 0; i < sizeof(layouts) / sizeof(layouts[0]); ++i)
+    const SaveGameLayout *current = saveLayoutCurrent();
+    const SaveLayoutRecord *to = ai ? current->aiPlayer : current->universe;
+    size_t i;
+    for (i = 0; i < sizeof(supportedLayouts) / sizeof(supportedLayouts[0]); ++i)
     {
-        const SaveLayoutRecord *from = ai ? layouts[i]->aiPlayer : layouts[i]->universe;
+        const SaveGameLayout *layout = supportedLayouts[i]();
+        const SaveLayoutRecord *from = ai ? layout->aiPlayer : layout->universe;
         if (size == from->size)
         {
             saveMigrateRecord(dest, to, src, from);
-            return layouts[i]->shipCount;
+            return layout->shipCount;
         }
     }
     return 0;

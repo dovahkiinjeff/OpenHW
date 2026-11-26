@@ -11,6 +11,7 @@ extern "C" {
 int hwWindowsInstallPrepare(void);
 /* Opens the player-approved report window supplied by the portable launcher. */
 int hwWindowsDiagnosticsReportOpen(void);
+/* Opens the Launcher's authored owned-data browser; no native file dialog. */
 
 #ifdef __cplusplus
 }

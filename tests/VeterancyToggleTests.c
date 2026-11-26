@@ -1,6 +1,7 @@
 #include "../src/Game/Veterancy.c"
 Universe universe;
 udword opRankSystem=1;
+unsigned hwMatchOption(unsigned rule,unsigned localValue) { (void)rule; return localValue; }
 void clCommandMessage(char message[MAX_MESSAGE_LENGTH]) { (void)message; }
 char *ShipTypeToNiceStr(ShipType type) { (void)type; return "Test ship"; }
 #define CHECK(x) do { if(!(x)) { fprintf(stderr,"FAIL: %s\n",#x); return 1; } } while(0)

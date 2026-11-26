@@ -13,6 +13,7 @@
 #include "BackdropMapPolicy.h"
 #include "MultiplayerGame.h"
 #include "File.h"
+#include "Light.h"
 #include "ModernGraphics.h"
 #include "glinc.h"
 #include "render.h"
@@ -42,7 +43,7 @@ static GLuint mmbTexture;
 static sdword mmbTextureMission;
 static sdword mmbTextureAttemptMission;
 static bool32 mmbGodRaySourceValid;
-static sdword mmbGodRaySourceMission;
+static sdword mmbLightingMission;
 /* Keep lighting metadata/authoring live while the defective converted visual
    atlas is bypassed in favor of the authentic BTG background. */
 static bool32 mmbPackedSkyVisualsEnabled = FALSE;
@@ -464,7 +465,7 @@ static bool32 mmbEffectiveLighting(sdword mission, real32 outDirection[3],
     real32 ambientColor[3];
     const real32 *direction = mmbGodRaySourceDirection;
 
-    if (mission == 0 || mmbTextureMission != mission) return FALSE;
+    if (mission == 0 || mmbLightingMission != mission) return FALSE;
     mmbLightingOverrideEnsure(mission);
     sourceValid = mmbGodRaySourceValid;
     mmbDefaultAmbientTint(ambientColor);
@@ -652,7 +653,7 @@ static void mmbReleaseTexture(void)
     }
     mmbTextureMission = 0;
     mmbGodRaySourceValid = FALSE;
-    mmbGodRaySourceMission = 0;
+    mmbLightingMission = 0;
     mmbGodRaySourceDirection[0] = 0.0f;
     mmbGodRaySourceDirection[1] = 0.0f;
     mmbGodRaySourceDirection[2] = -1.0f;
@@ -827,7 +828,7 @@ static void mmbAnalyzeGodRaySource(sdword mission, sdword width,
     sdword index;
 
     mmbGodRaySourceValid = FALSE;
-    mmbGodRaySourceMission = mission;
+    mmbLightingMission = mission;
 
     while (level + 1 < mipCount && sampleWidth > 256 && sampleHeight > 128)
     {
@@ -1076,7 +1077,7 @@ static bool32 mmbLoadHdrMetadata(sdword logicalMission, sdword assetMission)
     free(text);
     if (parsed != 15) return FALSE;
 
-    mmbGodRaySourceMission = logicalMission;
+    mmbLightingMission = logicalMission;
     mmbGodRaySourceValid = valid ? TRUE : FALSE;
     mmbGodRaySourceDirection[0] = directionX;
     mmbGodRaySourceDirection[1] = directionY;
@@ -1097,6 +1098,38 @@ static bool32 mmbLoadHdrMetadata(sdword logicalMission, sdword assetMission)
     return TRUE;
 }
 
+/* The Outskirts sky is drawn by its own BTG. Seed the editor from the
+   owned HSF key/ambient and use the same modern lighting path as an HDR sky. */
+static void mmbPrepareCataclysmOutskirtsLighting(sdword mission)
+{
+    HWModernMapLightEmitter light;
+    unsigned int count, i;
+    if (mmbLightingMission == mission) return;
+
+    mmbReleaseTexture();
+    count = hwModernGraphicsGetMapLightCount();
+    for (i = 0; i < count; ++i)
+    {
+        sdword channel;
+        if (!hwModernGraphicsGetMapLight(i, &light)) continue;
+        if (light.type == L_AmbientLight)
+        {
+            for (channel = 0; channel < 3; ++channel)
+                mmbAmbientColor[channel] = light.color[channel] * light.intensity;
+        }
+        else if (light.type == L_DistantLight && !mmbGodRaySourceValid)
+        {
+            memcpy(mmbGodRaySourceDirection, light.renderDirection,
+                   sizeof(mmbGodRaySourceDirection));
+            mmbNormalizeDirection(mmbGodRaySourceDirection);
+            for (channel = 0; channel < 3; ++channel)
+                mmbGodRaySourceColor[channel] = light.color[channel] * light.intensity;
+            mmbGodRaySourceValid = TRUE;
+        }
+    }
+    mmbLightingMission = mission;
+}
+
 static bool32 mmbEnsureTexture(sdword mission)
 {
     char relativePath[96];
@@ -1104,11 +1137,17 @@ static bool32 mmbEnsureTexture(sdword mission)
     size_t fileSize;
     sdword width, height, mipCount;
     sdword assetMission = !singlePlayerGame ? hwBackdropAssetForName(btgLastBackground) :
+        mission == MISSION_CATA_1_HIIGARA ? 16 :
         mission == MISSION_3_RETURN_TO_KHARAK ?
         MISSION_1_KHARAK_SYSTEM : mission;
     udword format;
     GLint maximumTextureSize = 0;
 
+    if (mission == MISSION_CATA_2_OUTSKIRTS)
+    {
+        mmbPrepareCataclysmOutskirtsLighting(mission);
+        return FALSE;
+    }
     if (assetMission == 0) return FALSE;
     if (mmbTextureMission == mission && mmbTexture != 0) return TRUE;
     if (mmbTextureAttemptMission == mission) return FALSE;
@@ -1171,7 +1210,7 @@ static bool32 mmbEnsureTexture(sdword mission)
         if (!mmbLoadHdrMetadata(mission, assetMission))
         {
             mmbGodRaySourceValid = FALSE;
-            mmbGodRaySourceMission = mission;
+            mmbLightingMission = mission;
             HW_DIAG_FPRINTF(stderr,
                     "[ModernBackdrop] Mission %02d BC6H HDR metadata is missing; "
                     "sky rendering remains active but sky-key lighting is disabled.\n",
@@ -1184,6 +1223,7 @@ static bool32 mmbEnsureTexture(sdword mission)
     }
     SDL_free(fileData);
     mmbTextureMission = mission;
+    mmbLightingMission = mission;
     mmbTextureAttemptMission = 0;
     HW_DIAG_FPRINTF(stderr,
             format == MMB_DXGI_FORMAT_BC6H_UF16 ?
@@ -1218,7 +1258,7 @@ bool32 modernMissionBackdropGodRaySource(real32 outDirection[3])
 {
     const sdword mission = mmbCurrentEnvironment();
     bool32 sourceValid = FALSE;
-    if (outDirection == NULL || mmbGodRaySourceMission != mission ||
+    if (outDirection == NULL || mmbLightingMission != mission ||
         !mmbEffectiveLighting(mission, outDirection, NULL, NULL,
                               &sourceValid) || !sourceValid)
     {
@@ -1235,7 +1275,7 @@ bool32 modernMissionBackdropLightingAuthoringGet(
     if (outState == NULL) return FALSE;
     memset(outState, 0, sizeof(*outState));
     outState->mission = mission;
-    if (mission == 0 || mmbTextureMission != mission) return FALSE;
+    if (mission == 0 || mmbLightingMission != mission) return FALSE;
 
     mmbLightingOverrideEnsure(mission);
     outState->available = TRUE;
@@ -1302,7 +1342,7 @@ bool32 modernMissionBackdropLightingAuthoringSet(
 {
     const sdword mission = mmbCurrentEnvironment();
     sdword index;
-    if (state == NULL || mission == 0 || mmbTextureMission != mission ||
+    if (state == NULL || mission == 0 || mmbLightingMission != mission ||
         state->mission != mission)
     {
         return FALSE;
@@ -1348,7 +1388,7 @@ bool32 modernMissionBackdropLightingAuthoringSet(
 void modernMissionBackdropLightingAuthoringReset(void)
 {
     const sdword mission = mmbCurrentEnvironment();
-    if (mission == 0 || mmbTextureMission != mission) return;
+    if (mission == 0 || mmbLightingMission != mission) return;
     mmbLightingOverrideDefaults(mission);
     modernMissionBackdropLightingTuningApply();
     mmbPushAuthoringLights();
@@ -1417,7 +1457,7 @@ bool32 modernMissionBackdropLightingAuthoringSave(void)
     char path[96];
     filehandle handle;
     FILE *stream;
-    if (mission == 0 || mmbTextureMission != mission) return FALSE;
+    if (mission == 0 || mmbLightingMission != mission) return FALSE;
     mmbLightingOverrideEnsure(mission);
     mmbLightingOverridePath(path, mission);
     handle = fileOpen(path, FF_WriteMode | FF_TextMode | FF_IgnoreBIG |
@@ -1449,7 +1489,7 @@ bool32 modernMissionBackdropLightingAuthoringExport(void)
     int pathLength;
     int rootLength;
     int directoryLength;
-    if (mission == 0 || mmbTextureMission != mission) return FALSE;
+    if (mission == 0 || mmbLightingMission != mission) return FALSE;
     mmbLightingOverrideEnsure(mission);
     hwBackdropLightingName(name, sizeof(name), mission);
     basePath = SDL_GetBasePath();
@@ -1533,7 +1573,7 @@ bool32 modernMissionBackdropLightingAuthoringAdoptMapLights(void)
     unsigned int index;
     sdword eligible = 0;
     sdword imported = 0;
-    if (mission == 0 || mmbTextureMission != mission) return FALSE;
+    if (mission == 0 || mmbLightingMission != mission) return FALSE;
     mmbLightingOverrideEnsure(mission);
     if (mmbLightingOverride.replaceMapLights) return TRUE;
     mapCount = hwModernGraphicsGetMapLightCount();
@@ -1595,7 +1635,7 @@ bool32 modernMissionBackdropLightingAuthoringAdoptMapLights(void)
 bool32 modernMissionBackdropLightingAuthoringReload(void)
 {
     const sdword mission = mmbCurrentEnvironment();
-    if (mission == 0 || mmbTextureMission != mission) return FALSE;
+    if (mission == 0 || mmbLightingMission != mission) return FALSE;
     memset(&mmbLightingOverride, 0, sizeof(mmbLightingOverride));
     mmbLightingOverrideLoad(mission);
     modernMissionBackdropLightingTuningApply();
@@ -1635,7 +1675,7 @@ bool32 modernMissionBackdropRender(real32 fade)
 
     /* Loading still initializes the HDR key/ambient metadata and editable
        per-mission light state.  Only the defective visual atlas is bypassed. */
-    if (!mmbPackedSkyVisualsEnabled)
+    if (!mmbPackedSkyVisualsEnabled || mmbTexture == 0)
     {
         return FALSE;
     }

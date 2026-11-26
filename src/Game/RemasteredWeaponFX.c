@@ -17,6 +17,8 @@
 #include "Vector.h"
 #include "glinc.h"
 #include "NativeGunPosePolicy.h"
+#include "WeaponGateLimiter.h"
+#include "CataclysmWeaponFx.h"
 #ifdef HW_ENABLE_D3D12_BACKEND
 #include "ModernGraphics.h"
 #endif
@@ -166,20 +168,24 @@ void rmWeaponFxDiagnosticFireCheck(Ship *ship,Gun *gun,const char *reason)
 {
 #if HW_ENABLE_DIAGNOSTICS
 
-    static struct { unsigned int id,gun,reason; float created,next; int valid; } checks[64];
-    unsigned int i,hash=2166136261u,index=gun && gun->gunstatic?gun->gunstatic->gunindex:0;
+    static WeaponGateLimiter limiter;
+    unsigned int hash=2166136261u,index=gun && gun->gunstatic?gun->gunstatic->gunindex:0;
     const char *p;
-    if(!rmWeaponFxDiagnosticsEnabled || !ship || ship->shiptype!=HeavyCorvette) return;
+    bool32 combat=ship && (ship->shiptype==StandardDestroyer || ship->shiptype==HeavyCruiser ||
+        ship->shiptype==MissileDestroyer || (gun && gun->gunstatic && gun->gunstatic->cataDefinition));
+    if(!ship || (!combat && (!rmWeaponFxDiagnosticsEnabled || ship->shiptype!=HeavyCorvette))) return;
     for(p=reason;*p;p++) hash=(hash^(unsigned char)*p)*16777619u;
-    for(i=0;i<64;i++) if(checks[i].valid && checks[i].id==ship->shipID.shipNumber &&
-        checks[i].gun==index && checks[i].reason==hash && checks[i].created==ship->timeCreated) break;
-    if(i==64) for(i=0;i<64 && checks[i].valid;i++);
-    if(i==64) i=(ship->shipID.shipNumber+index+hash)%64;
-    if(checks[i].valid && checks[i].id==ship->shipID.shipNumber && checks[i].gun==index &&
-       checks[i].reason==hash && checks[i].created==ship->timeCreated &&
-       universe.totaltimeelapsed<checks[i].next) return;
-    checks[i].valid=1; checks[i].id=ship->shipID.shipNumber; checks[i].gun=index;
-    checks[i].reason=hash; checks[i].created=ship->timeCreated; checks[i].next=universe.totaltimeelapsed+1;
+    if(!weaponGateAllow(&limiter,ship->shipID.shipNumber,index,hash,ship->timeCreated,
+        universe.totaltimeelapsed,combat?10.0f:1.0f))return;
+    if(combat){
+        GunStatic *s=gun?gun->gunstatic:NULL;
+        float yaw,pitch;nativeGunMechanicalAngles(gun,&yaw,&pitch);
+        fprintf(stderr,"[WeaponGate] time=%.2f ship=%s id=%u gun=%u reason=%s fuel=%.2f mad=%u disabled=%d range=%.1f trigger=%.5f yaw=%.3f pitch=%.3f yawLimits=%.3f,%.3f pitchLimits=%.3f,%.3f\n",
+            universe.totaltimeelapsed,ShipTypeToStr(ship->shiptype),(unsigned)ship->shipID.shipNumber,index,reason,
+            ship->fuel,(unsigned)ship->madGunStatus,s?s->cataWeaponDisabled:0,s?s->bulletrange:0,s?s->triggerHappy:0,
+            yaw,pitch,s?s->minturnangle:0,s?s->maxturnangle:0,
+            s?s->mindeclination:0,s?s->maxdeclination:0);
+    }
     diagnosticRow("fire_check",ship,ship->shipID.shipNumber,index,-1,reason,0,
         &ship->posinfo.position,gun?&gun->gunheading:NULL,NULL,0,0,0);
 
@@ -277,6 +283,7 @@ static int loadPackage(void)
 }
 static RmFxMapping *mappingIndex(const Ship *ship,unsigned int index,float *scale)
 {
+    if(cataEnergyGun(ship,index))return NULL;
     unsigned int i,lod; float nativeScale; const char *name; char qualified[32];
     lodinfo *levels;
     /* Classic combat/utility FX are authoritative again. Retain this importer

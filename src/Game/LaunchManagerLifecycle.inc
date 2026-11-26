@@ -17,9 +17,9 @@ static void lmDismiss(void)
     svClose();
     if (restoreOverlay) ioEnable();
     soundEvent(NULL,UI_ManagerExit);
+    soundEvent(NULL,UI_SoundOfSpace);
     if (!mdManagerDockEnabled())
     {
-        soundEvent(NULL,UI_SoundOfSpace);
         tbDisable=FALSE;
     }
     mrRenderMainScreen=!smSensorsActive;

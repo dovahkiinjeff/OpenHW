@@ -41,6 +41,10 @@
 #include "Select.h"
 #include "Sensors.h"
 #include "SinglePlayer.h"
+#include "../Modern/CataclysmData.h"
+#include "CataclysmCampaign.h"
+#include "CataclysmLinking.h"
+#include "CataclysmShips.h"
 #include "SoundEvent.h"
 #include "Star3d.h"
 #include "StringSupport.h"
@@ -522,6 +526,10 @@ void LoadMissionNumber(void)
     }
 
     spSetCurrentMission(saveGameMissionEnum);
+    if(hwIsCataclysmMission(saveGameMissionEnum) && !hwCataDataReady()){
+        char error[512];
+        if(!hwCataDataOpenConfigured(error,sizeof(error)))dbgFatalf(DBG_Loc,"%s",error);
+    }
 }
 
 void SaveBackground(void)
@@ -673,6 +681,12 @@ void LoadPreGameInfo(void)
     {
         universeLoadEverythingNeeded();
 
+        /* Older Mission 2 saves omitted Bushan-Re's scripted paint slot. */
+        if (sp && spGetCurrentMission() == MISSION_CATA_2_OUTSKIRTS)
+        {
+            cataMission2PreloadShipColors();
+        }
+
         /* RTX: direct-load migration for already-captured foreign factories.
            PreLoadGame restores the exact static-info set from the save and,
            unlike a hyperspace transition, does not run levelPreInit().  Older
@@ -779,6 +793,7 @@ bool32 SaveGame(char *filename)
     SaveConsMgrDetermOptional();                // added for V1.04 patch
     shipAppearanceSave();
     navSave();
+    if(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()))mrSaveAcolyteTransitions();
 
     fileClose(savefile);
     savefile = 0;
@@ -924,6 +939,8 @@ void LoadGame(char *filename)
     FixAllSpaceObjs();
     FixAllBlobs();
     navLoad();
+    if(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()))mrLoadAcolyteTransitions();
+    cataCampaignAfterLoad();
 
     listInit(&universe.effectList);
 
@@ -2049,17 +2066,16 @@ Ship *LoadShip(SaveChunk *chunk)
        hierarchy without growing the record overwrites the following heap
        allocations (including universe list nodes). Preserve the clock/curves;
        only the runtime binding tail is rebuilt by Fix_madBindings. */
-    if (ship->madBindings && shipstaticinfo->madStatic)
+    if (shipstaticinfo->madStatic && (ship->madBindings || ship->shiptype == CataWorker))
     {
-        const udword madOffset = (udword)((ubyte *)ship->madBindings - (ubyte *)ship);
-        const udword requiredMadSize = (udword)(madAnimSize(shipstaticinfo->staticheader.LOD->nLevels) +
-            shipstaticinfo->hierarchySize * sizeof(mhlocalbinding) +
-            shipstaticinfo->madStatic->header->nObjects * sizeof(splinecurve) * 6);
-        if (requiredMadSize > ship->madBindings->totalSize)
+        const udword oldMadSize = ship->madBindings ? ship->madBindings->totalSize : 0;
+        const udword madOffset = totalsize - oldMadSize;
+        const udword requiredMadSize = madShipBindingsSize(shipstaticinfo);
+        if (requiredMadSize > oldMadSize)
         {
             HW_DIAG_FPRINTF(stderr, "[SaveVisualMigration] %s/%s animation binding payload expanded from %u to %u bytes for current hierarchy.\n",
                 ShipRaceToStr(ship->shiprace), ShipTypeToStr(ship->shiptype),
-                ship->madBindings->totalSize, requiredMadSize);
+                oldMadSize, requiredMadSize);
             Ship *expanded = memAlloc(madOffset + requiredMadSize, "Ship", NonVolatile);
             memcpy(expanded, ship, savedRecordSize);
             memset((ubyte *)expanded + savedRecordSize, 0, madOffset + requiredMadSize - savedRecordSize);
@@ -2130,7 +2146,7 @@ Ship *LoadShip(SaveChunk *chunk)
         LoadShipsInsideMe(ship);
     }
 
-    if (ship->bindings != NULL)
+    if (ship->bindings != NULL || shipstaticinfo->hierarchySize != 0)
     {
         ship->bindings = univMeshBindingsDupe(shipstaticinfo, ship);        // reinitialize bindings
     }

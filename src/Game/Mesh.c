@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <float.h>
 
 #if !defined _MSC_VER
 #include <strings.h>
@@ -27,6 +28,7 @@
 #include "stb_image.h"
 #include "Debug.h"
 #include "File.h"
+#include "CataclysmWeaponFx.h"
 #include "Memory.h"
 #include "RemasteredEmission.h"
 #ifdef HW_ENABLE_D3D12_NATIVE_RASTER
@@ -45,6 +47,7 @@ static unsigned paintSurfaceVariant(unsigned scheme);
 #include "ObjTypes.h"
 #include "SpaceObj.h"
 #include "Universe.h"
+#include "SinglePlayer.h"
 #include "Mesh.h"
 #include "MeshBadgeOverlay.h"
 static bool32 meshBadgePreview=FALSE;
@@ -54,6 +57,7 @@ static bool32 meshBadgePreview=FALSE;
 #include "NativeVisualEvents.h"
 #include "RemasteredVisualPackage.h"
 #include "NativeVisualScope.h"
+#include "CataclysmData.h"
 #include "NativeGunPosePolicy.h"
 #include "Gun.h"
 #include "RemasteredWeaponFX.h"
@@ -108,6 +112,7 @@ void meshSpecObjectRender(polygonobject *object, materialentry *materials, sdwor
 bool32 gSelfIllum;
 
 bool32 usingShader = TRUE;
+static bool32 meshDrawingDisguiseMorph;
 
 bool32 bFade = FALSE;
 real32 meshFadeAlpha = 1.0f;
@@ -1103,7 +1108,7 @@ static void meshSubmitModernRaytracingObjectEx(polygonobject *object,
     sdword index;
     MeshSurfaceCacheEntry *cached;
 
-    if (object == NULL || materials == NULL || object->nVertices <= 0 ||
+    if (meshDrawingDisguiseMorph || object == NULL || materials == NULL || object->nVertices <= 0 ||
         object->nPolygons <= 0 || object->pVertexList == NULL ||
         object->pPolygonList == NULL ||
         !hwModernGraphicsIsRaytracingSceneOpen())
@@ -1364,36 +1369,30 @@ StaticInfo *meshNameToStaticInfo(char *fileName)
     ShipRace race;
     ShipType type;
 
-#ifdef _WIN32
-    dbgAssertOrIgnore(strchr(fileName, '\\'));
-    length = strchr(fileName, '\\') - fileName;
-#else
-    dbgAssertOrIgnore(strpbrk(fileName, "\\/"));
+    /* Owned assets keep their namespace for file reads. Palette ownership
+       comes from the race or derelict path inside that namespace. */
+    if (!strncasecmp(fileName,"Cataclysm\\",10) ||
+        !strncasecmp(fileName,"Cataclysm/",10))
+        fileName += 10;
+    if (strpbrk(fileName,"\\/")==NULL) return NULL;
+    if ((size_t)(strpbrk(fileName,"\\/")-fileName)>=sizeof(raceString)) return NULL;
     length = strpbrk(fileName, "\\/") - fileName;
-#endif
     memcpy(raceString, fileName, length);
     raceString[length] = 0;                                 //make a race name
     fileName += length + 1;
 //    dbgAssertOrIgnore(strchr(fileName, '\\'));                      //make a type name
-#ifdef _WIN32
-    if (strchr(fileName, '\\') == NULL)
-#else
     if (strpbrk(fileName, "\\/") == NULL)
-#endif
     {
         return(NULL);
     }
-#ifdef _WIN32
-    length = strchr(fileName, '\\') - fileName;
-#else
     length = strpbrk(fileName, "\\/") - fileName;
-#endif
+    if (length <= 0 || (size_t)length >= sizeof(typeString)) return NULL;
     memcpy(typeString, fileName, length);
     typeString[length] = 0;
     if (strcasecmp(raceString, "Derelicts") == 0)
     {                                                       //if it's a derelict
         type = StrToDerelictType(typeString);
-        dbgAssertOrIgnore(type != 0xffffffff);
+        if (type >= NUM_DERELICTTYPES) return NULL;
         return((StaticInfo *)&derelictStaticInfos[type]);
     }
     //else it's a race-specific texture, process normally
@@ -1404,11 +1403,7 @@ StaticInfo *meshNameToStaticInfo(char *fileName)
         return(NULL);
     }
     type = StrToShipType(typeString);
-#ifdef _X86_64
-    if (type == 0xffffffffffffffff)
-#else
-    if (type == 0xffffffff)
-#endif
+    if (type == (ShipType)-1)
     {
         if (strcasecmp(typeString, "MISSILE") == 0)
         {
@@ -1454,6 +1449,9 @@ static bool32 meshStaticColorSchemeEnabled(StaticInfo *info,
     const char *separator;
     size_t rootLength;
 
+    if (fileName && (!strncasecmp(fileName,"Cataclysm\\",10) ||
+                     !strncasecmp(fileName,"Cataclysm/",10)))
+        fileName += 10;
     if (info == NULL || colorScheme < 0 ||
         colorScheme >= MAX_MULTIPLAYER_PLAYERS)
     {
@@ -1492,6 +1490,14 @@ static bool32 meshStaticColorSchemeEnabled(StaticInfo *info,
     }
     memcpy(rootName, fileName, rootLength);
     rootName[rootLength] = 0;
+
+    /* Cataclysm KAS reassigns Turanic paint after loading. The static team
+       table only sees the owners and schemes named by the level loader. */
+    if (singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()) &&
+        (!strcasecmp(rootName, "P1") || !strcasecmp(rootName, "RACE_P1")))
+    {
+        return TRUE;
+    }
 
     /* Mission 4's live/NIS Floating City is rendered with color scheme 0,
        while the non-player Trader race also owns canonical scheme 7.  During
@@ -2242,6 +2248,11 @@ bool32 meshRemasteredDockEndpoint(const void *ship,const char *name,vector *posi
     float scale;HwRmVisualInstance *instance=meshRemasteredInstance(ship,&scale);
     return instance&&position?hwRmVisualInstanceDockEndpoint(instance,name,scale,(float *)position):FALSE;
 }
+sdword meshRemasteredDockPoint(const void *ship,const char *name,unsigned index,vector *position)
+{
+    float scale;HwRmVisualInstance *instance=meshRemasteredInstance(ship,&scale);
+    return instance&&position?hwRmVisualInstanceDockPoint(instance,name,index,scale,(float *)position):0;
+}
 bool32 meshRemasteredGunHasSound(const void *ship,unsigned int gun){
     float scale;HwRmVisualInstance *instance=meshRemasteredInstance(ship,&scale);
     return instance?hwRmVisualInstanceGunHasSound(instance,gun):FALSE;
@@ -2262,6 +2273,7 @@ void meshRemasteredNotifyAnimation(const void *ship,const char *event,double pha
 }
 void meshRemasteredNotifyWeaponFire(const void *ship,unsigned int gun,double clock)
 {
+    if(cataEnergyGun(ship,gun))return;
     const Ship *owner=(const Ship *)ship;lodinfo *levels;sdword level;
     if(!meshNativeVisualPresentationEnabled() || !owner || !owner->staticinfo)return;
     levels=owner->staticinfo->staticheader.LOD;
@@ -2350,6 +2362,10 @@ bool32 meshPrepareRemasteredShipPose(const void *ship, shipbindings *bindings,
         !bindings->localBinding[currentLOD] ||
         !meshNativeVisualParameters(mesh,&scale,&nativeLOD)) return FALSE;
     instance=meshNativeVisualAcquire(mesh,ship);
+    if(instance && ((const Ship *)ship)->shiptype==CataMothership){
+        char error[256];
+        hwRmVisualInstanceSampleEvent(instance,"Idle",fmod(universe.totaltimeelapsed,20.0)/20.0,error,sizeof(error));
+    }
     if (!instance || (!hwRmVisualInstanceAnimation(instance) &&
         !hwRmVisualInstanceGunCount(instance)) ||
         !meshSyncRemasteredGuns((const Ship *)ship,instance)) return FALSE;
@@ -2488,7 +2504,7 @@ int meshValidateOpenHWDefinition(const char *root,const char *identity,const voi
 static meshdata *meshTryNativeFleetPackage(char *original,char *nativeFile,size_t nativeFileSize)
 {
     meshNativePackageIO io;char type[64],identity[80],canonical[FL_Path],manifest[FL_Path];
-    const char *end,*root="R1",*start;size_t typeLength;unsigned lod;bool32 derelict=FALSE;
+    const char *end,*root="R1",*start=NULL;size_t typeLength;unsigned lod;bool32 derelict=FALSE;
     void *data=NULL;sdword length;char error[512];float scale;
     HwRmVisualAsset *asset=NULL;HwRmVisualInstance *instance=NULL;meshdata *mesh=NULL;
     memset(&io,0,sizeof(io));
@@ -2499,10 +2515,45 @@ static meshdata *meshTryNativeFleetPackage(char *original,char *nativeFile,size_
     else if (!strncasecmp(original,"Traders\\",8)) {root="Traders";start=original+8;}
     else if (!strncasecmp(original,"R2\\",3)) {root="R2";start=original+3;}
     else if (!strncasecmp(original,"R1\\",3)) start=original+3;
-    else return NULL;
-    end=strchr(start,'\\');if (!end) return NULL;typeLength=(size_t)(end-start);
-    if (!typeLength || typeLength>=sizeof(type)) return NULL;
-    memcpy(type,start,typeLength);type[typeLength]=0;
+    else
+    {
+        ShipType shipType;
+        if (strncasecmp(original,"Cataclysm\\",10) && strncasecmp(original,"Cataclysm/",10)) return NULL;
+        if (!strncasecmp(original+10,"RACE_SECT\\",10))
+        {
+            char stem[64],sourcePath[FL_Path];
+            const char *separator=strchr(original+20,'\\');
+            size_t stemLength=separator ? (size_t)(separator-(original+20)) : 0;
+            if (!stemLength || stemLength>=sizeof(stem)) return NULL;
+            memcpy(stem,original+20,stemLength);stem[stemLength]=0;
+            shipType=StrToShipType(stem);
+            if (shipType>=TOTAL_NUM_SHIPS || !hwRmNativeSomtaawType(ShipTypeToStr(shipType))) return NULL;
+            for(lod=0;lod<5;++lod)
+            {
+                snprintf(sourcePath,sizeof(sourcePath),"Cataclysm\\RACE_SECT\\%s\\Rl0\\LOD%u\\%s.geo",stem,lod,stem);
+                if (!strcasecmp(original,sourcePath)) break;
+                snprintf(sourcePath,sizeof(sourcePath),"Cataclysm\\RACE_SECT\\%s\\Rl0\\LOD%u\\%s.peo",stem,lod,stem);
+                if (!strcasecmp(original,sourcePath)) break;
+            }
+            if (lod==5) return NULL;
+            strcpy(type,ShipTypeToStr(shipType));
+        }
+        else
+        {
+            if (hwCataRaiderMeshIdentity(original,type,sizeof(type),&lod)) root="P1";
+            else if (hwCataTaiidanMeshIdentity(original,type,sizeof(type),&lod)) root="R2";
+            else return NULL;
+            shipType=StrToShipType(type);
+            if (shipType>=TOTAL_NUM_SHIPS || strcasecmp(type,ShipTypeToStr(shipType))) return NULL;
+            strcpy(type,ShipTypeToStr(shipType));
+        }
+    }
+    if (start)
+    {
+        end=strchr(start,'\\');if (!end) return NULL;typeLength=(size_t)(end-start);
+        if (!typeLength || typeLength>=sizeof(type)) return NULL;
+        memcpy(type,start,typeLength);type[typeLength]=0;
+    }
     typeLength=strlen(type);
     /* The stock Ghost Ship LOD spells its folder/mesh "GhostShip", while
        the fleet enum and native document identity are "Ghostship". */
@@ -2520,13 +2571,16 @@ static meshdata *meshTryNativeFleetPackage(char *original,char *nativeFile,size_
     snprintf(identity,sizeof(identity),"%s%s",derelict?"Derelict_":!strcmp(root,"R2")?"Taiidan_":"",type);
     /* Match canonical existing fleet/derelict LOD paths only; no other races,
        identities, custom model paths or arbitrary external HOD selection. */
-    for(lod=0;lod<5;++lod) {
-        snprintf(canonical,sizeof(canonical),"%s\\%s\\Rl0\\LOD%u\\%s.geo",root,type,lod,type);
-        if (!strcasecmp(original,canonical)) break;
-        snprintf(canonical,sizeof(canonical),"%s\\%s\\Rl0\\LOD%u\\%s.peo",root,type,lod,type);
-        if (!strcasecmp(original,canonical)) break;
+    if (start)
+    {
+        for(lod=0;lod<5;++lod) {
+            snprintf(canonical,sizeof(canonical),"%s\\%s\\Rl0\\LOD%u\\%s.geo",root,type,lod,type);
+            if (!strcasecmp(original,canonical)) break;
+            snprintf(canonical,sizeof(canonical),"%s\\%s\\Rl0\\LOD%u\\%s.peo",root,type,lod,type);
+            if (!strcasecmp(original,canonical)) break;
+        }
+        if (lod==5) return NULL;
     }
-    if (lod==5) return NULL;
     snprintf(io.root,sizeof(io.root),"%s\\%s\\RMNative\\",root,type);
     snprintf(manifest,sizeof(manifest),"%sship.owshipdef",io.root);
     if(!fileExists(manifest,FF_IgnoreBIG))snprintf(manifest,sizeof(manifest),"%svisual.rmnative",io.root);
@@ -2687,6 +2741,7 @@ meshdata *meshLoad(char *inFileName)
     mesh->publicMaterial = (materialentry *)(header.oPublicMaterial + offset);
     mesh->localMaterial = (materialentry *)(header.oLocalMaterial + offset);
     mesh->nPolygonObjects = header.nPolygonObjects;
+    mesh->restBoundsReady = FALSE;
                                                             //read remainder of the file
 #if MESH_RETAIN_FILENAMES
     mesh->fileName = memStringDupe(fileName);
@@ -4031,7 +4086,7 @@ void meshObjectRenderLit(polygonobject *object, materialentry *materials, sdword
     meshEnableVertexArrays((void*)vertexList, 0, object->nVertices);
 
 #ifdef HW_ENABLE_D3D12_NATIVE_RASTER
-    int persistentAvailable=hwglCanDrawImmutableMesh(object->pPolygonList);
+    int persistentAvailable=!meshDrawingDisguiseMorph && hwglCanDrawImmutableMesh(object->pPolygonList);
 #endif
     glBegin(GL_TRIANGLES);                                  //prepare to draw triangles
 
@@ -4809,6 +4864,112 @@ sdword meshRender(meshdata *mesh, sdword iColorScheme)
 #endif //MESH_MATERIAL_STATS
     meshCurrentMaterial = meshCurrentMaterialDefault;
     return(0);
+}
+
+static void meshAccumulateRestBounds(polygonobject *object, hmatrix *parent,
+                                     vector *minimum, vector *maximum)
+{
+    polygonobject *child;
+    hmatrix transform;
+    sdword index;
+    hmatMultiplyHMatByHMat(&transform, parent, &object->localMatrix);
+    for (index = 0; index < object->nVertices; ++index)
+    {
+        vertexentry *vertex = &object->pVertexList[index];
+        hvector local = {vertex->x, vertex->y, vertex->z, 1.0f};
+        hvector position;
+        hmatMultiplyHMatByHVec(&position, &transform, &local);
+        vecSet(*minimum, min(minimum->x, position.x), min(minimum->y, position.y), min(minimum->z, position.z));
+        vecSet(*maximum, max(maximum->x, position.x), max(maximum->y, position.y), max(maximum->z, position.z));
+    }
+    for (child = object->pDaughter; child; child = child->pSister)
+        meshAccumulateRestBounds(child, &transform, minimum, maximum);
+}
+
+bool32 meshRestBounds(meshdata *mesh, vector *minimum, vector *maximum)
+{
+    if (!mesh || mesh->nPolygonObjects <= 0) return FALSE;
+    if (!mesh->restBoundsReady)
+    {
+        polygonobject *object;
+        hmatrix identity = IdentityHMatrix;
+        vecSet(mesh->restBoundsMin, FLT_MAX, FLT_MAX, FLT_MAX);
+        vecSet(mesh->restBoundsMax, -FLT_MAX, -FLT_MAX, -FLT_MAX);
+        for (object = &mesh->object[0]; object; object = object->pSister)
+            meshAccumulateRestBounds(object, &identity, &mesh->restBoundsMin, &mesh->restBoundsMax);
+        mesh->restBoundsReady = TRUE;
+    }
+    *minimum = mesh->restBoundsMin;
+    *maximum = mesh->restBoundsMax;
+    return minimum->x <= maximum->x;
+}
+
+static void meshRenderDisguisePart(polygonobject *object, materialentry *materials,
+                                  sdword colorScheme, hmatrix *parent, const vector *center,
+                                  real32 radius, real32 morph)
+{
+    polygonobject part = *object;
+    polygonobject *child;
+    hmatrix transform, inverse;
+    size_t bytes = (size_t)object->nVertices * sizeof(vertexentry);
+    vertexentry *vertices = bytes ? malloc(bytes) : NULL;
+    sdword index;
+
+    hmatMultiplyHMatByHMat(&transform, parent, &object->localMatrix);
+    if (vertices)
+    {
+        shInvertMatrix((real32 *)&inverse, (const real32 *)&transform);
+        memcpy(vertices, object->pVertexList, bytes);
+        for (index = 0; index < object->nVertices; ++index)
+        {
+            vertexentry *vertex = &vertices[index];
+            hvector local = {vertex->x, vertex->y, vertex->z, 1.0f};
+            hvector position;
+            vector radial;
+            real32 length;
+            hmatMultiplyHMatByHVec(&position, &transform, &local);
+            vecSet(radial, position.x - center->x, position.y - center->y, position.z - center->z);
+            length = sqrtf(vecMagnitudeSquared(radial));
+            if (length <= 0.00001f) continue;
+            vecMultiplyByScalar(radial, morph * (radius / length - 1.0f));
+            position.x += radial.x;
+            position.y += radial.y;
+            position.z += radial.z;
+            hmatMultiplyHMatByHVec(&local, &inverse, &position);
+            vertex->x = local.x;
+            vertex->y = local.y;
+            vertex->z = local.z;
+        }
+        part.pVertexList = vertices;
+    }
+
+    glPushMatrix();
+    glMultMatrixf((const real32 *)&object->localMatrix);
+    shPushLightMatrix(&object->localMatrix);
+    for (child = object->pDaughter; child; child = child->pSister)
+        meshRenderDisguisePart(child, materials, colorScheme, &transform, center, radius, morph);
+    MESH_OBJECT_RENDER(&part, materials, colorScheme)
+    shPopLightMatrix();
+    glPopMatrix();
+    free(vertices);
+}
+
+void meshRenderDisguiseMorph(meshdata *mesh, sdword colorScheme, const vector *center,
+                             real32 radius, real32 morph)
+{
+    polygonobject *object;
+    materialentry *materials;
+    hmatrix identity = IdentityHMatrix;
+    real32 previousFade = 1.0f - meshFadeAlpha;
+    meshFixupPacoUV(mesh, texLinearFiltering);
+    materials = meshAppearanceMaterials(mesh, colorScheme);
+    meshCurrentMaterial = meshCurrentMaterialDefault;
+    meshDrawingDisguiseMorph = TRUE;
+    meshSetFade(1.0f - (1.0f - previousFade) * (1.0f - morph));
+    for (object = &mesh->object[0]; object; object = object->pSister)
+        meshRenderDisguisePart(object, materials, colorScheme, &identity, center, radius, morph);
+    meshSetFade(previousFade);
+    meshDrawingDisguiseMorph = FALSE;
 }
 
 /*-----------------------------------------------------------------------------

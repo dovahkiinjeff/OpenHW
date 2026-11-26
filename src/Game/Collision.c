@@ -17,6 +17,7 @@
 #include "SinglePlayer.h"
 #include "Tactics.h"
 #include "Universe.h"
+#include "DockCompositeCollision.h"
 #include "UnivUpdate.h"
 #include "ShipPilot.h"
 #include "RemasteredPresentation.h"
@@ -814,7 +815,8 @@ void collCheckShipShipColl(blob *thisBlob,bool32 checkSmallShips)
 
             //old docking rejection code
 
-            if ((obj1->dockingship == obj2) || (obj2->dockingship == obj1))
+            if ((obj1->dockingship == obj2) || (obj2->dockingship == obj1) ||
+                dockCompositeContact(obj1,obj2) || dockCompositeContact(obj2,obj1))
             {
                 goto nocollision;       // docking ships shouldn't collide
             }
@@ -1126,7 +1128,8 @@ void collCheckBigShipSmallShipColl(blob *thisBlob)
 
             //old docking rejection code
 
-            if ((obj1->dockingship == obj2) || (obj2->dockingship == obj1))
+            if ((obj1->dockingship == obj2) || (obj2->dockingship == obj1) ||
+                dockCompositeContact(obj1,obj2) || dockCompositeContact(obj2,obj1))
             {
                 goto nocollision;       // docking ships shouldn't collide
             }

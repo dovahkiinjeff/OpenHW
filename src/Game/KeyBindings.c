@@ -765,6 +765,7 @@ const char *kbModernCommandName(sdword index)
        extension intentionally uses explicit, stable English UI labels so we
        can expose real gameplay actions without shifting the legacy string-ID
        table or requiring new language resource files. */
+    if (index == kbSHIP_SPECIAL) return "SPECIAL / REPAIR / SALVAGE";
     if (index <= kbLAUNCH_MANAGER)
         return strGetString(kbKeyTable[index].command + strKeyCommandOffset);
 

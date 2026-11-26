@@ -67,6 +67,9 @@ lightNameToInfoTable[] =
 static lightinfo *currentLight;
 static lightinfo currentLight1;
 static GLfloat lightAmbient[4] = {0.2f, 0.2f, 0.2f, 1.0f};
+/* Modern lighting consumes authored energy, before the compatibility
+   renderer doubles/clamps its global ambient to brighten old textures. */
+static real32 missionAmbient[3] = {0.2f, 0.2f, 0.2f};
 
 static void lightPositionRead  (char *directory, char *field, void *dataToFillIn);
 static void lightTypeSet       (char *directory, char *field, void *dataToFillIn);
@@ -201,6 +204,7 @@ void lightDefaultLightSet(void)
 {
 #if 1
     GLfloat amb[4] = {0.2f, 0.2f, 0.2f, 1.0f};
+    missionAmbient[0]=missionAmbient[1]=missionAmbient[2]=0.2f;
 
 #ifdef HW_ENABLE_D3D12_BACKEND
     {
@@ -485,6 +489,7 @@ void lightParseHSF(char* fileName)
 
                 for (i = 0; i < 4; i++)
                 {
+                    if(i<3)missionAmbient[i]=ambient[i];
                     real32 lv = 2.0f * ambient[i];
                     if (lv > 1.0f) lv = 1.0f;
                     lightAmbient[i] = lv;
@@ -545,6 +550,18 @@ void lightSetLighting(void)
     Outputs     : position is modified
     Return      :
 ----------------------------------------------------------------------------*/
+void lightGetMissionLighting(real32 direction[3], real32 diffuse[3], real32 ambient[3])
+{
+    const lightinfo *source=currentLight ? currentLight : &lightDefaultLight;
+    sdword i;
+    for (i=0; i<3; ++i)
+    {
+        direction[i]=source->position[i];
+        diffuse[i]=source->diffuse[i];
+        ambient[i]=missionAmbient[i];
+    }
+}
+
 void lightGetPosition(sdword lightIndex, hvector* position)
 {
     lightinfo* linfo;

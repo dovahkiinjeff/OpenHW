@@ -27,6 +27,7 @@ MothershipStatics MothershipStatic;
 
 MothershipStatics MothershipStaticRace1;
 MothershipStatics MothershipStaticRace2;
+static MothershipStatics CataclysmMothershipStatic;
 
 //I don't envision any more ships attaching themselves to the mothership door...should they then hooray!
 scriptStructEntry MothershipStaticTable[] =
@@ -81,6 +82,7 @@ scriptStructEntry MothershipStaticTable[] =
 void MothershipStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
     MothershipStatics *mothershipstat = (statinfo->shiprace == R1) ? &MothershipStaticRace1 : &MothershipStaticRace2;
+    if(statinfo->shiptype==CataMothership)mothershipstat=&CataclysmMothershipStatic;
     sdword i,j;
     //init static info
     for(i=0;i<NUM_RACES;i++)
@@ -127,34 +129,7 @@ void MothershipAttackPassive(Ship *ship,Ship *target,bool32 rotate)
 //single player game...called when hs button is pushed for quick
 //docking + progression to HS..this will ensure it partly works when
 //launching big ships...
-void mothershipCleanDoorForHSInstant(Ship *ship)
-{
-    MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
-
-    if(spec->doorCargo != NULL)
-    {
-        MothershipDettachObjectFromDoor(ship);
-        spec->doorCargo = NULL;
-    }
-
-    if( ship->madDoorStatus != MAD_STATUS_DOOR_CLOSED)
-    {
-        //if door isn't closed
-        if(ship->madBindings->bPaused)
-        {
-            //animation is paused...well,unpause it
-            //so as to fix a bug in lukes code!
-            madAnimationPause(ship,!ship->madBindings->bPaused);
-        }
-        madAnimationStop(ship);
-
-        ship->cuedAnimationIndex = ship->staticinfo->madStatic->DoorOpenIndexes[0];
-        ship->cuedAnimationType = MAD_ANIMATION_NOTHING;
-        ship->madDoorStatus = MAD_STATUS_DOOR_CLOSED;
-        ship->madAnimationFlags=0;
-        ship->nextAnim = 0;
-    }
-}
+#include "MothershipQuickDock.inc"
 
 void MothershipDoorUpKeep(Ship *ship)
 {

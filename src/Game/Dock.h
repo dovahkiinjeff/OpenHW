@@ -43,10 +43,17 @@ void dockDrawDockInfo(Ship *ship);
 void dockInitializeCustomFunctions(ShipStaticInfo *statinfo,ShipType type,ShipRace race);
 
 sdword dockFindDockIndex(char *name,DockStaticInfo *dockstaticinfo);
+/* Original Cataclysm salvage approach stages; callers retain indexed ports. */
+bool32 cataDockSalvageStep(Ship *ship,Ship *host,sdword port,sdword stage);
+bool32 cataDockSalvageIntakePoint(Ship *host,sdword port,DockStaticPoint *point);
+bool32 cataDockWorkerGrapplePosition(Ship *ship,vector *grip);
+void cataDockRestoreSalvageContact(Ship *ship,Ship *host,sdword port);
+void cataDockSalvageFinish(Ship *ship);
 /*static void dockReserveDockPoint(Ship *ship,Ship *dockwith,sdword dockpointindex);*/
 /*void dockReserveDockPoint(Ship *ship,Ship *dockwith,sdword dockpointindex);*/
 
 void dockPutShipInside(Ship *ship,Ship *dockwith);
+void dockEnsureShipsInside(Ship *host);
 void dockInitShipForLaunch(Ship *ship);
 void dockRemoveShipFromInside(Ship *ship,Ship *dockwith);
 void dockPutShipOutside(Ship *ship,Ship *creator,vector *createat,udword headingdirection,udword updirection);

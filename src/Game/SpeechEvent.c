@@ -7,11 +7,13 @@
 =============================================================================*/
 
 #include "SpeechEvent.h"
+#include "../Modern/DiagnosticPolicy.h"
 
 //#include "bink.h"
 #include "Blobs.h"
 #include "Chatting.h"
 #include "File.h"
+#include "LevelLoad.h"
 #include "fquant.h"
 #include "mainrgn.h"
 #include "Memory.h"
@@ -30,6 +32,9 @@
 #include "Types.h"
 #include "UnivUpdate.h"
 #include "utility.h"
+#include "../Modern/CataclysmData.h"
+#include "../Modern/CataclysmScriptBridge.h"
+#include "Subtitle.h"
 
 #ifdef _MSC_VER
     #define strncasecmp strnicmp
@@ -167,9 +172,12 @@ sdword SEcleanqueue(SPEECHQUEUE *pSQueue);
 
 SPEECHQUEUE speechqueue[SE_NUM_ACTORS];
 
+static bool32 cataAnimaticSpeechPlaying;
+
 bool32 speechEventAnimaticPending(void)
 {
     sdword i,j;
+    if (cataAnimaticSpeechPlaying && !soundEventCataclysmSpeechEnded()) return TRUE;
     for(i=0;i<SE_NUM_ACTORS;i++) {
         if(speechqueue[i].status>=SOUND_PLAYING &&
            (speechqueue[i].current.event&SPEECH_TYPE_ANIMATIC))return TRUE;
@@ -181,6 +189,63 @@ bool32 speechEventAnimaticPending(void)
 
 sdword  streamhandle[SE_NUM_ACTORS];
 smemsize  speechfilehandle;
+
+/* Owned Cataclysm speech has its own LUT and event numbering. Share only
+   the codec/stream buffers, never index the HW1 lookup table with Cata IDs. */
+static filehandle cataVoiceFile=-1;
+static filehandle cataMusicFile=-1;
+static sdword cataMusicTrack=-1;
+static bool32 cataAudioActive(void);
+extern bool32 soundpaused;
+extern real32 volSpeech;
+static real32 cataSpeechUntil;
+static bool32 cataSpeechPlaying;
+static void cataVoiceOpen(unsigned checksum)
+{
+    char path[1024];udword header[2];
+    if(cataVoiceFile>=0)return;
+    if(!hwCataAudioPath("SectSpeech.vce",path,sizeof(path)))cataScriptFault("Owned SectSpeech.vce is missing");
+    cataVoiceFile=fileOpen(path,FF_IgnorePrepend|FF_ReturnNULLOnFail);
+    if(cataVoiceFile<=0)cataScriptFault("Could not open the owned voice bank");
+    if(fileBlockRead(cataVoiceFile,header,sizeof(header))!=sizeof(header)||header[1]!=checksum)
+        cataScriptFault("Owned Cataclysm voice bank and lookup tables do not match");
+}
+void soundEventCataclysmSpeechSkip(void)
+{
+    if(cataSpeechPlaying && enableSpeech)soundstreamvolume(streamhandle[1],-1,0.0f);
+    cataSpeechPlaying=FALSE;cataSpeechUntil=0;cataAnimaticSpeechPlaying=FALSE;
+}
+void soundEventCataclysmSpeech(sdword event,sdword variable)
+{
+    CataSpeechPhrase phrase;char error[256];unsigned i;sdword mapped;
+    if(!hwCataSpeechPhrase((unsigned)event,variable,&phrase,error,sizeof(error)))cataScriptFault(error);
+    soundEventCataclysmSpeechSkip();
+    subMessageEnded=0;
+    cataSpeechUntil=universe.totaltimeelapsed+(real32)phrase.durationMilliseconds*0.001f;
+    if(!enableSpeech || soundpaused)return;
+    cataVoiceOpen(phrase.checksum);
+    mapped=(event&0xff800000u)|((event&0x007ff800u)>>1)|(event&0x3ff);
+    for(i=0;i<phrase.count;i++){
+        if(soundstreamqueuePatch(streamhandle[1],cataVoiceFile,phrase.offsets[i],SOUND_FLAGS_QUEUESTREAM,
+            (sword)((real32)SOUND_VOL_MAX*volSpeech),SOUND_PAN_CENTER,SOUND_MONO,(sword)phrase.bitrate,
+            NULL,NULL,NULL,NULL,0,0.0f,0.0f,0,mapped,i+1<phrase.count)<0)
+            cataScriptFault("Could not queue owned campaign speech");
+    }
+    cataSpeechPlaying=TRUE;
+    cataAnimaticSpeechPlaying = (event & SPEECH_TYPE_ANIMATIC) != 0;
+}
+sdword soundEventCataclysmSpeechEnded(void)
+{
+    if(subMessageEnded==2){subMessageEnded=0;soundEventCataclysmSpeechSkip();return 2;}
+    if(cataSpeechPlaying && (soundstreamnumqueued(streamhandle[1])>0 || !soundstreamover(streamhandle[1])))
+    {
+        if(universe.totaltimeelapsed<cataSpeechUntil+5.0f)return FALSE;
+        HW_DIAG_FPRINTF(stderr,"[CataclysmSpeech] Released stalled briefing stream after its authored duration.\n");
+        soundEventCataclysmSpeechSkip();
+    }
+    if(!cataSpeechPlaying && universe.totaltimeelapsed<cataSpeechUntil)return FALSE;
+    cataSpeechPlaying=FALSE;cataAnimaticSpeechPlaying=FALSE;return TRUE;
+}
 
 sdword  numSinglePlayerEvents;
 
@@ -280,6 +345,7 @@ extern bool32 bStatusOn;
 extern bool32 bChatterOn;
 
 extern sdword actorFlagsEnabled;
+#include "CataclysmSelectionSpeech.inc"
 
 extern real32 nearestShipDistance;
 extern real32 musicVolFactor;
@@ -609,6 +675,10 @@ sdword speechEventInit(void)
 
 void speechEventClose(void)
 {
+    cataSpeechPlaying=FALSE;cataSpeechUntil=0;
+    if(cataVoiceFile>=0){fileClose(cataVoiceFile);cataVoiceFile=-1;}
+    if(cataMusicFile>=0){fileClose(cataMusicFile);cataMusicFile=-1;}
+    cataMusicTrack=-1;
     memFree(pmusicbuffer0);
     memFree(pmusicbuffer1);
     memFree(musicheader);
@@ -997,7 +1067,7 @@ void speechPlayQueue(SPEECHQUEUE *pSQueue, sdword streamchannel)
         if (bookend && enableSFX)
         {
             soundstreamqueuewait(streamhandle[streamchannel], (smemsize)UIBank,
-                             (smemsize)UIEventsLUT->lookup[GetPatch(UIEventsLUT, 0, UI_RadioBeepStart)],
+                             (smemsize)SEpatch(UIEventsLUT, 0, UI_RadioBeepStart),
                              SOUND_FLAGS_QUEUEPATCH, (sword)vol, pan, SOUND_MONO, SOUND_DEFAULT, NULL, NULL, NULL, event);
 
 //          soundstreamqueueSilence(streamhandle[stream], SOUND_FLAGS_QUEUESILENCE, vol, pan, SOUND_MONO,
@@ -1024,7 +1094,7 @@ void speechPlayQueue(SPEECHQUEUE *pSQueue, sdword streamchannel)
 //                                  SentenceLUT->compbitrate, fqeffect, pEQ, pdelay, SEsilence());
 
             soundstreamqueue(streamhandle[streamchannel], (smemsize)UIBank,
-                             (smemsize)UIEventsLUT->lookup[GetPatch(UIEventsLUT, 0, UI_RadioBeepEnd)],
+                             (smemsize)SEpatch(UIEventsLUT, 0, UI_RadioBeepEnd),
                              SOUND_FLAGS_QUEUEPATCH, (sword)vol, pan, SOUND_MONO, SOUND_DEFAULT, NULL, NULL, NULL, event);
         }
         else
@@ -1290,6 +1360,14 @@ sdword speechEventQueue(void *object, sdword event, sdword var, sdword variation
     sdword channel = 0;
     sdword ally = SOUND_ERR;
 
+    if(cataAudioActive()){
+        if(event & (SPEECH_TYPE_NIS | SPEECH_TYPE_ANIMATIC)){
+            soundEventCataclysmSpeech(event,var<0?0:var);return 0;
+        }
+        /* Selection has an explicit original event/ship identity adapter.
+           Other command/chatter IDs remain excluded until ported. */
+        return cataSelectionSpeech(object,event,var,playernum);
+    }
     if (!enableSpeech || soundpaused)
     {
         return (SOUND_ERR);
@@ -2165,12 +2243,12 @@ sdword SEspeechevent(sdword stream, sdword actor, sdword event, sdword var, swor
         }
         if ((shipclass >= CLASS_HeavyCruiser) && (shipclass <= CLASS_Frigate))
         {
-            ppatch = SNDgetpatch(SpecialEffectBank, SpecEffectEventsLUT->lookup[GetPatch(SpecEffectEventsLUT, 0, Spec_IntCapShipCalm)]);
+            ppatch = SNDgetpatch(SpecialEffectBank, SEpatch(SpecEffectEventsLUT, 0, Spec_IntCapShipCalm));
             level = 128;
         }
         if (shipclass == CLASS_Resource)
         {
-            ppatch = SNDgetpatch(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ResourceCollector, ShipCmn_Ambient)]);
+            ppatch = SNDgetpatch(ShipBank, SEpatch(ShipCmnEventsLUT, ResourceCollector, ShipCmn_Ambient));
             level = 128;
         }
     }
@@ -2184,7 +2262,7 @@ sdword SEspeechevent(sdword stream, sdword actor, sdword event, sdword var, swor
         if (bookend && enableSFX)
         {
             soundstreamqueue(streamhandle[stream], (smemsize)SpecialEffectBank,
-                             (smemsize)SpecEffectEventsLUT->lookup[GetPatch(SpecEffectEventsLUT, 0, Spec_RadioBeepStart)],
+                             (smemsize)SEpatch(SpecEffectEventsLUT, 0, Spec_RadioBeepStart),
                              SOUND_FLAGS_QUEUEPATCH, vol, pan, SOUND_MONO, SOUND_DEFAULT, NULL, NULL, NULL, pSQueue->current.event);
 
 //          soundstreamqueueSilence(streamhandle[stream], SOUND_FLAGS_QUEUESILENCE, vol, pan, SOUND_MONO,
@@ -2205,7 +2283,7 @@ sdword SEspeechevent(sdword stream, sdword actor, sdword event, sdword var, swor
 //                                  SentenceLUT->compbitrate, fqeffect, pEQ, pdelay, SEsilence());
 
             soundstreamqueue(streamhandle[stream], (smemsize)SpecialEffectBank,
-                             (smemsize)SpecEffectEventsLUT->lookup[GetPatch(SpecEffectEventsLUT, 0, Spec_RadioBeepEnd)],
+                             (smemsize)SEpatch(SpecEffectEventsLUT, 0, Spec_RadioBeepEnd),
                              SOUND_FLAGS_QUEUEPATCH, vol, pan, SOUND_MONO, SOUND_DEFAULT, NULL, NULL, NULL, pSQueue->current.event);
         }
     }
@@ -2544,6 +2622,46 @@ sdword musictranslatetracknum(sdword tracknum)
 }
 
 
+static bool32 cataAudioActive(void){return singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission());}
+static MUSICSTREAM *cataMusicDefinition(sdword track,udword *checksum)
+{
+    int size;MUSICHEADER *header=(MUSICHEADER *)hwCataDataView("soundfx/music4cat.wxh",&size);
+    if(!header || size<12 || memcmp(header,"WXH1",4) || header->numstreams<1 || header->numstreams>1024 ||
+       (size_t)size<12+(size_t)header->numstreams*sizeof(MUSICSTREAM) || track<0 || track>=header->numstreams)
+        cataScriptFault("Owned Cataclysm music lookup table is missing or incompatible");
+    if(checksum)*checksum=header->checksum;
+    return &header->mstreams[track];
+}
+static sdword cataMusicStop(sdword track,real32 fade)
+{
+    sdword i;
+    if(track>=0 && track!=cataMusicTrack)return SOUND_OK;
+    for(i=0;i<2;i++){
+        if(enableSpeech)soundstreamvolume(musicinfo[i].handle,-1,fade);
+        musicinfo[i].status=SOUND_FREE;musicinfo[i].tracknum=musicinfo[i].nexttrack=SOUND_NOTINITED;
+    }
+    cataMusicTrack=-1;return SOUND_OK;
+}
+static sdword cataMusicPlay(sdword track)
+{
+    MUSICSTREAM *definition;udword checksum,header[2];char path[1024];sword volume;
+    if(track==1102)track=ranRandom(RANDOM_SOUND_BOTH_THREADS)%17;
+    if(track<0 || !enableSpeech)return SOUND_ERR;
+    definition=cataMusicDefinition(track,&checksum);
+    if(cataMusicTrack==track && !soundstreamover(musicinfo[NISSTREAM].handle))return SOUND_OK;
+    cataMusicStop(-1,0.0f);
+    if(cataMusicFile<0){
+        if(!hwCataAudioPath("Music4Cat.wxd",path,sizeof(path)))cataScriptFault("Owned Music4Cat.wxd is missing");
+        cataMusicFile=fileOpen(path,FF_IgnorePrepend|FF_ReturnNULLOnFail);
+        if(cataMusicFile<=0 || fileBlockRead(cataMusicFile,header,sizeof(header))!=sizeof(header) || header[1]!=checksum)
+            cataScriptFault("Owned Cataclysm music bank and lookup table do not match");
+    }
+    volume=(sword)(definition->volume*(track==41?volNIS:volMusic));
+    if(soundstreamqueue(musicinfo[NISSTREAM].handle,cataMusicFile,definition->offset,
+        definition->flags|SOUND_FLAGS_QUEUESTREAM,volume,SOUND_PAN_CENTER,definition->numchannels,
+        definition->bitrate,NULL,NULL,NULL,-1)<0)cataScriptFault("Could not queue owned Cataclysm music");
+    cataMusicTrack=track;return SOUND_OK;
+}
 void MEstarttrack(MUSICINFO *pinfo, MUSICSTREAM *pstream)
 {
     const char *rmPath = rmMusicPath(pinfo->tracknum);
@@ -2590,7 +2708,11 @@ void MEstarttrack(MUSICINFO *pinfo, MUSICSTREAM *pstream)
 sdword musicEventPlay(sdword tracknum)
 {
     MUSICINFO *pinfo;
-    MUSICSTREAM *pmstream = &musicheader->mstreams[musictranslatetracknum(tracknum)];
+    MUSICSTREAM *pmstream;
+    if(cataAudioActive())return cataMusicPlay(tracknum);
+    if(cataMusicTrack>=0)cataMusicStop(-1,0.0f);
+    if(tracknum<0 || musictranslatetracknum(tracknum)<0 || musictranslatetracknum(tracknum)>=musicheader->numstreams)return SOUND_ERR;
+    pmstream = &musicheader->mstreams[musictranslatetracknum(tracknum)];
 
     if (enableSpeech)
     {
@@ -2675,6 +2797,7 @@ sdword musicEventPlay(sdword tracknum)
 ----------------------------------------------------------------------------*/
 sdword musicEventStop(sdword tracknum, real32 fadetime)
 {
+    if(cataAudioActive())return cataMusicStop(tracknum,fadetime);
     if (enableSpeech)
     {
         if (tracknum == SOUND_DEFAULT)
@@ -2738,6 +2861,17 @@ sdword musicEventUpdateVolume(void)
     sword volume;
     MUSICINFO *pinfo;
     MUSICSTREAM *pmstream;
+    if(cataAudioActive()){
+        if(enableSpeech && cataMusicTrack>=0){
+            MUSICSTREAM *definition=cataMusicDefinition(cataMusicTrack,NULL);
+            if(!(definition->flags&SOUND_FLAGS_LOOPING) && !nisIsRunning &&
+               soundstreamnumqueued(musicinfo[NISSTREAM].handle)==0 && soundstreamover(musicinfo[NISSTREAM].handle))
+                return cataMusicPlay(SongNumber);
+            soundstreamvolume(musicinfo[NISSTREAM].handle,
+                (sword)(definition->volume*(cataMusicTrack==41?volNIS:volMusic)),0.0f);
+        }
+        return SOUND_OK;
+    }
 
     if (enableSpeech)
     {

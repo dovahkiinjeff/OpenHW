@@ -183,6 +183,8 @@ def install(root, staging, collection=None, progress=print):
         # Newly supplied UI art must also reach older existing installations.
         ui=staging/'Development/Content/ui'
         if ui.exists():shutil.copytree(ui,staging/'Data/UI',dirs_exist_ok=True)
+        from release_content_policy import install_cataclysm_native
+        install_cataclysm_native(staging)
         receipt.update(schema=1,status='ready',version=version,archive='OpenHW-HW1.obig')
         atomic_json(staging/'setup-complete.json',receipt)
         count=commit(root,staging,progress)

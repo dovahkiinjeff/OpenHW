@@ -12,6 +12,7 @@
 #include <stdlib.h>
 
 #include "Alliance.h"
+#include "CataclysmDisguise.h"
 #include "Battle.h"
 #include "Blobs.h"
 #include "ClassDefs.h"
@@ -2047,7 +2048,7 @@ bool32 tacticsAreEnemiesNearby(Ship *leadership,Ship *thisship, real32 retaliate
     {
         ship = blobships->ShipPtr[objindex];
 
-        if ((allianceIsShipAlly(ship, playerowner)))
+        if (allianceIsShipAlly(ship, playerowner) || cataDisguiseConcealsRaider(ship, playerowner))
         {
             goto nextnode;      // must be enemy ship
         }

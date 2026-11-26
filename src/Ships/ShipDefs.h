@@ -76,6 +76,10 @@ typedef enum
     ResearchStationBridge,
     ResearchStationTower,
 
+#define CATA_SHIP(id, source, name, header) id,
+#include "CataclysmShips.def"
+#undef CATA_SHIP
+
 } ShipType_enum;
 
 #ifdef _X86_64   //Capture this first, and make sure it's correctly sized.
@@ -107,8 +111,13 @@ typedef ShipType_enum ShipType;
 #define TRADERS_FIRST_SHIP    FloatingCity
 #define TRADERS_LAST_SHIP     ResearchStationTower
 
-#define DefaultShip           (ResearchStationTower+1)    // sentinel must not alias a real ship type
-#define TOTAL_NUM_SHIPS       (ResearchStationTower+1)
+#define CATA_FIRST_SHIP        CataScout
+#define CATA_LAST_COMPONENT    CataMothershipSpecial
+#define CATA_LAST_SHIP         CataMCV
+#define TOTAL_CATA_SHIPS       (CATA_LAST_SHIP-CATA_FIRST_SHIP+1)
+#define IS_CATA_SHIP(type)     ((type)>=CATA_FIRST_SHIP && (type)<=CATA_LAST_SHIP)
+#define DefaultShip           (CATA_LAST_SHIP+1)
+#define TOTAL_NUM_SHIPS       (CATA_LAST_SHIP+1)
 
 #define TOTAL_STD_SHIPS       (STD_LAST_SHIP - STD_FIRST_SHIP + 1)
 #define TOTAL_P1_SHIPS        (P1_LAST_SHIP - P1_FIRST_SHIP + 1)

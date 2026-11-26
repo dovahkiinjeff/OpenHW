@@ -25,6 +25,7 @@ ResourceControllerStatics ResourceControllerStatic;
 
 ResourceControllerStatics ResourceControllerStaticRace1;
 ResourceControllerStatics ResourceControllerStaticRace2;
+static ResourceControllerStatics CataclysmProcessorStatic;
 
 
 scriptStructEntry RCStaticScriptTable[] =
@@ -38,6 +39,7 @@ scriptStructEntry RCStaticScriptTable[] =
 void ResourceControllerStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
     ResourceControllerStatics *resourcestat = (statinfo->shiprace == R1) ? &ResourceControllerStaticRace1 : &ResourceControllerStaticRace2;
+    if(statinfo->shiptype==CataProcessor)resourcestat=&CataclysmProcessorStatic;
 
     statinfo->custstatinfo = resourcestat;
     scriptSetStruct(directory,filename,RCStaticScriptTable,(ubyte *)resourcestat);

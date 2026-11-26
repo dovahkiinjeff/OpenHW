@@ -8,6 +8,7 @@ Universe universe;
 MaxSelection selSelected;
 bool32 singlePlayerGame=TRUE,playPackets,universePause,mrDisabled,mrMenuDontDisappear;
 udword opPauseOrders;
+unsigned hwMatchOption(unsigned rule,unsigned localValue){(void)rule;return localValue;}
 static int checks,orders;
 static Ship *sentTarget;
 static DockType sentType;

@@ -119,6 +119,9 @@ static NumStrXlate shiptypeinfo[] =
     { (uword)Junk_SGun,  strdollar(Junk_SGun)},
     { (uword)ResearchStationBridge,  strdollar(ResearchStationBridge)},
     { (uword)ResearchStationTower,  strdollar(ResearchStationTower)},
+#define CATA_SHIP(id, source, name, header) { (uword)id, source },
+#include "CataclysmShips.def"
+#undef CATA_SHIP
     { 0,NULL }
 };
 
@@ -306,6 +309,9 @@ static NumStrXlate dockpointtypeinfo[] =
     { (uword)DockingCone, strdollar(DockingCone) },
     { (uword)LatchPoint, strdollar(LatchPoint) },
     { (uword)LaunchPoint, strdollar(LaunchPoint) },
+#define X(name) { (uword)name, strdollar(name) },
+#include "CataclysmDockTypes.inc"
+#undef X
 
     { 0,NULL }
 };
@@ -549,7 +555,9 @@ char *ShipTypeStatToNiceStr(ShipType shiptype, ShipStatsType stattype)
 
 ShipRace StrToNisRace(char *string)
 {
-    return((ShipRace)StrToNum(nisraceinfo, string));
+    if(!strcasecmp(string,"RACE_DERELICT"))return NSR_Derelict;
+    ShipRace race=(ShipRace)StrToNum(nisraceinfo,string);
+    return race==(ShipRace)-1?StrToShipRace(string):race;
 }
 
 char *NisRaceToStr(ShipRace race)
@@ -559,6 +567,11 @@ char *NisRaceToStr(ShipRace race)
 
 char *ShipTypeToNiceStr(ShipType shiptype)
 {
+    switch(shiptype){
+#define CATA_SHIP(id, source, name, header) case id: return name;
+#include "CataclysmShips.def"
+#undef CATA_SHIP
+    default:break;}
     return(strGetString((uword) shiptype + strShipOffset));
 }
 
@@ -634,11 +647,20 @@ char *ObjTypeToStr(ObjType objtype)
 
 ShipClass StrToShipClass(char *str)
 {
+    /* Separate Somtaaw component identities use the existing non-combat
+       class, preserving HW1 class indices and saved layouts. */
+    if(!strcmp(str,"CLASS_Component"))return CLASS_NonCombat;
     return StrToNum(shipclassinfo,str);
 }
 
 ShipRace StrToShipRace(char *str)
 {
+    if(!strcasecmp(str,"RACE_SECT") || !strcasecmp(str,"RACE_KUSHAN"))return R1;
+    if(!strcasecmp(str,"RACE_TAIDAN") || !strcasecmp(str,"RACE_BEAST"))return R2;
+    if(!strcasecmp(str,"RACE_P1"))return P1;
+    if(!strcasecmp(str,"RACE_TRADERS"))return Traders;
+    /* Mission-only ship identities select their own RACE_DERELICT data path. */
+    if(!strcasecmp(str,"RACE_DERELICT"))return R1;
     return StrToNum(shipraceinfo,str);
 }
 
@@ -649,6 +671,13 @@ SpecialEffectType StrToEffectNum(char *str)
 
 ShipType StrToShipType(char *str)
 {
+    if((str[0]=='k' || str[0]=='K' || str[0]=='t' || str[0]=='T') && str[1]){
+        ShipType native=StrToNum(shiptypeinfo,str+1);
+        if(native!=(ShipType)-1)return native;
+    }
+#define CATA_SHIP(id, source, name, header) if(!strcmp(str,#id))return id;
+#include "CataclysmShips.def"
+#undef CATA_SHIP
     return StrToNum(shiptypeinfo,str);
 }
 

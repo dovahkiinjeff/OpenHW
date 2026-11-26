@@ -28,6 +28,7 @@
 #include "DefenseFighter.h"
 #include "Demo.h"
 #include "Dock.h"
+#include "CataclysmShips.h"
 #include "FastMath.h"
 #include "File.h"
 #include "font.h"
@@ -38,6 +39,7 @@
 #include "RemasteredPresentation.h"
 #include "HS.h"
 #include "Key.h"
+#include "GameConsole.h"
 #include "LagPrint.h"
 #include "LaunchMgr.h"
 #include "Light.h"
@@ -86,6 +88,7 @@
 #include "Tutor.h"
 #include "Tweak.h"
 #include "Universe.h"
+#include "CataclysmDisguise.h"
 #include "UnivUpdate.h"
 #include "utility.h"
 #if defined(HW_ENABLE_D3D12_DIAGNOSTICS) || defined(HW_ENABLE_D3D12_BACKEND)
@@ -2138,7 +2141,8 @@ void rndRenderAHomeworld(void* voidCamera, void *voidWorld)
 
     /* These visual-only worlds are already supplied by the imported scene.
        Keep the objects for NIS/scripts and preserve all other world effects. */
-    if (gameIsRunning && remasteredBackdropActive() && !nisIsRunning)
+    if (gameIsRunning && remasteredBackdropActive() &&
+        (!nisIsRunning || spGetCurrentMission()==MISSION_CATA_1_HIIGARA))
     {
         switch (world->derelicttype)
         {
@@ -3193,6 +3197,15 @@ static void rndSubmitModernOffscreenShadowCasters(Camera *camera)
                     rndMainViewRenderFunction will have to be made to
                     rndMainViewAllButRenderFunction.
 ----------------------------------------------------------------------------*/
+static ShipSinglePlayerGameInfo *rndShipHyperspaceInfo(Ship *ship)
+{
+    Ship *host = cataShipComponentHost(ship);
+    ShipSinglePlayerGameInfo *info = (host ? host : ship)->shipSinglePlayerGameInfo;
+    if (info && info->shipHyperspaceState == SHIPHYPERSPACE_NONE)
+        return NULL;
+    return info;
+}
+
 void rndMainViewRenderFunction(Camera *camera)
 {
     Node *objnode;
@@ -3677,15 +3690,7 @@ dontdraw:
                                 {
                                     bool32 result = rndFade(spaceobj, camera);
                                     Ship* ship = (Ship*)spaceobj;
-                                    ShipSinglePlayerGameInfo* ssinfo = ship->shipSinglePlayerGameInfo;
-
-                                    if (ssinfo != NULL)
-                                    {
-                                        if (ssinfo->shipHyperspaceState == SHIPHYPERSPACE_NONE)
-                                        {
-                                            ssinfo = NULL;
-                                        }
-                                    }
+                                    ShipSinglePlayerGameInfo* ssinfo = rndShipHyperspaceInfo(ship);
 
                                     if (!result)
                                     {
@@ -3734,6 +3739,21 @@ dontdraw:
                                             extern bool32 g_Points;
                                             extern bool32 g_SpecificPoly;
 #endif
+                                            sdword disguiseColor = i;
+                                            real32 morph, morphRadius;
+                                            lodinfo *disguise = cataDisguiseVisual(ship, &disguiseColor, &morph, &morphRadius);
+                                            meshdata *disguiseMesh = NULL;
+                                            if (disguise && disguise->nLevels > 0)
+                                            {
+                                                sdword disguiseLOD = min((sdword)ship->currentLOD, disguise->nLevels - 1);
+                                                while (disguiseLOD > 0 &&
+                                                       (disguise->level[disguiseLOD].flags & LM_LODType) != LT_Mesh)
+                                                    --disguiseLOD;
+                                                if ((disguise->level[disguiseLOD].flags & LM_LODType) == LT_Mesh)
+                                                    disguiseMesh = disguise->level[disguiseLOD].pData;
+                                            }
+                                            if (!disguiseMesh || morph > 0.25f)
+                                            {
                                             meshSetEngineMaterialOwner(spaceobj);
                                             meshPrepareRemasteredShipPose(spaceobj,
                                                 ((Ship *)spaceobj)->bindings,
@@ -3791,6 +3811,17 @@ dontdraw:
                                             {
                                                 RenderNAVLights((Ship*)spaceobj);
                                             }
+                                            }
+                                            if (disguiseMesh)
+                                            {
+                                                meshSetEngineMaterialOwner(NULL);
+                                                if (morph > 0.0f)
+                                                    meshRenderDisguiseMorph(disguiseMesh, disguiseColor,
+                                                        &ship->staticinfo->staticheader.staticCollInfo.collsphereoffset,
+                                                        morphRadius, morph);
+                                                else
+                                                    meshRender(disguiseMesh, disguiseColor);
+                                            }
                                         }
 
                                         g_WireframeHack = FALSE;
@@ -3825,13 +3856,7 @@ dontdraw:
                                        owned by the raster pass. */
                                     Ship *shadowShip = (Ship *)spaceobj;
                                     ShipSinglePlayerGameInfo *shadowSsinfo =
-                                        shadowShip->shipSinglePlayerGameInfo;
-                                    if (shadowSsinfo != NULL &&
-                                        shadowSsinfo->shipHyperspaceState ==
-                                            SHIPHYPERSPACE_NONE)
-                                    {
-                                        shadowSsinfo = NULL;
-                                    }
+                                        rndShipHyperspaceInfo(shadowShip);
                                     if (shadowSsinfo == NULL ||
                                         shadowSsinfo->hsState != HS_FINISHED ||
                                         singlePlayerGameInfo.hyperspaceFails)
@@ -3906,7 +3931,7 @@ dontdraw:
 
                         {
                             Ship* ship = (Ship*)spaceobj;
-                            ShipSinglePlayerGameInfo* ssinfo = ship->shipSinglePlayerGameInfo;
+                            ShipSinglePlayerGameInfo* ssinfo = rndShipHyperspaceInfo(ship);
 
                             if (ssinfo != NULL &&
                                 ssinfo->hsState != HS_INACTIVE &&
@@ -5057,6 +5082,7 @@ DEFINE_TASK(rndRenderTask)
         mouseSelectCursorSetting();
         mouseSetCursorSetting();
         
+        gameConsoleDraw();
         mouseDraw();                                        //draw mouse atop everything
       
         //take a screenshot or sequence thereof

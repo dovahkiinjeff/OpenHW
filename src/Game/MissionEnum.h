@@ -23,7 +23,28 @@ typedef enum MissionEnum
     MISSION_15_CHAPEL_PERILOUS,
     MISSION_16_HIIGARA,
     MISSION_5B_TURANIC_RAIDER_PLANETOID,
-    MISSION_TUTORIAL
+    MISSION_TUTORIAL,
+    MISSION_CATA_1_HIIGARA,
+    MISSION_CATA_2_OUTSKIRTS
 } MissionEnum;
+
+static __inline int hwIsCataclysmMission(MissionEnum mission)
+{return mission==MISSION_CATA_1_HIIGARA || mission==MISSION_CATA_2_OUTSKIRTS;}
+
+static __inline int hwCataclysmMissionNumber(MissionEnum mission)
+{
+    switch (mission) {
+        case MISSION_CATA_1_HIIGARA: return 1;
+        case MISSION_CATA_2_OUTSKIRTS: return 2;
+        default: return 0;
+    }
+}
+
+static __inline MissionEnum hwCataclysmAdjacentMission(MissionEnum mission, int direction)
+{
+    if (mission == MISSION_CATA_1_HIIGARA && direction > 0) return MISSION_CATA_2_OUTSKIRTS;
+    if (mission == MISSION_CATA_2_OUTSKIRTS && direction < 0) return MISSION_CATA_1_HIIGARA;
+    return MISSION_ENUM_NOT_INITIALISED;
+}
 
 #endif

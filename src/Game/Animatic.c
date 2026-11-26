@@ -7,6 +7,7 @@
 // =============================================================================
 
 #include "Animatic.h"
+#include "../Modern/CataclysmData.h"
 
 #include "avi.h"
 #include "File.h"
@@ -123,17 +124,15 @@ void animAviDecodeTime(real32 timeElapsed)
     header = animScriptHeader;
 
 
-    event = &animScriptHeader->events[animCurrentEvent];
-    while (animCurrentEvent < header->nEvents &&
-           event->time <= timeElapsed)
+    universe.totaltimeelapsed = timeElapsed;
+    while (animCurrentEvent < header->nEvents)
     {
+        event = &header->events[animCurrentEvent];
+        if (event->time > timeElapsed) break;
         dbgAssertOrIgnore(nisEventDispatch[event->code] != NULL);
         nisEventDispatch[event->code](NULL, event);
         animCurrentEvent++;
-        event++;
     }
-
-    universe.totaltimeelapsed = timeElapsed;
     subTitlesUpdate();
 }
 
@@ -297,7 +296,7 @@ void animAviDisplay(void)
     Outputs     :
     Return      : nisheader
 ----------------------------------------------------------------------------*/
-nisheader* animLoadNISScript(char* scriptname)
+static nisheader *animLoadNISScript(char *scriptname, bool32 useBaseScriptIfMissing)
 {
     // for localization
 	char *pString;
@@ -339,7 +338,10 @@ nisheader* animLoadNISScript(char* scriptname)
             }
         }
 
-		if (fileExists(localisedPath, 0))
+        /* The installed archive may only contain the base timed script. */
+        if (useBaseScriptIfMissing && !fileExists(localisedPath, 0))
+            strcpy(localisedPath, scriptname);
+        if (fileExists(localisedPath, 0))
 		{
 			nisEventIndex = 0;
 			nisCurrentHeader = newHeader;
@@ -467,7 +469,9 @@ bool32 animAviPlay(sdword a, sdword b)
 
 #ifdef HW_ENABLE_MOVIES
 
-    char filename[1024], scriptname[1024], hdname[1024] = {0};
+    char filename[1024], scriptname[112], hdname[1024] = {0};
+    const int cataFrom = hwCataclysmMissionNumber((MissionEnum)a);
+    const int cataTo = hwCataclysmMissionNumber((MissionEnum)b);
 //    void animBinkEnd(void);
     extern sdword trLitPaletteBits;
 
@@ -482,14 +486,24 @@ bool32 animAviPlay(sdword a, sdword b)
     animaticJustPlayed = 0;
     subReset();
 
-    if (a < 0)
+    if (cataFrom || cataTo)
+    {
+        if (!cataTo || cataTo != cataFrom + 1 ||
+            (cataFrom == 0 && a != MISSION_ENUM_NOT_INITIALISED) ||
+            !hwCataAnimaticPaths(cataFrom, filename, sizeof(filename), scriptname, sizeof(scriptname)))
+        {
+            return FALSE;
+        }
+        animScriptHeader = animLoadNISScript(scriptname, TRUE);
+    }
+    else if (a < 0)
     {
         animScriptHeader = NULL;
         sprintf(filename, (char*)b);
     }
     else
     {
-        dbgAssertOrIgnore(a >= 0 && b < NUMBER_SINGLEPLAYER_MISSIONS);
+        if (a >= NUMBER_SINGLEPLAYER_MISSIONS) return FALSE;
         if (animlisting[a].filename[0] == '\0')
         {
             return FALSE;
@@ -504,7 +518,7 @@ bool32 animAviPlay(sdword a, sdword b)
         sprintf(scriptname, "Movies/%s.script", animlisting[a].filename);
         snprintf(hdname, sizeof(hdname), "Movies/HD/%s.mp4", animlisting[a].filename);
 #endif
-        animScriptHeader = animLoadNISScript(scriptname);
+        animScriptHeader = animLoadNISScript(scriptname, FALSE);
     }
 
     soundEventStopMusic(0.0f);
@@ -512,6 +526,8 @@ bool32 animAviPlay(sdword a, sdword b)
     if (!aviInit())
     {
         dbgMessage("animAviPlay: aviInit failed.");
+        if (animScriptHeader) nisDelete(animScriptHeader);
+        animScriptHeader = NULL;
         return FALSE;
     }
     rndSetClearColor(colBlack);
@@ -539,7 +555,10 @@ bool32 animAviPlay(sdword a, sdword b)
 //                    (trLitPaletteBits == 15) ? S_RGB555 : S_RGB565,
 //                    FALSE, -1);
 
+    if (cataTo) soundEventCataclysmSpeechSkip();
     animAviEnd();
+    if (animScriptHeader) nisDelete(animScriptHeader);
+    animScriptHeader = NULL;
 
     if (rval && b == MISSION_1_KHARAK_SYSTEM)
     {

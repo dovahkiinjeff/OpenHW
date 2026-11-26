@@ -9,6 +9,7 @@
 
 #include "Teams.h"
 #include "MatchRules.h"
+#include "SinglePlayer.h"
 
 #include <stdio.h>
 
@@ -159,10 +160,11 @@ void teReset(void)
 {
     tecolorscheme tempScheme;
 
-    scriptSet(NULL, TE_ColorScript, teColorTweaks);
+    const bool32 cata=singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission());
+    scriptSet(NULL, cata ? "Cataclysm\\TeamColors.script" : TE_ColorScript, teColorTweaks);
     teRace1Default = teColorSchemes[0].textureColor;
     teRace2Default = teColorSchemes[1].textureColor;
-    if (whichRaceSelected == R2)
+    if (!cata && whichRaceSelected == R2)
     {
         swap(teColorSchemes[0], teColorSchemes[1], tempScheme);
     }

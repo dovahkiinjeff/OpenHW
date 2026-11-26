@@ -93,6 +93,7 @@ typedef struct
     real32 icolor[4];
     real32 deltaColor[4];
     real32 scale;
+    real32 scaleY; /* Cataclysm billboard height; classic sprites remain square. */
     real32 deltaScale;
     bool8  lit;
     real32 illum;
@@ -239,6 +240,8 @@ void partModifyDeltaIllum(psysPtr psys, real32 deltaIllum);
 void partModifyTexture(psysPtr psys, trhandle tex,
                        udword u0, udword v0, udword u1, udword v1);
 void partModifyScale(psysPtr psys, real32 s);
+void partModifyScaleX(psysPtr psys, real32 s);
+void partModifyScaleY(psysPtr psys, real32 s);
 void partModifyDeltaScale(psysPtr psys, real32 d);
 void partModifyDeltaLength(psysPtr psys, real32 d);
 void partModifyLifespan(psysPtr psys, real32 l);

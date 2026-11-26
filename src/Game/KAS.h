@@ -91,6 +91,7 @@ void kasShipDied(Ship *ship);
 void kasGrowSelectionClear(GrowSelection *ships);
 
 void kasLabelledEntitiesDestroy(void);
+void kasLabelledEntitiesResetForHandoff(bool32 (*keep)(const char *label));
 
 void kasAddShipToTeam(Ship *ship,char *str);
 

@@ -8,6 +8,14 @@ from release_setup import verify_payload,local_environment,root_directory,valida
 from release_import import SPECIALS
 
 class ReleaseInstallerTests(unittest.TestCase):
+    def test_personal_identity_and_color_history_never_become_defaults(self):
+        source='PlayerBaseColor 12345\nPlayerStripeColor 23456\nPlayerEngineTrailColor 34567\nPlayerEngineTrailOverride TRUE\nPlayerNavLightColor 45678\nPlayerNavLightOverride TRUE\nPlayerResourceBeamColor 56789\nPlayerResourceBeamOverride TRUE\nPlayerHyperspaceColor 67890\nPlayerHyperspaceOverride TRUE\nColorsPicked 1\nPlayerRace 1\nPrevColor0.base 78901\nPrevColor0.stripe 89012\nPrevColor4.base 90123\nShipsAlwaysUseOwnerColors FALSE\n'
+        result=defaults(source)
+        for row in source.splitlines():
+            if not row.startswith('ShipsAlwaysUseOwnerColors'):self.assertNotIn(row,result)
+        self.assertIn('ShipsAlwaysUseOwnerColors FALSE',result)
+        self.assertEqual(result,defaults(result))
+
     @classmethod
     def setUpClass(cls):
         (ROOT/'tmp').mkdir(exist_ok=True)

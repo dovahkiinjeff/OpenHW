@@ -12,6 +12,8 @@
 // =============================================================================
 
 #include "AIShip.h"
+#include "CataclysmShips.h"
+#include "SinglePlayer.h"
 
 #include "AITrack.h"
 #include "Alliance.h"
@@ -785,7 +787,8 @@ void rowSignalShipToGetOutOfWayOfMe(Ship *ship,Ship *me,vector *meToShip,vector 
     {
         vector meDirOfTravelNorm = *meDirOfTravel;
         vector meToShipNorm;
-        real32 avoidby = rowAvoidBy[me->shiptype];
+        real32 avoidby = singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission())?
+            cataShipAvoidBy(me):rowAvoidBy[me->shiptype];
 
         if (avoidby == 0.0f) avoidby = me->staticinfo->staticheader.staticCollInfo.avoidcollspheresize*AVOID_ROW_SHIP_BY_SCALE + AVOID_ROW_SHIP_BY_ADD;
 
@@ -1217,6 +1220,14 @@ passagain:
                 if ((distcheck = (avoidobj->collOptimizeDist - ship->collOptimizeDist)) > maxpossibledist)
                 {
                     goto nextpass;
+                }
+
+                if (ship->shiptype == CataMothership && avoidobj->objtype == OBJ_ShipType &&
+                    cataShipIsCoreComponent(((Ship *)avoidobj)->shiptype) &&
+                    ((Ship *)avoidobj)->clampInfo &&
+                    ((Ship *)avoidobj)->clampInfo->host == (SpaceObjRotImpTarg *)ship)
+                {
+                    goto nextnode;
                 }
 
                 // use more trivial rejections?

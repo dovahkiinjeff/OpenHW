@@ -27,6 +27,7 @@ ResourceCollectorStatics ResourceCollectorStatic;
 
 ResourceCollectorStatics ResourceCollectorStaticRace1;
 ResourceCollectorStatics ResourceCollectorStaticRace2;
+static ResourceCollectorStatics CataclysmWorkerStatic;
 
 scriptStructEntry ResourceCollectorStaticScriptTable[] =
 {
@@ -38,6 +39,7 @@ scriptStructEntry ResourceCollectorStaticScriptTable[] =
 void ResourceCollectorStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
     ResourceCollectorStatics *resourcestat = (statinfo->shiprace == R1) ? &ResourceCollectorStaticRace1 : &ResourceCollectorStaticRace2;
+    if(statinfo->shiptype==CataWorker)resourcestat=&CataclysmWorkerStatic;
 
     statinfo->custstatinfo = resourcestat;
     scriptSetStruct(directory,filename,ResourceCollectorStaticScriptTable,(ubyte *)resourcestat);

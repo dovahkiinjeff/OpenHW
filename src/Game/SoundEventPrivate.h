@@ -163,6 +163,9 @@ void SEloadbank(void);
 sdword SEselectactor(void);
 sdword SEspeechevent(sdword stream, sdword actor, sdword event, sdword var, sword vol, sword pan, double dist, float damageratio, sdword setVariation, bool32 bookend, ShipClass shipclass);
 sword SEgetAngleToCamera(Ship *ship);
+sdword SEpatch(SFXLUT *lut, sdword object, sdword event);
+sdword SEshipSoundObject(const Ship *ship);
+void soundEventSelectGameBanks(void);
 sdword GetPatch(SFXLUT *lut, sdword object, sdword event);
 real32 SEsilence(void);
 

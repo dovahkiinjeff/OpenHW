@@ -14,6 +14,7 @@ typedef struct ModernUILayout {
 static rectangle muiRect(sdword x0,sdword y0,sdword x1,sdword y1)
 {rectangle r={x0,y0,x1,y1};return r;}
 #include "../src/Game/FrontendMenuLayout.inc"
+#include "../src/Game/FrontendDrawerState.h"
 #define CHECK(x) do {++checks;if(!(x)){fprintf(stderr,"line %d, %dx%d scale %g: %s\n",__LINE__,MAIN_WindowWidth,MAIN_WindowHeight,(double)uiScaleGet(),#x);exit(1);}}while(0)
 static void within(rectangle r,rectangle p)
 {CHECK(r.x1>r.x0 && r.y1>r.y0);CHECK(r.x0>=p.x0 && r.y0>=p.y0 && r.x1<=p.x1 && r.y1<=p.y1);}
@@ -23,6 +24,16 @@ int main(void)
 {
     static const int sizes[][2]={{1280,720},{1920,1080},{2560,1440},{3440,1440},{3840,2160}};
     unsigned n;int percent,side,i,j;
+    {
+        bool32 keyboard=FALSE,open=FALSE;
+        open=muiDrawerWantsOpen(&keyboard,TRUE,FALSE,open,TRUE);CHECK(open);
+        open=muiDrawerWantsOpen(&keyboard,FALSE,TRUE,open,TRUE);CHECK(open);
+        open=muiDrawerWantsOpen(&keyboard,FALSE,FALSE,open,TRUE);CHECK(!open);
+        keyboard=TRUE;
+        open=muiDrawerWantsOpen(&keyboard,FALSE,FALSE,open,FALSE);CHECK(open);
+        open=muiDrawerWantsOpen(&keyboard,FALSE,FALSE,open,TRUE);CHECK(!open && !keyboard);
+        open=muiDrawerWantsOpen(&keyboard,TRUE,FALSE,open,TRUE);CHECK(open);
+    }
     for(n=0;n<sizeof(sizes)/sizeof(*sizes);++n)for(percent=75;percent<=150;percent+=25) {
         MuiStoryLayout story;ModernUILayout colors;rectangle screen;
         MAIN_WindowWidth=sizes[n][0];MAIN_WindowHeight=sizes[n][1];

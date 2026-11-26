@@ -102,6 +102,12 @@ void speechEventUnderAttack(Ship *target);
 
 sdword speechEventQueue(void *object, sdword event, sdword var, sdword variation, sdword actornum, sdword playernum, sdword linkto, real32 timeout, sword volume);
 #define speechEventFleet(a,b,c)		speechEventQueue(NULL, a, b, -1, 0, c, -1, 5.0f, -1)
+bool32 soundEventUsesCataclysm(void);
+bool32 soundEventWorldAudioAllowed(void);
+void soundEventSelectGameBanks(void);
+void soundEventCataclysmSpeech(sdword event,sdword variable);
+sdword soundEventCataclysmSpeechEnded(void);
+void soundEventCataclysmSpeechSkip(void);
 #define speechEventFleetSpec(a,b,c,d)	speechEventQueue(a, b, c, -1, 0, d, -1, 5.0f, -1)
 #define speechEventFleetVar(a,b,c,d)	speechEventQueue(NULL, a, b, c, 0, d, -1, 5.0f, -1)
 #define speechEvent(a,b,c)			speechEventQueue(a, b, c, -1, -1, -1, -1, 0.0f, -1)

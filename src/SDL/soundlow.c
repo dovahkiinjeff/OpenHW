@@ -53,8 +53,8 @@ bool32 bSoundPaused = FALSE;
 bool32 bSoundDeactivated = FALSE;
 
 sdword numbanks = 0;
-sdword numchans[4] = {0,0,0,0};
-BANKPOINTERS bankpointers[4];
+sdword numchans[8] = {0};
+BANKPOINTERS bankpointers[8];
 
 SOUNDCOMPONENT	mixer;
 SOUNDCOMPONENT	streamer;
@@ -200,6 +200,9 @@ sdword soundinit(bool32 mode)
 	sdword i, result;
 
 	// clean up the channels
+	numbanks=0;
+	memset(bankpointers,0,sizeof(bankpointers));
+	memset(numchans,0,sizeof(numchans));
 	for (i = 0; i < soundnumvoices; i++)
 	{
 		channels[i].status = SOUND_FREE;
@@ -371,6 +374,7 @@ udword soundbankadd(void *bankaddress)
 	sdword numpatches;
 
 	/* point the global bank pointer to the bank header */
+	if(numbanks>=8)return 0;
 	bank = (BANK *)bankaddress;
 
 	/* check bank ID */

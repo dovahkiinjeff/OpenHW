@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channel": "stable",
-  "latest": "1.1.21",
+  "latest": "1.3",
   "minimum_protocol": 4,
   "full_install": {
     "version": "1.1.15",
@@ -148,26 +148,38 @@
       "from": [
         "1.1.20"
       ]
+    },
+    {
+      "version": "1.3",
+      "url": "https://openhw.tech/downloads/v1.3/OpenHW-Patch-1.3.exe",
+      "size": 364335626,
+      "sha256": "85819fac79dded49f223ceeccc00a31a57890870c5846eef8ff6b99207ffaa93",
+      "to": "1.3",
+      "from": [
+        "1.1.21"
+      ],
+      "format": "openhw-exe-zip-v1",
+      "post_actions": []
     }
   ],
   "launcher": {
-    "version": "1.1.13",
-    "url": "https://openhw.tech/downloads/v1.1.21/Launcher.exe",
-    "size": 10079548,
-    "sha256": "bb7837fe3598109f1dfe4eb419102ce88a0549b48c01f6f68225d05ee074361f"
+    "version": "1.1.14",
+    "url": "https://openhw.tech/downloads/v1.3/Launcher.exe",
+    "size": 10507407,
+    "sha256": "2bc0e8d84ae5d8ee3383d9a44158416622e938ed03c020d09cfa22af8ad5a2a8"
   },
   "updater": {
-    "version": "1.1.13",
-    "url": "https://openhw.tech/downloads/v1.1.21/Updater.exe",
-    "size": 10069287,
-    "sha256": "039e0548c22b23c8d3c5525d238fc35c12e030debcb7a834ac9ca7ff181f98d3",
+    "version": "1.1.14",
+    "url": "https://openhw.tech/downloads/v1.3/Updater.exe",
+    "size": 10496128,
+    "sha256": "e4bc0f766c5c42991a5d578c5232ac88dbe9673bca4b36ce4f6bc86c18f6978f",
     "protocol": 4
   },
   "fresh_install": {
-    "version": "1.1.21",
-    "url": "https://openhw.tech/downloads/v1.1.21/OpenHW-Setup.exe",
-    "size": 511840912,
-    "sha256": "f7f84eeb344d68ba15697abc566eec697fb88b749df54b66b9f5d59833f938d7",
+    "version": "1.3",
+    "url": "https://openhw.tech/downloads/v1.3/OpenHW-Setup.exe",
+    "size": 658135599,
+    "sha256": "81f08095d851f07aafd5732ad0c356ba0a1613a52583baf868934fbbe956029c",
     "format": "openhw-full-v1"
   },
   "installation_policy": {
@@ -175,5 +187,5 @@
     "recovery_page": "https://openhw.tech/#/download",
     "explanation": "1.1.15 is the consolidated full baseline. Earlier versions use the same complete GitHub package in place; player files are preserved. Compatible 1.1 archives are reused; older data is rebuilt from the owned Collection."
   },
-  "release": "1.1.21"
+  "release": "1.3"
 }

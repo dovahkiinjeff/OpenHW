@@ -15,6 +15,12 @@
     "Rajdhani-OFL.txt": "f62ef357d3a1c3d27edd35a6e1ba350e8a8d13499797964eeadefbf0b3b15d1f",
     "Rajdhani-Regular.ttf": "6e1fc228a8318251a6e569502ec57bac1e4656c582f92f59ccecc4688e039b98",
     "ShareTechMono-OFL.txt": "9d96f445b6e9c701428811d0177f894874f8d6f07ecc30d568c506542368f3ff",
-    "ShareTechMono-Regular.ttf": "9ceab1f87414829af259c0f537573ae03ef7dd3147c0b27a36a1a0beb6732677"
+    "ShareTechMono-Regular.ttf": "9ceab1f87414829af259c0f537573ae03ef7dd3147c0b27a36a1a0beb6732677",
+    "cataclysm-data.png": "fd2b3b5e2f285021770c892aaa32d758e619254b52cc1adfc23be02628609ac9"
+  },
+  "cataclysm_data_art": {
+    "file": "assets/Launcher/cataclysm-data.png",
+    "source": "Image supplied by the project owner for the Cataclysm data picker",
+    "treatment": "Original image; cropped at display time without altering the source asset"
   }
 }

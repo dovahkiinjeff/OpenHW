@@ -8,6 +8,8 @@
 // =============================================================================
 
 #include "AITrack.h"
+#include "CataclysmAI.h"
+#include "CataclysmNPCTrack.h"
 
 #include "Gun.h"
 #include "AIShip.h"
@@ -54,6 +56,8 @@ scriptEntry AITrackTweaks[] =
 ----------------------------------------------------------------------------*/
 bool32 aitrackIsStabilizeShip(Ship *ship)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackIsStabilizeShip(ship);}
+
     vector heading,up,right;
     bool32 stabilizedpitch;
     real32 rotx = ship->rotinfo.rotspeed.x;
@@ -88,6 +92,8 @@ bool32 aitrackIsStabilizeShip(Ship *ship)
 ----------------------------------------------------------------------------*/
 bool32 aitrackStabilizeGuidance(SpaceObjRotImpTargGuidance *ship)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackStabilizeGuidance(ship);}
+
     real32 rotx = ship->rotinfo.rotspeed.x;
     real32 roty = ship->rotinfo.rotspeed.y;
     real32 rotz = ship->rotinfo.rotspeed.z;
@@ -210,6 +216,8 @@ bool32 aitrackStabilizeGuidance(SpaceObjRotImpTargGuidance *ship)
 ----------------------------------------------------------------------------*/
 bool32 aitrackIsZeroRotation(Ship *ship)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackIsZeroRotation(ship);}
+
     real32 rotx = ship->rotinfo.rotspeed.x;
     real32 roty = ship->rotinfo.rotspeed.y;
     real32 rotz = ship->rotinfo.rotspeed.z;
@@ -235,6 +243,8 @@ bool32 aitrackIsZeroRotation(Ship *ship)
 ----------------------------------------------------------------------------*/
 bool32 aitrackZeroRotationAnywhere(Ship *ship)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackZeroRotationAnywhere(ship);}
+
     real32 rotx = ship->rotinfo.rotspeed.x;
     real32 roty = ship->rotinfo.rotspeed.y;
     real32 rotz = ship->rotinfo.rotspeed.z;
@@ -305,6 +315,8 @@ bool32 aitrackZeroRotationAnywhere(Ship *ship)
 ----------------------------------------------------------------------------*/
 bool32 aitrackHeadingAndUp(Ship *ship,vector *desiredHeading,vector *desiredUp,real32 accuracy)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackHeadingAndUp(ship,desiredHeading,desiredUp,accuracy);}
+
     ShipStaticInfo *shipstaticinfo = (ShipStaticInfo *)ship->staticinfo;
 
     vector curheading;
@@ -459,6 +471,8 @@ bool32 aitrackHeadingAndUp(Ship *ship,vector *desiredHeading,vector *desiredUp,r
 ----------------------------------------------------------------------------*/
 bool32 aitrackHeadingFunc(SpaceObjRotImpTargGuidance *ship,vector *desiredHeading,real32 accuracy,real32 upaccuracy,real32 sinbank,udword flags)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackHeadingFunc(ship,desiredHeading,accuracy,upaccuracy,sinbank,flags);}
+
     StaticInfoHealthGuidance *shipstaticinfo = ship->staticinfo;
 
     vector curheading;
@@ -638,6 +652,8 @@ bool32 aitrackHeadingFunc(SpaceObjRotImpTargGuidance *ship,vector *desiredHeadin
 
 bool32 aitrackHeadingWithBankPitchFunc(Ship *ship,vector *desiredHeading,real32 accuracy,real32 sinbank,real32 pitchdescend,real32 pitchturn,udword flags)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackHeadingWithBankPitchFunc(ship,desiredHeading,accuracy,sinbank,pitchdescend,pitchturn,flags);}
+
     vector curheading;
     vector desheading;
     real32 curheadingsqr,curheadingmag;
@@ -759,6 +775,8 @@ bool32 aitrackHeadingWithBankPitchFunc(Ship *ship,vector *desiredHeading,real32 
 ----------------------------------------------------------------------------*/
 bool32 aitrackRightVector(Ship *ship,vector *desiredRightVector,real32 accuracy)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackRightVector(ship,desiredRightVector,accuracy);}
+
     ShipStaticInfo *shipstaticinfo = (ShipStaticInfo *)ship->staticinfo;
 
     vector curright;
@@ -938,6 +956,8 @@ bool32 aitrackRightVector(Ship *ship,vector *desiredRightVector,real32 accuracy)
 ----------------------------------------------------------------------------*/
 void aitrackVelocityVectorGuidance(SpaceObjRotImpTargGuidance *ship,vector *desiredVelocity)
 {
+    if(cataNpcControlsObject(ship)){cataNpc_aitrackVelocityVectorGuidance(ship,desiredVelocity);return;}
+
     StaticInfoHealthGuidance *shipstaticinfo = ship->staticinfo;
 
     vector errorDifference;
@@ -1020,6 +1040,8 @@ void aitrackVelocityVectorGuidance(SpaceObjRotImpTargGuidance *ship,vector *desi
 ----------------------------------------------------------------------------*/
 bool32 aitrackIsZeroVelocity(Ship *ship)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackIsZeroVelocity(ship);}
+
     vector shipVelocity;
 
     shipVelocity = ship->posinfo.velocity;
@@ -1038,6 +1060,8 @@ bool32 aitrackIsZeroVelocity(Ship *ship)
 
 bool32 aitrackZeroForwardVelocity(Ship *ship)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackZeroForwardVelocity(ship);}
+
     ShipStaticInfo *shipstaticinfo = ship->staticinfo;
     real32 thruststr;
     real32 massOverTime;
@@ -1077,6 +1101,8 @@ bool32 aitrackZeroForwardVelocity(Ship *ship)
 ----------------------------------------------------------------------------*/
 bool32 aitrackZeroVelocity(Ship *ship)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackZeroVelocity(ship);}
+
     vector shipVelocity;
     vector shipVelocityInShipCoordSys;
     ShipStaticInfo *shipstaticinfo = (ShipStaticInfo *)ship->staticinfo;
@@ -1145,6 +1171,8 @@ bool32 aitrackZeroVelocity(Ship *ship)
 ----------------------------------------------------------------------------*/
 bool32 aitrackSteadyShipDriftOnly(Ship *ship)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackSteadyShipDriftOnly(ship);}
+
     bool32 zerovel = aitrackZeroVelocity(ship);
     bool32 gunswerereset = !vanillaGunsMode && gunResetGimbleGuns(ship);
 
@@ -1172,6 +1200,8 @@ bool32 aitrackSteadyShipDriftOnly(Ship *ship)
 ----------------------------------------------------------------------------*/
 bool32 aitrackIsShipSteadyAnywhere(Ship *ship)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackIsShipSteadyAnywhere(ship);}
+
     return (aitrackIsZeroRotation(ship) & aitrackIsZeroVelocity(ship));
 }
 
@@ -1184,6 +1214,8 @@ bool32 aitrackIsShipSteadyAnywhere(Ship *ship)
 ----------------------------------------------------------------------------*/
 bool32 aitrackSteadyShipAnywhere(Ship *ship)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackSteadyShipAnywhere(ship);}
+
     bool32 stabilized = aitrackZeroRotationAnywhere(ship);
     bool32 zerovel = aitrackZeroVelocity(ship);
     bool32 gunswerereset = !vanillaGunsMode && stabilized && gunResetGimbleGuns(ship);
@@ -1212,6 +1244,8 @@ bool32 aitrackSteadyShipAnywhere(Ship *ship)
 ----------------------------------------------------------------------------*/
 bool32 aitrackIsShipSteady(Ship *ship)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackIsShipSteady(ship);}
+
     return (aitrackIsStabilizeShip(ship) & aitrackIsZeroVelocity(ship));
 }
 
@@ -1224,6 +1258,8 @@ bool32 aitrackIsShipSteady(Ship *ship)
 ----------------------------------------------------------------------------*/
 bool32 aitrackSteadyShip(Ship *ship)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackSteadyShip(ship);}
+
     bool32 stabilized = aitrackStabilizeShip(ship);
     bool32 zerovel = aitrackZeroVelocity(ship);
     bool32 gunswerereset = !vanillaGunsMode && stabilized && gunResetGimbleGuns(ship);
@@ -1254,6 +1290,8 @@ bool32 aitrackSteadyShip(Ship *ship)
 ----------------------------------------------------------------------------*/
 void aitrackForceSteadyShip(Ship *ship)
 {
+    if(cataNpcControlsObject(ship)){cataNpc_aitrackForceSteadyShip(ship);return;}
+
     if (ship->flags & SOF_Crazy)
     {
         return;     // ship is crazy, so return
@@ -1277,6 +1315,8 @@ void aitrackForceSteadyShip(Ship *ship)
 ----------------------------------------------------------------------------*/
 void aitrackForceGuidanceZeroRotation(SpaceObjRotImpTargGuidance *ship)
 {
+    if(cataNpcControlsObject(ship)){cataNpc_aitrackForceZeroRotation((Ship*)ship);return;}
+
     if (ship->flags & SOF_Crazy)
     {
         return;     // ship is crazy, so return
@@ -1296,6 +1336,7 @@ void aitrackForceGuidanceZeroRotation(SpaceObjRotImpTargGuidance *ship)
 ----------------------------------------------------------------------------*/
 void aitrackForceZeroVelocity(Ship *ship)
 {
+    if(cataNpcControlsObject(ship)){cataNpc_aitrackForceGuidanceZeroRotation((SpaceObjRotImpTargGuidance*)ship);return;}
     if (ship->flags & SOF_Crazy)
     {
         return;     // ship is crazy, so return
@@ -1315,6 +1356,8 @@ void aitrackForceZeroVelocity(Ship *ship)
 ----------------------------------------------------------------------------*/
 void aitrackForceHeading(Ship *ship, vector *heading, vector *upvector)
 {
+    if(cataNpcControlsObject(ship)){cataNpc_aitrackForceHeading(ship,heading,upvector);return;}
+
     vector rightvec;
     if (ship->flags & SOF_Crazy)
     {
@@ -1346,6 +1389,8 @@ void aitrackForceHeading(Ship *ship, vector *heading, vector *upvector)
 ----------------------------------------------------------------------------*/
 bool32 MoveReachedDestinationVariable(Ship *ship,vector *destination,real32 bounds)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_MoveReachedDestinationVariable(ship,destination,bounds);}
+
     vector lefttogo;
     real32 negbounds = -bounds;
 
@@ -1378,6 +1423,8 @@ bool32 MoveReachedDestinationVariable(Ship *ship,vector *destination,real32 boun
 ----------------------------------------------------------------------------*/
 real32 MoveLeftToGo(Ship *ship,vector *destination)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_MoveLeftToGoDistance(ship,destination);}
+
     real32 absx = ABS(destination->x - ship->posinfo.position.x);
     real32 absy = ABS(destination->y - ship->posinfo.position.y);
     real32 absz = ABS(destination->z - ship->posinfo.position.z);
@@ -1395,6 +1442,8 @@ real32 MoveLeftToGo(Ship *ship,vector *destination)
 ----------------------------------------------------------------------------*/
 bool32 aitrackRotationSpeed(Ship *ship, real32 desiredrotspeed, uword track)
 {
+    if(cataNpcControlsObject(ship)){return cataNpc_aitrackRotationSpeed(ship,desiredrotspeed,track);}
+
     real32 rotstr      = 0.0;
     real32 oneovertime = 0.0;
     real32 rotspeed    = 0.0;

@@ -24,7 +24,7 @@ struct ActivePresentation {
 using Scene=std::shared_ptr<HwRmHodScene>;
 using SceneSource=std::shared_ptr<const std::vector<unsigned char>>;
 struct Model {std::string key;SceneSource bytes;Scene scene;};
-struct Event {std::string name;std::vector<unsigned> clips;};
+struct Event {std::string name;std::vector<unsigned> clips;double startPhase=0,endPhase=1;};
 struct GunBinding {unsigned gun,component;std::string azimuth,declination,recoil,muzzle,presentation;
     std::unique_ptr<HwRmWeaponPresentation,WeaponDelete> weapon;};
 struct MarkerBinding {unsigned component;std::string semantic,joint;};
@@ -429,6 +429,31 @@ extern "C" int hwRmVisualAssetBindAnimation(HwRmVisualAsset *asset,const char *n
         asset->events.push_back(std::move(event));detail(error,errorSize,"");return 1;
     } catch(const std::exception& e) {detail(error,errorSize,e.what());return 0;}
 }
+extern "C" int hwRmVisualAssetBindAnimationRange(HwRmVisualAsset *asset, const char *event,
+    const char *sourceClip, double startPhase, double endPhase, char *error, size_t errorSize) {
+    if (!std::isfinite(startPhase) || !std::isfinite(endPhase) ||
+        startPhase < 0 || endPhase > 1 || startPhase >= endPhase) {
+        detail(error, errorSize, "invalid native animation phase interval");
+        return 0;
+    }
+    if (!hwRmVisualAssetBindAnimation(asset, event, &sourceClip, 1, error, errorSize))
+        return 0;
+    asset->events.back().startPhase = startPhase;
+    asset->events.back().endPhase = endPhase;
+    return 1;
+}
+
+extern "C" int hwRmVisualAssetBindAnimationOpening(HwRmVisualAsset *asset, const char *event,
+    const char *sourceClip, double duration, char *error, size_t errorSize) {
+    const auto *clip = asset && sourceClip ? hwRmMadFindClip(asset->animation.get(), sourceClip) : nullptr;
+    if (!clip || !std::isfinite(duration) || duration <= 0 || clip->end <= clip->start) {
+        detail(error, errorSize, "invalid native animation opening interval");
+        return 0;
+    }
+    return hwRmVisualAssetBindAnimationRange(asset, event, sourceClip, 0.0,
+        std::min(1.0, duration / (clip->end - clip->start)), error, errorSize);
+}
+
 extern "C" HwRmVisualInstance *hwRmVisualInstanceCreate(HwRmVisualAsset *asset) {
     if(!asset || asset->released) return nullptr;
     try {
@@ -552,6 +577,20 @@ extern "C" int hwRmVisualInstanceDockEndpoint(const HwRmVisualInstance *instance
         const float result[3]={point.position[1]*scale,-point.position[0]*scale,point.position[2]*scale};
         for(float value:result) if(!std::isfinite(value) || std::abs(value)>1000000) return 0;
         std::copy(result,result+3,position);return 1;
+    }
+    return 0;
+}
+extern "C" int hwRmVisualInstanceDockPoint(const HwRmVisualInstance *instance,
+    const char *name,unsigned index,float scale,float position[3]) {
+    if(!instance||!name||!position||!std::isfinite(scale)||scale<=0||scale>100000)return 0;
+    const auto *hull=instance->asset->hull.get();
+    for(unsigned i=0;i<hwRmHodSceneDockPathCount(hull);++i){
+        const auto *path=hwRmHodSceneDockPath(hull,i);
+        if(!path||std::strcmp(path->name,name)||std::strcmp(path->parent,"world")||index>=path->pointCount)continue;
+        const auto& p=path->points[index];
+        const float out[3]={p.position[1]*scale,-p.position[0]*scale,p.position[2]*scale};
+        for(float v:out)if(!std::isfinite(v)||std::abs(v)>1000000)return 0;
+        std::copy(out,out+3,position);return int(path->pointCount);
     }
     return 0;
 }
@@ -765,9 +804,10 @@ extern "C" const HwRmMad *hwRmVisualInstanceAnimation(const HwRmVisualInstance *
 extern "C" int hwRmVisualInstanceSampleEvent(HwRmVisualInstance *instance,const char *name,
     double phase,char *error,size_t errorSize) {
     try {
-        if(!instance || !name) throw std::runtime_error("invalid visual event request");
+        if(!instance || !name || !std::isfinite(phase) || phase<0 || phase>1)
+            throw std::runtime_error("invalid visual event request");
         for(const auto& event:instance->asset->events) if(event.name==name) {
-            std::vector<double> phases(event.clips.size(),phase);
+            std::vector<double> phases(event.clips.size(), event.startPhase + phase * (event.endPhase - event.startPhase));
             std::vector<HwRmAnimationTarget> targets;
             for(const auto& target:instance->asset->animationTargets)
                 targets.push_back({target.source.c_str(),0,target.target.c_str()});
@@ -784,11 +824,13 @@ extern "C" int hwRmVisualInstanceAnimationPresentation(HwRmVisualInstance *insta
         const Event* binding=nullptr;
         for(const auto& event:instance->asset->events)if(event.name==name){binding=&event;break;}
         if(!binding)return 0;
+        phase = binding->startPhase + phase * (binding->endPhase - binding->startPhase);
         const auto* events=hwRmVisualInstancePresentation(instance,0);
         if(!events)return 1;
         const bool start=instance->phaseEvent!=name || phase<instance->presentationPhase;
         if(!start && instance->presentationPhase==phase)return 1;
-        const double previous=start?(phase>0?-1:0):
+        const double firstPhase=binding->startPhase>0?std::nextafter(binding->startPhase,-1.0):-1.0;
+        const double previous=start?(phase>0?firstPhase:0):
             (instance->presentationPhaseFirst?-1:instance->presentationPhase);
         std::vector<unsigned> timelines;
         for(unsigned clip:binding->clips){

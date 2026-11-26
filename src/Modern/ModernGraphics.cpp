@@ -389,6 +389,21 @@ float3 DisplayToLinear(float3 displayRgb)
     return lerp(high, low, step(displayRgb, 0.04045));
 }
 
+float3 ComposeDisplayReflection(float3 base, float4 reflection)
+{
+    float3 diffuse = base * (1.0 - saturate(reflection.a));
+    float3 highlight = max(reflection.rgb, 0.0);
+    float peak = max(highlight.r, max(highlight.g, highlight.b));
+    /* The DXR reflection buffer is scene-linear HDR, while the hybrid base
+       is already display-referred. Compress only the reflected energy near
+       display white. One scale for RGB preserves the reflected light's hue. */
+    float room = saturate(1.0 - max(diffuse.r, max(diffuse.g, diffuse.b)));
+    float knee = 0.5 * room;
+    float excess = max(0.0, peak - knee);
+    float compressed = min(peak, knee) + knee * excess / max(1e-6, knee + excess);
+    return diffuse + highlight * (compressed / max(1e-6, peak));
+}
+
 float3 ToneMapSky(float3 radiance)
 {
     /* Leave ordinary authored gradients untouched in scene-linear space, then
@@ -2620,7 +2635,7 @@ float4 PresentPS(VertexOutput input) : SV_Target
                     float4 reflected = ReflectedLight.SampleLevel(SourceSampler, guideUv, 0)
                                      * (1.0 - emissiveFxProtection);
                     if (any(reflected > 0))
-                        scene = LinearToSrgb(max(0, DisplayToLinear(scene) * (1.0 - reflected.a) + reflected.rgb));
+                        scene = LinearToSrgb(ComposeDisplayReflection(DisplayToLinear(scene), reflected));
                 }
             }
 

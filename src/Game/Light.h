@@ -100,5 +100,6 @@ void lightSetLighting(void);
 void lightSetNumLights(udword numLights);
 
 void lightGetPosition(sdword lightIndex, hvector* position);
+void lightGetMissionLighting(real32 direction[3], real32 diffuse[3], real32 ambient[3]);
 
 #endif

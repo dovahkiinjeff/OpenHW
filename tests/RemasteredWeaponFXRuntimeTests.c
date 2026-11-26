@@ -17,6 +17,7 @@
 #include "Clouds.h"
 #include "glinc.h"
 #include "NativeGunPosePolicy.h"
+#include "../src/Game/WeaponGateLimiter.h"
 #include "ModernGraphics.h"
 static unsigned engineLights,deathLights;
 static unsigned presentationStops;
@@ -102,6 +103,26 @@ void hwglTexCoord2f(GLfloat u,GLfloat v) { assert(isfinite(u+v)); }
 void hwglVertex3f(GLfloat x,GLfloat y,GLfloat z) { assert(isfinite(x+y+z)); ++vertices; sumX+=x; }
 int main(int argc,char **argv)
 {
+    {
+        WeaponGateLimiter limit={0};unsigned second,event,total=0;
+        assert(weaponGateAllow(&limit,1,0,1,0,0,10));
+        assert(!weaponGateAllow(&limit,1,0,1,0,.5f,10));
+        memset(&limit,0,sizeof(limit));
+        /* More ships/reasons than the old cache held must not cause a log
+           storm. Exercise both sustained load and the per-run ceiling. */
+        for(second=0;second<200;second++){
+            unsigned emitted=0;
+            for(event=0;event<4096;event++)
+                emitted+=weaponGateAllow(&limit,event%256,event%8,event%7,0,(float)second,10);
+            assert(emitted<=WEAPON_GATE_PER_SECOND);total+=emitted;
+        }
+        assert(total==WEAPON_GATE_TOTAL);
+        assert(!weaponGateAllow(&limit,999,0,0,0,201,10));
+        assert(weaponGateAllow(&limit,1,0,1,0,0,10)); /* new mission clock */
+    }
+    if(argc==2 && !strcmp(argv[1],"--rate-limit")){
+        puts("Weapon diagnostic overflow, per-second/run bounds and clock reset passed");return 0;
+    }
     Ship ship={0}; ShipStaticInfo info={0}; lodinfo lods={0}; GunInfo guninfo={0}; Gun *gun=&guninfo.guns[0]; GunStatic gunstatic={0};
     Bullet bullet={0}; Camera camera={0}; vector position={0,0,0},direction={0,0,1},velocity={0,0,0}; unsigned before;
     assert(argc==2 || argc==3); path=argv[1];

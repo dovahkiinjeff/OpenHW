@@ -1773,6 +1773,11 @@ void mouseSetCursorSetting(void)
     {
         if (mouseInfo.ship_selected)
         {
+            if (mrWorkerRepairKeyIsHit())
+            {
+                mouseDrawType(support);
+                return;
+            }
             //forced attack
             if (keyIsHit(SHIFTKEY) && keyIsHit(CONTROLKEY))
             {

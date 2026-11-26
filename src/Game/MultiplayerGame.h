@@ -329,6 +329,8 @@ void GeneralMessageBox(char *string1,char *string2);        // designed for exte
 
 void mgSetGameTypeByStruct(GameType *game);
 void mgSetGameTypeByNum(sdword i);
+bool32 mgWarnMultiplayerMods(void);
+void mgShowScreen(sdword screennum,bool32 disappear);
 void mgGameTypesOtherButtonPressed(void);
 
 void mgBackuptpGameCreated(void);

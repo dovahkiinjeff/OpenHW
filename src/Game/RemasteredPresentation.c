@@ -14,6 +14,7 @@
 #include "mainrgn.h"
 #include "Vector.h"
 #include "SoundEvent.h"
+#include "CataclysmWeaponFx.h"
 #include "mainswitches.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -212,7 +213,7 @@ static void attachedSound(const Ship *ship,HwRmVisualInstance *instance,unsigned
     const char *markers,unsigned gun,int isGun,const char *cue,int stateTimeline)
 {
     uint64_t handle;float position[3];char error[256];PresentationAnchor *anchor;
-    if(!soundPlayback||!cue||!*cue)return;
+    if(soundEventUsesCataclysm()||!soundPlayback||!cue||!*cue)return;
     /* Reap finished voices before allocating from the attachment budget. */
     hwRmSoundPlaybackAdvance(soundPlayback,universe.totaltimeelapsed);
     anchor=allocateAnchor(ship,instance,component,markers,gun,isGun);if(!anchor){diagnostic(cue,"sound attachment unavailable");return;}
@@ -401,7 +402,7 @@ void rmPresentationHullContact(const float position[3])
     char error[256];
     /* Reuse an installed RM hull-hit cue; the native SFX bus and spatial
        attenuation apply. Contact debouncing belongs to collision handling. */
-    if(soundPlayback && enableSFX)
+    if(!soundEventUsesCataclysm() && soundPlayback && enableSFX)
         hwRmSoundPlaybackPlay(soundPlayback,"weapon/megaship/impact/weapon_megaship_hull_defence_gun_hit",
             (unsigned)(universe.totaltimeelapsed*1000.0f),position,0,error,sizeof(error));
 }
@@ -411,10 +412,11 @@ void rmPresentationDraw(Camera *camera){unsigned i;if(!camera)return;
     if(fxPlayback){rmFxRendererBegin(camera);hwRmFxPlaybackDraw(fxPlayback);rmFxRendererEnd();}}
 bool32 rmPresentationOwnsGunSound(const void *ship,unsigned gun)
 {
-    return soundPlayback&&(meshRemasteredGunHasSound(ship,gun)||ionGun(ship,gun));
+    return !soundEventUsesCataclysm()&&soundPlayback&&(meshRemasteredGunHasSound(ship,gun)||ionGun(ship,gun));
 }
 static int availableFx(void *user,const char *choices){(void)user;return fxGraph&&hwRmFxGraphSelect(fxGraph,choices,0)>=0;}
 bool32 rmPresentationOwnsGunFx(const void *ship,unsigned gun){
+    if(cataEnergyGun(ship,gun))return FALSE;
     float scale;HwRmVisualInstance *instance;if(!fxPlayback)return FALSE;
     instance=meshRemasteredInstance(ship,&scale);
     return (instance&&hwRmVisualInstanceGunHasFx(instance,gun,availableFx,NULL))||
@@ -435,8 +437,9 @@ static bool32 ownsHarvestCue(const void *owner,int visual){
     return FALSE;
 }
 bool32 rmPresentationOwnsHarvestFx(const void *ship){(void)ship;return FALSE;}
-bool32 rmPresentationOwnsHarvestSound(const void *ship){return ownsHarvestCue(ship,0);}
+bool32 rmPresentationOwnsHarvestSound(const void *ship){return !soundEventUsesCataclysm()&&ownsHarvestCue(ship,0);}
 void rmPresentationCaptureProjectile(const void *projectile,const void *ship,unsigned gun){
+    if(cataEnergyGun(ship,gun))return;
     float scale;unsigned slot;ProjectileCue *entry;const HwRmWeaponPresentation *weapon;HwRmVisualInstance *instance;
     if(!soundPlayback&&!fxPlayback)return;
     scale=1;instance=meshRemasteredInstance(ship,&scale);
@@ -451,14 +454,14 @@ void rmPresentationCaptureProjectile(const void *projectile,const void *ship,uns
         index=hwRmFxGraphSelect(fxGraph,source->fx,entry->random+slot);
         if(index>=0)entry->slots[slot].fx=hwRmFxGraphAt(fxGraph,(unsigned)index)->name;
         index=hwRmSoundBankFind(soundBank,source->sound);
-        if(index>=0)entry->slots[slot].sound=hwRmSoundBankAt(soundBank,(unsigned)index)->name;
+        if(!soundEventUsesCataclysm()&&index>=0)entry->slots[slot].sound=hwRmSoundBankAt(soundBank,(unsigned)index)->name;
     }
     if(ionGun(ship,gun)&&!instance){
         entry->defaultIonFire=1;
         int index=hwRmFxGraphFind(fxGraph,"ion_beam_charge_combo_kus");
         if(index>=0)entry->slots[HW_RM_WEAPON_FIRE].fx=hwRmFxGraphAt(fxGraph,(unsigned)index)->name;
         index=hwRmSoundBankFind(soundBank,"WEAPON/FRIGATE/FIRE/WEAPON_FRIGATE_ION_CANNON_BEAM");
-        if(index>=0)entry->slots[HW_RM_WEAPON_FIRE].sound=hwRmSoundBankAt(soundBank,(unsigned)index)->name;
+        if(!soundEventUsesCataclysm()&&index>=0)entry->slots[HW_RM_WEAPON_FIRE].sound=hwRmSoundBankAt(soundBank,(unsigned)index)->name;
     }
 }
 static uint64_t projectileAnchor(const ProjectileCue *entry,int impact){PresentationAnchor *anchor=newAnchor();
@@ -576,7 +579,7 @@ static void deathEvent(void *user,unsigned component,const HwRmPresentationEvent
             if(!hwRmFxPlaybackSpawn(fxPlayback,event->fx,random,universe.totaltimeelapsed,frame,velocity,scale,event->lengthMode==0?event->length*death->scale:0,anchor)&&anchor)releaseAnchor(NULL,anchor);
         }else releaseAnchor(NULL,anchor);
     }
-    if(soundPlayback&&event->sound&&*event->sound&&(anchor=deathAnchor(death,component,event->markers,random))!=0){
+    if(!soundEventUsesCataclysm()&&soundPlayback&&event->sound&&*event->sound&&(anchor=deathAnchor(death,component,event->markers,random))!=0){
         if(!resolveFrame(NULL,anchor,frame,velocity)||!hwRmSoundPlaybackPlay(soundPlayback,event->sound,random,frame+12,anchor,error,sizeof(error)))releaseAnchor(NULL,anchor);
     }
 }

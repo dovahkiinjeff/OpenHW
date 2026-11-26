@@ -12,6 +12,31 @@ from release_content_policy import verify_profile,audit_archive
 
 
 class ReleaseContentPolicyTests(unittest.TestCase):
+    def test_profile_rejects_personal_color_defaults(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            (root/'defaults.cfg').write_text('pLaYeRBaseColor 12345\n')
+            (root/'content-inventory.json').write_text(json.dumps({'schema':2,'files':[]}))
+            with self.assertRaisesRegex(ValueError,'Private player identity'):verify_profile(root)
+
+    def test_nested_runtime_rejects_personal_colors_and_history(self):
+        for row in ('PlayerStripeColor 23456','PrevColor3.stripe 34567','ColorsPicked 1','PlayerHyperspaceOverride TRUE'):
+            nested=io.BytesIO()
+            with zipfile.ZipFile(nested,'w') as archive:archive.writestr('Homeworld.cfg',row+'\n')
+            outer=io.BytesIO()
+            with zipfile.ZipFile(outer,'w') as archive:
+                archive.writestr('Development/content-inventory.json',json.dumps({'schema':2,'files':[]}))
+                archive.writestr('Development/runtime.zip',nested.getvalue())
+            outer.seek(0)
+            with self.assertRaisesRegex(ValueError,'Private player identity'):audit_archive(outer)
+
+    def test_installed_profile_check_does_not_read_private_backups(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/'Backups/PlayerIdentity').mkdir(parents=True)
+            (root/'Backups/PlayerIdentity/Homeworld.cfg').write_text('PlayerBaseColor 12345\n')
+            (root/'content-inventory.json').write_text(json.dumps({'schema':2,'files':[]}))
+            self.assertEqual(verify_profile(root)['files'],[])
+
     def test_raw_texture_is_rejected_even_when_not_in_an_archive(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);(root/'Content/r1').mkdir(parents=True)

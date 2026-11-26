@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iterator>
 #include <utility>
+#include <atomic>
 
 #pragma pack(push,1)
 struct ObigHeader { char magic[8]; uint32_t version,count; uint64_t dataOffset; };
@@ -20,6 +21,7 @@ static const unsigned char *archiveView=nullptr;
 static const ObigHeader *archiveHeader=nullptr;
 static const ObigEntry *archiveEntries=nullptr;
 static std::string archiveRoot;
+static std::atomic<bool> modsUsedThisSession{false};
 static const std::pair<const char*,const char*> archiveAliases[]={
 #include "ArchiveAssetAliases.inc"
 };
@@ -69,7 +71,7 @@ extern "C" void openhwArchiveUnmount(void) {
     if(archiveView)UnmapViewOfFile(archiveView);archiveView=nullptr;
     if(archiveMapping)CloseHandle(archiveMapping);archiveMapping=nullptr;
     if(archiveFile!=INVALID_HANDLE_VALUE)CloseHandle(archiveFile);archiveFile=INVALID_HANDLE_VALUE;
-    archiveHeader=nullptr;archiveEntries=nullptr;archiveRoot.clear();
+    archiveHeader=nullptr;archiveEntries=nullptr;archiveRoot.clear();modsUsedThisSession.store(false);
 }
 extern "C" int openhwArchiveMountPresentation(const wchar_t *path,char *error,size_t capacity) {
     auto fail=[&](const char *reason) {
@@ -164,6 +166,22 @@ extern "C" const void *openhwArchiveView(const char *relative,int *size){
         return openhwArchiveView(target,size);
     return nullptr;
 }
+extern "C" int openhwMultiplayerModsActive(char *names,size_t capacity){
+    if(names && capacity)names[0]=0;
+    if(archiveRoot.empty())return 0;
+    std::ifstream input(archiveRoot+"mods/load-order.txt");std::string name,summary;unsigned count=0;
+    while(std::getline(input,name) && count<128){
+        if(!name.empty() && name.back()=='\r')name.pop_back();
+        if(name.empty() || name[0]=='#' || name.size()>64 ||
+           !std::all_of(name.begin(),name.end(),[](char c){return (c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='_'||c=='-';}))continue;
+        const DWORD attrs=GetFileAttributesA((archiveRoot+"mods/"+name).c_str());
+        if(attrs==INVALID_FILE_ATTRIBUTES || !(attrs&FILE_ATTRIBUTE_DIRECTORY))continue;
+        if(!summary.empty())summary+=", ";summary+=name;count++;
+    }
+    if(!count && modsUsedThisSession.load()){count=1;summary="Mods loaded earlier in this session";}
+    if(names && capacity)snprintf(names,capacity,"%s",summary.c_str());
+    return (int)count;
+}
 extern "C" int openhwModOverride(const char *relative,char *path,size_t capacity){
     if(!path||!capacity||archiveRoot.empty())return 0;
     thread_local bool initialized=false;
@@ -190,7 +208,7 @@ extern "C" int openhwModOverride(const char *relative,char *path,size_t capacity
     for(auto it=mods.rbegin();it!=mods.rend();++it){std::string candidate=archiveRoot+"mods/"+*it+"/"+key;
         DWORD attrs=GetFileAttributesA(candidate.c_str());
         if(attrs!=INVALID_FILE_ATTRIBUTES&&!(attrs&FILE_ATTRIBUTE_DIRECTORY)&&candidate.size()<capacity){
-            memcpy(path,candidate.c_str(),candidate.size()+1);return 1;}}
+            modsUsedThisSession.store(true);memcpy(path,candidate.c_str(),candidate.size()+1);return 1;}}
     // Regenerated official material pages also serve their shared aliases.
     if(const char* target=archiveAlias(key)) {
         for(const std::string prefix:{archiveRoot,archiveRoot+"Data/"}) {

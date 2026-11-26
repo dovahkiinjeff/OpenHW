@@ -143,6 +143,7 @@ static bool32 gunCanShootInternal(Ship *ship, Gun *gun)
 {
     GunStatic *gunstatic = gun->gunstatic;
     CommandToDo *command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
+    if(gunstatic->cataWeaponDisabled)return FALSE;
 
     if(ship->staticinfo->maxfuel != 0.0f)
     {
@@ -288,7 +289,8 @@ bool32 gunCanShoot(Ship *ship, Gun *gun)
 {
     bool32 ready=gunCanShootInternal(ship,gun);
     rmWeaponFxDiagnosticFireCheck(ship,gun,ready?"gun_ready":
-        (ship->staticinfo->maxfuel!=0 && ship->fuel<=0?"blocked_no_fuel":"blocked_cooldown_or_passive_penalty"));
+        (gun->gunstatic->cataWeaponDisabled?"blocked_special_weapon":
+        ship->staticinfo->maxfuel!=0 && ship->fuel<=0?"blocked_no_fuel":"blocked_cooldown_or_passive_penalty"));
     return ready;
 }
 
@@ -995,6 +997,7 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
     vector recoil;
     real32 massovertime;
 
+    if(gunstatic->cataWeaponDisabled)return;
     dbgAssertOrIgnore(gunstatic->guntype != GUN_MissileLauncher);
 
     //line-of-sight check
@@ -1463,10 +1466,12 @@ bool32 gunShootGunsAtTarget(Ship *ship,SpaceObjRotImpTarg *target,real32 range,v
                     ship->madGunStatus != MAD_STATUS_GUNS_OPENING)
                 {
                     madOpenGunsShip(ship);
+                    rmWeaponFxDiagnosticFireCheck(ship,gun,"blocked_gun_open_animation");
                     return shotguns;
                 }
                 else if(ship->madGunStatus != MAD_STATUS_GUNS_OPEN)
                 {
+                    rmWeaponFxDiagnosticFireCheck(ship,gun,"blocked_gun_open_animation");
                     return shotguns;
                 }
                 //otherwise, we're open..try to fire away!
@@ -1592,10 +1597,12 @@ bool32 gunShootGunsAtMultipleTargets(Ship *ship)
                     ship->madGunStatus != MAD_STATUS_GUNS_OPENING)
                 {
                     madOpenGunsShip(ship);
+                    rmWeaponFxDiagnosticFireCheck(ship,gun,"blocked_gun_open_animation");
                     return shotguns;
                 }
                 else if(ship->madGunStatus != MAD_STATUS_GUNS_OPEN)
                 {
+                    rmWeaponFxDiagnosticFireCheck(ship,gun,"blocked_gun_open_animation");
                     return shotguns;
                 }
                 //otherwise, we're open..try to fire away!

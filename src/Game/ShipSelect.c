@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "ShipSelect.h"
+#include "CataclysmShips.h"
 
 #include <string.h>
 
@@ -535,7 +536,7 @@ sdword MakeShipsAttackCapable(SelectCommand *dest, SelectCommand *source)
 ----------------------------------------------------------------------------*/
 bool32 ShipCanHarvest(ShipStaticInfo *shipstatic)
 {
-    if (shipstatic->shiptype == ResourceCollector)
+    if (shipstatic->shiptype == ResourceCollector || shipstatic->shiptype == CataWorker)
     {
         return TRUE;
     }
@@ -738,6 +739,11 @@ void makeShipsControllable(SelectCommand *selection,sdword newCommand)
     }
     for (i=0;i<selection->numShips;)
     {
+        if(bitTest(selection->ShipPtr[i]->specialFlags2,SPECIAL_2_CataUpgrading))
+        {
+            selection->ShipPtr[i]=selection->ShipPtr[--selection->numShips];
+            continue;
+        }
         command = getShipAndItsCommand(&universe.mainCommandLayer,selection->ShipPtr[i]);
         if(command != NULL)
         {
@@ -1515,7 +1521,7 @@ SelectCommand *selectAllCurrentPlayersNonHyperspacingShips(void)
         ship = (Ship *)listGetStructOfNode(objnode);
         dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr))
+        if ((!cataShipSkipFleetOrders(ship) && allianceIsShipAlly(ship,universe.curPlayerPtr)))
         {
             if(!(ship->flags & SOF_Disabled))
             {
@@ -1557,7 +1563,7 @@ SelectCommand *selectAllCurrentPlayersHyperspacingShips(void)
         ship = (Ship *)listGetStructOfNode(objnode);
         dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr))
+        if ((!cataShipSkipFleetOrders(ship) && allianceIsShipAlly(ship,universe.curPlayerPtr)))
         {
             if(!(ship->flags & SOF_Disabled))
             {

@@ -1,8 +1,6 @@
-# OpenHW 1.1.21
+# OpenHW 1.1.15
 
-**Latest release:** [OpenHW 1.1.21](docs/RELEASE_NOTES_1.1.21.md). Fixes host map selection in online multiplayer lobbies. New players can download the complete current package from [openhw.tech](https://openhw.tech/#/download). Existing players update through Launcher. GitHub provides source code; compiled updates are hosted on openhw.tech.
-
-**Latest update:** [1.1.16 — AI production, Expert difficulty and update handoff](docs/RELEASE_NOTES_1.1.16.md). Choose **Update now** in Launcher. Compiled updates are served by openhw.tech; GitHub contains source. The complete 1.1.15 installer remains the base for new installations.
+**Latest release:** [1.1.15 — consolidated full release](docs/RELEASE_NOTES_1.1.15.md). New installations and every earlier version use the same [full GitHub package](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/OpenHW-Setup.exe). Existing installations update in place; player files are preserved. Future patches start from 1.1.15.
 
 > [!IMPORTANT]
 > **New baseline:** download and run the complete 1.1.15 installer, or choose Update now in Launcher. Select an existing OpenHW folder to replace its program files while preserving player files. An owned Collection is required for new or older-data imports. Earlier patch-chain and separate-folder instructions below are historical and superseded by the [1.1.15 notes](docs/RELEASE_NOTES_1.1.15.md).

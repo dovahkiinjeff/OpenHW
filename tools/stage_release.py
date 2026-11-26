@@ -6,6 +6,8 @@ def sha(path):
     with Path(path).open('rb') as stream:return hashlib.file_digest(stream,'sha256').hexdigest()
 
 def defaults(text):
+    from release_identity_policy import remove_private_identity
+    text=remove_private_identity(text)
     # A preset config exists on first launch, so request display detection
     # explicitly. No developer machine paths or graphics-adapter IDs survive.
     omitted={'homeworlddatapath','screenwidth','screenheight','screendepth','refreshrate',

@@ -1,6 +1,16 @@
 #ifndef HW_NATIVE_VISUAL_SCOPE_H
 #define HW_NATIVE_VISUAL_SCOPE_H
 #include <string.h>
+static int hwRmNativeSomtaawType(const char *name)
+{
+    return name && (!strcmp(name,"sRecon") || !strcmp(name,"sWorker") ||
+                    !strcmp(name,"sAcolyte") || !strcmp(name,"sACV") ||
+                    !strcmp(name,"sProcessor") || !strcmp(name,"sRammingFrigate") ||
+                    !strcmp(name,"sMothership") || !strcmp(name,"sMothershipLowerSpine") ||
+                    !strcmp(name,"sMothershipOreCanArmour") || !strcmp(name,"sMothershipDockingBay") ||
+                    !strcmp(name,"sMothershipWeapons") || !strcmp(name,"sMothershipArmour") ||
+                    !strcmp(name,"sMothershipMicro") || !strcmp(name,"sMothershipSpecial"));
+}
 /* Exact existing identities, not prefixes that enable other races. Derelict
    package identities are qualified because their names overlap fleet ships. */
 static int hwRmNativeR2Type(const char *name)

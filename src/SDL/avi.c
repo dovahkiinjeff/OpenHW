@@ -574,17 +574,18 @@ dbgMessage("aviPlay:Entering");
 #endif
     char  fullname[1024];
 
-//TODO  Include Windows file structure. 
-
-    strcpy(fullname, filePathPrepend(filename, FF_HomeworldDataPath));
-
-    //try Homeworld\Data\Movies first
-    if (!aviStart(fullname))
+    if (filename[0] == '/' || filename[0] == '\\' ||
+        (filename[0] && filename[1] == ':'))
     {
-        //try current directory next
-        if (!aviStart(filename))
+        if (!aviStart(filename)) return FALSE;
+    }
+    else
+    {
+        const char *preferred = filePathPrepend(filename, FF_HomeworldDataPath);
+        int length = snprintf(fullname, sizeof(fullname), "%s", preferred);
+        if (length < 0 || (size_t)length >= sizeof(fullname) || !aviStart(fullname))
         {
-            return FALSE;
+            if (!aviStart(filename)) return FALSE;
         }
     }
 

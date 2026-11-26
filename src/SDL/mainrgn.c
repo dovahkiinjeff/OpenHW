@@ -1,4 +1,7 @@
 #include "NavigationOrders.h"
+#include "CataclysmCampaign.h"
+#include "CataclysmWorker.h"
+#include "CataclysmSalvage.h"
 #include "../Network/MatchRules.h"
 #include "OnlineClient.h"
 /*=============================================================================
@@ -1245,6 +1248,78 @@ bool32 mrCanZBandBox(bool32 *bFriendlies, bool32 *bEnemies)
     return(*bFriendlies || *bEnemies);
 }
 
+static bool32 mrHasSelectedWorker(void)
+{
+    return singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()) &&
+           ShiptypeInSelection((SelectCommand *)&selSelected, CataWorker);
+}
+
+bool32 mrWorkerRepairKeyIsHit(void)
+{
+    return keyIsHit(YKEY) && mrHasSelectedWorker();
+}
+
+udword mrWorkerTargetAbility(void)
+{
+    if (!mrHasSelectedWorker())
+        return 0;
+    if (keyIsHit(YKEY))
+        return CATA_UPGRADE_REPAIR;
+    if (kbCommandKeyIsHit(kbSHIP_SPECIAL) && !guardKeyIsHit() && !keyIsHit(CONTROLKEY) &&
+        !keyIsHit(ALTKEY) && !keyIsHit(RALTKEY))
+        return CATA_UPGRADE_SALVAGE;
+    return 0;
+}
+
+void mrWorkerTargetBandBox(Node *objects, Camera *camera, rectangle *bounds, udword ability, bool32 issueOrder)
+{
+    MaxSelection workers;
+    sdword i, targetCount;
+    bool32 salvage = ability == CATA_UPGRADE_SALVAGE;
+
+    selRectNone();
+    if (issueOrder && salvage) mrSpecialBandBox = TRUE;
+    if (mrDisabled || playPackets || (universePause && !hwMatchOption(OH_PAUSE_ORDERS, opPauseOrders)))
+        return;
+
+    workers.numShips = 0;
+    for (i = 0; i < selSelected.numShips; ++i)
+    {
+        Ship *ship = selSelected.ShipPtr[i];
+        if (ship->shiptype == CataWorker && ship->playerowner == universe.curPlayerPtr &&
+            cataCampaignShipHasUpgrade(ship, ability))
+            workers.ShipPtr[workers.numShips++] = ship;
+    }
+    if (!workers.numShips)
+        return;
+
+    if (salvage)
+        selRectDragFunction(objects, camera, bounds, selSelecting.TargetPtr,
+                            &selSelecting.numTargets, FALSE, FALSE, FALSE);
+    else
+        selRectDragFriendlies(objects, camera, bounds);
+    targetCount = 0;
+    for (i = 0; i < selSelecting.numTargets; ++i)
+    {
+        SpaceObjRotImpTarg *target = selSelecting.TargetPtr[i];
+        if (!(target->flags & (SOF_Hide | SOF_Hyperspace)) &&
+            (salvage ? cataSalvageCanTarget(target, universe.curPlayerPtr) :
+                       cataWorkerCanRepairTarget(target, universe.curPlayerPtr)))
+            selSelecting.TargetPtr[targetCount++] = target;
+    }
+    selSelecting.numTargets = targetCount;
+    MakeShipsNotIncludeTheseShips((SelectCommand *)&selSelecting, (SelectCommand *)&workers);
+
+    if (issueOrder && selSelecting.numTargets > 0)
+    {
+        mrSpecialBandBox = TRUE;
+        clWrapSpecial(&universe.mainCommandLayer, (SelectCommand *)&workers,
+                      (SpecialCommand *)&selSelecting);
+        tutGameMessage("Game_BandBoxSpecial");
+        selRectNone();
+    }
+}
+
 /*-----------------------------------------------------------------------------
     Name        : various
     Description : Main region processor functions, called by function pointer
@@ -1267,7 +1342,13 @@ void mrSelectHold(void)
         abs(mouseCursorY() - mrOldMouseY) >= selClickBoxHeight)
     {                                                       //if mouse has moved from anchor point
         mrSelectRectBuild(&mrSelectionRect, mrOldMouseX, mrOldMouseY);//create a selection rect
-        if (guardKeyIsHit()) {                                        // guard mode
+        const udword workerAbility = mrWorkerTargetAbility();
+        if (workerAbility)
+        {
+            mrWorkerTargetBandBox(universe.RenderList.head, &universe.mainCameraCommand.actualcamera,
+                                  &mrSelectionRect, workerAbility, FALSE);
+        }
+        else if (guardKeyIsHit()) {                                        // guard mode
             selRectDrag(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);
             if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
             {                           // if in recorded packet playback then can't issue a gaurd order.
@@ -1338,8 +1419,11 @@ void mrSelectHold(void)
             {
                 selRectNone();
             }
-        } else { // select player's ships
+        } else if (keyIsHit(SHIFTKEY)) {
             selRectDrag(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);
+        } else { // preview selection and allied inspection
+            selRectDragFriendlies(universe.RenderList.head, &universe.mainCameraCommand.actualcamera,
+                                 &mrSelectionRect);
         }
     }
     else
@@ -1417,6 +1501,9 @@ void mrCameraMotion(void)
 void mrKeyRelease(sdword ID)
 {
     MaxSelection tempSelection;
+
+    if (ID == YKEY && mrHasSelectedWorker())
+        return;
 
     // Drew's keybinding
     ID = (sdword)kbCheckBindings(ID);
@@ -1680,6 +1767,8 @@ void mrKeyPress(sdword ID)
 
     //now translate
     if(navPlacementActive() && (ID==ESCKEY || ID==ENTERKEY || ID==BACKSPACEKEY || ID==DELETEKEY) && navPlacementKey(ID))return;
+    if (ID == YKEY && mrHasSelectedWorker())
+        return;
 
     //ID = (sdword)opKeyTranslate((keyindex)ID);
 
@@ -2935,6 +3024,25 @@ udword mrMenuActionsByShipType[TOTAL_NUM_SHIPS] =
     /* Junk_SGun              */  MAM_ExtSet,
     /* ResearchStationBridge  */  MAM_ExtSet,
     /* ResearchStationTower   */  MAM_ExtSet,
+    /* Somtaaw Recon          */  MAM_ExtSet | MAM_Divider | MAM_Dock,
+    /* Somtaaw Acolyte        */  MAM_ExtSet | MAM_Divider | MAM_Dock,
+    /* Somtaaw ACV            */  MAM_ExtSet | MAM_Divider | MAM_Dock,
+    /* Kuun-Lan               */  MAM_BasicSet | MAM_Divider | MAM_Scuttle | MAM_Build | MAM_Launch | MAM_Research,
+    /* Somtaaw Worker         */  MAM_ExtSet | MAM_Divider | MAM_Harvest | MAM_Dock,
+    /* Somtaaw Processor      */  MAM_ExtSet,
+    /* Ramming Frigate        */  MAM_ExtSet,
+    /* Repair Droid           */  MAM_ExtSet | MAM_Divider | MAM_Dock,
+    /* Command hull           */  MAM_Info,
+    /* Docking Bay            */  MAM_Info | MAM_Scuttle,
+    /* Engineering hull       */  MAM_Info | MAM_Research,
+    /* Lower Engines          */  MAM_Info,
+    /* Upper Engines          */  MAM_Info,
+    /* Lower Spine            */  MAM_Info,
+    /* Ore Canister Armour    */  MAM_Info,
+    /* Weapons Module         */  MAM_Info | MAM_Research | MAM_Scuttle,
+    /* Armour Module          */  MAM_Info | MAM_Research | MAM_Scuttle,
+    /* Microtechnology Module */  MAM_Info | MAM_Research | MAM_Scuttle,
+    /* Advanced Engineering   */  MAM_Info | MAM_Research | MAM_Scuttle,
 };
 
 char *mrMenuItemByFormation[] =
@@ -3248,7 +3356,7 @@ void mrMenuDisplay(udword actionMask, TypeOfFormation currentFormation, udword t
     }
     /* Reserve one extra atom.  The shipped RightClickMenu FIB has no dossier
        entry, so the modern action must be synthesized after legacy filtering. */
-    newScreen->atoms = memAlloc(sizeof(featom) * (staticScreen->nAtoms + 7), "tempMenuAtoms", 0);
+    newScreen->atoms = memAlloc(sizeof(featom) * (staticScreen->nAtoms + 9), "tempMenuAtoms", 0);
     memcpy(newScreen->atoms, staticScreen->atoms, sizeof(featom) * staticScreen->nAtoms);
     qsort(newScreen->atoms, staticScreen->nAtoms, sizeof(featom), mrAtomSortCompare);
 
@@ -3353,6 +3461,31 @@ void mrMenuDisplay(udword actionMask, TypeOfFormation currentFormation, udword t
         }
     }
 
+    /* Somtaaw linking keeps the established in-game command menu. */
+    if(!multiPlayerGame)
+    {
+        featom *source=NULL;sdword bottom=0,acolytes=0,acvs=0;uword tab=0;
+        char *names[]={"CSM_Link","CSM_Unlink"};
+        for(index=0;index<selSelected.numShips;index++){
+            Ship *ship=selSelected.ShipPtr[index];
+            if(ship->playerowner!=universe.curPlayerPtr)continue;
+            if(ship->shiptype==CataAcolyte && cataCampaignShipCanLink(ship))acolytes++;
+            if(ship->shiptype==CataACV)acvs++;
+        }
+        for(index=0;index<newScreen->nAtoms;index++)if(newScreen->atoms[index].type==FA_MenuItem){
+            featom *candidate=&newScreen->atoms[index];
+            bottom=max(bottom,candidate->y+candidate->height);tab=max(tab,candidate->tabstop);
+            if(!source)source=candidate;
+        }
+        if(source)for(index=0;index<2;index++){
+            featom item=*source;
+            if(index==0?(acolytes<2 || !cataCampaignLinkAvailable()):acvs==0)continue;
+            item.name=names[index];item.flags&=~(FAF_Link|FAF_Hidden|FAF_Disabled);item.flags|=FAF_Function;
+            item.status&=~FAS_Checked;item.y=item.loadedY=(sword)bottom;item.tabstop=++tab;item.region=NULL;
+            newScreen->atoms[newScreen->nAtoms++]=item;bottom+=item.height;
+            newScreen->atoms[0].height=max(newScreen->atoms[0].height,bottom);
+        }
+    }
     /* Code-native entries: exactly one action per navigation mode. */
     {
         featom *source=NULL;sdword bottom=0;uword tab=0;bool32 producer=FALSE;
@@ -3722,6 +3855,12 @@ gotselection:
 
 #include "SameTypeSelection.inc"
 
+void mrUpgradeSelection(void)
+{
+    if (playPackets || mrDisabled || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)))return;
+    cataCampaignOrderUpgrades((SelectCommand *)&selSelected);
+}
+
 /*-----------------------------------------------------------------------------
     Name        : mrObjectClick
     Description : Called when someone clicks on a single ship.  Handles modifiers etc.
@@ -3736,6 +3875,11 @@ void mrObjectClick(Ship *ship)
     MaxSelection tempSelection;
     bool32 bFriendlies, bEnemies;
     bool32 bForceAttackEnemies = FALSE;
+
+    if (!mrDisabled && NoModifierKeyPressed() && !guardKeyIsHit() &&
+        !kbCommandKeyIsHit(kbSHIP_SPECIAL) && !mrWorkerRepairKeyIsHit() &&
+        selInspectShip(ship))
+        return;
 
 //    dbgAssertOrIgnore(ship->objtype == OBJ_ShipType);
     /* The first click of the selection chord must not issue a support,
@@ -3787,6 +3931,38 @@ void mrObjectClick(Ship *ship)
         if ((playPackets) || (universePause && !hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) || (mrDisabled))
         {
             return;  // playing back a recorded game do nothing!
+        }
+        if(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()) &&
+           (ship->objtype==OBJ_ShipType || ship->objtype==OBJ_DerelictType))
+        {
+            sdword i;
+            bool32 workersSelected=FALSE;
+            bool32 friendly=ship->objtype==OBJ_ShipType && ship->shiptype!=CataMessagePod &&
+                            allianceIsShipAlly(ship,universe.curPlayerPtr);
+            udword ability=friendly?CATA_UPGRADE_REPAIR:CATA_UPGRADE_SALVAGE;
+            tempSelection.numShips=0;
+            for(i=0;i<selSelected.numShips;i++)
+            {
+                Ship *worker=selSelected.ShipPtr[i];
+                if(worker->shiptype!=CataWorker || worker->playerowner!=universe.curPlayerPtr)continue;
+                workersSelected=TRUE;
+                if(worker!=ship && cataCampaignShipHasUpgrade(worker,ability))
+                    tempSelection.ShipPtr[tempSelection.numShips++]=worker;
+            }
+            if(workersSelected)
+            {
+                selSelecting.numTargets=1;
+                selSelecting.TargetPtr[0]=(SpaceObjRotImpTarg *)ship;
+                if(!friendly && !cataSalvageCanTarget((SpaceObjRotImpTarg *)ship, universe.curPlayerPtr))
+                    selRectNone();
+                if(tempSelection.numShips && selSelecting.numTargets)
+                {
+                    clWrapSpecial(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,(SpecialCommand *)&selSelecting);
+                    tutGameMessage("Game_ClickSpecial");
+                }
+                selSelecting.numTargets=0;
+                return;
+            }
         }
         if (mrCanZBandBox(&bFriendlies, &bEnemies))
         {                                                   //if we can z-bandbox
@@ -4076,6 +4252,7 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
 #endif
                 if (piePointSpecMode == PSM_Idle)
                 {
+                    selInspected.numShips = 0;
                     mrOldMouseX = mouseCursorX();           //store anchor point
                     mrOldMouseY = mouseCursorY();
                     mrHoldLeft = mrSelectHold;              //set to select mode
@@ -4229,7 +4406,13 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
                     abs(mouseCursorY() - mrOldMouseY) >= selClickBoxHeight)
                 {                                           //if selection rect dragged
                     mrSelectRectBuild(&mrSelectionRect, mrOldMouseX, mrOldMouseY);//select a group of ships
-                    if (((keyIsHit(ALTKEY) && keyIsHit(CONTROLKEY)) || keyIsHit(GKEY) || (keyIsHit(RALTKEY) && (keyIsHit(CONTROLKEY)))))
+                    const udword workerAbility = mrWorkerTargetAbility();
+                    if (workerAbility)
+                    {
+                        mrWorkerTargetBandBox(universe.RenderList.head, &universe.mainCameraCommand.actualcamera,
+                                              &mrSelectionRect, workerAbility, TRUE);
+                    }
+                    else if (((keyIsHit(ALTKEY) && keyIsHit(CONTROLKEY)) || keyIsHit(GKEY) || (keyIsHit(RALTKEY) && (keyIsHit(CONTROLKEY)))))
                     {                                       //alt key pressed
                         if (mrDisabled) goto endReleaseButtonLogic;
 
@@ -4382,14 +4565,15 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
                             {                               //if shift-band-boxing
                                 selRectSelectAdd(&(universe.mainCameraCommand.actualcamera),
                                                  &mrSelectionRect);
+                                ioUpdateShipTotals();
                             }
                             else
                             {                               //else plain band-boxing
                                 if((!(tutorial==TUTORIAL_ONLY)) ||              // if the tutorial isn't running OR
                                     ((selSelecting.numTargets != 0) || ((selSelecting.numTargets == 0) && tutEnable.bCancelSelect)))
                                 {                           //band-selecting no ships disabled if tutorial's cancel select disabled
-                                    selRectSelect(&(universe.mainCameraCommand.actualcamera),
-                                                  &mrSelectionRect);
+                                    selRectSelectFriendlies(universe.RenderList.head,
+                                        &universe.mainCameraCommand.actualcamera, &mrSelectionRect);
                                     if ((selSelected.numShips > 0) && (!playPackets) && (!universePause && hwMatchOption(OH_PAUSE_ORDERS,opPauseOrders)) )  
                                     {
                                         if (selShipInSelection(selSelected.ShipPtr, selSelected.numShips, universe.curPlayerPtr->PlayerMothership)
@@ -4404,8 +4588,6 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
                                     }
                                 }
                             }
-
-                            ioUpdateShipTotals();
 
                             selSelecting.numTargets = 0;
                         }
@@ -5943,6 +6125,7 @@ void mrRegionDraw(regionhandle reg)
         selSelectingDraw();
         primRectOutline2(&mrSelectionRect, 1, TW_SELECT_BOX_COLOR);
     }
+    selInspectHealthDraw(mrHoldLeft == mrSelectHold, FALSE);
 
     /* Shift+F11 owns an explicit selected-object manipulator. Drawing it here
        makes the live world path authoritative; it no longer depends on sibling

@@ -549,6 +549,8 @@ static void packageTests() {
     require(megaship!=nullptr,error);hwRmVisualPackageFree(megaship);
     require(!hwRmNativeP3Type("P3Destroyer") && !hwRmNativeP3Type("P3Frigate") && !hwRmNativeP3Type("P3MegashipExtra"),"Council visual scope must stay exact");
     require(!hwRmNativeTraderType("MiningBaseExtra"),"field generator must enable its exact identity only");
+    require(hwRmNativeSomtaawType("sProcessor") && hwRmNativeSomtaawType("sRammingFrigate"),"requested Somtaaw hulls must use native models");
+    require(!hwRmNativeSomtaawType("sProcessorExtra") && !hwRmNativeSomtaawType("bst_frr_rammingfrigate"),"Somtaaw additions must stay scoped to the two exact identities");
     require(!hwRmNativeTraderType("JunkYardHQExtra") && !hwRmNativeTraderType("JunkYardDawg"),
         "Junkyard HQ binding must enable its exact identity only");
     require(!hwRmNativeTraderType("GhostshipHull") && !hwRmNativeTraderType("GhostshipExtra"),

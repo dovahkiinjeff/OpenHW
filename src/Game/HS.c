@@ -10,6 +10,7 @@ Copyright Relic Entertainment, Inc.  All rights reserved.
 #include <math.h>
 
 #include "AIVar.h"
+#include "CataclysmShips.h"
 #include "ShipAppearance.h"
 #include "Damage.h"
 #include "Debug.h"
@@ -21,6 +22,7 @@ Copyright Relic Entertainment, Inc.  All rights reserved.
 #include "../Network/DedicatedServer.h"
 #include "Matrix.h"
 #include "Memory.h"
+#include "Mesh.h"
 #include "Particle.h"
 #include "prim3d.h"
 #include "render.h"
@@ -48,6 +50,89 @@ static hsStaticGate* hsStaticData = NULL;
 static bool32 hsGateState = TRUE;
 
 void hsRectangle(vector* origin, real32 rightlength, real32 uplength, ubyte alpha, bool32 outline, color c);
+
+typedef struct
+{
+    real32 up, right, front, back, renderScale;
+    vector offset;
+} HsWindow;
+
+static bool32 hsShipRestBounds(const Ship *ship, vector *minimum, vector *maximum)
+{
+    const lodinfo *levels = ship->staticinfo->staticheader.LOD;
+    return levels && levels->nLevels > 0 && (levels->level[0].flags & LM_LODType) == LT_Mesh &&
+        meshRestBounds(levels->level[0].pData, minimum, maximum);
+}
+
+static void hsIncludeModule(const Ship *module, vector *minimum, vector *maximum)
+{
+    vector lower, upper;
+    unsigned corner;
+    if (!hsShipRestBounds(module, &lower, &upper)) return;
+    for (corner = 0; corner < 8; ++corner)
+    {
+        vector local = {corner & 1 ? upper.x : lower.x,
+                        corner & 2 ? upper.y : lower.y,
+                        corner & 4 ? upper.z : lower.z};
+        vector position;
+        matMultiplyMatByVec(&position, &module->clampInfo->clampCoordsys, &local);
+        vecAddTo(position, module->clampInfo->clampOffset);
+        vecSet(*minimum, min(minimum->x, position.x), min(minimum->y, position.y), min(minimum->z, position.z));
+        vecSet(*maximum, max(maximum->x, position.x), max(maximum->y, position.y), max(maximum->z, position.z));
+    }
+}
+
+static HsWindow hsWindowForShip(Ship *ship)
+{
+    const StaticCollInfo *sinfo = &ship->staticinfo->staticheader.staticCollInfo;
+    HsWindow window = {sinfo->uplength, sinfo->rightlength,
+                       sinfo->forwardlength, -sinfo->forwardlength, 1.0f, {0.0f, 0.0f, 0.0f}};
+    vector lower, upper;
+    Node *node;
+    real32 padding;
+
+    if (ship->shiptype != CataMothership || !hsShipRestBounds(ship, &lower, &upper)) return window;
+
+    /* Cataclysm's collision box covers the base ship. Frame the rendered HOD
+       and any visible models installed at its native module mounts. */
+    for (node = universe.ShipList.head; node; node = node->next)
+    {
+        Ship *part = listGetStructOfNode(node);
+        if (!bitTest(part->flags, SOF_Dead | SOF_Hide) && cataShipComponentHost(part) == ship)
+            hsIncludeModule(part, &lower, &upper);
+    }
+    if (ship->shipsInsideMe)
+    {
+        for (node = ship->shipsInsideMe->insideList.head; node; node = node->next)
+        {
+            Ship *part = ((InsideShip *)listGetStructOfNode(node))->ship;
+            if (cataShipComponentHost(part) == ship && !cataShipEmbeddedInNativeHull(part))
+                hsIncludeModule(part, &lower, &upper);
+        }
+    }
+
+    window.renderScale = ship->magnitudeSquared > 0.0f ? ship->magnitudeSquared : 1.0f;
+    window.up = upper.x - lower.x;
+    window.right = upper.y - lower.y;
+    window.offset.x = (lower.x + upper.x) * 0.5f * window.renderScale - sinfo->collsphereoffset.x;
+    window.offset.y = (lower.y + upper.y) * 0.5f * window.renderScale - sinfo->collsphereoffset.y;
+    padding = (upper.z - lower.z) * (HS_DIST - 1.0f) * 0.5f;
+    window.front = upper.z + padding;
+    window.back = lower.z - padding;
+    return window;
+}
+
+static real32 hsWindowSlice(const HsWindow *window, real32 clip)
+{
+    return window->back + 0.5f * (clip + 1.0f) * (window->front - window->back);
+}
+
+static vector hsWindowOrigin(Ship *ship, const HsWindow *window, real32 depth)
+{
+    vector origin = window->offset;
+    origin.z = depth * ship->magnitudeSquared - ship->staticinfo->staticheader.staticCollInfo.collsphereoffset.z;
+    return origin;
+}
 
 /*-----------------------------------------------------------------------------
     Name        : hsStartup
@@ -81,14 +166,13 @@ void hsShutdown(void)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void hsOrientEffect(Ship* ship)
+static void hsOrientEffect(Ship* ship, const HsWindow *window)
 {
     sdword    index;
     psysPtr   system;
     particle* part;
 
     ShipSinglePlayerGameInfo* ssinfo = ship->shipSinglePlayerGameInfo;
-    StaticCollInfo* sinfo = &ship->staticinfo->staticheader.staticCollInfo;
     Effect* effect = ssinfo->hyperspaceEffect;
 
     dbgAssertOrIgnore(effect != NULL);
@@ -106,9 +190,9 @@ void hsOrientEffect(Ship* ship)
             part->wVel.y = -1.0f;
             part->wVel.z = 0.0f;
 
-            part->tumble[0] = HS_DIST * sinfo->uplength;
-            part->tumble[1] = HS_DIST * sinfo->rightlength;
-            part->tumble[2] = 0.25f * sinfo->forwardlength;
+            part->tumble[0] = HS_DIST * window->up;
+            part->tumble[1] = HS_DIST * window->right;
+            part->tumble[2] = 0.125f * (window->front - window->back);
 
             switch (ssinfo->hsState)
             {
@@ -167,7 +251,6 @@ bool32 hsShouldDisplayEffect(Ship* ship)
 void hsStart(Ship* ship, real32 cliptDelta, bool32 into, bool32 displayEffect)
 {
     ShipSinglePlayerGameInfo* ssinfo = ship->shipSinglePlayerGameInfo;
-    StaticCollInfo* sinfo = &ship->staticinfo->staticheader.staticCollInfo;
 
     ssinfo->clipt = 1.0f;
     ssinfo->cliptDelta = cliptDelta;
@@ -195,26 +278,22 @@ void hsStart(Ship* ship, real32 cliptDelta, bool32 into, bool32 displayEffect)
         stat = etgHyperspaceEffect->level[0];
         if (stat != NULL)
         {
-            vector vecToRotate, vecRotated;
-
-            vecToRotate.x = 0.0f;
-            vecToRotate.y = 0.0f;
-            vecToRotate.z = (sinfo->forwardlength);
-            vecToRotate.z *= ship->magnitudeSquared;
-            vecToRotate.z -= sinfo->collsphereoffset.z;
+            HsWindow window = hsWindowForShip(ship);
+            vector vecToRotate = hsWindowOrigin(ship, &window, window.front);
+            vector vecRotated;
 
             matMultiplyMatByVec(&vecRotated, &ship->rotinfo.coordsys, &vecToRotate);
 
             location = ship->collInfo.collPosition;
             vecAddTo(location, vecRotated);
 
-            floatUpScale = 0.0f;//HS_DIST * sinfo->uplength;
+            floatUpScale = 0.0f;
             intUpScale = Real32ToSdword(floatUpScale);
 
-            floatRightScale = HS_DIST * sinfo->rightlength;
+            floatRightScale = HS_DIST * window.right;
             intRightScale = Real32ToSdword(floatRightScale);
 
-            floatDepthScale = 0.25f * sinfo->forwardlength;
+            floatDepthScale = 0.125f * (window.front - window.back);
             intDepthScale = Real32ToSdword(floatDepthScale);
 
             dbgAssertOrIgnore(ship->objtype != OBJ_BulletType);
@@ -226,18 +305,17 @@ void hsStart(Ship* ship, real32 cliptDelta, bool32 into, bool32 displayEffect)
 
             ssinfo->hyperspaceEffect = effect;
 
-            hsOrientEffect(ship);
+            hsOrientEffect(ship, &window);
         }
     }
 }
 
 #ifdef HW_ENABLE_GLES
-void hsGetEquation(Ship* ship, GLfloat equation[])
+static void hsGetEquation(Ship* ship, const HsWindow *window, GLfloat equation[])
 #else
-void hsGetEquation(Ship* ship, GLdouble equation[])
+static void hsGetEquation(Ship* ship, const HsWindow *window, GLdouble equation[])
 #endif
 {
-    StaticCollInfo* sinfo = &ship->staticinfo->staticheader.staticCollInfo;
     ShipSinglePlayerGameInfo* ssinfo = ship->shipSinglePlayerGameInfo;
 
     equation[0] = 0.0f;
@@ -249,23 +327,23 @@ void hsGetEquation(Ship* ship, GLdouble equation[])
     {
     case HS_SLICING_INTO:
         equation[2] = -1.0f;
-        equation[3] = ssinfo->clipt * (sinfo->forwardlength);
+        equation[3] = hsWindowSlice(window, ssinfo->clipt);
         break;
     case HS_COLLAPSE_INTO:
         equation[2] = -1.0f;
-        equation[3] = -(sinfo->forwardlength);
+        equation[3] = window->back;
         break;
     case HS_POPUP_OUTOF:
         equation[2] = 1.0f;
-        equation[3] = -(sinfo->forwardlength);
+        equation[3] = -window->front;
         break;
     case HS_SLICING_OUTOF:
         equation[2] = 1.0f;
-        equation[3] = -ssinfo->clipt * (sinfo->forwardlength);
+        equation[3] = -hsWindowSlice(window, ssinfo->clipt);
         break;
     case HS_COLLAPSE_OUTOF:
         equation[2] = 1.0f;
-        equation[3] = (sinfo->forwardlength);
+        equation[3] = -window->back;
     }
 }
 
@@ -283,8 +361,8 @@ void hsContinue(Ship* ship, bool32 displayEffect)
 #else
     GLdouble equation[4] = {0.0, 0.0, 1.0, 0.0};
 #endif
-    StaticCollInfo* sinfo = &ship->staticinfo->staticheader.staticCollInfo;
     ShipSinglePlayerGameInfo* ssinfo = ship->shipSinglePlayerGameInfo;
+    HsWindow window;
 
     if (!displayEffect || hwDedicatedMode)
     {
@@ -297,7 +375,8 @@ void hsContinue(Ship* ship, bool32 displayEffect)
 
                 hmatrix coordMatrixForGL, prevModelview;
                 real32 nliphak;
-                hsGetEquation(host, equation);
+                HsWindow hostWindow = hsWindowForShip(host);
+                hsGetEquation(host, &hostWindow, equation);
                         
                 glGetFloatv(GL_MODELVIEW_MATRIX, (GLfloat*)&prevModelview);
                 glPopMatrix();
@@ -324,10 +403,11 @@ void hsContinue(Ship* ship, bool32 displayEffect)
         return;
     }
 
+    window = hsWindowForShip(ship);
     if (ssinfo->hyperspaceEffect != NULL)
     {
         //appropriately orient effect
-        hsOrientEffect(ship);
+        hsOrientEffect(ship, &window);
     }
 
     switch (ssinfo->hsState)
@@ -335,27 +415,12 @@ void hsContinue(Ship* ship, bool32 displayEffect)
     case HS_POPUP_INTO:
         return;
     case HS_SLICING_INTO:
-        equation[2] = -1.0f;
-        equation[3] = ssinfo->clipt * (sinfo->forwardlength);
-        break;
     case HS_COLLAPSE_INTO:
-        if (!singlePlayerGameInfo.hyperspaceFails)
-        {
-            equation[2] = -1.0f;
-            equation[3] = -(sinfo->forwardlength);
-        }
-        break;
     case HS_POPUP_OUTOF:
-        equation[2] = 1.0f;
-        equation[3] = -(sinfo->forwardlength);//0.0f;
-        break;
     case HS_SLICING_OUTOF:
-        equation[2] = 1.0f;
-        equation[3] = -ssinfo->clipt * (sinfo->forwardlength);
-        break;
     case HS_COLLAPSE_OUTOF:
-        equation[2] = 1.0f;
-        equation[3] = (sinfo->forwardlength);
+        if (ssinfo->hsState != HS_COLLAPSE_INTO || !singlePlayerGameInfo.hyperspaceFails)
+            hsGetEquation(ship, &window, equation);
         break;
     default:
         dbgFatalf(DBG_Loc, "unknown hyperspace state %d", ssinfo->hsState);
@@ -367,17 +432,8 @@ void hsContinue(Ship* ship, bool32 displayEffect)
         psysPtr   system;
         particle* part;
         sdword    index;
-        vector    vecToRotate, vecRotated;
-
-        vecToRotate.x = 0.0f;
-        vecToRotate.y = 0.0f;
-        vecToRotate.z = -equation[2] * equation[3];
-        
-        {
-            vecToRotate.z *= ship->magnitudeSquared;
-        }
-        
-        vecToRotate.z -= sinfo->collsphereoffset.z;
+        vector    vecToRotate = hsWindowOrigin(ship, &window, (real32)(-equation[2] * equation[3]));
+        vector    vecRotated;
 
         matMultiplyMatByVec(&vecRotated, &ship->rotinfo.coordsys, &vecToRotate);
 
@@ -623,11 +679,11 @@ noupdateHSMPOUT:
 ----------------------------------------------------------------------------*/
 void hsEnd(Ship* ship, bool32 displayEffect)
 {
-    vector origin = {0.0f, 0.0f, 0.0f};
-    StaticCollInfo* sinfo = &ship->staticinfo->staticheader.staticCollInfo;
-    real32 t;
+    vector origin;
+    HsWindow window;
+    real32 t, right, up;
     ShipSinglePlayerGameInfo* ssinfo = ship->shipSinglePlayerGameInfo;
-    bool32 lightEnabled, hasEffect;
+    bool32 lightEnabled;
     hmatrix hcoordsys;
     color c;
 
@@ -657,20 +713,14 @@ void hsEnd(Ship* ship, bool32 displayEffect)
         return;
     }
 
+    window = hsWindowForShip(ship);
+    up = window.up * window.renderScale;
+    right = window.right * window.renderScale;
+
     //setup our coordinate system so the rectangles agree w/ the ETG effect
     glPushMatrix();
     hmatMakeHMatFromMat(&hcoordsys, &ship->rotinfo.coordsys);
-    if (ssinfo->hyperspaceEffect != NULL)
-    {
-        hasEffect = TRUE;
-    //    hmatPutVectIntoHMatrixCol4(ssinfo->hyperspaceEffect->posinfo.position, hcoordsys);
-        hmatPutVectIntoHMatrixCol4(ship->collInfo.collPosition, hcoordsys);
-    }
-    else
-    {
-        hasEffect = FALSE;
-        hmatPutVectIntoHMatrixCol4(ship->collInfo.collPosition, hcoordsys);
-    }
+    hmatPutVectIntoHMatrixCol4(ship->collInfo.collPosition, hcoordsys);
     glMultMatrixf((GLfloat*)&hcoordsys);
 
     rndAdditiveBlends(TRUE);
@@ -734,7 +784,7 @@ void hsEnd(Ship* ship, bool32 displayEffect)
         emitter.color[0] = colUbyteToReal(colRed(c));
         emitter.color[1] = colUbyteToReal(colGreen(c));
         emitter.color[2] = colUbyteToReal(colBlue(c));
-        emitter.radius = max(sinfo->rightlength, sinfo->uplength) *
+        emitter.radius = max(window.right, window.up) *
             ship->magnitudeSquared * 1.35f;
         if (emitter.radius < 96.0f) emitter.radius = 96.0f;
         if (emitter.radius > 1600.0f) emitter.radius = 1600.0f;
@@ -747,14 +797,9 @@ void hsEnd(Ship* ship, bool32 displayEffect)
     {
     case HS_POPUP_INTO:
     case HS_POPUP_OUTOF:
-        //origin.z = hasEffect ? 0.0f : (sinfo->forwardlength);
-        //test
-        origin.z = (sinfo->forwardlength);
+        origin = hsWindowOrigin(ship, &window, window.front);
         t = 1.0f - ssinfo->clipt;
-        //monkey with the effect origin so it scales properly and starts in proper spot
-        origin.z *= ship->magnitudeSquared;
-        origin.z -= sinfo->collsphereoffset.z;
-        hsRectangle(&origin, sinfo->rightlength, t * sinfo->uplength, 90, TRUE, c);
+        hsRectangle(&origin, right, t * up, 90, TRUE, c);
         if (ssinfo->hyperspaceEffect != NULL)
         {
             //monkey effect position
@@ -765,42 +810,26 @@ void hsEnd(Ship* ship, bool32 displayEffect)
         }
 
 #if SECOND_RECT
-        hsLine(&origin, sinfo->rightlength, 1.5f,
+        hsLine(&origin, right, 1.5f,
                (ubyte)(255.0f * ssinfo->clipt), c);
 #endif
         break;
 
     case HS_COLLAPSE_INTO:
     case HS_COLLAPSE_OUTOF:
-        if (singlePlayerGameInfo.hyperspaceFails)
-        {
-            //origin.z = hasEffect ? 0.0f : (sinfo->forwardlength);
-            origin.z = (sinfo->forwardlength);
-        }
-        else
-        {
-            //origin.z = hasEffect ? 0.0f : -(sinfo->forwardlength);
-            origin.z = -(sinfo->forwardlength);
-        }
+        origin = hsWindowOrigin(ship, &window, singlePlayerGameInfo.hyperspaceFails ? window.front : window.back);
         t = ssinfo->clipt;
-        //monkey with the effect origin so it scales properly and starts in proper spot
-        origin.z *= ship->magnitudeSquared;
-        origin.z -= sinfo->collsphereoffset.z;
-        hsRectangle(&origin, sinfo->rightlength, t * sinfo->uplength, 90, TRUE, c);
+        hsRectangle(&origin, right, t * up, 90, TRUE, c);
 #if SECOND_RECT
-        hsLine(&origin, sinfo->rightlength, 1.5f,
+        hsLine(&origin, right, 1.5f,
                (ubyte)(255.0f * (1.0f - t)), c);
 #endif
         break;
 
     case HS_SLICING_INTO:
     case HS_SLICING_OUTOF:
-        //origin.z = hasEffect ? 0.0f : ssinfo->clipt * (sinfo->forwardlength);
-        origin.z = ssinfo->clipt * (sinfo->forwardlength);
-        //monkey with the effect origin so it scales properly and starts in proper spot
-        origin.z *= ship->magnitudeSquared;
-        origin.z -= sinfo->collsphereoffset.z;
-        hsRectangle(&origin, sinfo->rightlength, sinfo->uplength, 90, TRUE, c);
+        origin = hsWindowOrigin(ship, &window, hsWindowSlice(&window, ssinfo->clipt));
+        hsRectangle(&origin, right, up, 90, TRUE, c);
         break;
     }
 

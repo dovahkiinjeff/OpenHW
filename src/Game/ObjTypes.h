@@ -22,6 +22,9 @@ typedef enum
     DockingCone,
     LatchPoint,
     LaunchPoint,
+#define X(name) name,
+#include "CataclysmDockTypes.inc"
+#undef X
 } DockPointType;
 
 typedef enum

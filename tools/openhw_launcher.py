@@ -15,7 +15,7 @@ import openhw_updater as updater
 from launcher_settings import SETTINGS
 import launcher_languages
 
-VERSION = '1.1.13'
+VERSION = '1.1.14'
 MOD_NAME = re.compile(r'[A-Za-z0-9_-]{1,64}\Z')
 LANGUAGES = ('English', 'French', 'German', 'Spanish', 'Italian')
 
@@ -185,9 +185,23 @@ def start_game(root, diagnostics=False):
     return subprocess.Popen([str(executable)], cwd=root, env=env)
 
 
-def run_gui(root):
+def cataclysm_directory(directory):
+    """Validate an owned data source without copying or changing its files."""
+    folder=Path(directory).expanduser().resolve(strict=True)
+    archive=folder/'cataclysm.big'
+    with archive.open('rb') as source:
+        header=source.read(15)
+    if len(header)!=15 or header[:7]!=b'RBF1.23' or int.from_bytes(header[11:15],'little')!=1:
+        raise ValueError('This folder does not contain a supported Cataclysm/Emergence data archive.')
+    count=int.from_bytes(header[7:11],'little')
+    if not 0<count<=200000 or archive.stat().st_size<15+count*32:
+        raise ValueError('The Cataclysm data archive is incomplete.')
+    return folder
+
+
+def run_gui(root, *, select_cataclysm=False):
     from openhw_launcher_ui import run
-    run(root)
+    run(root,select_cataclysm=select_cataclysm)
 
 
 def prepare_launcher_update(root, progress):
@@ -226,6 +240,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__); parser.add_argument('--root',type=Path,required=True); parser.add_argument('--verify-payload',action='store_true')
     parser.add_argument('--diagnostics-report',action='store_true')
     parser.add_argument('--check-update-feed',action='store_true')
+    parser.add_argument('--select-cataclysm-data',action='store_true')
     args=parser.parse_args(); root=args.root.resolve()
     if args.check_update_feed:
         updater.check_update_feed(root, 'Launcher')
@@ -234,7 +249,7 @@ def main():
         import extract_vanilla_ship_textures
         import openhw_launcher_ui
         import openhw_diagnostics
-        for name in ('hangar-1000.png','hangar-1440.png','hangar-2200.png','mark.png'):
+        for name in ('hangar-1000.png','hangar-1440.png','hangar-2200.png','mark.png','cataclysm-data.png'):
             if not safe(root,'Development/Launcher/Theme/'+name).is_file(): raise RuntimeError('Launcher theme file missing: '+name)
         for name in ('Rajdhani-Regular.ttf','Rajdhani-Bold.ttf','ShareTechMono-Regular.ttf'):
             if not (openhw_launcher_ui.utility_font_folder(root)/name).is_file():raise RuntimeError('Launcher font missing: '+name)
@@ -242,7 +257,7 @@ def main():
     elif args.diagnostics_report:
         from openhw_diagnostics import run
         run(root)
-    else: run_gui(root)
+    else: run_gui(root,select_cataclysm=args.select_cataclysm_data)
 
 
 if __name__=='__main__': main()

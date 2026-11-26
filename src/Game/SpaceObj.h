@@ -96,6 +96,11 @@ typedef struct
     vector offset;              //offset to rotate about gun's pivot point
     sdword slaveDriver;         //for slaving guns together
 
+    /* Rebuilt statics; serialized Gun instances keep their existing layout. */
+    bool32 cataDefinition;
+    sdword cataWeaponClass;
+    bool32 cataWeaponDisabled;
+
 } GunStatic;
 
 typedef struct
@@ -1287,6 +1292,10 @@ typedef struct ShipID
 #define SPECIAL_2_DontPlowThroughEnemyShips         BIT5
 #define SPECIAL_2_BusiedDockPoint                   BIT6
 #define SPECIAL_2_DisabledForever                   BIT7
+#define SPECIAL_2_CataScriptControlled              BIT8  // allied campaign fleet; KAS owns its orders
+#define SPECIAL_2_CataInvulnerable                  BIT9  // original secondary flags +0x18, bit 2; saved with ship
+#define SPECIAL_2_CataDisguising                    BIT10 // saved visual state keyed by ship ID
+#define SPECIAL_2_CataUpgrading                     BIT11 // in-place upgrade with a saved completion time
 				
 
 struct Resource;

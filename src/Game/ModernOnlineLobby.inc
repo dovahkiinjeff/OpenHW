@@ -294,6 +294,7 @@ static void muiOnlineOpen(void)
 {
     sdword key;
     if(muiOnlineRegion)return;
+    if(mgWarnMultiplayerMods())return;
     if(!hwOnlineConnected())hwOnlineConnect(utyName);
     muiOnlineMapNotice[0]=0;
     muiOnlineDirectoryTick=0;hwOnlineRequestRooms();

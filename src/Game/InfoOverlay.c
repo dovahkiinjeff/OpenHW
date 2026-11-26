@@ -217,6 +217,9 @@ void ioUpdateShipTotals(void)
 {
     sdword index, screen;
 
+    if (selSelected.numShips > 0)
+        selInspected.numShips = 0;
+
     if (gameIsRunning && !tbFullHudVisible() && tutorial != TUTORIAL_ONLY)
     {
         ioHideHudRegions();

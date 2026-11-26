@@ -1,6 +1,8 @@
 #include "NavigationOrders.h"
 #include "../Network/MatchRules.h"
 #include "ResCollect.h"
+#include "CataclysmWorker.h"
+#include "Mesh.h"
 
 #include <stdlib.h>
 
@@ -744,7 +746,13 @@ void TurnHarvestEffectOn(Ship *ship,Resource *resource,vector *trajectory, real3
 
     dbgAssertOrIgnore(resNozzleStatic);
 
-    matMultiplyMatByVec(&nozzleposition,&ship->rotinfo.coordsys,&resNozzleStatic->position);
+    {
+        vector localNozzle=resNozzleStatic->position;
+        if (ship->shiptype != CataWorker ||
+            !meshRemasteredMarkerPosition(ship, "repair_nozzle", &localNozzle))
+            meshRemasteredMarkerPosition(ship,"resource_nozzle",&localNozzle);
+        matMultiplyMatByVec(&nozzleposition,&ship->rotinfo.coordsys,&localNozzle);
+    }
 
     vecSub(nozzletrajectory,*trajectory,nozzleposition);
 
@@ -817,7 +825,13 @@ void ModifyHarvestEffect(Effect *effect,Ship *ship,vector *trajectory, real32 re
     dbgAssertOrIgnore(resNozzleStatic);
     dbgAssertOrIgnore(effect);
 
-    matMultiplyMatByVec(&nozzleposition,&ship->rotinfo.coordsys,&resNozzleStatic->position);
+    {
+        vector localNozzle=resNozzleStatic->position;
+        if (ship->shiptype != CataWorker ||
+            !meshRemasteredMarkerPosition(ship, "repair_nozzle", &localNozzle))
+            meshRemasteredMarkerPosition(ship,"resource_nozzle",&localNozzle);
+        matMultiplyMatByVec(&nozzleposition,&ship->rotinfo.coordsys,&localNozzle);
+    }
 
     vecSub(nozzletrajectory,*trajectory,nozzleposition);
 
@@ -891,6 +905,17 @@ void R1ResourcerHarvestsAsteroid(struct Ship *ship,struct Resource *resource)
             // deliberately fall through to R1RCASTEROID_HARVEST_ON
 
         case R1RCASTEROID_HARVEST_ON:
+            if (ship->shiptype == CataWorker)
+            {
+                aishipGetTrajectory(ship, (SpaceObjRotImpTarg *)resource, &trajectory);
+                dist = fsqrt(vecMagnitudeSquared(trajectory));
+                if (RangeToTargetGivenDist(ship, (SpaceObjRotImpTarg *)resource, dist) > ASTEROID_MAXHARVEST_RANGE)
+                {
+                    ship->rcstate1 = R1RCASTEROID_APPROACHASTEROID;
+                    break;
+                }
+                if (!cataWorkerExtendArm(ship)) break;
+            }
             // turn on harvest effect here
             if (resource->objtype == OBJ_AsteroidType)
             {
@@ -910,6 +935,8 @@ void R1ResourcerHarvestsAsteroid(struct Ship *ship,struct Resource *resource)
             aishipGetTrajectory(ship,(SpaceObjRotImpTarg *)resource,&trajectory);
             dist = fsqrt(vecMagnitudeSquared(trajectory));
             range = RangeToTargetGivenDist(ship,(SpaceObjRotImpTarg *)resource,dist);
+            if (ship->shiptype == CataWorker && range <= ASTEROID_MAXHARVEST_RANGE &&
+                !cataWorkerExtendArm(ship)) break;
             if(ship->rceffect == NULL)
             {
                 //if the effect isn't playing...lets play it...

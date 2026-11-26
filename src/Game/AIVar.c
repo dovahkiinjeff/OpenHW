@@ -175,6 +175,16 @@ void aivarDestroyAll(void)
     aivarShutdown();
 }
 
+void aivarDestroyAllExcept(bool32 (*keep)(const char *label))
+{
+    sdword i = varsUsed;
+    while (i > 0)
+    {
+        AIVar *var = vars[--i];
+        if (!keep(var->label)) aivarDestroy(var);
+    }
+}
+
 //
 //  returns a guaranteed unique label for an AIVar
 //

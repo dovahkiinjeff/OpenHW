@@ -1,0 +1,135 @@
+HW1 versus Cataclysm mission-file inspection
+2026-11-24
+
+IMPORTANT CORRECTION: EXISTING DECOMPILATION LOCATED
+The earlier search missed our own 2026-10-08 Ghidra analysis archive:
+N:/Wings3D GPT Upgrade/Homeworld_Cataclysm_Code_Analysis_2026-10-08.zip
+It contains Ghidra Cataclysm.gpr/Renderers.gpr projects, raw decompiled engine
+functions, supplemental recovered functions, and annotated Init/Watch
+entrypoints for Mission01 through Mission17. It also contains KAS API/type
+inference and campaign hash-candidate reports.
+Thus, the fact that retail BIG archives contain no .kas source DOES NOT mean
+we lack recovered mission logic. We already possess that decompilation.
+Remaining work is interpreting/validating inferred names, hashes, types and
+function signatures and porting the recovered logic into OpenHW; it is not
+starting mission recovery from scratch. Decompiled C is not original KAS or
+necessarily drop-in compilable C. The archive explicitly labels uncertain
+hash-name matches as candidates.
+
+Scope
+Compared extracted Cataclysm/Emergence retail campaign data from cataclysm.big
+and checked update.big/update102.big for campaign overrides (none found).
+Compared HW1 campaign data from the installed OpenHW-HW1.obig base archive,
+plus the available HW1 KAS sources and current LevelLoad.c/SinglePlayer.c.
+This is file-format research, not a port or a complete executable decompilation.
+Raw extracted game data stays under work/mission-format-audit; no game assets
+or installation files were changed.
+
+1. The basic layout format is inherited from HW1.
+Both use text .mission files containing MissionSphere references to smaller
+placement files. Shared directives include Lighting, Background, SongNumber,
+IncludeShips/ExcludeShips, IncludeDerelict/ExcludeDerelict, and sensor/map
+bounds (smUniverseSize*, smZoom*, smDepthCue*).
+Placement files share Ships, Derelict, Resources, AIPoint, AIPath, AIBox and
+AISphere. Resources still refer to .dist files for procedural type selection.
+In the inspected Cataclysm files, Ships rows consistently have 12 comma fields,
+Resources rows 13, AIPath rows 6, and MissionSphere rows 9; these correspond
+to the common MissionMan forms found in HW1, rather than a new Lua format.
+
+2. Cataclysm uses different race and ship identities.
+HW1 examples use R1/R2 and AttackBomber/HeavyInterceptor/Mothership.
+Cataclysm uses RACE_SECT, RACE_BEAST, RACE_KUSHAN, RACE_TAIDAN, RACE_P1,
+RACE_TRADERS and RACE_DERELICT; ship names are prefixed, such as sAcolyte,
+sACV, sWorker, kHeavyInterceptor, tCarrier, bAcolyte and bProcessor.
+These need deliberate mappings/new definitions; renaming the folders is not
+sufficient. Even familiar HW1 ships are addressed with different identifiers.
+Evidence: cata/singleplayer/mission01/mission01.mission and
+cata/singleplayer/mission04/mission04.mission.
+
+3. Module/component dependencies are explicit in the load lists.
+Mission01 includes sMothership plus sMothershipCommand, DockingBay,
+Engineering, EnginesLower, EnginesUpper, LowerSpine and OreCanArmour.
+Later missions include other components such as sMothershipWeapons.
+These are dependencies to load, not proof that every listed component is
+spawned as an independent free-flying ship. Correct attachment, damage,
+construction/research and campaign persistence behaviour needs engine support.
+Acolyte/ACV and Beast variants likewise require their actual game mechanics.
+
+4. Cataclysm adds map-level entity directives absent from the inspected HW1
+campaign files and absent from the current MissionSphereScriptTable:
+- Slipgate: Mission02 ResourceSphere_1 contains paired identifiers 1/2 and
+  2/2, positions/orientation and dSlipgateLarge. There are 20 Slipgate rows
+  across the inspected campaign/scene layouts. Pair/endpoint semantics must
+  be verified, not inferred solely from their textual IDs.
+- Mine: Mission03 General and later maps contain explicit Mine placements;
+  301 rows occur across the inspected data. HW1 supports mines as gameplay
+  objects, but its current mission placement dispatch has no Mine directive.
+- MeteorStorm: Mission02 ResourceSphere_3 and two other inspected rows use
+  a 14-field procedural hazard record with a distribution file and additional
+  trailing values. Their exact timing/velocity semantics are not established
+  by this text inspection. It cannot simply be treated as a static asteroid
+  resource population.
+
+5. Presentation/settings differ.
+Cataclysm .mission files contain LensFlare (e.g. ps-50-300mm-zoom) and
+8-value Fog records. Fog here is a presentation directive, not evidence of
+fog-of-war/reveal behaviour. These keys are absent from the HW1 mission
+files examined and are not registered in the current mission dispatch.
+Current OpenHW lighting features do not automatically implement these records.
+Cataclysm often uses Background MissionNN and Lighting MissionNN rather than
+HW1 examples such as ez01. Asset names and links must remain campaign-specific.
+
+6. Parsing must tolerate the actual exported data.
+Later Cataclysm missions reference files without a .missphere extension:
+General, AI, Player, Decorations, Sensors, CaalShto, Crystals and others.
+Some are real placement lists; others are small export metadata stubs.
+Do not blindly interpret contents/playerNumber/radius in such metadata files
+as new gameplay commands. Mission06 also has '?' in the numeric sphere-radius
+field; the current sscanf-based HW1 path is not a safe direct parser for this.
+Some .mission files are labelled 'Empty' by the editor while still referencing
+populated placement files. That label does not mean the mission is empty.
+Mission09 contains Resources rows directly in its .mission file; the current
+MissionScriptTable only dispatches MissionSphere, Lighting and Background.
+A compatibility loader needs to account for that record location as well.
+
+7. Campaign logic is a separate, much larger issue.
+Cataclysm has Mission01 through Mission17 layouts and 11 additional _nisNN
+layout directories. HW1's playable campaign has 16 missions; legacy extra/test
+mission directories in its data are not additional campaign missions.
+The Cataclysm archives inspected contain no .kas campaign source files.
+Layout labels such as FleetIntel and Objectives are team/data labels, not
+the actual objective condition or victory/failure implementation.
+HW1 has editable src/Missions/SinglePlayer/MissionNN.kas sources, built into
+Init_MissionNN/Watch_MissionNN functions dispatched by SinglePlayer.c.
+Therefore, translating Cataclysm layouts alone cannot reproduce objectives,
+scripted reinforcements, infection events, research unlocks, dialogue timing,
+mission victory/failure or progression. Its mission logic must be recovered
+or reconstructed and connected to the engine's campaign runtime.
+The existing decompilation and KAS API reports must now be used to examine
+these differences; they were not included in this initial layout-only audit.
+
+8. Avoid assuming every superficially different file means a new mechanic.
+The supplied singleplayer.script files are remarkably similar: among their
+uppercase scalar keys, the observed changed value is HYPERSPACE_WHITEOUTTIME
+(HW1 1.0, Cataclysm 0.4). Their BaseFleetStrengthForLevel tables match in the
+files examined. This does not establish identical runtime fleet scaling.
+Cataclysm .dist files list DustCloud0 through DustCloud7, but DustCloud4..7
+are all zero in the 17 inspected DustCloud distribution files. Extra entries
+alone are not evidence of additional populated cloud types in these missions.
+
+Practical implication for OpenHW
+Reuse the MissionMan layout/resource/AI-volume foundation. Add a campaign-
+specific identity mapping and tolerant data reader, then support the missing
+entity/presentation records. Keep Cataclysm ships, components, mechanics and
+campaign state separate from HW1 definitions. Recover/rewrite mission logic
+as its own stage; copying map files into the HW1 campaign is insufficient.
+Do not change the existing HW1 campaign to accommodate this research yet.
+
+Evidence index
+work/mission-format-audit/comparison-facts.json: directive inventories/examples.
+work/mission-format-audit/cata/: extracted campaign data used in this audit.
+work/mission-format-audit/hw1/: extracted HW1 data used in this audit.
+src/Game/LevelLoad.c: current MissionScriptTable/MissionSphereScriptTable,
+  MissionSphere parsing, resource loading and preload dispatch.
+src/Game/SinglePlayer.c: current compiled HW1 mission dispatcher.
+src/Missions/SinglePlayer/Mission01.kas: actual HW1 objective/FSM source.

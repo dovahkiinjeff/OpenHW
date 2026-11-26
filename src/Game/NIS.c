@@ -8,6 +8,7 @@
 =============================================================================*/
 
 #include "NIS.h"
+#include "SinglePlayer.h"
 #include "NisFadePolicy.h"
 
 #include <ctype.h>
@@ -2162,7 +2163,9 @@ sdword nisFindObjectByName(nisheader *header, char *name)
                     dbgFatalf(DBG_Loc, "Invalid object race: %d", path->race);
 #endif
             }
-            if (!strcasecmp(pType, pSlash))
+            if (!strcasecmp(pType, pSlash) ||
+                (singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()) &&
+                 (race==R1 || race==R2 || race==P1 || race==Traders) && StrToShipType(pSlash)==path->type))
             {                                               //if this is the proper object type
                 return(index);
             }
@@ -4557,7 +4560,8 @@ sdword nisGenericObjectRegister(nisheader *header, char *name)
     strcpy(shipFile, name);
     strcat(shipFile, ".shp");
 #ifdef _WIN32
-    InitStatDerelictInfoByPath(generic->staticInfo, NUM_DERELICTTYPES + index, "Misc\\", shipFile);
+    InitStatDerelictInfoByPath(generic->staticInfo, NUM_DERELICTTYPES + index,
+        singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission())?"Cataclysm\\Misc\\":"Misc\\", shipFile);
 #else
     InitStatDerelictInfoByPath(generic->staticInfo, NUM_DERELICTTYPES + index, "Misc/", shipFile);
 #endif

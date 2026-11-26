@@ -74,6 +74,8 @@
     //modify a current particle system
     funcEntry2(modifyDrag, EVT_Void, etgModifyDrag, EVT_Int, EVT_Float)
     funcEntry2(modifyScale, EVT_Void, partModifyScale, EVT_Int, EVT_Float)
+    funcEntry2(modifyScaleX, EVT_Void, partModifyScaleX, EVT_Int, EVT_Float)
+    funcEntry2(modifyScaleY, EVT_Void, partModifyScaleY, EVT_Int, EVT_Float)
     funcEntry2(modifyDeltaScale, EVT_Void, partModifyDeltaScale, EVT_Int, EVT_Float)
     funcEntry2(modifyDeltaLength, EVT_Void, partModifyDeltaLength, EVT_Int, EVT_Float)
     //funcEntry2(modifyColorA, EVT_Void, partModifyColorC, EVT_Int, EVT_RGBA)

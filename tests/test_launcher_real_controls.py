@@ -74,4 +74,50 @@ class RealLauncherControls(unittest.TestCase):
   self.assertEqual(status.get(),"YOU'RE UP TO DATE / OpenHW 1.1.17a")
   self.assertGreater(launcher.updater.compare_versions('1.1.17.1','1.1.17'),0)
 
+ def cata_fixture(self,root):
+  return SimpleNamespace(window=self.window,root=root,
+      api=SimpleNamespace(safe=launcher.safe,atomic_write=launcher.atomic_write,
+          cataclysm_directory=Mock(return_value=root)),
+      status=tk.StringVar(self.window,value='READY'))
+ def test_cataclysm_uses_native_picker_and_cancel_preserves_configuration(self):
+  with tempfile.TemporaryDirectory() as temporary:
+   root=Path(temporary);config=root/'Development/Launcher/cataclysm-directory.txt'
+   config.parent.mkdir(parents=True);config.write_text('existing path\n')
+   app=self.cata_fixture(root)
+   with patch.object(ui.filedialog,'askdirectory',return_value='') as picker:
+    ui.App.select_cataclysm_data(app)
+   picker.assert_called_once_with(parent=self.window,
+       title='Select your Homeworld Cataclysm or Emergence installation',
+       initialdir='existing path',mustexist=True)
+   self.assertEqual(config.read_text(),'existing path\n')
+   self.assertFalse(app.cata_selecting);app.api.cataclysm_directory.assert_not_called()
+ def test_cataclysm_validates_in_background_and_saves_only_valid_selection(self):
+  with tempfile.TemporaryDirectory() as temporary:
+   root=Path(temporary);app=self.cata_fixture(root)
+   entered=threading.Event();release=threading.Event()
+   def validate(selected):entered.set();release.wait(2);return root
+   app.api.cataclysm_directory.side_effect=validate
+   with patch.object(ui.filedialog,'askdirectory',return_value=str(root)):
+    try:
+     ui.App.select_cataclysm_data(app);self.assertTrue(entered.wait(1))
+     heartbeat=[];self.window.after(0,lambda:heartbeat.append(True));self.window.update()
+     self.assertEqual(heartbeat,[True]);self.assertTrue(app.cata_selecting)
+    finally:release.set()
+   deadline=time.monotonic()+3
+   while app.cata_selecting and time.monotonic()<deadline:
+    self.window.update();time.sleep(.01)
+   self.assertFalse(app.cata_selecting)
+   config=root/'Development/Launcher/cataclysm-directory.txt'
+   self.assertEqual(config.read_text().strip(),str(root))
+   config.write_text('preserve me\n')
+   app.api.cataclysm_directory.side_effect=ValueError('Not a Cataclysm installation')
+   with patch.object(ui.filedialog,'askdirectory',return_value=str(root)):
+    ui.App.select_cataclysm_data(app)
+   deadline=time.monotonic()+3
+   while app.cata_selecting and time.monotonic()<deadline:
+    self.window.update();time.sleep(.01)
+   self.assertFalse(app.cata_selecting)
+   self.assertIn('Not a Cataclysm installation',app.status.get())
+   self.assertEqual(config.read_text(),'preserve me\n')
+
 if __name__=='__main__':unittest.main()

@@ -25,6 +25,7 @@ bool32 AddResourceToCylinder(ResourceVolume *cylinder,bool32 regrowing);
 bool32 AddResourceToRectangle(ResourceVolume *rectangle,bool32 regrowing);
 
 void SetInfoNeededForShipAndRelatedStaticInfo(ShipType type,ShipRace race,bool8 dataToFillIn);
+void SetTeamColorForShipAndRelatedStaticInfo(ShipType type,ShipRace race,bool8 schemes[]);
 
 /*=============================================================================
     Global variables:

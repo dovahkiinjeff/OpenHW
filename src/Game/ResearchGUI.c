@@ -34,6 +34,7 @@
 #include "Randy.h"
 #include "render.h"
 #include "ResearchGUI.h"
+#include "CataclysmCampaign.h"
 #include "Scroller.h"
 #include "Sensors.h"
 #include "ShipDefs.h"
@@ -214,6 +215,21 @@ fedrawcallback rmDrawCallback[] =
 };
 
 
+static TechPrintList cataMission1TechList[]={
+    {ITEM_CLASSHEADER,0,SupportHeading},
+    {ITEM_TECHNOLOGY,0,SalvageTech},
+    {ITEM_ENDLIST,0,0}
+};
+static TechPrintList cataMission2TechList[]={
+    {ITEM_CLASSHEADER,0,SupportHeading},
+    {ITEM_TECHNOLOGY,0,CATA_FIGHTER_DRIVE_TECH},
+    {ITEM_TECHNOLOGY,0,CATA_LINK_TECH},
+    {ITEM_TECHNOLOGY,0,CATA_REPAIR_TECH},
+    {ITEM_TECHNOLOGY,0,CATA_SALVAGE_TECH},
+    {ITEM_TECHNOLOGY,0,CATA_MIMIC_TECH},
+    {ITEM_TECHNOLOGY,0,CATA_AFTERBURNER_TECH},
+    {ITEM_ENDLIST,0,0}
+};
 TechPrintList PlayerTechListStatic[NUMTECHSINLIST] =
 {
     {ITEM_CLASSHEADER   ,   0               ,   WeaponHeading           },
@@ -685,10 +701,9 @@ void rmExitMenu(char *string, featom *atom)
 
     /* play the exit sound */
     soundEvent(NULL, UI_ManagerExit);
+    soundEvent(NULL, UI_SoundOfSpace);
     if (!mdManagerDockEnabled())
     {
-        //restart the sound of space ambient
-        soundEvent(NULL, UI_SoundOfSpace);
         spUnlockout();
     }
 
@@ -1491,7 +1506,9 @@ void rmTechInfoDraw(regionhandle region)
     fontPrintf(x,y,colRGB(236,174,60),"%s",
         RaceSpecificTechTypeToNiceString(techinfo,universe.curPlayerPtr->race));
     y+=height+uiScaleSize(12);
-    if(techinfo==DDDFDFGFTech)
+    if(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()))
+        description=cataCampaignTechDescription(techinfo);
+    else if(techinfo==DDDFDFGFTech)
         description=strGetString(universe.curPlayerPtr->race==R1?strR1DDDFTechinfo:strR2DFGFTechinfo);
     else if(techinfo==CloakDefenseFighter)
         description=strGetString(universe.curPlayerPtr->race==R1?strR1CloakFighterinfo:strR2DefenseFighterTechinfo);
@@ -1721,7 +1738,9 @@ void rmTechImageDraw(featom *atom, regionhandle region)
             }
 
             // Build filename for loading texture from file
-            strcpy(filename, TechImagePaths[universe.curPlayerPtr->race]);
+            if(singlePlayerGame && hwIsCataclysmMission(spGetCurrentMission()))
+                strcpy(filename,"Cataclysm\\ResearchGUI\\Race1\\");
+            else strcpy(filename, TechImagePaths[universe.curPlayerPtr->race]);
             strcat(filename, TechTypeToString(techinfo));
             strcat(filename,".lif");
 
@@ -2202,6 +2221,8 @@ sdword rmResearchGUIBegin(regionhandle region, smemsize ID, udword event, udword
             PlayerTechList = &SinglePlayerR2TechList[0];
     }
 
+    if(singlePlayerGame && spGetCurrentMission()==MISSION_CATA_1_HIIGARA)PlayerTechList=cataMission1TechList;
+    else if(singlePlayerGame && spGetCurrentMission()==MISSION_CATA_2_OUTSKIRTS)PlayerTechList=cataMission2TechList;
     for (index=0;index<NUM_RESEARCHLABS;index++)
     {
         labbuttons[index].lab = &universe.curPlayerPtr->researchinfo.researchlabs[index];

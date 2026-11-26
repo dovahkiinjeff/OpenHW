@@ -82,7 +82,7 @@ typedef enum
 
 typedef struct
 {
-    udword TechNeededToBuildShip[TOTAL_STD_SHIPS];   // technologies needed before this ship can be built
+    udword TechNeededToBuildShip[TOTAL_NUM_SHIPS];   // includes appended owned-data ship identities
     udword TechNeededToResearch[NumTechnologies];  // technology needed before this can be researched
     sdword TimeToComplete[NumTechnologies];        // time in seconds technology takes to finish
 } TechStatics;

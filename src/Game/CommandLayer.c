@@ -12,6 +12,10 @@
 
 #include "ResourceUnits.h"
 #include "CommandLayer.h"
+#include "CataclysmDisguise.h"
+#include "CataclysmShips.h"
+#include "CataclysmWorker.h"
+#include "CataclysmSalvage.h"
 #include "ShipPilot.h"
 
 #include "AIPlayer.h"
@@ -915,6 +919,23 @@ bool32 processPassiveAttackToDo(CommandToDo *attacktodo)
     bool32 rotate;
 
     dbgAssertOrIgnore(numShips > 0);
+
+    /* A passive order in a save can still contain a Raider acquired before
+       its disguise was respected. Keep unrelated targets in the order. */
+    if (singlePlayerGame && spGetCurrentMission() == MISSION_CATA_2_OUTSKIRTS)
+    {
+        for (i = attack->numTargets - 1; i >= 0; --i)
+        {
+            target = attack->TargetPtr[i];
+            if (target->objtype == OBJ_ShipType &&
+                cataDisguiseConcealsRaider((Ship *)target, selection->ShipPtr[0]->playerowner))
+            {
+                if (clRemoveTargetFromSelection(attack, target))
+                    RemoveAttackTargetFromExtraAttackInfo(target, attacktodo);
+            }
+        }
+        numShipsToAttack = attack->numTargets;
+    }
 
     if ((numShipsToAttack == 0) || (!ShipsInPassiveAttackRange(selection,attack))
         || ((singlePlayerGame) && (singlePlayerGameInfo.hyperspaceState != NO_HYPERSPACE ) ))
@@ -2654,7 +2675,8 @@ bool32 processMpHyperspaceingToDo(CommandToDo *movetodo)
             else
             {
                 //individual ship is out of hyperspace...make it selectable!
-                bitSet(movetodo->selection->ShipPtr[i]->flags,SOF_Selectable);
+                bitSetTo(movetodo->selection->ShipPtr[i]->flags,SOF_Selectable,
+                    !(movetodo->selection->ShipPtr[i]->specialFlags2&SPECIAL_2_CataScriptControlled));
             }
         }
         if(donehsflag == FALSE)
@@ -2669,7 +2691,8 @@ bool32 processMpHyperspaceingToDo(CommandToDo *movetodo)
         for(i=0;i<movetodo->selection->numShips;i++)
         {
             //make selectable again!
-            bitSet(movetodo->selection->ShipPtr[i]->flags,SOF_Selectable);
+            bitSetTo(movetodo->selection->ShipPtr[i]->flags,SOF_Selectable,
+                !(movetodo->selection->ShipPtr[i]->specialFlags2&SPECIAL_2_CataScriptControlled));
         }
         return(TRUE);
         break;
@@ -2948,6 +2971,8 @@ void SalCapCancelOrder(Ship *ship);
 
 void RemoveShipFromSpecial(Ship *shiptoremove)
 {
+    if(shiptoremove->shiptype==CataWorker){cataWorkerCancelSpecial(shiptoremove);return;}
+    if(cataSalvageHandles(shiptoremove)){cataSalvageCancel(shiptoremove);return;}
     if (shiptoremove->specialFlags & SPECIAL_IsASalvager)
     {
         SalCapCancelOrder(shiptoremove);
@@ -5290,7 +5315,7 @@ void removeShipFromMpHyperspaceing(Ship *ship)
 {
     vecZeroVector(ship->moveTo);
     vecZeroVector(ship->moveFrom);
-    bitSet(ship->flags,SOF_Selectable);
+    bitSetTo(ship->flags,SOF_Selectable,!(ship->specialFlags2&SPECIAL_2_CataScriptControlled));
 }
 
 /*-----------------------------------------------------------------------------
@@ -7400,6 +7425,18 @@ Ship *clCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uw
     }
 
     dbgAssertOrIgnore(playerIndex < universe.numPlayers);
+
+    /* Somtaaw hull modules are installed on the host, never put in its hangar
+       or sent through a normal ship launch path. Their owned meshes retain
+       the mothership's shared origin. */
+    if(!multiPlayerGame && creator->shiptype==CataMothership &&
+       shipType>=CataMothershipCommand && shipType<=CATA_LAST_COMPONENT)
+    {
+        ship=univAddShip(shipType,shipRace,&creator->posinfo.position,player,1);
+        gameStatsAddShip(ship,playerIndex);unitCapCreateShip(ship,player);
+        cataShipAttachComponent(creator,ship);
+        return ship;
+    }
 
     // create ship
     ship = univCreateShip(shipType,shipRace,&creator->posinfo.position,&universe.players[playerIndex],1);

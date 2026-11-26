@@ -147,10 +147,16 @@ void navLightStaticInfoDelete(NAVLightStaticInfo *staticInfo)
 ----------------------------------------------------------------------------*/
 static bool32 navLightPositionForShip(Ship *ship,NAVLightStatic *light)
 {
-    char semantic[32];vector nativeLamp;
+    char semantic[32];vector nativeLamp;unsigned j;
     if(ship->objtype!=OBJ_ShipType)return TRUE;
     snprintf(semantic,sizeof(semantic),"nav_%s",light->name);
+    for(j=0;semantic[j];j++)if(semantic[j]>='A' && semantic[j]<='Z')semantic[j]+='a'-'A';
     if(meshRemasteredMarkerPosition(ship,semantic,&light->position))return TRUE;
+    /* Native Somtaaw modules have a different origin and geometry from the
+       original composite pieces. An unbound classic lamp is not a valid
+       fallback there; use only source-authored native light joints. */
+    if(IS_CATA_SHIP(ship->shiptype) &&
+       meshRemasteredMarkerPosition(ship,"native_nav",&nativeLamp))return FALSE;
     /* RM Taiidan support hull has no Dock2, Dock2a or caution2 lamps.
        Keep Classic fallback only for a Classic/custom hull, not floating
        Classic positions beside a verified native support-frigate hull. */

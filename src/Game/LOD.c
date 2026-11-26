@@ -224,18 +224,11 @@ static void lodTypeRead(char *directory,char *field,void *dataToFillIn)
 //load in a mesh
 static void lodMeshFileLoad(char *directory,char *field,void *dataToFillIn)
 {
-    char fullfilename[80];
-#if LOD_VERBOSE_LEVEL >= 1
-//    dbgMessagef("lodMeshFileLoad: %s", field);
-#endif
-    if (directory != NULL)
+    char fullfilename[FL_Path];
+    if (!fileBuildPath(fullfilename, sizeof(fullfilename), directory, field))
     {
-        strcpy(fullfilename,directory);
-        strcat(fullfilename,field);
-    }
-    else
-    {
-        strcpy(fullfilename,field);
+        dbgFatalf(DBG_Loc, "LOD mesh path too long for '%s'", field);
+        return;
     }
 
     if (fileExists(fullfilename,0) || meshPagedVersionExists(fullfilename))

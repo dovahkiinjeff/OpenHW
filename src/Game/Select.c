@@ -38,6 +38,7 @@
 #include "Tutor.h"
 #include "mainrgn.h"
 #include "Veterancy.h"
+#include "CataclysmCampaign.h"
 #include "Options.h"
 #include "ModernGraphics.h"
 #include <SDL.h>
@@ -48,6 +49,7 @@
     Data:
 =============================================================================*/
 MaxSelection selSelected;
+MaxSelection selInspected;
 MaxAnySelection selSelecting;
 MaxSelection selHotKeyGroup[SEL_NumberHotKeyGroups];
 
@@ -104,6 +106,18 @@ fonthandle selGroupFont3;
 
 real32 SEL_MinSelectionRadius;
 real32 selMinSelectionRadius;
+static void selDrawUpgradeIndicator(Ship *ship, sdword barLeftX, sdword healthY)
+{
+    if(cataCampaignPendingUpgrade(ship))
+    {
+        sdword x=barLeftX-5;
+        color upgrade=colRGB(242,174,61);
+        primLine2(x-3,healthY,x,healthY-3,upgrade);
+        primLine2(x,healthY-3,x+3,healthY,upgrade);
+        primLine2(x,healthY-3,x,healthY+3,upgrade);
+    }
+}
+
 static void selDrawVeterancyStars(Ship *ship, sdword barLeftX, sdword healthY)
 {
     static const float pointX[10] = {0,2,6,3,4,0,-4,-3,-6,-2};
@@ -152,6 +166,7 @@ void selReset(void)
     sdword index;
 
     selSelected.numShips = 0;
+    selInspected.numShips = 0;
     selSelecting.numTargets = 0;
 
     for (index = 0; index < SEL_NumberHotKeyGroups; index++)
@@ -206,7 +221,11 @@ void selShutdown(void)
                   Also updates the selCentrePoint vector.
     Return      : void
 ----------------------------------------------------------------------------*/
-void selRectDragFunction(Node *startNode, Camera *camera, rectangle *screenRect, SpaceObjRotImpTarg **destList, sdword *destCount, sdword playerSpecific, bool32 selectAnything, bool32 bAttack)
+static bool32 selIsInspectableAlly(const SpaceObjRotImpTarg *target);
+
+static void selRectDragInternal(Node *startNode, Camera *camera, rectangle *screenRect,
+    SpaceObjRotImpTarg **destList, sdword *destCount, sdword playerSpecific,
+    bool32 selectAnything, bool32 bAttack, bool32 inspectAllies)
 {
     Node *targetnode;
     SpaceObjRotImpTarg *target;
@@ -234,7 +253,8 @@ void selRectDragFunction(Node *startNode, Camera *camera, rectangle *screenRect,
     while (targetnode != NULL)
     {
         target = (SpaceObjRotImpTarg *)listGetStructOfNode(targetnode);
-        if ((target->flags & (SOF_Selectable|SOF_Targetable)) == 0)
+        if ((target->flags & (SOF_Selectable|SOF_Targetable)) == 0 &&
+            (!inspectAllies || !selIsInspectableAlly(target)))
         {
             goto nexttarget;
         }
@@ -380,6 +400,14 @@ nexttarget:
     }
 }
 
+void selRectDragFunction(Node *startNode, Camera *camera, rectangle *rect,
+    SpaceObjRotImpTarg **destList, sdword *destCount, sdword playerSpecific,
+    bool32 selectAnything, bool32 attack)
+{
+    selRectDragInternal(startNode, camera, rect, destList, destCount,
+                        playerSpecific, selectAnything, attack, FALSE);
+}
+
 /*-----------------------------------------------------------------------------
     Name        : selRectDragAddFunction
     Description : Update a list of ships being selected based upon
@@ -390,6 +418,69 @@ nexttarget:
                   Also updates the selCentrePoint vector.
     Return      : void
 ----------------------------------------------------------------------------*/
+static bool32 selIsInspectableAlly(const SpaceObjRotImpTarg *target)
+{
+    const Ship *ship;
+    if (target->objtype != OBJ_ShipType ||
+        (target->flags & (SOF_Dead | SOF_Hide | SOF_Hyperspace)))
+        return FALSE;
+    ship = (const Ship *)target;
+    return ship->playerowner != NULL &&
+           (ship->playerowner != universe.curPlayerPtr ||
+            (ship->specialFlags2 & SPECIAL_2_CataScriptControlled)) &&
+           allianceIsShipAlly((Ship *)ship, universe.curPlayerPtr);
+}
+
+bool32 selInspectShip(Ship *ship)
+{
+    if (!selIsInspectableAlly((SpaceObjRotImpTarg *)ship)) return FALSE;
+    selSelected.numShips = 0;
+    selInspected.numShips = 1;
+    selInspected.ShipPtr[0] = ship;
+    ioUpdateShipTotals();
+    return TRUE;
+}
+
+void selRectDragFriendlies(Node *startNode, Camera *camera, rectangle *rect)
+{
+    sdword i, count = 0;
+    selRectDragInternal(startNode, camera, rect, selSelecting.TargetPtr,
+                       &selSelecting.numTargets, FALSE, FALSE, FALSE, TRUE);
+    for (i = 0; i < selSelecting.numTargets; ++i)
+    {
+        SpaceObjRotImpTarg *target = selSelecting.TargetPtr[i];
+        if (selIsInspectableAlly(target) ||
+            (target->objtype == OBJ_ShipType && (target->flags & SOF_Selectable) &&
+             ((Ship *)target)->playerowner == universe.curPlayerPtr))
+            selSelecting.TargetPtr[count++] = target;
+    }
+    selSelecting.numTargets = count;
+}
+
+void selRectSelectFriendlies(Node *startNode, Camera *camera, rectangle *rect)
+{
+    sdword i;
+    selRectDragFriendlies(startNode, camera, rect);
+    selSelected.numShips = 0;
+    for (i = 0; i < selSelecting.numTargets; ++i)
+    {
+        Ship *ship = (Ship *)selSelecting.TargetPtr[i];
+        if (!selIsInspectableAlly((SpaceObjRotImpTarg *)ship))
+            selSelected.ShipPtr[selSelected.numShips++] = ship;
+    }
+    ioUpdateShipTotals();
+    selInspectDragSelection(&selInspected);
+}
+
+void selInspectDragSelection(MaxSelection *selection)
+{
+    sdword i;
+    selection->numShips = 0;
+    for (i = 0; i < selSelecting.numTargets; ++i)
+        if (selIsInspectableAlly(selSelecting.TargetPtr[i]))
+            selection->ShipPtr[selection->numShips++] = (Ship *)selSelecting.TargetPtr[i];
+}
+
 void selRectDragAddFunction(Node *startNode, Camera *camera, rectangle *rect)
 {
     sdword index, selectCount;
@@ -1306,6 +1397,7 @@ void selStatusDraw0(Ship *ship)
     rect.x0 = rect.x1;
     rect.x1 = x + halfWidth;
     primRectSolid2(&rect, healthDarkColor);
+    selDrawUpgradeIndicator(ship, x - halfWidth, rect.y0);
     selDrawVeterancyStars(ship, x - halfWidth, rect.y0);
 
     if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
@@ -1556,6 +1648,7 @@ void selStatusDraw1(Ship *ship)
     rect.x0 = rect.x1;
     rect.x1 =  x + halfWidth;
     primRectSolid2(&rect, healthDarkColor);
+    selDrawUpgradeIndicator(ship, x - halfWidth, rect.y0);
     selDrawVeterancyStars(ship, x - halfWidth, rect.y0);
 
     if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
@@ -1780,6 +1873,7 @@ void selStatusDraw2(Ship *ship)
     rect.x0 = rect.x1;
     rect.x1 =  x + halfWidth;
     primRectSolid2(&rect, healthDarkColor);
+    selDrawUpgradeIndicator(ship, x - halfWidth, rect.y0);
     selDrawVeterancyStars(ship, x - halfWidth, rect.y0);
 //    y = y - primGLToScreenScaleX(radius);
 //    primNonAALine2(x - halfWidth, y, x + halfWidth, y, healthColor);
@@ -1981,6 +2075,7 @@ void selStatusDraw3(Ship *ship)
     //draw health
     y = y - primGLToScreenScaleX(radius);
     primNonAALine2(x - halfWidth, y, x + halfWidth, y, healthColor);
+    selDrawUpgradeIndicator(ship, x - halfWidth, y);
     selDrawVeterancyStars(ship, x - halfWidth, y);
 
     if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
@@ -2062,6 +2157,7 @@ void selStatusDraw4(Ship *ship)
     //draw health
     y = y - primGLToScreenScaleX(radius);
     primNonAALine2(x - halfWidth, y, x + halfWidth, y, healthColor);
+    selDrawUpgradeIndicator(ship, x - halfWidth, y);
     selDrawVeterancyStars(ship, x - halfWidth, y);
 
     if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
@@ -2225,6 +2321,53 @@ void selSelectingDraw(void)
                 }
             }
         }
+    }
+}
+
+void selInspectHealthDraw(bool32 dragging, bool32 sensors)
+{
+    sdword i, count = dragging ? selSelecting.numTargets : selInspected.numShips;
+    for (i = 0; i < count; ++i)
+    {
+        SpaceObjRotImpTarg *target = dragging ? selSelecting.TargetPtr[i] :
+            (SpaceObjRotImpTarg *)selInspected.ShipPtr[i];
+        Ship *ship = (Ship *)target;
+        real32 radius, fraction;
+        sdword x, halfWidth, end;
+        rectangle bar;
+        color fill, background;
+
+        if (!selIsInspectableAlly(target) || ship->collInfo.selCircleRadius <= 0 ||
+            (!sensors && !univSpaceObjInRenderList((SpaceObj *)ship)))
+            continue;
+        radius = max(ship->collInfo.selCircleRadius, selMinSelectionRadius);
+        fraction = max(0.0f, min(1.0f, ship->health * ship->staticinfo->oneOverMaxHealth));
+        x = primGLToScreenX(ship->collInfo.selCircleX);
+        halfWidth = max(8, primGLToScreenScaleX(radius * selSelectionWidthFactor0));
+        end = x + halfWidth;
+        bar.x0 = x - halfWidth;
+        bar.y0 = primGLToScreenY(ship->collInfo.selCircleY) - primGLToScreenScaleX(radius);
+        bar.x1 = bar.x0 + (sdword)(2 * halfWidth * fraction);
+        bar.y1 = bar.y0 + 4;
+        if (fraction > selShipHealthGreenFactor)
+        {
+            fill = selShipHealthGreen;
+            background = selShipHealthDarkGreen;
+        }
+        else if (fraction > selShipHealthYellowFactor)
+        {
+            fill = selShipHealthYellow;
+            background = selShipHealthDarkYellow;
+        }
+        else
+        {
+            fill = selShipHealthRed;
+            background = selShipHealthDarkRed;
+        }
+        if (bar.x1 > bar.x0) primRectSolid2(&bar, fill);
+        bar.x0 = bar.x1;
+        bar.x1 = end;
+        if (bar.x1 > bar.x0) primRectSolid2(&bar, background);
     }
 }
 

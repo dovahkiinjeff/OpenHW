@@ -82,6 +82,9 @@ sdword soundEventPlay(void *object, sdword event, Gun *gun)
     ShipClass shipclass;
 
 
+    soundEventSelectGameBanks();
+    if(soundEventUsesCataclysm() && object && !soundEventWorldAudioAllowed() &&
+       ((event&SFX_Flag_Mask)==ShipCmn_Flag || (event&SFX_Flag_Mask)==Gun_Flag))return handle;
     if (!enableSFX)
     {
         return (SOUND_OK);
@@ -125,13 +128,13 @@ sdword soundEventPlay(void *object, sdword event, Gun *gun)
 				{
 					// play the ambient sound
 					soundstop(ambienthandle, SOUND_FADE_STOPTIME);
-					ambienthandle = splayPRV(UIBank, UIEventsLUT->lookup[GetPatch(UIEventsLUT, 0, event)],
+					ambienthandle = splayPRV(UIBank, SEpatch(UIEventsLUT, 0, event),
 												 SOUND_PAN_CENTER, SOUND_PRIORITY_STREAM,
 												 (sword)(SFX_AMBIENT_VOLUME * volSFX));
 				}
 				else
 				{
-					handle = splayFPRVL(UIBank, UIEventsLUT->lookup[GetPatch(UIEventsLUT, 0, event)],
+					handle = splayFPRVL(UIBank, SEpatch(UIEventsLUT, 0, event),
 										NULL, (real32)SOUND_DEFAULT, SOUND_PAN_CENTER, SOUND_PRIORITY_MAX,
 										(sword)(SOUND_VOL_MAX * volSFX), FALSE, FALSE, FALSE);
 				}
@@ -169,7 +172,7 @@ sdword soundEventPlay(void *object, sdword event, Gun *gun)
 								   * (1.0f - (ship->soundevent.coverage * 0.5)));
 					pan = getPanAngle(ship->posinfo.position, ship->staticinfo->staticheader.staticCollInfo.approxcollspheresize, dist);
 					
-					handle = splayEPRV(GunBank, GunEventsLUT->lookup[GetPatch(GunEventsLUT, gun->gunstatic->gunsoundtype, event)], tempEQ, pan, priority, vol);
+					handle = splayEPRV(GunBank, SEpatch(GunEventsLUT, gun->gunstatic->gunsoundtype, event), tempEQ, pan, priority, vol);
 					ship->soundevent.burstHandle = handle;
 				}
 				else if (event == Gun_WeaponShot)
@@ -185,7 +188,7 @@ sdword soundEventPlay(void *object, sdword event, Gun *gun)
 								   * (1.0f - ship->soundevent.coverage));
 					pan = getPanAngle(ship->posinfo.position, ship->staticinfo->staticheader.staticCollInfo.approxcollspheresize, dist);
 					
-					handle = splayEPRV(GunBank, GunEventsLUT->lookup[GetPatch(GunEventsLUT, gun->gunstatic->gunsoundtype, event)], tempEQ, pan, priority, vol);
+					handle = splayEPRV(GunBank, SEpatch(GunEventsLUT, gun->gunstatic->gunsoundtype, event), tempEQ, pan, priority, vol);
 					ship->soundevent.gunHandle = handle;
 				}
 				else	// event = Gun_WeaponMove
@@ -199,7 +202,7 @@ sdword soundEventPlay(void *object, sdword event, Gun *gun)
 					vol = (sdword)(SEequalize(gun->gunstatic->gunsoundtype + GUNMOVE_OFFSET, dist, tempEQ)
 								   * (1.0f - ship->soundevent.coverage));
 					pan = getPanAngle(ship->posinfo.position, ship->staticinfo->staticheader.staticCollInfo.approxcollspheresize, dist);
-					handle = splayEPRV(GunBank, GunEventsLUT->lookup[GetPatch(GunEventsLUT, gun->gunstatic->gunsoundtype, event)], tempEQ, pan, priority, vol);
+					handle = splayEPRV(GunBank, SEpatch(GunEventsLUT, gun->gunstatic->gunsoundtype, event), tempEQ, pan, priority, vol);
 				}
 				break;
 	
@@ -256,9 +259,9 @@ sdword soundEventPlay(void *object, sdword event, Gun *gun)
 	
 					pan = getPanAngle(ship->posinfo.position, ship->staticinfo->staticheader.staticCollInfo.approxcollspheresize, dist);
 	
-					if (ship->shiptype < ShipCmnEventsLUT->numobjects)
+					if (SEshipSoundObject(ship)>=0 && SEshipSoundObject(ship)<ShipCmnEventsLUT->numobjects)
 					{
-						handle = splayEPRV(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, event)], tempEQ, pan, priority, vol);
+						handle = splayEPRV(ShipBank, SEpatch(ShipCmnEventsLUT, SEshipSoundObject(ship), event), tempEQ, pan, priority, vol);
 					}
 					
 					if (event == ShipCmn_Engine)
@@ -315,16 +318,16 @@ sdword soundEventPlay(void *object, sdword event, Gun *gun)
 
 				if ((event == Ship_Hyperdrive) || (event == Ship_HyperdriveOff))
 				{
-					handle = splayPRV(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, event)], SOUND_PAN_CENTER, SOUND_PRIORITY_MAX, vol);
+					handle = splayPRV(ShipBank, SEpatch(ShipEventsLUT, 0, event), SOUND_PAN_CENTER, SOUND_PRIORITY_MAX, vol);
 					ship->soundevent.hyperspaceHandle = handle;
 				}
 				else if (event == Ship_SinglePlayerHyperspace)
 				{
-					handle = splayPRV(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, event)], SOUND_PAN_CENTER, SOUND_PRIORITY_MAX, (sword)(SFX_HYPERSPACE_VOLUME * volSFX));
+					handle = splayPRV(ShipBank, SEpatch(ShipEventsLUT, 0, event), SOUND_PAN_CENTER, SOUND_PRIORITY_MAX, (sword)(SFX_HYPERSPACE_VOLUME * volSFX));
 				}
 				else
 				{
-					handle = splayEPRV(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, event)], tempEQ, pan, SOUND_PRIORITY_NORMAL, vol);
+					handle = splayEPRV(ShipBank, SEpatch(ShipEventsLUT, 0, event), tempEQ, pan, SOUND_PRIORITY_NORMAL, vol);
 				}
 				break;
 			
@@ -346,7 +349,7 @@ sdword soundEventPlay(void *object, sdword event, Gun *gun)
 					vol = SEequalize((event - Exp_Flag) + EXPLOSION_OFFSET, dist, tempEQ);
 					pan = getPanAngle(effect->posinfo.position, EFFECT_SIZE, dist);
 	
-					handle = splayEPRV(SpecialEffectBank, SpecExpEventsLUT->lookup[GetPatch(SpecExpEventsLUT, 0, event)], tempEQ, pan, SOUND_PRIORITY_MAX + 1, vol);
+					handle = splayEPRV(SpecialEffectBank, SEpatch(SpecExpEventsLUT, 0, event), tempEQ, pan, SOUND_PRIORITY_MAX + 1, vol);
 				}
 				break;
 	
@@ -368,7 +371,7 @@ sdword soundEventPlay(void *object, sdword event, Gun *gun)
 							vol = SEequalize((event - Hit_Flag) + HIT_OFFSET, dist, tempEQ);
 							pan = getPanAngle(effect->posinfo.position, EFFECT_SIZE, dist);
 		
-							handle = splayEPRV(SpecialEffectBank, SpecHitEventsLUT->lookup[GetPatch(SpecHitEventsLUT, 0, event)], tempEQ, pan, SOUND_PRIORITY_HIGH, vol);
+							handle = splayEPRV(SpecialEffectBank, SEpatch(SpecHitEventsLUT, 0, event), tempEQ, pan, SOUND_PRIORITY_HIGH, vol);
 							effectHandle[event & SFX_Event_Mask].handle[i] = handle;
 							break;
 						}
@@ -443,7 +446,7 @@ sdword soundEffectType(Effect *effect, sdword event, sdword objecttype)
                     vol = SEequalize((event - Hit_Flag) + HIT_OFFSET, dist, tempEQ);
                     pan = getPanAngle(effect->posinfo.position, EFFECT_SIZE, dist);
 
-                    handle = splayEPRV(SpecialEffectBank, SpecHitEventsLUT->lookup[GetPatch(SpecHitEventsLUT, objecttype, event)], tempEQ, pan, SOUND_PRIORITY_NORMAL, vol);
+                    handle = splayEPRV(SpecialEffectBank, SEpatch(SpecHitEventsLUT, objecttype, event), tempEQ, pan, SOUND_PRIORITY_NORMAL, vol);
                 }
                 break;
 

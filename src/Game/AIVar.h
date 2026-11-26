@@ -30,6 +30,7 @@ char *aivarLabelGet(AIVar *var);
 void aivarLabelSet(AIVar *var, char *label);
 void aivarDestroy(AIVar *var);
 void aivarDestroyAll(void);
+void aivarDestroyAllExcept(bool32 (*keep)(const char *label));
 void aivarValueSet(AIVar *var, sdword value);
 sdword aivarValueGet(AIVar *var);
 void aivarSave(void);
