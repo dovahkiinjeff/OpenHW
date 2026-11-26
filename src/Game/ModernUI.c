@@ -66,6 +66,7 @@
 #include "Universe.h"
 #include "font.h"
 #include "main.h"
+#include "../Modern/ShadowDefaults.h"
 #include "mainrgn.h"
 #include "mouse.h"
 #include "prim2d.h"
@@ -3751,16 +3752,16 @@ static void muiShadowAdjust(sdword row, sdword direction)
 
 static void muiShadowReset(void)
 {
-    mainShadowStrengthPercent = 100;
-    mainSunShadowAngularRadiusCentidegrees = 35;
-    mainSunShadowSamples = 6;
-    mainLocalShadowSamples = 2;
-    mainLocalShadowAngularRadiusCentidegrees = 20;
-    mainShadowReceiverBiasHundredths = 5;
-    mainShadowNormalBiasHundredths = 8;
-    mainContactShadowStrengthPercent = 100;
-    mainContactShadowDistance = 1200;
-    mainShadowMaximumDistance = 500000;
+    mainShadowStrengthPercent = HW_DEFAULT_SHADOW_STRENGTH_PERCENT;
+    mainSunShadowAngularRadiusCentidegrees = HW_DEFAULT_SUN_SHADOW_RADIUS_CENTIDEGREES;
+    mainSunShadowSamples = HW_DEFAULT_SUN_SHADOW_SAMPLES;
+    mainLocalShadowSamples = HW_DEFAULT_LOCAL_SHADOW_SAMPLES;
+    mainLocalShadowAngularRadiusCentidegrees = HW_DEFAULT_LOCAL_SHADOW_RADIUS_CENTIDEGREES;
+    mainShadowReceiverBiasHundredths = HW_DEFAULT_SHADOW_RECEIVER_BIAS_HUNDREDTHS;
+    mainShadowNormalBiasHundredths = HW_DEFAULT_SHADOW_NORMAL_BIAS_HUNDREDTHS;
+    mainContactShadowStrengthPercent = HW_DEFAULT_CONTACT_SHADOW_STRENGTH_PERCENT;
+    mainContactShadowDistance = HW_DEFAULT_CONTACT_SHADOW_DISTANCE;
+    mainShadowMaximumDistance = HW_DEFAULT_SHADOW_MAXIMUM_DISTANCE;
     muiShadowApply();
 }
 

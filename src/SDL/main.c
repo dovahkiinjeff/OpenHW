@@ -1,5 +1,6 @@
 #include "../Modern/BadgeLibrary.h"
 #include "../Modern/DiagnosticPolicy.h"
+#include "../Modern/ShadowDefaults.h"
 #include "../Network/DedicatedServer.h"
 #include "../Network/OnlineClient.h"
 /*============================================================================
@@ -246,16 +247,16 @@ sdword mainLensFlares = 1;
 /* Global ray-traced shadow quality/authoring controls.  Integer storage keeps
    the legacy config/UI path deterministic; centidegrees and hundredths are
    converted to float only at the renderer boundary. */
-sdword mainShadowStrengthPercent = 100;
-sdword mainSunShadowAngularRadiusCentidegrees = 35;
-sdword mainSunShadowSamples = 6;
-sdword mainLocalShadowSamples = 2;
-sdword mainLocalShadowAngularRadiusCentidegrees = 20;
-sdword mainShadowReceiverBiasHundredths = 5;
-sdword mainShadowNormalBiasHundredths = 8;
-sdword mainContactShadowStrengthPercent = 100;
-sdword mainContactShadowDistance = 1200;
-sdword mainShadowMaximumDistance = 500000;
+sdword mainShadowStrengthPercent = HW_DEFAULT_SHADOW_STRENGTH_PERCENT;
+sdword mainSunShadowAngularRadiusCentidegrees = HW_DEFAULT_SUN_SHADOW_RADIUS_CENTIDEGREES;
+sdword mainSunShadowSamples = HW_DEFAULT_SUN_SHADOW_SAMPLES;
+sdword mainLocalShadowSamples = HW_DEFAULT_LOCAL_SHADOW_SAMPLES;
+sdword mainLocalShadowAngularRadiusCentidegrees = HW_DEFAULT_LOCAL_SHADOW_RADIUS_CENTIDEGREES;
+sdword mainShadowReceiverBiasHundredths = HW_DEFAULT_SHADOW_RECEIVER_BIAS_HUNDREDTHS;
+sdword mainShadowNormalBiasHundredths = HW_DEFAULT_SHADOW_NORMAL_BIAS_HUNDREDTHS;
+sdword mainContactShadowStrengthPercent = HW_DEFAULT_CONTACT_SHADOW_STRENGTH_PERCENT;
+sdword mainContactShadowDistance = HW_DEFAULT_CONTACT_SHADOW_DISTANCE;
+sdword mainShadowMaximumDistance = HW_DEFAULT_SHADOW_MAXIMUM_DISTANCE;
 
 bool32 slowBlits = FALSE;
 #if RND_VISUALIZATION

@@ -98,7 +98,10 @@ def main():
     validate_manifest(feed)
     floor=feed.get('fresh_install',{}).get('version','1.0')
     if version_key(floor)!=version_key(feed['latest']):
-        raise ValueError('Publish a complete fresh installer for the latest game release before enabling its feed')
+        if feed.get('updater_only') is not True:
+            raise ValueError('Publish a complete fresh installer for the latest game release before enabling its feed')
+        if version_key(floor)>version_key(feed['latest']) or not update_plan(feed,floor):
+            raise ValueError('An updater-only release needs an update path from the current fresh installer')
     versions={v for p in feed['patches'] for v in p['from']} | {p['to'] for p in feed['patches']}
     for version in versions:
         try: update_plan(feed,version)

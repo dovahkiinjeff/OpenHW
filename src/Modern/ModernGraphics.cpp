@@ -1,5 +1,6 @@
 #include "DiagnosticPolicy.h"
 #include "ModernGraphics.h"
+#include "ShadowDefaults.h"
 #include "CloudRenderSettings.h"
 #include "ModernDlaa.h"
 #include "ModernUpscaler.h"
@@ -3226,16 +3227,16 @@ float requestedSurfaceReflectivity = 1.25f;
 float requestedSurfaceRoughness = 0.38f;
 float requestedRasterGlowBrightness = 0.29f;
 float requestedLightingExposure = 1.0f;
-float requestedShadowStrength = 1.0f;
-float requestedSunShadowAngularRadiusDegrees = 0.35f;
-unsigned int requestedSunShadowSamples = 6u;
-unsigned int requestedLocalShadowSamples = 2u;
-float requestedLocalShadowAngularRadiusDegrees = 0.20f;
-float requestedShadowReceiverBias = 0.05f;
-float requestedShadowNormalBias = 0.08f;
-float requestedContactShadowStrength = 1.0f;
-float requestedContactShadowDistance = 1200.0f;
-float requestedShadowMaximumDistance = 500000.0f;
+float requestedShadowStrength = HW_DEFAULT_SHADOW_STRENGTH_PERCENT / 100.0f;
+float requestedSunShadowAngularRadiusDegrees = HW_DEFAULT_SUN_SHADOW_RADIUS_CENTIDEGREES / 100.0f;
+unsigned int requestedSunShadowSamples = HW_DEFAULT_SUN_SHADOW_SAMPLES;
+unsigned int requestedLocalShadowSamples = HW_DEFAULT_LOCAL_SHADOW_SAMPLES;
+float requestedLocalShadowAngularRadiusDegrees = HW_DEFAULT_LOCAL_SHADOW_RADIUS_CENTIDEGREES / 100.0f;
+float requestedShadowReceiverBias = HW_DEFAULT_SHADOW_RECEIVER_BIAS_HUNDREDTHS / 100.0f;
+float requestedShadowNormalBias = HW_DEFAULT_SHADOW_NORMAL_BIAS_HUNDREDTHS / 100.0f;
+float requestedContactShadowStrength = HW_DEFAULT_CONTACT_SHADOW_STRENGTH_PERCENT / 100.0f;
+float requestedContactShadowDistance = HW_DEFAULT_CONTACT_SHADOW_DISTANCE;
+float requestedShadowMaximumDistance = HW_DEFAULT_SHADOW_MAXIMUM_DISTANCE;
 float requestedChromaticAberration = 0.0f;
 float requestedMotionBlur = 0.0f;
 float requestedFilmGrain = 0.0f;

@@ -114,6 +114,7 @@
 #endif
 
 #include "main.h"
+#include "../Modern/ShadowDefaults.h"
 #include "avi.h"
 
 #ifdef _WIN32_FIX_ME
@@ -1021,6 +1022,29 @@ bool32 utyOptionsFileRead(void)
     }
 
     scriptSetFileSystem(ch_buf, UTY_CONFIG_FILENAME, utyOptionsList);
+    /* Apply the new defaults to configurations using the shipped 1.3 profile. */
+    if (mainShadowStrengthPercent == 95
+        && mainSunShadowAngularRadiusCentidegrees == 45
+        && mainSunShadowSamples == 1
+        && mainLocalShadowSamples == 2
+        && mainLocalShadowAngularRadiusCentidegrees == 20
+        && mainShadowReceiverBiasHundredths == 5
+        && mainShadowNormalBiasHundredths == 8
+        && mainContactShadowStrengthPercent == 100
+        && mainContactShadowDistance == 1200
+        && mainShadowMaximumDistance == 50000)
+    {
+        mainShadowStrengthPercent = HW_DEFAULT_SHADOW_STRENGTH_PERCENT;
+        mainSunShadowAngularRadiusCentidegrees = HW_DEFAULT_SUN_SHADOW_RADIUS_CENTIDEGREES;
+        mainLocalShadowSamples = HW_DEFAULT_LOCAL_SHADOW_SAMPLES;
+        mainLocalShadowAngularRadiusCentidegrees = HW_DEFAULT_LOCAL_SHADOW_RADIUS_CENTIDEGREES;
+        mainShadowReceiverBiasHundredths = HW_DEFAULT_SHADOW_RECEIVER_BIAS_HUNDREDTHS;
+        mainShadowNormalBiasHundredths = HW_DEFAULT_SHADOW_NORMAL_BIAS_HUNDREDTHS;
+        mainContactShadowStrengthPercent = HW_DEFAULT_CONTACT_SHADOW_STRENGTH_PERCENT;
+        mainContactShadowDistance = HW_DEFAULT_CONTACT_SHADOW_DISTANCE;
+        mainShadowMaximumDistance = HW_DEFAULT_SHADOW_MAXIMUM_DISTANCE;
+    }
+
 
     //call any functions that need to acknowledge a change due to loading
     cameraSensitivitySet(opMouseSens);

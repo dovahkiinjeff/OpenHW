@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channel": "stable",
-  "latest": "1.3",
+  "latest": "1.3.1",
   "minimum_protocol": 4,
   "full_install": {
     "version": "1.1.15",
@@ -160,6 +160,18 @@
       ],
       "format": "openhw-exe-zip-v1",
       "post_actions": []
+    },
+    {
+      "version": "1.3.1",
+      "url": "https://openhw.tech/downloads/v1.3.1/OpenHW-Patch-1.3.1.exe",
+      "size": 37182280,
+      "sha256": "30ce6e24f41e9b5f9f546fb18cb92234bdc6a9159377150b9e80909103d2f140",
+      "to": "1.3.1",
+      "from": [
+        "1.3"
+      ],
+      "format": "openhw-exe-zip-v1",
+      "post_actions": []
     }
   ],
   "launcher": {
@@ -187,5 +199,6 @@
     "recovery_page": "https://openhw.tech/#/download",
     "explanation": "1.1.15 is the consolidated full baseline. Earlier versions use the same complete GitHub package in place; player files are preserved. Compatible 1.1 archives are reused; older data is rebuilt from the owned Collection."
   },
-  "release": "1.3"
+  "release": "1.3.1",
+  "updater_only": true
 }
