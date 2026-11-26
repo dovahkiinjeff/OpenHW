@@ -30919,7 +30919,7 @@
     {
       "path": "tools/openhw_launcher.py",
       "size": 13347,
-      "sha256": "aa0d1d248efc8f66e8afb14e862f080cf03e8e0e8447bdab7ae263fbe17a88f7"
+      "sha256": "ed3a73ad25b418612e58b924fcfde0086c3095dfc92af62ac844cf71d2fa9c39"
     },
     {
       "path": "tools/openhw_launcher_ui.py",
@@ -30949,7 +30949,7 @@
     {
       "path": "tools/openhw_updater.py",
       "size": 40721,
-      "sha256": "741c6a10db17ab5f1c9a9e9be6dfb2afdbc23e247d8a6ba73ea0cea1faf464b6"
+      "sha256": "43fa061a12e0046f61eca0f5a181c215c71a9971ed296d36973a4f48474790d9"
     },
     {
       "path": "tools/openhw_weapon_presentation.py",
@@ -30993,8 +30993,8 @@
     },
     {
       "path": "tools/package_updater.py",
-      "size": 8020,
-      "sha256": "0ed9e338eb5d786e5b86c87b85323c144d9f85bd2aa7f66d2ce081d769acae02"
+      "size": 8638,
+      "sha256": "fee0da7703dfe9aca1d2c6c32f820e9662278a51a502b911e5b7513b35015e46"
     },
     {
       "path": "tools/plan_kushan_hod_bindings.py",
@@ -31434,7 +31434,7 @@
     {
       "path": "tools/UpdaterVersion.h",
       "size": 99,
-      "sha256": "2441c217ed05b4fbcc97fe97e787fc5830c9260ae35306a280e1046f4696db24"
+      "sha256": "37d33e1ef4fa085b2dfbc4fe13c2a55cb79b889758f26c1780fa43589aa19c84"
     },
     {
       "path": "tools/validate_presenter_shaders.ps1",
@@ -31448,8 +31448,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 5643,
-      "sha256": "9ac267127545faf3f2f7e85469a13c10b64a02a41a6b4b6f8117cae1513c8d6a"
+      "size": 5675,
+      "sha256": "929469f7a0b05fde4a1e3d072e9784b35ae28f1ca27658c20f97f1907d360a3e"
     },
     {
       "path": "vcpkg.json",
@@ -31463,8 +31463,8 @@
     },
     {
       "path": "Windows/build-release.ps1",
-      "size": 7753,
-      "sha256": "b2b3cfc795faf41e44b8290a5710fa752ece4b935eb22fd9e2014e8d840d47ad"
+      "size": 7883,
+      "sha256": "f1074d61254a7ee87ff63cfbce3450504bf6be4e4d3c05ba4e2b61760d9e8729"
     },
     {
       "path": "Windows/build.ps1",

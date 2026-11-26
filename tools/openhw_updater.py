@@ -19,7 +19,7 @@ import urllib.parse
 import uuid
 import zipfile
 
-UPDATER_VERSION = '1.1.14'
+UPDATER_VERSION = '1.1.15'
 PROTOCOL = 4
 MANIFEST_URL = 'https://openhw.tech/updates/stable.json'
 FALLBACK_MANIFEST_URL = 'https://raw.githubusercontent.com/dovahkiinjeff/OpenHW/main/updates/stable.json'

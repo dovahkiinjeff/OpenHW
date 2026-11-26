@@ -81,9 +81,11 @@ try {
     Run-Checked $venvPython @('tools\generate_launcher_settings.py')
     Run-Checked $venvPython @('tools\package_updater.py','--source',$repo,'--installed',$utilitySeed,
         '--bootstrap',"$diagnosticBuild\Release\OpenHWUpdaterBootstrap.exe",'--pyinstaller-modules',"$venv\Lib\site-packages",
+        '--runtime-support',"$frozen\OpenHW-Setup\Development",
         '--output',"$utilities\Updater.exe",'--work',"$utilities\updater")
     Run-Checked $venvPython @('tools\package_updater.py','--launcher','--source',$repo,'--installed',$utilitySeed,
         '--bootstrap',"$diagnosticBuild\Release\OpenHWLauncherBootstrap.exe",'--pyinstaller-modules',"$venv\Lib\site-packages",
+        '--runtime-support',"$frozen\OpenHW-Setup\Development",
         '--output',"$utilities\Launcher.exe",'--work',"$utilities\launcher")
     # A fresh staging directory prevents stale data from a previous build leaking in.
     $stage = Join-Path $repo ('out\release-stage-'+[guid]::NewGuid().ToString('N'))

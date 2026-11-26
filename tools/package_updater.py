@@ -19,15 +19,20 @@ def main():
         parser.add_argument('--'+name, type=Path, required=True)
     parser.add_argument('--launcher',action='store_true')
     parser.add_argument('--bundle',type=Path)
+    parser.add_argument('--runtime-support',type=Path,
+                        help='The matching frozen setup Development directory')
     args = parser.parse_args(); sys.path.insert(0,str(args.pyinstaller_modules.resolve()))
     from PyInstaller.archive.readers import CArchiveReader
     from PyInstaller.archive.writers import CArchiveWriter
     from PyInstaller.loader.pyimod01_archive import ZlibArchiveReader
-    version = '1.1.14'
+    version = '1.1.15'
     source = args.source.resolve(); args.work.mkdir(parents=True, exist_ok=True)
     for path in (('tools/openhw_launcher.py' if args.launcher else 'tools/openhw_updater.py'),'tools/UpdaterVersion.h'):
         if version not in (source/path).read_text(encoding='utf-8'): raise ValueError('Updater version mismatch')
     original = args.installed/'Development/Installer/OpenHW-SetupEngine.exe'
+    support = args.runtime_support or original.parent/'Development'
+    if not all((support/name).is_file() for name in ('python312.dll','_ssl.pyd','base_library.zip')):
+        raise ValueError('Matching frozen setup libraries are required')
     engine = original.read_bytes(); pkg = CArchiveReader(str(original))
     name = next(n for n,r in pkg.toc.items() if r[4] == 'z')
     pyz_path = args.work/'original.pyz'; pyz_path.write_bytes(pkg.extract(name))
@@ -91,12 +96,16 @@ except Exception:
     helper = args.work/('LauncherEngine.exe' if args.launcher else 'UpdaterEngine.exe'); helper.write_bytes(engine[:pkg._start_offset]+blob.getvalue())
     archive = args.work/'updater.zip'
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as out:
-        out.write(helper,'Development/'+('Launcher' if args.launcher else 'Updater')+'/Runtime/'+version+'/'+helper.name)
+        runtime = 'Development/'+('Launcher' if args.launcher else 'Updater')+'/Runtime/'+version+'/'
+        out.write(helper,runtime+helper.name)
         if args.bundle:
             for path in args.bundle.rglob('*'):
                 if path.is_file():out.write(path,path.relative_to(args.bundle).as_posix())
-        if ssl_policy:
-            out.write(ssl_policy,'Development/'+('Launcher' if args.launcher else 'Updater')+'/Runtime/'+version+'/Development/codex-rejected-cas.pem')
+        for path in sorted(support.rglob('*')):
+            if path.is_file():
+                out.write(path,runtime+'Development/'+path.relative_to(support).as_posix())
+        if ssl_policy and not (support/'codex-rejected-cas.pem').is_file():
+            out.write(ssl_policy,runtime+'Development/codex-rejected-cas.pem')
         from PIL import Image
         concept=Image.open(source/'assets/UI/concept_chamber.png').convert('RGB')
         graded=args.work/'diagnostics-concept.png'
@@ -110,6 +119,7 @@ except Exception:
                     out.write(asset,'Development/'+('Launcher' if args.launcher else 'Updater')+'/Runtime/'+version+'/Theme/'+asset.name)
                 else:
                     out.write(asset,'Development/Launcher/Theme/'+asset.name)
+        out.writestr(runtime+'runtime-ready.txt','')
     payload = archive.read_bytes(); bootstrap = args.bootstrap.read_bytes()
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_bytes(bootstrap+payload+struct.pack('<16sQQ32s',b'OPENHW1SETUPZIP\0',len(bootstrap),len(payload),hashlib.sha256(payload).digest()))
