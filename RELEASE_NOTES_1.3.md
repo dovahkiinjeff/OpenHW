@@ -2,6 +2,8 @@
 
 OpenHW 1.3 adds early Cataclysm campaign support. Select the folder containing your own Cataclysm or Homeworld: Emergence installation in the OpenHW Launcher.
 
+**If the 1.3 installer crashed on your first install, download 1.3 again.** The corrected installer fixes a crash while processing the bundled Cataclysm ship models. [Download OpenHW 1.3](https://openhw.tech/#/download)
+
 **Known issue:** Cataclysm Mission 3 does not load. Ending Mission 2 will likely crash to desktop. The current Cataclysm campaign ends at that transition.
 
 - Added Cataclysm menu art, Mission 2 map and lighting, and compatibility for reading the original Cataclysm game data.

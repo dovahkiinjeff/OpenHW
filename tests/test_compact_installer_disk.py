@@ -166,6 +166,38 @@ class CompactInstallerDiskTests(unittest.TestCase):
         self.assertEqual(set(obig.validate(self.output)),{'r1/ship00/ship.owshipdef','r1/ship00/hull.hod'})
         self.assertFalse((self.work/'migration-input').exists())
 
+    def test_fresh_and_resumed_release_keep_cataclysm_out_of_hw1_conversion(self):
+        from release_content_policy import CATACLYSM_NATIVE_ROOT, install_cataclysm_native
+        development = self.install/'Development'
+        (development/'release.json').write_text('{}')
+        native = Path('r1/sAcolyte/RMNative/ship.owshipdef')
+        package = development/CATACLYSM_NATIVE_ROOT/native
+        package.parent.mkdir(parents=True)
+        definition = 'gameplay @/Cataclysm/RACE_SECT/sAcolyte.shp\n'
+        package.write_text(definition)
+        classic = development/'Content/r1/lights.shp'
+        classic.parent.mkdir()
+        classic.write_text('HW1 ship data')
+        checkpoint = self.work/'pipeline.json'
+        copy = self.source/Path(CATACLYSM_NATIVE_ROOT).name/native
+        for resume in (False, True):
+            with self.subTest(resume=resume):
+                phases = ['classic']
+                if resume:
+                    phases.append('payload')
+                    copy.parent.mkdir(parents=True)
+                    copy.write_text(definition)
+                checkpoint.write_text(json.dumps(dict(completed=phases, native_presentation_recipe=4)))
+                with patch('release_compact.source_locations',return_value=(self.install,self.install)), \
+                     patch('extract_remastered_big.extract',side_effect=RuntimeError('after payload overlay')), \
+                     self.assertRaisesRegex(RuntimeError,'after payload overlay'):
+                    _convert(self.install,self.install/'tools')
+                self.assertFalse(copy.exists())
+                self.assertEqual(package.read_text(),definition)
+                self.assertEqual((self.source/'r1/lights.shp').read_text(),'HW1 ship data')
+        install_cataclysm_native(self.install)
+        self.assertEqual((self.install/native).read_text(),definition)
+
     def test_prepared_resume_never_reenters_generators_or_source_import(self):
         (self.install/'Development/release.json').write_text('{}')
         prepared=dict(schema=1,definitions=12,sky_size=1024)

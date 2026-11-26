@@ -25,12 +25,15 @@ def conversion_steps(state):
     return completed
 
 
-def overlay(source, destination):
+def overlay(source, destination, *, exclude_top_level=()):
     from release_compact import stage_copy
-    for path in Path(source).rglob('*'):
+    source = Path(source)
+    for path in source.rglob('*'):
         if path.is_file():
             relative = path.relative_to(source)
-            if path.is_symlink() or not path.resolve().is_relative_to(Path(source).resolve()):
+            if relative.parts[0] in exclude_top_level:
+                continue
+            if path.is_symlink() or not path.resolve().is_relative_to(source.resolve()):
                 raise ValueError('Unsafe converter output')
             target = destination/relative
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -132,8 +135,16 @@ def _convert(root, tools, sky_size=1024):
     finish('classic')
     # One canonical working tree.
     payload=development/'Content' if release else root/'DevelopmentPayload'
+    excluded = ()
+    if release:
+        from release_content_policy import CATACLYSM_NATIVE_ROOT
+        loose_native = Path(CATACLYSM_NATIVE_ROOT).name
+        excluded = (loose_native,)
+        # Setup installs these packages separately. Clear copies left in a
+        # previous conversion checkpoint before the HW1 document migration.
+        discard(output/loose_native,work)
     if payload.is_dir() and 'payload' not in completed:
-        overlay(payload, output)
+        overlay(payload,output,exclude_top_level=excluded)
     finish('payload')
     reader = tools/'remastered_asset_reader.dll'
     out = work/'out'

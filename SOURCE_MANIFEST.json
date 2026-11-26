@@ -24688,8 +24688,8 @@
     },
     {
       "path": "RELEASE_NOTES_1.3.md",
-      "size": 1025,
-      "sha256": "47987f7755e06c99dc51d0eb74d50aa46558ce60c6cf30cc13d8cc59e6fa4c51"
+      "size": 1246,
+      "sha256": "8546ce49757518d457f1c9e77cee2277b8d6e4a04e686e747931fd32ae3c9e01"
     },
     {
       "path": "SECURITY.md",
@@ -29593,8 +29593,8 @@
     },
     {
       "path": "tests/test_compact_installer_disk.py",
-      "size": 15052,
-      "sha256": "2621bd37d20ea2d3220e78136333f7714a1a0dd7dee9a24a7748a70a509fc7c4"
+      "size": 16931,
+      "sha256": "963eea67024006e466b6c6636e5ca2cb51dafd522c9e53b778249952ce080d5a"
     },
     {
       "path": "tests/test_consolidated_install.py",
@@ -31003,8 +31003,8 @@
     },
     {
       "path": "tools/portable_convert.py",
-      "size": 17328,
-      "sha256": "f852f62e038c09ce7a4f7fa81ab0e9676a4837ceab084c568fde6c0d095af615"
+      "size": 17867,
+      "sha256": "2cd4a083dd8871982e13197e8051c8bcf57adcd91b536362ded499e5a7455294"
     },
     {
       "path": "tools/portable_setup.py",
@@ -31448,8 +31448,8 @@
     },
     {
       "path": "updates/stable.json",
-      "size": 5675,
-      "sha256": "929469f7a0b05fde4a1e3d072e9784b35ae28f1ca27658c20f97f1907d360a3e"
+      "size": 5681,
+      "sha256": "340855fc1e9a8ec094944a4e6a2c7a2e90c65d685e54bcae96318b0fd52f7183"
     },
     {
       "path": "vcpkg.json",
