@@ -1,25 +1,35 @@
-# OpenHW 1.1.15
-
-**Latest release:** [1.1.15 — consolidated full release](docs/RELEASE_NOTES_1.1.15.md). New installations and every earlier version use the same [full GitHub package](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/OpenHW-Setup.exe). Existing installations update in place; player files are preserved. Future patches start from 1.1.15.
-
-> [!IMPORTANT]
-> **New baseline:** download and run the complete 1.1.15 installer, or choose Update now in Launcher. Select an existing OpenHW folder to replace its program files while preserving player files. An owned Collection is required for new or older-data imports. Earlier patch-chain and separate-folder instructions below are historical and superseded by the [1.1.15 notes](docs/RELEASE_NOTES_1.1.15.md).
+# OpenHW
 
 [![OpenHW](assets/UI/startup_splash.png)](https://github.com/dovahkiinjeff/OpenHW/releases/latest)
 
-[**Download the complete OpenHW 1.1.15 installer**](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1.15/OpenHW-Setup.exe) · [Full release and source](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1.15) · [1.1.15 release notes](docs/RELEASE_NOTES_1.1.15.md) · [Contributors](https://openhw.tech/#/contributors)
+[**Download the corrected OpenHW 1.3 installer**](https://openhw.tech/downloads/v1.3/installer-fix/OpenHW-Setup.exe) · [Latest release notes](https://github.com/dovahkiinjeff/OpenHW/releases/latest) · [Contributors](https://openhw.tech/#/contributors)
 
-**The full 1.1.1 installer requires a fresh installation in a separate folder. Do not apply the old 1.0 patch chain to it.** Put OpenHW-Setup.exe in the new folder, select your owned Homeworld Remastered Collection, and let setup build the game there. Your old installation, saves and settings are not overwritten. Launcher.exe and Updater.exe are included.
+## Quick start
+
+- **New players:** Install your owned **Homeworld Remastered Collection**, including **Homeworld 1 Classic**. Run the corrected 1.3 installer in a new writable OpenHW folder. When setup asks for game data, select the **Homeworld Remastered Collection** folder. Once setup finishes, open **Launcher.exe** and choose **Update now** to reach [1.3.1](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.3.1).
+- **Existing players:** Open **Launcher.exe** in your current OpenHW folder and choose **Update now**. The launcher takes 1.1.21 through 1.3 to 1.3.1. Don't run the fresh installer over your existing OpenHW installation.
+
+## Cataclysm campaign preview
+
+1. In Launcher, open **Deploy** and choose **Select Cata Data Path**.
+2. Select your **separate, owned Homeworld: Cataclysm or Homeworld: Emergence installation**. This is not the Remastered Collection folder used during setup.
+3. Start OpenHW and choose **Story → Cataclysm**.
+
+> [!WARNING]
+> Mission 3 does not load in this preview. Finishing Mission 2 may crash the game during the transition. See the [Cataclysm preview release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.3).
+
+Cataclysm Remastered assets for the Kuun-Lan, its modules and other Somtaaw ships are by **Herocrafter1987**. See [third-party notices](THIRD_PARTY_NOTICES.md).
+
+**Publication:** compiled downloads are hosted on openhw.tech. GitHub hosts source code and release notes; its update feed is a metadata fallback only.
+
+## Previous 1.1 releases
+
+### OpenHW 1.1.1 - dedicated multiplayer and a new installation pipeline
 
 > [!IMPORTANT]
 > **Use AMD technology for 1.1. AMD FSR upscaling and AMD FSR frame generation are the recommended, working options.** DLSS currently has known visual issues and is not recommended. Intel upscaling is also not recommended. **NVIDIA and Intel frame generation are not implemented for this release.** Bundled vendor libraries or development code do not imply supported release features.
 
 > **OpenHW 1.1.1 release:** Shift+F11/F12 live map, lighting and texture authoring menus are disabled in both game executables. Authored environments still load normally. The reference below describes the developer tools; source builds can explicitly enable them with `-DHW_ENABLE_LIVE_MAP_AUTHORING=ON`. The ship and parade editors are separate tools.
-
-
-**Publication:** compiled downloads are hosted on openhw.tech. GitHub hosts source code and release notes; its update feed is a metadata fallback only.
-
-## OpenHW 1.1.1 - dedicated multiplayer and a new installation pipeline
 
 Create and join online matches through the OpenHW server. The match host selects the map, teams, AI players and shared gameplay rules. The server runs the authoritative simulation and AI; players connect to it over HTTPS. Direct piloting, EVE-style Command control, formation spread and individual ship appearance remain integrated with the multiplayer command path. See [multiplayer setup, controls and current limits](docs/MULTIPLAYER_PREVIEW.md).
 
@@ -31,13 +41,13 @@ This release also includes the community corrections to salvage delivery and Kha
 
 ## Automatic updates
 
-The launcher and [**Updater.exe**](https://github.com/dovahkiinjeff/OpenHW/releases/download/v1.1/Updater.exe) prefer **openhw.tech** for the update feed and downloads, with **GitHub as a fallback**. Downloads are checked against published SHA-256 hashes before installation. Close the game before installing updates. Files, backups and logs stay in the OpenHW folder under Development.
+Close the game, open **Launcher.exe** in your OpenHW folder and choose **Update now**. OpenHW uses **openhw.tech** for the update feed and downloads, with GitHub as a metadata fallback. Downloads are checked against their published SHA-256 hashes before installation. Files, backups and logs stay in the OpenHW folder under `Development`.
 
-**Already have the old updater?** Run it in your existing installation. Its GitHub feed supplies the new updater automatically. The new updater explains the separate fresh-install requirement for 1.1 and links to its download; it does not overwrite a 1.0 installation. After installing 1.1, use the included launcher/updater for subsequent updates. Manual downloads remain available on GitHub. [Updater documentation](docs/UPDATER.md).
+For older installations, see the [1.1.15 recovery baseline notes](docs/RELEASE_NOTES_1.1.15.md) and [updater documentation](docs/UPDATER.md). The 1.1.15 package is not the current fresh installer.
 
 ## Previous 1.0 releases
 
-The following section and feature tour document the previous release. Their old patch prerequisites apply only to the historical 1.0 line; new 1.1 installations use the full installer above.
+The following sections document the historical 1.0 line. For current installation and updates, use [Quick start](#quick-start).
 
 ## 1.0.7 - Fleet Command launcher, new menus and community fixes
 
@@ -239,11 +249,7 @@ This patch corrects the startup splash artwork path, removes in-engine cinematic
 
 ## Installation
 
-1. Install your legally owned **Homeworld Remastered Collection**, including Homeworld 1 Classic and the required English archives.
-2. Download [**OpenHW-Setup.exe 1.1**](https://openhw.tech/downloads/v1.1/OpenHW-Setup.exe) ([Source and release notes](https://github.com/dovahkiinjeff/OpenHW/releases/tag/v1.1)). Put it in a **new writable folder**, separate from any previous OpenHW installation.
-3. Run it and select the Collection installation. The Collection root, HomeworldRM, or its Data directory can be selected; setup also locates Classic data.
-4. Let conversion, package building and validation finish. Setup installs **beside itself** and leaves the original Collection untouched. All application files stay in this folder. See [disk budget and conversion details](BUILD_INSTALLER.md#installation-disk-budget).
-5. Start **Launcher.exe** or **OpenHW.exe**. Both Launcher.exe and Updater.exe are installed automatically. **No old patches are required for 1.1.** The first launch detects your display resolution and refresh rate. Setup does not start the game automatically.
+Follow the current installer and Launcher steps in [Quick start](#quick-start). Setup can use the Collection root or its `HomeworldRM/Data` folder and looks for Homeworld 1 Classic data from the same Collection. It builds and validates the runtime in the new OpenHW folder without modifying the original Collection. See [disk budget and conversion details](BUILD_INSTALLER.md#installation-disk-budget). For the separate Cataclysm data selection, follow the [campaign preview steps](#cataclysm-campaign-preview).
 
 All application-owned settings, saves, mods, exports and working files stay inside the OpenHW folder. `Development` contains setup work, diagnostics, logs, caches and receipts. Successful setup removes its temporary `SetupSources` and `SetupWork` conversion copies; a failed setup keeps work for recovery. Windows and graphics-driver system caches remain under those components' control.
 
@@ -379,7 +385,7 @@ Download **OpenHW-1.0.5-Source.zip** for the full cumulative working source from
 
 The next priorities are **fully implementing and stabilizing NVIDIA DLSS and Intel technologies**, and **fixing bugs and visual glitches reported by people playing OpenHW**. For 1.0, stick to AMD FSR upscaling and AMD FSR frame generation.
 
-**Cataclysm support remains planned. OpenHW 1.1 introduces server-hosted multiplayer**, which will continue to improve with community testing and performance work. The current service supports one active battle, with no in-battle reconnect, save/resume or host migration. See the [multiplayer guide](docs/MULTIPLAYER_PREVIEW.md) before organizing a match. No delivery date is announced for remaining work.
+The [Cataclysm campaign preview](#cataclysm-campaign-preview) is available starting with OpenHW 1.3; it is not the full campaign. OpenHW 1.1 introduced server-hosted multiplayer. See the [multiplayer guide](docs/MULTIPLAYER_PREVIEW.md) for setup and known limitations.
 
 Player reports matter: they reveal mission, hardware and gameplay combinations that development testing can miss. Please report problems to the project author through [GitHub Issues](https://github.com/dovahkiinjeff/OpenHW/issues), with reproducible steps and useful evidence. The Diagnostics menu uploads all new logs privately into your saved community-alias folder; include that alias and a useful comment when reporting the issue.
 
